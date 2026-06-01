@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineProps<{
   label: string;
-  modelValue: string | number | null;
+  modelValue: string | number | null | undefined;
   type?: string;
 }>();
 

@@ -87,6 +87,15 @@ export type BillingCorrelativo = {
   activo: boolean;
 };
 
+export type BillingCertificate = {
+  id: number;
+  ambiente: '00' | '01';
+  nit: string;
+  filename: string;
+  activo: boolean;
+  vence_at: string | null;
+};
+
 export type BillingSucursal = {
   id: number;
   nombre: string;
@@ -110,6 +119,7 @@ export type BillingEmpresa = {
   codigo_actividad: string;
   desc_actividad: string;
   ambiente: '00' | '01';
+  certificados: BillingCertificate[];
   sucursales: BillingSucursal[];
 };
 
@@ -123,6 +133,37 @@ export type BillingContext = {
   documentTypes: BillingDocumentType[];
   receptorDocumentTypes: BillingCatalogItem[];
   empresas: BillingEmpresa[];
+};
+
+export type BillingSettingsPayload = {
+  empresa_id: number;
+  ambiente: '00' | '01';
+  certificado_id?: number | null;
+  active?: boolean;
+  transmission_provider: 'stub' | 'mh';
+  signing_provider: 'stub' | 'jar';
+  base_url?: string | null;
+  auth_url?: string | null;
+  reception_url?: string | null;
+  event_reception_url?: string | null;
+  query_url?: string | null;
+  signer_url?: string | null;
+  mh_nit?: string | null;
+  mh_user?: string | null;
+  mh_password?: string | null;
+  auth_payload_mode?: 'form' | 'json';
+  auth_token_path?: string | null;
+  signer_nit?: string | null;
+  signer_password_pri?: string | null;
+  signer_activo?: boolean;
+};
+
+export type BillingSettings = Omit<BillingSettingsPayload, 'mh_nit' | 'mh_user' | 'mh_password' | 'signer_nit' | 'signer_password_pri' | 'signer_activo'> & {
+  id: number;
+  profile: string;
+  credentials_configured: boolean;
+  signer_credentials_configured: boolean;
+  last_verified_at: string | null;
 };
 
 export type CorrelativoRequest = {
@@ -182,6 +223,28 @@ export class CoreDteClient {
 
   billingContext(): Promise<BillingContext> {
     return this.http.get('billing/context').json();
+  }
+
+  billingSettings(empresaId: number, ambiente: '00' | '01'): Promise<{ config: BillingSettings | null }> {
+    return this.http.get('billing/settings', {
+      searchParams: {
+        empresa_id: String(empresaId),
+        ambiente
+      }
+    }).json();
+  }
+
+  saveBillingSettings(payload: BillingSettingsPayload): Promise<{ config: BillingSettings }> {
+    return this.http.put('billing/settings', { json: payload }).json();
+  }
+
+  uploadCertificate(payload: { empresa_id: number; ambiente: '00' | '01'; certificate: File }): Promise<{ certificate: { id: number; filename: string; activo: boolean } }> {
+    const form = new FormData();
+    form.set('empresa_id', String(payload.empresa_id));
+    form.set('ambiente', payload.ambiente);
+    form.set('certificate', payload.certificate);
+
+    return this.http.post('billing/certificates', { body: form }).json();
   }
 
   previewCorrelativo(payload: CorrelativoRequest): Promise<CorrelativoReservation> {

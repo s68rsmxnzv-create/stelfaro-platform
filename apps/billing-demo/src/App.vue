@@ -1,7 +1,8 @@
 <script setup lang="ts">
 const nav = [
   { label: 'Dashboard', to: '/' },
-  { label: 'Facturacion', to: '/billing' }
+  { label: 'Facturacion', to: '/billing' },
+  { label: 'Configuracion fiscal', to: '/settings' }
 ];
 </script>
 
