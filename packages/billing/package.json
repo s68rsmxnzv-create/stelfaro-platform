@@ -1,0 +1,15 @@
+{
+  "name": "@stelfaro/billing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@stelfaro/api-client": "workspace:*",
+    "@stelfaro/shared": "workspace:*",
+    "@stelfaro/ui": "workspace:*",
+    "vue": "^3.5.13"
+  }
+}
