@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { CoreDteClient, type BillingContext, type BillingSettingsPayload } from '@stelfaro/api-client';
+import { CoreDteClient, type BillingContext, type BillingSettingsPayload, type BillingSignerVerification } from '@stelfaro/api-client';
 import { UiButton, UiCard, UiInput } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
@@ -13,6 +13,7 @@ const client = computed(() => new CoreDteClient(props.coreBaseUrl));
 const loading = ref(false);
 const error = ref<string | null>(null);
 const saved = ref<string | null>(null);
+const signerStatus = ref<BillingSignerVerification | null>(null);
 const context = ref<BillingContext | null>(null);
 const certificateFile = ref<File | null>(null);
 
@@ -119,6 +120,26 @@ async function saveSettings(): Promise<void> {
   }
 }
 
+async function verifySigner(): Promise<void> {
+  loading.value = true;
+  error.value = null;
+  saved.value = null;
+  signerStatus.value = null;
+
+  try {
+    const response = await client.value.verifyBillingSigner({
+      empresa_id: form.empresa_id,
+      ambiente: form.ambiente
+    });
+    signerStatus.value = response.signer;
+    await loadSettings();
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible sincronizar el firmador.';
+  } finally {
+    loading.value = false;
+  }
+}
+
 function setCertificate(event: Event): void {
   certificateFile.value = (event.target as HTMLInputElement).files?.[0] ?? null;
 }
@@ -197,7 +218,18 @@ function setCertificate(event: Event): void {
 
     <div class="mt-6 flex items-center gap-3">
       <UiButton :disabled="loading || !form.empresa_id" @click="saveSettings">Guardar configuracion</UiButton>
+      <UiButton variant="secondary" :disabled="loading || !form.empresa_id" @click="verifySigner">Sincronizar firmador</UiButton>
       <p v-if="saved" class="text-sm text-emerald-700">{{ saved }}</p>
+    </div>
+
+    <div v-if="signerStatus" class="mt-4 rounded-md border p-3 text-sm" :class="signerStatus.available ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'">
+      <p class="font-semibold">
+        Firmador {{ signerStatus.available ? 'disponible' : 'no disponible' }}
+      </p>
+      <p class="mt-1">Status URL: {{ signerStatus.status_url }}</p>
+      <p v-if="signerStatus.status_code">HTTP {{ signerStatus.status_code }}</p>
+      <p v-if="signerStatus.last_verified_at">Verificado: {{ signerStatus.last_verified_at }}</p>
+      <p v-if="signerStatus.message">Detalle: {{ signerStatus.message }}</p>
     </div>
 
     <p v-if="error" class="mt-4 whitespace-pre-wrap rounded-md bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>

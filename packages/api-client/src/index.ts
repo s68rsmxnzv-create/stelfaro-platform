@@ -166,6 +166,17 @@ export type BillingSettings = Omit<BillingSettingsPayload, 'mh_nit' | 'mh_user' 
   last_verified_at: string | null;
 };
 
+export type BillingSignerVerification = {
+  status: 'ok' | 'error';
+  service: string;
+  available: boolean;
+  status_url: string;
+  status_code?: number;
+  message?: string;
+  signature_preview?: string;
+  last_verified_at?: string;
+};
+
 export type CorrelativoRequest = {
   empresa_id: number;
   sucursal_id: number;
@@ -245,6 +256,10 @@ export class CoreDteClient {
     form.set('certificate', payload.certificate);
 
     return this.http.post('billing/certificates', { body: form }).json();
+  }
+
+  verifyBillingSigner(payload: { empresa_id: number; ambiente: '00' | '01' }): Promise<{ signer: BillingSignerVerification }> {
+    return this.http.post('billing/signer/verify', { json: payload }).json();
   }
 
   previewCorrelativo(payload: CorrelativoRequest): Promise<CorrelativoReservation> {
