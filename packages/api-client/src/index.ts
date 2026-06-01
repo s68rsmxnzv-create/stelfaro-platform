@@ -22,6 +22,12 @@ export type DteMetadata = {
 export type DtePreviewRequest = {
   tipoDte: DocumentType;
   ambiente: '00' | '01';
+  empresa_id?: number;
+  sucursal_id?: number;
+  punto_venta_id?: number;
+  codigoEstablecimiento?: string;
+  codigoPuntoVenta?: string;
+  correlativo?: number;
   emisor: Record<string, unknown>;
   receptor: Record<string, unknown>;
   items: Array<Record<string, unknown>>;
@@ -51,10 +57,98 @@ export type DteHistoryEntry = {
   payload: Record<string, unknown>;
 };
 
+export type BillingDocumentType = {
+  code: DocumentType;
+  label: string;
+  version: number;
+};
+
+export type BillingCatalogItem = {
+  code: string;
+  label: string;
+};
+
+export type BillingPuntoVenta = {
+  id: number;
+  codigo: string;
+  nombre: string;
+  tipo: string;
+};
+
+export type BillingCorrelativo = {
+  id: number;
+  punto_venta_id: number;
+  ambiente: string;
+  tipo_dte: DocumentType;
+  serie: string;
+  actual: number;
+  desde: number;
+  hasta: number;
+  activo: boolean;
+};
+
+export type BillingSucursal = {
+  id: number;
+  nombre: string;
+  codigo: string;
+  direccion: string;
+  departamento: string;
+  municipio: string;
+  telefono: string | null;
+  email: string | null;
+  puntosVenta: BillingPuntoVenta[];
+  correlativos: BillingCorrelativo[];
+};
+
+export type BillingEmpresa = {
+  id: number;
+  tenant_id: number;
+  nombre_comercial: string;
+  razon_social: string;
+  nit: string;
+  nrc: string | null;
+  codigo_actividad: string;
+  desc_actividad: string;
+  ambiente: '00' | '01';
+  sucursales: BillingSucursal[];
+};
+
+export type BillingContext = {
+  core: {
+    profile: string;
+    signing_provider: string;
+    transmission_provider: string;
+    mh_configured: boolean;
+  };
+  documentTypes: BillingDocumentType[];
+  receptorDocumentTypes: BillingCatalogItem[];
+  empresas: BillingEmpresa[];
+};
+
+export type CorrelativoRequest = {
+  empresa_id: number;
+  sucursal_id: number;
+  punto_venta_id: number;
+  ambiente: '00' | '01';
+  tipo_dte: DocumentType;
+};
+
+export type CorrelativoReservation = {
+  correlativo_id: number;
+  correlativo: number;
+  numero_control: string;
+  remaining: number;
+};
+
 export type ManualInvoiceInput = {
   documentType: DocumentType;
+  empresa: BillingEmpresa;
+  sucursal: BillingSucursal;
+  puntoVenta: BillingPuntoVenta;
+  correlativo: number;
   customerName: string;
-  customerDocument: string;
+  customerDocumentType: string | null;
+  customerDocument: string | null;
   customerEmail: string | null;
   items: BillingItem[];
 };
@@ -84,6 +178,18 @@ export class CoreDteClient {
 
   metadata(tipoDte: DocumentType): Promise<DteMetadata> {
     return this.http.get(`dte/metadata/${tipoDte}`).json();
+  }
+
+  billingContext(): Promise<BillingContext> {
+    return this.http.get('billing/context').json();
+  }
+
+  previewCorrelativo(payload: CorrelativoRequest): Promise<CorrelativoReservation> {
+    return this.http.post('billing/correlativos/preview', { json: payload }).json();
+  }
+
+  reserveCorrelativo(payload: CorrelativoRequest): Promise<CorrelativoReservation> {
+    return this.http.post('billing/correlativos/reserve', { json: payload }).json();
   }
 
   preview(payload: DtePreviewRequest): Promise<DtePreviewResponse> {
@@ -118,30 +224,36 @@ export class CoreDteClient {
 export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewRequest {
   return {
     tipoDte: input.documentType,
-    ambiente: '00',
+    ambiente: input.empresa.ambiente,
+    empresa_id: input.empresa.id,
+    sucursal_id: input.sucursal.id,
+    punto_venta_id: input.puntoVenta.id,
+    codigoEstablecimiento: input.sucursal.codigo,
+    codigoPuntoVenta: input.puntoVenta.codigo,
+    correlativo: input.correlativo,
     emisor: {
-      nit: '06142811231012',
-      nrc: '1234567',
-      nombre: 'Empresa Demo',
-      codActividad: '62020',
-      descActividad: 'Consultoria en informatica',
-      nombreComercial: 'Empresa Demo',
+      nit: input.empresa.nit,
+      nrc: input.empresa.nrc,
+      nombre: input.empresa.razon_social,
+      codActividad: input.empresa.codigo_actividad,
+      descActividad: input.empresa.desc_actividad,
+      nombreComercial: input.empresa.nombre_comercial,
       tipoEstablecimiento: '01',
       direccion: {
-        departamento: '06',
-        municipio: '14',
-        complemento: 'Direccion demo'
+        departamento: input.sucursal.departamento,
+        municipio: input.sucursal.municipio,
+        complemento: input.sucursal.direccion
       },
-      telefono: '22222222',
-      correo: 'demo@example.test',
+      telefono: input.sucursal.telefono,
+      correo: input.sucursal.email,
       codEstableMH: null,
-      codEstable: null,
+      codEstable: input.sucursal.codigo,
       codPuntoVentaMH: null,
-      codPuntoVenta: null
+      codPuntoVenta: input.puntoVenta.codigo
     },
     receptor: {
       nombre: input.customerName,
-      tipoDocumento: '13',
+      tipoDocumento: input.customerDocumentType,
       numDocumento: input.customerDocument,
       nrc: null,
       codActividad: null,
