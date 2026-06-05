@@ -23,6 +23,7 @@ export type LoginResponse = {
 
 export type CoreDteClientOptions = {
   authToken?: string | null | (() => string | null | undefined);
+  onSessionRefresh?: (expiresAt: string | null) => void;
 };
 
 export type CoreHealth = {
@@ -454,10 +455,12 @@ function compactParams(params: Record<string, unknown>): URLSearchParams {
 export class CoreDteClient {
   private readonly http: KyInstance;
   private readonly authToken?: CoreDteClientOptions['authToken'];
+  private readonly onSessionRefresh?: CoreDteClientOptions['onSessionRefresh'];
   private readonly baseUrl: string;
 
   constructor(baseUrl: string, options: CoreDteClientOptions = {}) {
     this.authToken = options.authToken;
+    this.onSessionRefresh = options.onSessionRefresh;
     this.baseUrl = baseUrl.replace(/^\/+/, '').replace(/\/$/, '');
     this.http = ky.create({
       prefixUrl: this.baseUrl,
@@ -476,6 +479,15 @@ export class CoreDteClient {
             const body = await error.response.text().catch(() => '');
             error.message = body || error.message;
             return error;
+          }
+        ],
+        afterResponse: [
+          (_request, _options, response) => {
+            const expiresAt = response.headers.get('X-Billing-Session-Expires-At');
+            if (expiresAt && this.onSessionRefresh) {
+              this.onSessionRefresh(expiresAt);
+            }
+            return response;
           }
         ]
       }

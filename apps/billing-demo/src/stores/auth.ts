@@ -4,7 +4,10 @@ import { CoreDteClient, type AuthUser } from '@stelfaro/api-client';
 
 const legacyStorageKey = 'stelfaro.billing.token';
 const storageKey = 'stelfaro.billing.session';
+const intendedPathKey = 'stelfaro.billing.intended_path';
 const coreUrl = '/api/v1';
+const inactivityTimeoutMs = 120 * 60 * 1000;
+const refreshCooldownMs = 5 * 60 * 1000;
 
 type StoredSession = {
   token: string;
@@ -39,9 +42,14 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null);
   const loading = ref(false);
   const initialized = ref(false);
-  let expirationTimer: ReturnType<typeof window.setTimeout> | null = null;
+  let inactivityTimer: ReturnType<typeof window.setTimeout> | null = null;
+  let lastRefreshAt = 0;
+  let listenersStarted = false;
 
-  const client = computed(() => new CoreDteClient(coreUrl, { authToken: token.value }));
+  const client = computed(() => new CoreDteClient(coreUrl, {
+    authToken: token.value,
+    onSessionRefresh: refreshSessionExpiration
+  }));
   const isAuthenticated = computed(() => Boolean(token.value && user.value));
   const isBackoffice = computed(() => Boolean(user.value?.is_backoffice));
 
@@ -65,7 +73,8 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = response.user;
       expiresAt.value = response.expires_at;
       persistSession();
-      scheduleExpiration();
+      startActivityTracking();
+      resetInactivityTimer();
     } catch {
       clearSession();
     }
@@ -83,7 +92,8 @@ export const useAuthStore = defineStore('auth', () => {
       expiresAt.value = response.expires_at;
       user.value = response.user;
       persistSession();
-      scheduleExpiration();
+      startActivityTracking();
+      resetInactivityTimer();
     } finally {
       loading.value = false;
     }
@@ -100,9 +110,9 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function clearSession(): void {
-    if (expirationTimer) {
-      window.clearTimeout(expirationTimer);
-      expirationTimer = null;
+    if (inactivityTimer) {
+      window.clearTimeout(inactivityTimer);
+      inactivityTimer = null;
     }
     token.value = null;
     expiresAt.value = null;
@@ -124,25 +134,54 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem(legacyStorageKey);
   }
 
-  function scheduleExpiration(): void {
-    if (expirationTimer) {
-      window.clearTimeout(expirationTimer);
-      expirationTimer = null;
+  function refreshSessionExpiration(value: string | null): void {
+    expiresAt.value = value;
+    persistSession();
+  }
+
+  function resetInactivityTimer(): void {
+    if (!token.value) return;
+
+    if (inactivityTimer) {
+      window.clearTimeout(inactivityTimer);
     }
 
-    if (!expiresAt.value) {
+    inactivityTimer = window.setTimeout(() => {
+      clearSession();
+    }, inactivityTimeoutMs);
+  }
+
+  function startActivityTracking(): void {
+    if (listenersStarted) return;
+    listenersStarted = true;
+
+    ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'].forEach((eventName) => {
+      window.addEventListener(eventName, handleActivity, { passive: true });
+    });
+  }
+
+  function handleActivity(): void {
+    if (!token.value) return;
+
+    resetInactivityTimer();
+    const now = Date.now();
+    if (now - lastRefreshAt < refreshCooldownMs) {
       return;
     }
 
-    const delay = new Date(expiresAt.value).getTime() - Date.now();
-    if (delay <= 0) {
-      clearSession();
-      return;
-    }
+    lastRefreshAt = now;
+    void client.value.me().catch(() => clearSession());
+  }
 
-    expirationTimer = window.setTimeout(() => {
-      clearSession();
-    }, delay);
+  function setIntendedPath(path: string): void {
+    sessionStorage.setItem(intendedPathKey, path);
+  }
+
+  function consumeIntendedPath(fallback: string): string {
+    const path = sessionStorage.getItem(intendedPathKey);
+    sessionStorage.removeItem(intendedPathKey);
+
+    return path && path.startsWith('/') ? path : fallback;
   }
 
   return {
@@ -155,6 +194,8 @@ export const useAuthStore = defineStore('auth', () => {
     isBackoffice,
     initialize,
     login,
-    logout
+    logout,
+    setIntendedPath,
+    consumeIntendedPath
   };
 });

@@ -29,7 +29,8 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
-    return { path: '/login', query: { redirect: to.fullPath } };
+    auth.setIntendedPath(to.fullPath);
+    return { path: '/login' };
   }
 
   if (to.meta.requiresBackoffice && !auth.isBackoffice) {

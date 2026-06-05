@@ -154,7 +154,7 @@ async function logout(): Promise<void> {
           </div>
 
           <div class="hidden items-center gap-4 md:flex">
-            <RouterLink v-if="!auth.isBackoffice" :to="{ path: '/billing', query: { tipoDte: '01' } }" class="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400">
+            <RouterLink v-if="!auth.isBackoffice" to="/billing" class="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400">
               Nueva factura
             </RouterLink>
 
@@ -247,7 +247,7 @@ async function logout(): Promise<void> {
             </div>
           </div>
           <div class="mt-3 space-y-1 px-2">
-            <RouterLink v-if="!auth.isBackoffice" :to="{ path: '/billing', query: { tipoDte: '01' } }" class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white">
+            <RouterLink v-if="!auth.isBackoffice" to="/billing" class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white">
               Nueva factura
             </RouterLink>
             <button class="block w-full rounded-md px-3 py-2 text-left text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white" type="button" @click="logout">
