@@ -1,13 +1,44 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import DashboardPage from '../pages/DashboardPage.vue';
 import BillingPage from '../pages/BillingPage.vue';
+import MhResponsesPage from '../pages/MhResponsesPage.vue';
 import SettingsPage from '../pages/SettingsPage.vue';
+import OnboardingPage from '../pages/OnboardingPage.vue';
+import LoginPage from '../pages/LoginPage.vue';
+import { useAuthStore } from '../stores/auth';
 
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', name: 'dashboard', component: DashboardPage },
-    { path: '/billing', name: 'billing', component: BillingPage },
-    { path: '/settings', name: 'settings', component: SettingsPage }
+    { path: '/login', name: 'login', component: LoginPage, meta: { public: true } },
+    { path: '/', name: 'dashboard', component: DashboardPage, meta: { requiresAuth: true } },
+    { path: '/onboarding', name: 'onboarding', component: OnboardingPage, meta: { requiresAuth: true, requiresBackoffice: true } },
+    { path: '/companies', name: 'companies', component: SettingsPage, meta: { requiresAuth: true, requiresBackoffice: true } },
+    { path: '/billing', name: 'billing', component: BillingPage, meta: { requiresAuth: true, requiresBilling: true } },
+    { path: '/mh-responses', name: 'mh-responses', component: MhResponsesPage, meta: { requiresAuth: true, requiresBilling: true } },
+    { path: '/settings', redirect: '/companies' }
   ]
+});
+
+router.beforeEach(async (to) => {
+  const auth = useAuthStore();
+  await auth.initialize();
+
+  if (to.meta.public) {
+    return auth.isAuthenticated ? { path: auth.isBackoffice ? '/companies' : '/billing' } : true;
+  }
+
+  if (to.meta.requiresAuth && !auth.isAuthenticated) {
+    return { path: '/login', query: { redirect: to.fullPath } };
+  }
+
+  if (to.meta.requiresBackoffice && !auth.isBackoffice) {
+    return { path: '/billing' };
+  }
+
+  if (to.meta.requiresBilling && auth.isBackoffice) {
+    return { path: '/companies' };
+  }
+
+  return true;
 });

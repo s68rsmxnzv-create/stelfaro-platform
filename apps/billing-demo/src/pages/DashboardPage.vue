@@ -2,9 +2,11 @@
 import { onMounted, ref } from 'vue';
 import { CoreDteClient, type CoreHealth, type DteMetadata } from '@stelfaro/api-client';
 import { UiCard } from '@stelfaro/ui';
+import { useAuthStore } from '../stores/auth';
 
 const coreUrl = '/api/v1';
-const client = new CoreDteClient(coreUrl);
+const auth = useAuthStore();
+const client = new CoreDteClient(coreUrl, { authToken: () => auth.token });
 const health = ref<CoreHealth | null>(null);
 const metadata = ref<DteMetadata[]>([]);
 const error = ref<string | null>(null);

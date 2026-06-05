@@ -1,6 +1,30 @@
 import ky, { type KyInstance } from 'ky';
 import type { BillingItem, DocumentType } from '@stelfaro/shared';
 
+export type AuthUser = {
+  id: number;
+  name: string;
+  email: string;
+  role: 'super_admin' | 'admin_fiscal' | 'company_admin' | 'billing_user' | 'viewer' | string;
+  is_backoffice: boolean;
+  empresas: Array<{
+    id: number;
+    nombre_comercial: string;
+    razon_social: string;
+  }>;
+};
+
+export type LoginResponse = {
+  token: string;
+  token_type: 'Bearer';
+  expires_at: string | null;
+  user: AuthUser;
+};
+
+export type CoreDteClientOptions = {
+  authToken?: string | null | (() => string | null | undefined);
+};
+
 export type CoreHealth = {
   status: string;
   service: string;
@@ -47,8 +71,60 @@ export type DteDraftSummary = {
   ambiente: string;
   numeroControl: string;
   codigoGeneracion: string;
+  selloRecibido?: string | null;
   totalPagar: number | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  processed_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  empresa?: {
+    id: number;
+    nombre_comercial: string;
+    razon_social: string;
+    nit: string;
+  } | null;
   payload?: Record<string, unknown>;
+  dte_json?: Record<string, unknown>;
+  signedDocument?: string | null;
+  signed_bundle?: Record<string, unknown> | null;
+  transmission?: {
+    status?: string | null;
+    mh_estado?: string | null;
+    codigo_msg?: string | null;
+    descripcion_msg?: string | null;
+    receipt_stamp?: string | null;
+    observaciones?: string[];
+    endpoint?: string | null;
+    http_status?: number | null;
+    raw_response?: Record<string, unknown> | null;
+  } | null;
+  mh_response?: Record<string, unknown> | null;
+  transmission_attempts?: Array<{
+    id: number;
+    attempt_number: number;
+    provider: string;
+    ambiente: string;
+    endpoint: string | null;
+    http_status: number | null;
+    result_status: string | null;
+    response_payload: Record<string, unknown> | null;
+    error_code: string | null;
+    error_message: string | null;
+    duration_ms: number | null;
+    attempted_at: string | null;
+  }>;
+  correlativo_retry?: Record<string, unknown> | null;
+};
+
+export type DteDocumentListResponse = {
+  data: DteDraftSummary[];
+};
+
+export type DteQueryMhResponse = {
+  id: number;
+  mh: Record<string, unknown>;
+  document: DteDraftSummary;
 };
 
 export type DteHistoryEntry = {
@@ -61,6 +137,7 @@ export type BillingDocumentType = {
   code: DocumentType;
   label: string;
   version: number;
+  implemented?: boolean;
 };
 
 export type BillingCatalogItem = {
@@ -103,10 +180,30 @@ export type BillingSucursal = {
   direccion: string;
   departamento: string;
   municipio: string;
+  distrito: string | null;
   telefono: string | null;
   email: string | null;
   puntosVenta: BillingPuntoVenta[];
   correlativos: BillingCorrelativo[];
+};
+
+export type BillingMhConfig = {
+  id: number;
+  certificado_id: number | null;
+  ambiente: '00' | '01';
+  profile: string;
+  active: boolean;
+  transmission_provider: 'stub' | 'mh';
+  signing_provider: 'stub' | 'jar';
+  base_url: string | null;
+  auth_url: string | null;
+  reception_url: string | null;
+  event_reception_url: string | null;
+  query_url: string | null;
+  signer_url: string | null;
+  credentials_configured: boolean;
+  signer_credentials_configured: boolean;
+  last_verified_at: string | null;
 };
 
 export type BillingEmpresa = {
@@ -114,14 +211,59 @@ export type BillingEmpresa = {
   tenant_id: number;
   nombre_comercial: string;
   razon_social: string;
+  fiscal_document_type: string | null;
+  fiscal_document_number: string | null;
   nit: string;
   nrc: string | null;
+  logo_url: string | null;
   codigo_actividad: string;
   desc_actividad: string;
   ambiente: '00' | '01';
+  lifecycle_status: 'active' | 'inactive';
+  enabled_document_types?: string[];
+  created_at: string | null;
   certificados: BillingCertificate[];
+  mh_configs: BillingMhConfig[];
   sucursales: BillingSucursal[];
 };
+
+export type BillingCustomer = {
+  id: number;
+  empresa_id: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  document_type: string | null;
+  document_number: string | null;
+  nit: string | null;
+  nrc: string | null;
+  cod_actividad: string | null;
+  desc_actividad: string | null;
+  nombre_comercial: string | null;
+  departamento: string | null;
+  municipio: string | null;
+  direccion_complemento: string | null;
+  allowed_dte_codes: string[];
+  is_active: boolean;
+};
+
+export type BillingItemTemplate = {
+  id: number;
+  empresa_id: number;
+  name: string;
+  description: string;
+  default_price: number;
+  default_quantity: number;
+  item_type: number;
+  unit_measure: number;
+  item_code: string | null;
+};
+
+export type DteIssueProgressEvent =
+  | { type: 'stage'; stage: string; progress: number; message: string }
+  | { type: 'completed'; ok: boolean; progress?: number; message: string; document_id?: number; attempts?: DteIssueResponse['attempts'] }
+  | ({ type: 'result'; ok: true } & DteIssueResponse)
+  | { type: 'result'; ok: false; message: string; errors?: string[] };
 
 export type BillingContext = {
   core: {
@@ -133,6 +275,60 @@ export type BillingContext = {
   documentTypes: BillingDocumentType[];
   receptorDocumentTypes: BillingCatalogItem[];
   empresas: BillingEmpresa[];
+};
+
+export type BillingMunicipioCatalogItem = BillingCatalogItem & {
+  departamento: string;
+};
+
+export type BillingDistritoCatalogItem = BillingCatalogItem & {
+  departamento: string;
+  municipio: string;
+};
+
+export type BillingCatalogs = {
+  departamentos: BillingCatalogItem[];
+  municipios: BillingMunicipioCatalogItem[];
+  distritos: BillingDistritoCatalogItem[];
+  actividadesEconomicas: BillingCatalogItem[];
+};
+
+export type BillingCompanyPayload = {
+  tenant_nombre?: string | null;
+  tenant_slug?: string | null;
+  nombre_comercial: string;
+  razon_social: string;
+  documento_fiscal?: string | null;
+  nit?: string | null;
+  nrc?: string | null;
+  codigo_actividad: string;
+  desc_actividad: string;
+  ambiente: '00' | '01';
+  sucursal_nombre?: string | null;
+  sucursal_codigo?: string | null;
+  direccion: string;
+  departamento: string;
+  municipio: string;
+  distrito: string;
+  telefono?: string | null;
+  email?: string | null;
+  logo?: File | null;
+  punto_venta_codigo?: string | null;
+  punto_venta_nombre?: string | null;
+  punto_venta_tipo?: string | null;
+};
+
+export type BillingCompanyUpdatePayload = Partial<Omit<BillingCompanyPayload, 'tenant_slug' | 'sucursal_nombre' | 'sucursal_codigo' | 'punto_venta_codigo' | 'punto_venta_nombre' | 'punto_venta_tipo'>> & {
+  lifecycle_status?: 'active' | 'inactive';
+};
+
+export type BillingCompanyResponse = {
+  tenant: {
+    id: number;
+    nombre: string;
+    slug: string;
+  };
+  empresa: BillingEmpresa;
 };
 
 export type BillingSettingsPayload = {
@@ -177,6 +373,21 @@ export type BillingSignerVerification = {
   last_verified_at?: string;
 };
 
+export type MhBearerVerification = {
+  status: 'ok' | 'error';
+  service?: string;
+  available: boolean;
+  http_status?: number;
+  auth_url?: string;
+  token_type?: 'Bearer';
+  bearer_token?: string;
+  token_preview?: string;
+  cache_status?: 'cached' | 'refreshed';
+  received_at?: string;
+  expires_at?: string;
+  message?: string;
+};
+
 export type CorrelativoRequest = {
   empresa_id: number;
   sucursal_id: number;
@@ -192,6 +403,23 @@ export type CorrelativoReservation = {
   remaining: number;
 };
 
+export type DteIssueResponse = {
+  document: DteDraftSummary;
+  attempts: Array<{
+    attempt: number;
+    document_id: number;
+    correlativo: number;
+    numero_control: string;
+    mh_status?: string | null;
+    mh_estado?: string | null;
+    http_status?: number | null;
+    codigo_msg?: string | null;
+    descripcion_msg?: string | null;
+    observaciones?: string[];
+    conflict: boolean;
+  }>;
+};
+
 export type ManualInvoiceInput = {
   documentType: DocumentType;
   empresa: BillingEmpresa;
@@ -201,18 +429,48 @@ export type ManualInvoiceInput = {
   customerName: string;
   customerDocumentType: string | null;
   customerDocument: string | null;
+  customerNrc?: string | null;
+  customerActivityCode?: string | null;
+  customerActivityDescription?: string | null;
+  customerCommercialName?: string | null;
+  customerDepartment?: string | null;
+  customerMunicipality?: string | null;
+  customerAddress?: string | null;
+  customerPhone?: string | null;
   customerEmail: string | null;
   items: BillingItem[];
 };
 
+function compactParams(params: Record<string, unknown>): URLSearchParams {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === null || value === undefined || value === '') return;
+    searchParams.set(key, String(value));
+  });
+
+  return searchParams;
+}
+
 export class CoreDteClient {
   private readonly http: KyInstance;
+  private readonly authToken?: CoreDteClientOptions['authToken'];
+  private readonly baseUrl: string;
 
-  constructor(baseUrl: string) {
+  constructor(baseUrl: string, options: CoreDteClientOptions = {}) {
+    this.authToken = options.authToken;
+    this.baseUrl = baseUrl.replace(/^\/+/, '').replace(/\/$/, '');
     this.http = ky.create({
-      prefixUrl: baseUrl.replace(/^\/+/, '').replace(/\/$/, ''),
+      prefixUrl: this.baseUrl,
       timeout: 15000,
       hooks: {
+        beforeRequest: [
+          (request) => {
+            const token = typeof this.authToken === 'function' ? this.authToken() : this.authToken;
+            if (token) {
+              request.headers.set('Authorization', `Bearer ${token}`);
+            }
+          }
+        ],
         beforeError: [
           async (error) => {
             const body = await error.response.text().catch(() => '');
@@ -222,6 +480,18 @@ export class CoreDteClient {
         ]
       }
     });
+  }
+
+  login(payload: { email: string; password: string; device_name?: string }): Promise<LoginResponse> {
+    return this.http.post('auth/login', { json: payload }).json();
+  }
+
+  me(): Promise<{ user: AuthUser; expires_at: string | null }> {
+    return this.http.get('auth/me').json();
+  }
+
+  logout(): Promise<void> {
+    return this.http.post('auth/logout').then(() => undefined);
   }
 
   health(): Promise<CoreHealth> {
@@ -234,6 +504,55 @@ export class CoreDteClient {
 
   billingContext(): Promise<BillingContext> {
     return this.http.get('billing/context').json();
+  }
+
+  billingCatalogs(): Promise<BillingCatalogs> {
+    return this.http.get('billing/catalogs').json();
+  }
+
+  registerBillingCompany(payload: BillingCompanyPayload): Promise<BillingCompanyResponse> {
+    if (payload.logo) {
+      const form = new FormData();
+      form.set('_method', 'PATCH');
+      Object.entries(payload).forEach(([key, value]) => {
+        if (value === null || value === undefined) return;
+        if (value instanceof File) {
+          form.set(key, value);
+          return;
+        }
+        form.set(key, String(value));
+      });
+
+      return this.http.post('billing/companies', { body: form }).json();
+    }
+
+    return this.http.post('billing/companies', { json: payload }).json();
+  }
+
+  updateBillingCompany(empresaId: number, payload: BillingCompanyUpdatePayload): Promise<{ empresa: BillingEmpresa }> {
+    if (payload.logo) {
+      const form = new FormData();
+      Object.entries(payload).forEach(([key, value]) => {
+        if (value === null || value === undefined) return;
+        if (value instanceof File) {
+          form.set(key, value);
+          return;
+        }
+        form.set(key, String(value));
+      });
+
+      return this.http.post(`billing/companies/${empresaId}`, { body: form }).json();
+    }
+
+    return this.http.patch(`billing/companies/${empresaId}`, { json: payload }).json();
+  }
+
+  updateBillingCompanyStatus(empresaId: number, lifecycleStatus: 'active' | 'inactive'): Promise<{ empresa: BillingEmpresa }> {
+    return this.updateBillingCompany(empresaId, { lifecycle_status: lifecycleStatus });
+  }
+
+  deleteBillingCompany(empresaId: number): Promise<void> {
+    return this.http.delete(`billing/companies/${empresaId}`).then(() => undefined);
   }
 
   billingSettings(empresaId: number, ambiente: '00' | '01'): Promise<{ config: BillingSettings | null }> {
@@ -262,6 +581,39 @@ export class CoreDteClient {
     return this.http.post('billing/signer/verify', { json: payload }).json();
   }
 
+  requestMhBearer(payload: { empresa_id: number; ambiente: '00' | '01'; include_token?: boolean; force_refresh?: boolean }): Promise<{ auth: MhBearerVerification }> {
+    return this.http.post('billing/mh/bearer', { json: payload }).json();
+  }
+
+  customers(params: { empresa_id: number; tipo_dte?: string; q?: string }): Promise<{ data: BillingCustomer[] }> {
+    return this.http.get('billing/customers', {
+      searchParams: compactParams(params)
+    }).json();
+  }
+
+  saveCustomer(payload: Partial<BillingCustomer> & { empresa_id: number; name: string }): Promise<{ customer: BillingCustomer }> {
+    return this.http.post('billing/customers', { json: payload }).json();
+  }
+
+  itemTemplates(params: { empresa_id: number; q?: string }): Promise<{ data: BillingItemTemplate[] }> {
+    return this.http.get('billing/item-templates', {
+      searchParams: compactParams(params)
+    }).json();
+  }
+
+  saveItemTemplate(payload: {
+    empresa_id: number;
+    name: string;
+    description: string;
+    default_price: number;
+    default_quantity?: number;
+    item_type?: number;
+    unit_measure?: number;
+    item_code?: string | null;
+  }): Promise<{ template: BillingItemTemplate }> {
+    return this.http.post('billing/item-templates', { json: payload }).json();
+  }
+
   previewCorrelativo(payload: CorrelativoRequest): Promise<CorrelativoReservation> {
     return this.http.post('billing/correlativos/preview', { json: payload }).json();
   }
@@ -276,6 +628,69 @@ export class CoreDteClient {
 
   createDraft(payload: DtePreviewRequest): Promise<DteDraftSummary> {
     return this.http.post('dte/drafts', { json: payload }).json();
+  }
+
+  issue(payload: DtePreviewRequest): Promise<DteIssueResponse> {
+    return this.http.post('dte/issue', { json: payload }).json();
+  }
+
+  async issueProgress(payload: DtePreviewRequest, onEvent: (event: DteIssueProgressEvent) => void): Promise<DteIssueResponse> {
+    const token = typeof this.authToken === 'function' ? this.authToken() : this.authToken;
+    const response = await fetch(`/${this.baseUrl}/dte/issue-progress`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/x-ndjson',
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok || !response.body) {
+      throw new Error(await response.text().catch(() => `HTTP ${response.status}`));
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+    let finalResult: DteIssueResponse | null = null;
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (value) {
+        buffer += decoder.decode(value, { stream: !done });
+        let newline = buffer.indexOf('\n');
+        while (newline !== -1) {
+          const line = buffer.slice(0, newline).trim();
+          buffer = buffer.slice(newline + 1);
+          if (line !== '') {
+            const event = JSON.parse(line) as DteIssueProgressEvent;
+            onEvent(event);
+            if (event.type === 'result') {
+              if (event.ok) finalResult = { document: event.document, attempts: event.attempts };
+              else throw new Error(event.message);
+            }
+          }
+          newline = buffer.indexOf('\n');
+        }
+      }
+      if (done) break;
+    }
+
+    if (!finalResult) throw new Error('La emision termino sin resultado final.');
+    return finalResult;
+  }
+
+  documents(params: { q?: string; estado?: string; tipo_dte?: string; empresa_id?: number; limit?: number } = {}): Promise<DteDocumentListResponse> {
+    return this.http.get('dte/drafts', { searchParams: compactParams(params) }).json();
+  }
+
+  document(id: number): Promise<DteDraftSummary> {
+    return this.http.get(`dte/drafts/${id}`).json();
+  }
+
+  queryMh(id: number): Promise<DteQueryMhResponse> {
+    return this.http.post(`dte/drafts/${id}/query-mh`).json();
   }
 
   readyToSign(id: number): Promise<DteDraftSummary> {
@@ -300,6 +715,8 @@ export class CoreDteClient {
 }
 
 export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewRequest {
+  const receptorDocument = normalizeRecipientDocument(input.customerDocumentType, input.customerDocument);
+
   return {
     tipoDte: input.documentType,
     ambiente: input.empresa.ambiente,
@@ -310,8 +727,8 @@ export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewReques
     codigoPuntoVenta: input.puntoVenta.codigo,
     correlativo: input.correlativo,
     emisor: {
-      nit: input.empresa.nit,
-      nrc: input.empresa.nrc,
+      nit: onlyDigits(input.empresa.nit),
+      nrc: onlyDigits(input.empresa.nrc),
       nombre: input.empresa.razon_social,
       codActividad: input.empresa.codigo_actividad,
       descActividad: input.empresa.desc_actividad,
@@ -320,6 +737,7 @@ export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewReques
       direccion: {
         departamento: input.sucursal.departamento,
         municipio: input.sucursal.municipio,
+        distrito: input.sucursal.distrito ?? undefined,
         complemento: input.sucursal.direccion
       },
       telefono: input.sucursal.telefono,
@@ -329,24 +747,71 @@ export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewReques
       codPuntoVentaMH: null,
       codPuntoVenta: input.puntoVenta.codigo
     },
-    receptor: {
-      nombre: input.customerName,
-      tipoDocumento: input.customerDocumentType,
-      numDocumento: input.customerDocument,
-      nrc: null,
-      codActividad: null,
-      descActividad: null,
-      direccion: null,
-      telefono: null,
-      correo: input.customerEmail
-    },
+    receptor: input.documentType === '03'
+      ? {
+        nit: onlyDigits(input.customerDocument),
+        nrc: onlyDigits(input.customerNrc),
+        nombre: input.customerName,
+        codActividad: input.customerActivityCode,
+        descActividad: input.customerActivityDescription,
+        nombreComercial: input.customerCommercialName ?? input.customerName,
+        direccion: {
+          departamento: input.customerDepartment,
+          municipio: input.customerMunicipality,
+          complemento: input.customerAddress
+        },
+        telefono: input.customerPhone,
+        correo: input.customerEmail
+      }
+      : {
+        nombre: input.customerName,
+        tipoDocumento: receptorDocument.documentType,
+        numDocumento: receptorDocument.documentNumber,
+        nrc: null,
+        codActividad: null,
+        descActividad: null,
+        direccion: null,
+        telefono: input.customerPhone,
+        correo: input.customerEmail
+      },
     items: input.items.map((item) => ({
       descripcion: item.description,
       cantidad: item.quantity,
-      precioUni: item.unitPrice
+      precioUni: item.unitPrice,
+      ...(input.documentType === '03' ? { tributos: ['20'] } : {})
     })),
     resumen: {
       totalPagar: input.items.reduce((total, item) => total + item.quantity * item.unitPrice, 0)
     }
+  };
+}
+
+function onlyDigits(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const digits = value.replace(/\D+/g, '');
+
+  return digits === '' ? value : digits;
+}
+
+function normalizeRecipientDocument(type: string | null | undefined, value: string | null | undefined): { documentType: string | null; documentNumber: string | null } {
+  const digits = onlyDigits(value);
+  if (!digits) {
+    return { documentType: null, documentNumber: null };
+  }
+
+  if (digits.length === 9) {
+    return { documentType: '13', documentNumber: digits };
+  }
+
+  if (digits.length === 14) {
+    return { documentType: '36', documentNumber: digits };
+  }
+
+  return {
+    documentType: type || null,
+    documentNumber: digits,
   };
 }
