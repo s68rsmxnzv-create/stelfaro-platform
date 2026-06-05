@@ -372,7 +372,33 @@ function closeIssueModal(): void {
     return;
   }
 
+  const shouldResetInvoice = Boolean(issueResult.value);
   issueModalOpen.value = false;
+  if (shouldResetInvoice) {
+    resetInvoiceForm();
+  }
+}
+
+function resetInvoiceForm(): void {
+  preview.value = null;
+  draft.value = null;
+  history.value = [];
+  currentStep.value = null;
+  error.value = null;
+  issueResult.value = null;
+  issueProgress.value = 0;
+  issueLog.value = [];
+  issuePhaseIndex.value = 0;
+  selectedCustomerId.value = null;
+  customerSearch.value = '';
+  customerSearchLocked.value = false;
+  customers.value = [];
+  customerModalMode.value = null;
+  itemTemplateSearch.value = '';
+  customerMode.value = 'generic';
+  setGenericCustomer();
+  lines.value = [{ id: 1, description: '', quantity: 1, unitPrice: 0 }];
+  lineId = 2;
 }
 
 async function transition(action: 'ready' | 'sign' | 'send' | 'receive'): Promise<void> {
