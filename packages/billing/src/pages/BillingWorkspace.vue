@@ -982,8 +982,8 @@ function removeLine(id: number): void {
                     <span class="ml-1 font-semibold text-slate-950">{{ documentLabel }}</span>
                   </p>
                   <p>
-                    <span class="font-semibold text-slate-500">Establecimiento:</span>
-                    <span class="ml-1 font-semibold text-slate-950">Casa matriz</span>
+                    <span class="font-semibold text-slate-500">Estab.:</span>
+                    <span class="ml-1 font-semibold text-slate-950">{{ selectedSucursal?.codigo }}</span>
                   </p>
                   <p class="min-w-0">
                     <span class="font-semibold text-slate-500">Punto venta:</span>
