@@ -986,26 +986,19 @@ function removeLine(id: number): void {
                     <span class="ml-1 font-semibold text-slate-950">Casa matriz</span>
                   </p>
                   <p class="min-w-0">
-                    <span class="font-semibold text-slate-500">Sucursal:</span>
-                    <span class="ml-1 font-semibold text-slate-950">{{ selectedSucursal?.codigo }} {{ selectedSucursal?.nombre }}</span>
-                  </p>
-                  <p class="min-w-0">
                     <span class="font-semibold text-slate-500">Punto venta:</span>
-                    <span class="ml-1 font-semibold text-slate-950">{{ selectedPuntoVenta?.codigo }} {{ selectedPuntoVenta?.nombre }}</span>
+                    <span class="ml-1 font-semibold text-slate-950">{{ selectedPuntoVenta?.codigo }}</span>
                   </p>
                 </div>
               </div>
               <div class="flex flex-wrap items-end justify-between gap-3 border-t border-slate-200 pt-3">
-                <p v-if="correlativoPreview" class="text-xs text-slate-500">
-                  <span class="font-semibold">Disponibles:</span> {{ correlativoPreview.remaining }}
-                </p>
-                <p v-else class="text-sm text-red-700">No hay correlativo activo para esta combinacion.</p>
+                <p v-if="!correlativoPreview" class="text-sm text-red-700">No hay correlativo activo para esta combinacion.</p>
                 <div class="text-right">
                   <span
                     class="rounded px-2 py-1 text-xs font-semibold"
                     :class="correlativoPreview ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'"
                   >
-                    {{ correlativoPreview ? 'Correlativo activo' : 'Sin correlativo' }}
+                    {{ correlativoPreview ? 'Numero correlativo' : 'Sin correlativo' }}
                   </span>
                   <p v-if="correlativoPreview" class="mt-2 max-w-[320px] truncate font-mono text-[11px] text-slate-500">
                     {{ correlativoPreview.numero_control }}
