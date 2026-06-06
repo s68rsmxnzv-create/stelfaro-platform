@@ -972,16 +972,32 @@ function removeLine(id: number): void {
               <div class="min-w-0">
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Emisor activo</p>
                 <p class="mt-1 truncate text-sm font-bold text-slate-950">{{ selectedEmpresa?.razon_social }}</p>
-                <p class="mt-1 truncate text-xs text-slate-500">
-                  {{ selectedEmpresa?.ambiente === '01' ? 'Produccion' : 'Pruebas' }} ·
-                  {{ documentLabel }} ·
-                  {{ selectedSucursal?.codigo }} {{ selectedSucursal?.nombre }} ·
-                  {{ selectedPuntoVenta?.codigo }} {{ selectedPuntoVenta?.nombre }}
-                </p>
+                <div class="mt-3 grid gap-x-4 gap-y-2 text-[13px] sm:grid-cols-2">
+                  <p>
+                    <span class="font-semibold text-slate-500">Ambiente:</span>
+                    <span class="ml-1 font-semibold text-slate-950">{{ selectedEmpresa?.ambiente === '01' ? 'Produccion' : 'Pruebas' }}</span>
+                  </p>
+                  <p>
+                    <span class="font-semibold text-slate-500">DTE:</span>
+                    <span class="ml-1 font-semibold text-slate-950">{{ documentLabel }}</span>
+                  </p>
+                  <p>
+                    <span class="font-semibold text-slate-500">Establecimiento:</span>
+                    <span class="ml-1 font-semibold text-slate-950">Casa matriz</span>
+                  </p>
+                  <p class="min-w-0">
+                    <span class="font-semibold text-slate-500">Sucursal:</span>
+                    <span class="ml-1 font-semibold text-slate-950">{{ selectedSucursal?.codigo }} {{ selectedSucursal?.nombre }}</span>
+                  </p>
+                  <p class="min-w-0">
+                    <span class="font-semibold text-slate-500">Punto venta:</span>
+                    <span class="ml-1 font-semibold text-slate-950">{{ selectedPuntoVenta?.codigo }} {{ selectedPuntoVenta?.nombre }}</span>
+                  </p>
+                </div>
               </div>
-              <div class="flex flex-wrap items-end justify-between gap-3">
+              <div class="flex flex-wrap items-end justify-between gap-3 border-t border-slate-200 pt-3">
                 <p v-if="correlativoPreview" class="text-xs text-slate-500">
-                  Disponibles despues de este: {{ correlativoPreview.remaining }}
+                  <span class="font-semibold">Disponibles:</span> {{ correlativoPreview.remaining }}
                 </p>
                 <p v-else class="text-sm text-red-700">No hay correlativo activo para esta combinacion.</p>
                 <div class="text-right">
