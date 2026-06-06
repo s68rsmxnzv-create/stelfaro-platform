@@ -171,8 +171,13 @@ const customerSummary = computed(() => {
   ].filter(Boolean);
   return details.length > 0 ? details.join(' · ') : 'Datos opcionales pendientes.';
 });
-const customerDocumentTypeLabel = computed(() => form.customerDocumentType || 'Sin documento');
-const customerDocumentNumberLabel = computed(() => form.customerDocument || 'Sin numero');
+const customerDocumentTypeLabel = computed(() => {
+  if (form.customerDocumentType === '36') return 'NIT';
+  if (form.customerDocumentType === '13') return 'DUI';
+
+  return form.customerDocumentType || 'Sin documento';
+});
+const customerDocumentNumberLabel = computed(() => formatCustomerDocument(form.customerDocument));
 const customerFiscalLabel = computed(() => {
   const activity = [form.customerActivityCode || null, form.customerActivityDescription || null].filter(Boolean).join(' · ');
   const location = [form.customerDepartment || null, form.customerMunicipality || null].filter(Boolean).join(' / ');
@@ -195,6 +200,25 @@ function lineDiscountAmount(line: BillingItem): number {
 
 function lineNetTotal(line: BillingItem): number {
   return Math.max(0, lineGrossTotal(line) - lineDiscountAmount(line));
+}
+
+function formatCustomerDocument(value: string): string {
+  const digits = value.replace(/\D+/g, '');
+
+  if (digits.length === 9) {
+    return `${digits.slice(0, 8)}-${digits.slice(8)}`;
+  }
+
+  if (digits.length === 14) {
+    return [
+      digits.slice(0, 4),
+      digits.slice(4, 10),
+      digits.slice(10, 13),
+      digits.slice(13, 14),
+    ].join('-');
+  }
+
+  return value || 'Sin numero';
 }
 
 function newInvoiceLine(): InvoiceLine {
@@ -1020,7 +1044,7 @@ function removeLine(id: number): void {
                 <p class="mt-2 truncate text-xs text-slate-600">{{ customerFiscalLabel }}</p>
               </div>
               <button
-                class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 transition hover:bg-white hover:text-slate-900"
+                class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-red-50 font-bold text-red-600 transition hover:bg-red-600 hover:text-white"
                 type="button"
                 aria-label="Quitar cliente seleccionado"
                 @click="clearSelectedCustomer"
