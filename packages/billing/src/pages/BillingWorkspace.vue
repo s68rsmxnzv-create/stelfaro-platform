@@ -171,12 +171,8 @@ const customerSummary = computed(() => {
   ].filter(Boolean);
   return details.length > 0 ? details.join(' · ') : 'Datos opcionales pendientes.';
 });
-const customerDocumentLabel = computed(() => {
-  if (!form.customerDocument) return 'Sin documento';
-
-  return `${form.customerDocumentType || 'Doc'} ${form.customerDocument}`;
-});
-const customerContactLabel = computed(() => [form.customerEmail || null, form.customerPhone || null].filter(Boolean).join(' · ') || 'Sin contacto registrado');
+const customerDocumentTypeLabel = computed(() => form.customerDocumentType || 'Sin documento');
+const customerDocumentNumberLabel = computed(() => form.customerDocument || 'Sin numero');
 const customerFiscalLabel = computed(() => {
   const activity = [form.customerActivityCode || null, form.customerActivityDescription || null].filter(Boolean).join(' · ');
   const location = [form.customerDepartment || null, form.customerMunicipality || null].filter(Boolean).join(' / ');
@@ -996,19 +992,30 @@ function removeLine(id: number): void {
           <div v-if="selectedCustomer" class="mt-4 rounded-md border border-sky-100 bg-sky-50 p-4">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap items-center gap-2">
-                  <p class="truncate text-sm font-semibold text-slate-950">{{ form.customerName }}</p>
-                  <span class="rounded bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-sky-700">Cliente base</span>
+                <div class="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-sky-700">
+                  <span class="rounded bg-white px-2 py-1">Cliente base</span>
                 </div>
-                <div class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                  <div class="rounded-md bg-white px-3 py-2">
-                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Documento</p>
-                    <p class="mt-1 font-medium text-slate-900">{{ customerDocumentLabel }}</p>
-                  </div>
-                  <div class="rounded-md bg-white px-3 py-2">
-                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Contacto</p>
-                    <p class="mt-1 truncate font-medium text-slate-900">{{ customerContactLabel }}</p>
-                  </div>
+                <div class="mt-3 grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
+                  <p class="min-w-0">
+                    <span class="font-semibold text-slate-500">Nombre:</span>
+                    <span class="ml-1 font-semibold text-slate-950">{{ form.customerName }}</span>
+                  </p>
+                  <p>
+                    <span class="font-semibold text-slate-500">Documento:</span>
+                    <span class="ml-1 font-semibold text-slate-950">{{ customerDocumentTypeLabel }}</span>
+                  </p>
+                  <p>
+                    <span class="font-semibold text-slate-500">N:</span>
+                    <span class="ml-1 font-semibold text-slate-950">{{ customerDocumentNumberLabel }}</span>
+                  </p>
+                  <p class="min-w-0">
+                    <span class="font-semibold text-slate-500">Email:</span>
+                    <span class="ml-1 font-semibold text-slate-950">{{ form.customerEmail || 'Sin email' }}</span>
+                  </p>
+                  <p>
+                    <span class="font-semibold text-slate-500">Telefono:</span>
+                    <span class="ml-1 font-semibold text-slate-950">{{ form.customerPhone || 'Sin telefono' }}</span>
+                  </p>
                 </div>
                 <p class="mt-2 truncate text-xs text-slate-600">{{ customerFiscalLabel }}</p>
               </div>
