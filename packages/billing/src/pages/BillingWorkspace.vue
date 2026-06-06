@@ -952,18 +952,12 @@ function removeLine(id: number): void {
     </div>
 
     <UiCard>
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 class="text-2xl font-bold text-slate-950">Nueva factura</h1>
-        </div>
-      </div>
-
-      <div v-if="contextLoading" class="mt-6 text-sm text-slate-500">Cargando contexto real...</div>
-      <div v-else-if="empresas.length === 0" class="mt-6 rounded-md bg-amber-50 p-4 text-sm text-amber-800">
+      <div v-if="contextLoading" class="text-sm text-slate-500">Cargando contexto real...</div>
+      <div v-else-if="empresas.length === 0" class="rounded-md bg-amber-50 p-4 text-sm text-amber-800">
         No hay empresas configuradas en Core DTE. Billing real necesita empresa, sucursal, punto de venta y correlativos activos.
       </div>
 
-      <div v-else class="mt-6 grid gap-6">
+      <div v-else class="grid gap-6">
         <div class="grid gap-4 xl:grid-cols-3">
           <section class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
             <div class="flex h-full flex-col justify-between gap-4">
