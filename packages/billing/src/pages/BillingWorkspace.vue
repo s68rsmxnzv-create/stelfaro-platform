@@ -954,9 +954,7 @@ function removeLine(id: number): void {
     <UiCard>
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Billing transversal real</p>
-          <h1 class="mt-1 text-2xl font-bold text-slate-950">Nueva factura</h1>
-          <p class="mt-1 text-sm text-slate-500">Emite usando empresas configuradas, correlativos, firma y bearer del Core DTE.</p>
+          <h1 class="text-2xl font-bold text-slate-950">Nueva factura</h1>
         </div>
       </div>
 

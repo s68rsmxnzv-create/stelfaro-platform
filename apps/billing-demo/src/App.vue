@@ -260,8 +260,7 @@ async function logout(): Promise<void> {
 
     <header class="relative bg-white shadow-sm">
       <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Core DTE + Billing</p>
-        <h1 class="mt-1 text-3xl font-bold tracking-tight text-slate-950">{{ pageTitle }}</h1>
+        <h1 class="text-3xl font-bold tracking-tight text-slate-950">{{ pageTitle }}</h1>
       </div>
     </header>
 
