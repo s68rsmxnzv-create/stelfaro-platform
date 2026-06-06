@@ -56,6 +56,7 @@ const customerModalMode = ref<'new' | 'quick' | null>(null);
 
 type InvoiceLine = BillingItem & {
   id: number;
+  discountPercent: number;
 };
 type CustomerMode = 'generic' | 'base' | 'new' | 'quick';
 const customerModes: Array<{ key: CustomerMode; label: string }> = [
@@ -88,7 +89,7 @@ const form = reactive({
 });
 const customerMode = ref<CustomerMode>('generic');
 const lines = ref<InvoiceLine[]>([
-  { id: 1, description: '', quantity: 1, unitPrice: 0, discount: 0 }
+  { id: 1, description: '', quantity: 1, unitPrice: 0, discount: 0, discountPercent: 0 }
 ]);
 let lineId = 2;
 
@@ -173,9 +174,12 @@ function lineGrossTotal(line: BillingItem): number {
 }
 
 function lineDiscountAmount(line: BillingItem): number {
-  const discount = Math.max(0, Number(line.discount || 0));
+  const percent = 'discountPercent' in line ? Math.max(0, Math.min(100, Number(line.discountPercent || 0))) : null;
+  const discount = percent === null
+    ? Math.max(0, Number(line.discount || 0))
+    : lineGrossTotal(line) * percent / 100;
 
-  return Math.min(lineGrossTotal(line), discount);
+  return Math.round(Math.min(lineGrossTotal(line), discount) * 100) / 100;
 }
 
 function lineNetTotal(line: BillingItem): number {
@@ -242,7 +246,7 @@ async function loadContext(): Promise<void> {
     form.sucursalId = context.value.empresas[0]?.sucursales[0]?.id ?? null;
     form.puntoVentaId = context.value.empresas[0]?.sucursales[0]?.puntosVenta[0]?.id ?? null;
     setGenericCustomer();
-    lines.value = [{ id: 1, description: '', quantity: 1, unitPrice: 0, discount: 0 }];
+    lines.value = [{ id: 1, description: '', quantity: 1, unitPrice: 0, discount: 0, discountPercent: 0 }];
     lineId = 2;
     await Promise.all([loadCustomers(), loadItemTemplates()]);
   } catch (caught) {
@@ -414,7 +418,7 @@ function resetInvoiceForm(): void {
   itemTemplateSearch.value = '';
   customerMode.value = 'generic';
   setGenericCustomer();
-  lines.value = [{ id: 1, description: '', quantity: 1, unitPrice: 0, discount: 0 }];
+  lines.value = [{ id: 1, description: '', quantity: 1, unitPrice: 0, discount: 0, discountPercent: 0 }];
   lineId = 2;
 }
 
@@ -671,7 +675,8 @@ function addTemplateLine(template: BillingItemTemplate): void {
     description: template.description,
     quantity: Number(template.default_quantity || 1),
     unitPrice: Number(template.default_price || 0),
-    discount: 0
+    discount: 0,
+    discountPercent: 0
   };
   const emptyIndex = lines.value.findIndex((line) => line.description.trim() === '' && Number(line.unitPrice) === 0);
   if (emptyIndex >= 0) {
@@ -704,12 +709,12 @@ async function saveLineAsTemplate(line: InvoiceLine): Promise<void> {
 }
 
 function addLine(): void {
-  lines.value = [...lines.value, { id: lineId++, description: '', quantity: 1, unitPrice: 0, discount: 0 }];
+  lines.value = [...lines.value, { id: lineId++, description: '', quantity: 1, unitPrice: 0, discount: 0, discountPercent: 0 }];
 }
 
 function removeLine(id: number): void {
   if (lines.value.length === 1) {
-    lines.value = [{ id: lineId++, description: '', quantity: 1, unitPrice: 0, discount: 0 }];
+    lines.value = [{ id: lineId++, description: '', quantity: 1, unitPrice: 0, discount: 0, discountPercent: 0 }];
     return;
   }
 
@@ -1048,7 +1053,7 @@ function removeLine(id: number): void {
                   <th class="px-3 py-2">Descripcion</th>
                   <th class="w-28 px-3 py-2">Cantidad</th>
                   <th class="w-36 px-3 py-2">Precio</th>
-                  <th class="w-36 px-3 py-2">Descuento</th>
+                  <th class="w-36 px-3 py-2">% desc.</th>
                   <th class="w-32 px-3 py-2 text-right">Neto</th>
                   <th class="w-32 px-3 py-2"></th>
                 </tr>
@@ -1065,7 +1070,8 @@ function removeLine(id: number): void {
                     <input v-model.number="line.unitPrice" class="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0" step="0.01" type="number">
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="line.discount" class="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0" step="0.01" type="number">
+                    <input v-model.number="line.discountPercent" class="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" max="100" min="0" step="0.01" type="number">
+                    <p v-if="lineDiscountAmount(line) > 0" class="mt-1 text-[11px] text-slate-500">-{{ currency(lineDiscountAmount(line)) }}</p>
                   </td>
                   <td class="px-3 py-2 text-right">
                     <p class="font-semibold text-slate-900">{{ currency(lineNetTotal(line)) }}</p>
