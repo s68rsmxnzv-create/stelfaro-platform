@@ -1069,18 +1069,6 @@ function removeLine(id: number): void {
             </div>
           </div>
 
-          <div v-else-if="!selectedCustomer && customerMode === 'base'" class="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div class="min-w-0 flex-1">
-                <p class="text-sm font-semibold text-slate-950">Cliente guardado</p>
-                <p class="mt-1 text-sm text-slate-600">Selecciona un cliente desde la base.</p>
-              </div>
-              <div class="flex gap-2">
-                <UiButton variant="secondary" type="button" @click="customerSearchModalOpen = true">Buscar</UiButton>
-              </div>
-            </div>
-          </div>
-
           <template v-if="isCreditoFiscal">
             <div class="mt-4 grid gap-4 md:grid-cols-2">
               <UiInput v-model="form.customerNrc" label="NRC receptor" />
