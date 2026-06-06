@@ -88,10 +88,9 @@ const form = reactive({
   itemUnitPrice: 0
 });
 const customerMode = ref<CustomerMode>('generic');
-const lines = ref<InvoiceLine[]>([
-  { id: 1, description: '', quantity: 1, unitPrice: 0, discount: 0, discountPercent: 0 }
-]);
-let lineId = 2;
+let lineId = 1;
+const draftLine = ref<InvoiceLine>(newInvoiceLine());
+const lines = ref<InvoiceLine[]>([]);
 
 const empresas = computed(() => context.value?.empresas ?? []);
 const selectedEmpresa = computed<BillingEmpresa | null>(() => empresas.value.find((empresa) => empresa.id === form.empresaId) ?? null);
@@ -186,6 +185,17 @@ function lineNetTotal(line: BillingItem): number {
   return Math.max(0, lineGrossTotal(line) - lineDiscountAmount(line));
 }
 
+function newInvoiceLine(): InvoiceLine {
+  return {
+    id: lineId++,
+    description: '',
+    quantity: 1,
+    unitPrice: 0,
+    discount: 0,
+    discountPercent: 0,
+  };
+}
+
 onMounted(() => {
   void loadContext();
 });
@@ -246,8 +256,9 @@ async function loadContext(): Promise<void> {
     form.sucursalId = context.value.empresas[0]?.sucursales[0]?.id ?? null;
     form.puntoVentaId = context.value.empresas[0]?.sucursales[0]?.puntosVenta[0]?.id ?? null;
     setGenericCustomer();
-    lines.value = [{ id: 1, description: '', quantity: 1, unitPrice: 0, discount: 0, discountPercent: 0 }];
-    lineId = 2;
+    lineId = 1;
+    draftLine.value = newInvoiceLine();
+    lines.value = [];
     await Promise.all([loadCustomers(), loadItemTemplates()]);
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar el contexto real de facturacion.';
@@ -418,8 +429,9 @@ function resetInvoiceForm(): void {
   itemTemplateSearch.value = '';
   customerMode.value = 'generic';
   setGenericCustomer();
-  lines.value = [{ id: 1, description: '', quantity: 1, unitPrice: 0, discount: 0, discountPercent: 0 }];
-  lineId = 2;
+  lineId = 1;
+  draftLine.value = newInvoiceLine();
+  lines.value = [];
 }
 
 async function transition(action: 'ready' | 'sign' | 'send' | 'receive'): Promise<void> {
@@ -678,12 +690,7 @@ function addTemplateLine(template: BillingItemTemplate): void {
     discount: 0,
     discountPercent: 0
   };
-  const emptyIndex = lines.value.findIndex((line) => line.description.trim() === '' && Number(line.unitPrice) === 0);
-  if (emptyIndex >= 0) {
-    lines.value.splice(emptyIndex, 1, next);
-    lines.value = [...lines.value];
-    return;
-  }
+
   lines.value = [...lines.value, next];
 }
 
@@ -709,15 +716,25 @@ async function saveLineAsTemplate(line: InvoiceLine): Promise<void> {
 }
 
 function addLine(): void {
-  lines.value = [...lines.value, { id: lineId++, description: '', quantity: 1, unitPrice: 0, discount: 0, discountPercent: 0 }];
-}
-
-function removeLine(id: number): void {
-  if (lines.value.length === 1) {
-    lines.value = [{ id: lineId++, description: '', quantity: 1, unitPrice: 0, discount: 0, discountPercent: 0 }];
+  const line = draftLine.value;
+  if (!line.description.trim() || Number(line.quantity) <= 0 || Number(line.unitPrice) < 0) {
+    error.value = 'Completa descripcion, cantidad y precio antes de agregar la linea.';
     return;
   }
 
+  lines.value = [...lines.value, {
+    ...line,
+    description: line.description.trim(),
+    quantity: Number(line.quantity),
+    unitPrice: Number(line.unitPrice),
+    discount: lineDiscountAmount(line),
+    discountPercent: Math.max(0, Math.min(100, Number(line.discountPercent || 0))),
+  }];
+  draftLine.value = newInvoiceLine();
+  error.value = null;
+}
+
+function removeLine(id: number): void {
   lines.value = lines.value.filter((line) => line.id !== id);
 }
 </script>
@@ -1024,7 +1041,6 @@ function removeLine(id: number): void {
               <h2 class="text-base font-semibold text-slate-950">Detalle</h2>
               <p class="mt-1 text-xs text-slate-500">Agrega productos o servicios. El core calcula normativa y valida schema.</p>
             </div>
-            <UiButton variant="secondary" @click="addLine">Agregar linea</UiButton>
           </div>
 
           <div class="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
@@ -1059,19 +1075,41 @@ function removeLine(id: number): void {
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200">
+                <tr class="bg-slate-50/70">
+                  <td class="px-3 py-2">
+                    <input v-model="draftLine.description" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" placeholder="Producto o servicio">
+                  </td>
+                  <td class="px-3 py-2">
+                    <input v-model.number="draftLine.quantity" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0.01" step="0.01" type="number">
+                  </td>
+                  <td class="px-3 py-2">
+                    <input v-model.number="draftLine.unitPrice" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0" step="0.01" type="number">
+                  </td>
+                  <td class="px-3 py-2">
+                    <input v-model.number="draftLine.discountPercent" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" max="100" min="0" step="0.01" type="number">
+                    <p v-if="lineDiscountAmount(draftLine) > 0" class="mt-1 text-[11px] text-slate-500">-{{ currency(lineDiscountAmount(draftLine)) }}</p>
+                  </td>
+                  <td class="px-3 py-2 text-right">
+                    <p class="font-semibold text-slate-900">{{ currency(lineNetTotal(draftLine)) }}</p>
+                    <p v-if="lineDiscountAmount(draftLine) > 0" class="text-[11px] text-slate-500">Bruto {{ currency(lineGrossTotal(draftLine)) }}</p>
+                  </td>
+                  <td class="px-3 py-2 text-right">
+                    <UiButton variant="secondary" @click="addLine">Agregar</UiButton>
+                  </td>
+                </tr>
                 <tr v-for="line in lines" :key="line.id">
                   <td class="px-3 py-2">
-                    <input v-model="line.description" class="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" placeholder="Producto o servicio">
+                    <span class="font-medium text-slate-950">{{ line.description }}</span>
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="line.quantity" class="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0.01" step="0.01" type="number">
+                    {{ Number(line.quantity) }}
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="line.unitPrice" class="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0" step="0.01" type="number">
+                    {{ currency(Number(line.unitPrice)) }}
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="line.discountPercent" class="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" max="100" min="0" step="0.01" type="number">
-                    <p v-if="lineDiscountAmount(line) > 0" class="mt-1 text-[11px] text-slate-500">-{{ currency(lineDiscountAmount(line)) }}</p>
+                    <span>{{ Number(line.discountPercent || 0) }}%</span>
+                    <p v-if="lineDiscountAmount(line) > 0" class="text-[11px] text-slate-500">-{{ currency(lineDiscountAmount(line)) }}</p>
                   </td>
                   <td class="px-3 py-2 text-right">
                     <p class="font-semibold text-slate-900">{{ currency(lineNetTotal(line)) }}</p>
@@ -1081,6 +1119,9 @@ function removeLine(id: number): void {
                     <button class="rounded px-2 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-50" type="button" @click="saveLineAsTemplate(line)">Guardar</button>
                     <button class="rounded px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-red-700" type="button" @click="removeLine(line.id)">Quitar</button>
                   </td>
+                </tr>
+                <tr v-if="lines.length === 0">
+                  <td class="px-3 py-4 text-sm text-slate-500" colspan="6">Aun no hay lineas agregadas.</td>
                 </tr>
               </tbody>
             </table>
