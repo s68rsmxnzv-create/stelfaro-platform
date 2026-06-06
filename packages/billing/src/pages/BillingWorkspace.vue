@@ -170,6 +170,18 @@ const customerSummary = computed(() => {
   ].filter(Boolean);
   return details.length > 0 ? details.join(' · ') : 'Datos opcionales pendientes.';
 });
+const customerDocumentLabel = computed(() => {
+  if (!form.customerDocument) return 'Sin documento';
+
+  return `${form.customerDocumentType || 'Doc'} ${form.customerDocument}`;
+});
+const customerContactLabel = computed(() => [form.customerEmail || null, form.customerPhone || null].filter(Boolean).join(' · ') || 'Sin contacto registrado');
+const customerFiscalLabel = computed(() => {
+  const activity = [form.customerActivityCode || null, form.customerActivityDescription || null].filter(Boolean).join(' · ');
+  const location = [form.customerDepartment || null, form.customerMunicipality || null].filter(Boolean).join(' / ');
+
+  return [activity || null, location || null].filter(Boolean).join(' · ') || 'Sin datos fiscales adicionales';
+});
 
 function lineGrossTotal(line: BillingItem): number {
   return Math.max(0, Number(line.quantity || 0) * Number(line.unitPrice || 0));
@@ -1000,9 +1012,25 @@ function removeLine(id: number): void {
 
           <div v-else-if="customerMode === 'base'" class="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p class="text-sm font-semibold text-slate-950">{{ selectedCustomer ? form.customerName : 'Cliente guardado' }}</p>
-                <p class="mt-1 text-sm text-slate-600">{{ selectedCustomer ? customerSummary : 'Selecciona un cliente desde la base.' }}</p>
+              <div class="min-w-0 flex-1">
+                <template v-if="selectedCustomer">
+                  <p class="truncate text-sm font-semibold text-slate-950">{{ form.customerName }}</p>
+                  <div class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                    <div class="rounded-md bg-white px-3 py-2">
+                      <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Documento</p>
+                      <p class="mt-1 font-medium text-slate-900">{{ customerDocumentLabel }}</p>
+                    </div>
+                    <div class="rounded-md bg-white px-3 py-2">
+                      <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Contacto</p>
+                      <p class="mt-1 truncate font-medium text-slate-900">{{ customerContactLabel }}</p>
+                    </div>
+                  </div>
+                  <p class="mt-2 truncate text-xs text-slate-500">{{ customerFiscalLabel }}</p>
+                </template>
+                <template v-else>
+                  <p class="text-sm font-semibold text-slate-950">Cliente guardado</p>
+                  <p class="mt-1 text-sm text-slate-600">Selecciona un cliente desde la base.</p>
+                </template>
               </div>
               <div class="flex gap-2">
                 <UiButton variant="secondary" type="button" @click="customerSearchModalOpen = true">{{ selectedCustomer ? 'Cambiar' : 'Buscar' }}</UiButton>
