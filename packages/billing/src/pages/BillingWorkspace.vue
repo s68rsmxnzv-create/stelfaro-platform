@@ -51,6 +51,7 @@ const customers = ref<BillingCustomer[]>([]);
 const customerSearch = ref('');
 const customerSearchLocked = ref(false);
 const selectedCustomerId = ref<number | null>(null);
+const selectedCustomerRecord = ref<BillingCustomer | null>(null);
 const itemTemplates = ref<BillingItemTemplate[]>([]);
 const itemTemplateSearch = ref('');
 const customerModalMode = ref<'new' | 'quick' | null>(null);
@@ -157,7 +158,7 @@ const issueMhJson = computed(() => JSON.stringify(
   2
 ));
 const issueTransmissionAttempts = computed(() => issueResult.value?.document.transmission_attempts ?? []);
-const selectedCustomer = computed(() => customers.value.find((customer) => customer.id === selectedCustomerId.value) ?? null);
+const selectedCustomer = computed(() => selectedCustomerRecord.value);
 const selectedDocumentType = computed(() => availableDocumentTypes.value.find((type) => type.code === form.documentType) ?? null);
 const documentLabel = computed(() => `${form.documentType} · ${selectedDocumentType.value?.label ?? 'Factura Electronica'}`);
 const customerResults = computed(() => !customerSearchLocked.value && customerSearch.value.trim().length >= 2 ? customers.value : []);
@@ -283,13 +284,14 @@ async function loadContext(): Promise<void> {
 }
 
 watch(customerMode, (mode) => {
-  selectedCustomerId.value = null;
   customerSearchLocked.value = false;
   if (mode === 'generic') {
+    selectedCustomerId.value = null;
+    selectedCustomerRecord.value = null;
     setGenericCustomer();
   }
 
-  if (mode === 'base') {
+  if (mode === 'base' && !selectedCustomer.value) {
     clearCustomerFields('');
     void loadCustomers();
   }
@@ -437,6 +439,7 @@ function resetInvoiceForm(): void {
   issueLog.value = [];
   issuePhaseIndex.value = 0;
   selectedCustomerId.value = null;
+  selectedCustomerRecord.value = null;
   customerSearch.value = '';
   customerSearchLocked.value = false;
   customers.value = [];
@@ -629,6 +632,7 @@ async function loadCustomers(): Promise<void> {
 
 function applyCustomer(customer: BillingCustomer): void {
   selectedCustomerId.value = customer.id;
+  selectedCustomerRecord.value = customer;
   customerSearchLocked.value = true;
   form.customerName = customer.name;
   form.customerEmail = customer.email ?? '';
@@ -650,6 +654,7 @@ function applyCustomer(customer: BillingCustomer): void {
 
 function clearSelectedCustomer(): void {
   selectedCustomerId.value = null;
+  selectedCustomerRecord.value = null;
   customerSearchLocked.value = false;
   customerSearch.value = '';
   customers.value = [];
@@ -660,6 +665,7 @@ function updateCustomerSearch(value: string): void {
   customerSearch.value = value;
   customerSearchLocked.value = false;
   selectedCustomerId.value = null;
+  selectedCustomerRecord.value = null;
 }
 
 function customerSearchLabel(customer: BillingCustomer): string {
@@ -987,7 +993,37 @@ function removeLine(id: number): void {
             </div>
           </div>
 
-          <div class="mt-4 flex flex-wrap gap-2">
+          <div v-if="selectedCustomer" class="mt-4 rounded-md border border-sky-100 bg-sky-50 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <p class="truncate text-sm font-semibold text-slate-950">{{ form.customerName }}</p>
+                  <span class="rounded bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-sky-700">Cliente base</span>
+                </div>
+                <div class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                  <div class="rounded-md bg-white px-3 py-2">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Documento</p>
+                    <p class="mt-1 font-medium text-slate-900">{{ customerDocumentLabel }}</p>
+                  </div>
+                  <div class="rounded-md bg-white px-3 py-2">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Contacto</p>
+                    <p class="mt-1 truncate font-medium text-slate-900">{{ customerContactLabel }}</p>
+                  </div>
+                </div>
+                <p class="mt-2 truncate text-xs text-slate-600">{{ customerFiscalLabel }}</p>
+              </div>
+              <button
+                class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 transition hover:bg-white hover:text-slate-900"
+                type="button"
+                aria-label="Quitar cliente seleccionado"
+                @click="clearSelectedCustomer"
+              >
+                x
+              </button>
+            </div>
+          </div>
+
+          <div v-else class="mt-4 flex flex-wrap gap-2">
             <button
               v-for="mode in customerModes"
               :key="mode.key"
@@ -1000,7 +1036,7 @@ function removeLine(id: number): void {
             </button>
           </div>
 
-          <div v-if="customerMode === 'generic' || customerMode === 'quick' || customerMode === 'new'" class="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+          <div v-if="!selectedCustomer && (customerMode === 'generic' || customerMode === 'quick' || customerMode === 'new')" class="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p class="text-sm font-semibold text-slate-950">{{ form.customerName || 'Consumidor Final' }}</p>
@@ -1010,31 +1046,14 @@ function removeLine(id: number): void {
             </div>
           </div>
 
-          <div v-else-if="customerMode === 'base'" class="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+          <div v-else-if="!selectedCustomer && customerMode === 'base'" class="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div class="min-w-0 flex-1">
-                <template v-if="selectedCustomer">
-                  <p class="truncate text-sm font-semibold text-slate-950">{{ form.customerName }}</p>
-                  <div class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                    <div class="rounded-md bg-white px-3 py-2">
-                      <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Documento</p>
-                      <p class="mt-1 font-medium text-slate-900">{{ customerDocumentLabel }}</p>
-                    </div>
-                    <div class="rounded-md bg-white px-3 py-2">
-                      <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Contacto</p>
-                      <p class="mt-1 truncate font-medium text-slate-900">{{ customerContactLabel }}</p>
-                    </div>
-                  </div>
-                  <p class="mt-2 truncate text-xs text-slate-500">{{ customerFiscalLabel }}</p>
-                </template>
-                <template v-else>
-                  <p class="text-sm font-semibold text-slate-950">Cliente guardado</p>
-                  <p class="mt-1 text-sm text-slate-600">Selecciona un cliente desde la base.</p>
-                </template>
+                <p class="text-sm font-semibold text-slate-950">Cliente guardado</p>
+                <p class="mt-1 text-sm text-slate-600">Selecciona un cliente desde la base.</p>
               </div>
               <div class="flex gap-2">
-                <UiButton variant="secondary" type="button" @click="customerSearchModalOpen = true">{{ selectedCustomer ? 'Cambiar' : 'Buscar' }}</UiButton>
-                <UiButton v-if="selectedCustomer" variant="ghost" type="button" @click="clearSelectedCustomer">Quitar</UiButton>
+                <UiButton variant="secondary" type="button" @click="customerSearchModalOpen = true">Buscar</UiButton>
               </div>
             </div>
           </div>
