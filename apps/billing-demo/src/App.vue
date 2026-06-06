@@ -24,19 +24,26 @@ const fallbackBillingTypes: BillingDocumentType[] = [
   { code: '05' as BillingDocumentType['code'], label: 'Nota de credito', version: 2, implemented: false },
   { code: '06' as BillingDocumentType['code'], label: 'Nota de debito', version: 2, implemented: false }
 ];
+const billingSlugByType: Record<string, string> = {
+  '01': 'fe',
+  '03': 'ccf',
+  '14': 'se',
+  '05': 'nc',
+  '06': 'nd'
+};
 const billingOptions = computed(() => {
   const source = documentTypes.value.length ? documentTypes.value : fallbackBillingTypes;
   return source
     .filter((type) => ['01', '03', '05', '06', '14'].includes(type.code))
     .map((type) => ({
       label: type.label,
-      to: { path: '/billing', query: { tipoDte: type.code } },
+      to: `/billing/${billingSlugByType[type.code] ?? 'fe'}`,
       enabled: Boolean(type.implemented),
     }));
 });
 const pageTitle = computed(() => {
-  if (route.path === '/billing') {
-    const currentDte = billingOptions.value.find((item) => item.to.query.tipoDte === route.query.tipoDte);
+  if (route.path.startsWith('/billing')) {
+    const currentDte = billingOptions.value.find((item) => item.to === route.path);
     return currentDte?.label ?? 'Facturacion';
   }
 
@@ -47,7 +54,7 @@ const pageTitle = computed(() => {
   const current = nav.value.find((item) => item.to === route.path);
   return current?.label ?? 'Billing';
 });
-const homePath = computed(() => auth.isBackoffice ? '/companies' : '/billing');
+const homePath = computed(() => auth.isBackoffice ? '/companies' : '/billing/fe');
 const initials = computed(() => {
   const name = auth.user?.name ?? 'Stelfaro';
   return name
@@ -115,7 +122,7 @@ async function logout(): Promise<void> {
               <div v-if="!auth.isBackoffice" class="relative">
                 <button
                   class="rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
-                  :class="route.path === '/billing' ? 'bg-slate-950/70 text-white' : ''"
+                  :class="route.path.startsWith('/billing') ? 'bg-slate-950/70 text-white' : ''"
                   type="button"
                   @click="billingMenuOpen = !billingMenuOpen"
                 >
@@ -154,7 +161,7 @@ async function logout(): Promise<void> {
           </div>
 
           <div class="hidden items-center gap-4 md:flex">
-            <RouterLink v-if="!auth.isBackoffice" to="/billing" class="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400">
+            <RouterLink v-if="!auth.isBackoffice" to="/billing/fe" class="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400">
               Nueva factura
             </RouterLink>
 
@@ -247,7 +254,7 @@ async function logout(): Promise<void> {
             </div>
           </div>
           <div class="mt-3 space-y-1 px-2">
-            <RouterLink v-if="!auth.isBackoffice" to="/billing" class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white">
+            <RouterLink v-if="!auth.isBackoffice" to="/billing/fe" class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white">
               Nueva factura
             </RouterLink>
             <button class="block w-full rounded-md px-3 py-2 text-left text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white" type="button" @click="logout">

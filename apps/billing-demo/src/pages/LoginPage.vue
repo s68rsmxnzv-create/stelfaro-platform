@@ -16,7 +16,7 @@ async function submit(): Promise<void> {
 
   try {
     await auth.login(form.email, form.password);
-    await router.push(auth.consumeIntendedPath(auth.isBackoffice ? '/companies' : '/billing'));
+    await router.push(auth.consumeIntendedPath(auth.isBackoffice ? '/companies' : '/billing/fe'));
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible iniciar sesion.';
   }

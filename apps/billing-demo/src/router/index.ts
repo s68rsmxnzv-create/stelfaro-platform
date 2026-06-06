@@ -7,6 +7,8 @@ import OnboardingPage from '../pages/OnboardingPage.vue';
 import LoginPage from '../pages/LoginPage.vue';
 import { useAuthStore } from '../stores/auth';
 
+const billingSlugs = new Set(['fe', 'ccf', 'nc', 'nd']);
+
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -14,7 +16,8 @@ export const router = createRouter({
     { path: '/', name: 'dashboard', component: DashboardPage, meta: { requiresAuth: true } },
     { path: '/onboarding', name: 'onboarding', component: OnboardingPage, meta: { requiresAuth: true, requiresBackoffice: true } },
     { path: '/companies', name: 'companies', component: SettingsPage, meta: { requiresAuth: true, requiresBackoffice: true } },
-    { path: '/billing', name: 'billing', component: BillingPage, meta: { requiresAuth: true, requiresBilling: true } },
+    { path: '/billing', redirect: '/billing/fe' },
+    { path: '/billing/:documentSlug', name: 'billing', component: BillingPage, meta: { requiresAuth: true, requiresBilling: true } },
     { path: '/mh-responses', name: 'mh-responses', component: MhResponsesPage, meta: { requiresAuth: true, requiresBilling: true } },
     { path: '/settings', redirect: '/companies' }
   ]
@@ -25,7 +28,7 @@ router.beforeEach(async (to) => {
   await auth.initialize();
 
   if (to.meta.public) {
-    return auth.isAuthenticated ? { path: auth.isBackoffice ? '/companies' : '/billing' } : true;
+    return auth.isAuthenticated ? { path: auth.isBackoffice ? '/companies' : '/billing/fe' } : true;
   }
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
@@ -34,11 +37,18 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.requiresBackoffice && !auth.isBackoffice) {
-    return { path: '/billing' };
+    return { path: '/billing/fe' };
   }
 
   if (to.meta.requiresBilling && auth.isBackoffice) {
     return { path: '/companies' };
+  }
+
+  if (to.name === 'billing') {
+    const documentSlug = String(to.params.documentSlug ?? '');
+    if (!billingSlugs.has(documentSlug)) {
+      return { path: '/billing/fe' };
+    }
   }
 
   return true;
