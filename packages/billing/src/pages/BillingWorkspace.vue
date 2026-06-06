@@ -1006,51 +1006,37 @@ function removeLine(id: number): void {
             </div>
           </div>
 
-          <div v-if="selectedCustomer" class="mt-4 rounded-md border border-sky-100 bg-sky-50/80 p-4">
+          <div v-if="selectedCustomer" class="mt-4 rounded-md border border-sky-100 bg-sky-50/80 p-3">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-sky-700">
+                <div class="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
                   <span class="rounded bg-white px-2 py-1">Cliente base</span>
                 </div>
-                <div class="mt-4 divide-y divide-sky-100 text-sm">
-                  <div class="grid gap-3 py-3 sm:grid-cols-[2rem_minmax(0,1fr)]">
-                    <span class="grid h-8 w-8 place-items-center rounded-md bg-white text-xs font-bold text-sky-600">N</span>
-                    <p class="min-w-0">
-                      <span class="block text-xs font-semibold text-slate-500">Nombre:</span>
-                      <span class="block truncate font-semibold text-slate-950">{{ form.customerName }}</span>
-                    </p>
-                  </div>
-                  <div class="grid gap-3 py-3 sm:grid-cols-[2rem_minmax(0,1fr)]">
-                    <span class="grid h-8 w-8 place-items-center rounded-md bg-white text-xs font-bold text-sky-600">D</span>
-                    <div class="grid gap-3 sm:grid-cols-2">
-                      <p>
-                        <span class="block text-xs font-semibold text-slate-500">Tipo de documento:</span>
-                        <span class="block font-semibold text-slate-950">{{ customerDocumentTypeLabel }}</span>
-                      </p>
-                      <p>
-                        <span class="block text-xs font-semibold text-slate-500">Numero:</span>
-                        <span class="block font-semibold text-slate-950">{{ customerDocumentNumberLabel }}</span>
-                      </p>
-                    </div>
-                  </div>
-                  <div class="grid gap-3 py-3 sm:grid-cols-[2rem_minmax(0,1fr)]">
-                    <span class="grid h-8 w-8 place-items-center rounded-md bg-white text-xs font-bold text-sky-600">T</span>
-                    <p>
-                      <span class="block text-xs font-semibold text-slate-500">Telefono:</span>
-                      <span class="block font-semibold text-slate-950">{{ form.customerPhone || 'Sin telefono' }}</span>
-                    </p>
-                  </div>
-                  <div class="grid gap-3 py-3 sm:grid-cols-[2rem_minmax(0,1fr)]">
-                    <span class="grid h-8 w-8 place-items-center rounded-md bg-white text-xs font-bold text-sky-600">C</span>
-                    <p class="min-w-0">
-                      <span class="block text-xs font-semibold text-slate-500">Correo:</span>
-                      <span class="block truncate font-semibold text-slate-950">{{ form.customerEmail || 'Sin correo' }}</span>
-                    </p>
-                  </div>
+                <div class="mt-3 grid gap-x-4 gap-y-3 text-[13px] sm:grid-cols-2">
+                  <p class="min-w-0 sm:col-span-2">
+                    <span class="block text-[11px] font-semibold text-slate-500">Nombre</span>
+                    <span class="block truncate font-semibold text-slate-950">{{ form.customerName }}</span>
+                  </p>
+                  <p>
+                    <span class="block text-[11px] font-semibold text-slate-500">Tipo de documento</span>
+                    <span class="block font-semibold text-slate-950">{{ customerDocumentTypeLabel }}</span>
+                  </p>
+                  <p class="min-w-0">
+                    <span class="block text-[11px] font-semibold text-slate-500">Numero</span>
+                    <span class="block truncate font-semibold text-slate-950">{{ customerDocumentNumberLabel }}</span>
+                  </p>
+                  <p>
+                    <span class="block text-[11px] font-semibold text-slate-500">Telefono</span>
+                    <span class="block font-semibold text-slate-950">{{ form.customerPhone || 'Sin telefono' }}</span>
+                  </p>
+                  <p class="min-w-0">
+                    <span class="block text-[11px] font-semibold text-slate-500">Correo</span>
+                    <span class="block truncate font-semibold text-slate-950">{{ form.customerEmail || 'Sin correo' }}</span>
+                  </p>
                 </div>
               </div>
               <button
-                class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-red-50 font-bold text-red-600 transition hover:bg-red-600 hover:text-white"
+                class="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-red-50 text-sm font-bold text-red-600 transition hover:bg-red-600 hover:text-white"
                 type="button"
                 aria-label="Quitar cliente seleccionado"
                 @click="clearSelectedCustomer"
