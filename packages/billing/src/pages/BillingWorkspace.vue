@@ -18,6 +18,7 @@ import {
 import { currency, type BillingItem, type DocumentType } from '@stelfaro/shared';
 import { UiButton, UiCard, UiInput } from '@stelfaro/ui';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
+import BillingInvoiceSummaryBar from '../components/BillingInvoiceSummaryBar.vue';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -116,6 +117,7 @@ const discountTotal = computed(() => items.value.reduce((sum, item) => sum + lin
 const total = computed(() => items.value.reduce((sum, item) => sum + lineNetTotal(item), 0));
 const iva = computed(() => isCreditoFiscal.value ? total.value * 0.13 : 0);
 const totalLabel = computed(() => isCreditoFiscal.value ? total.value + iva.value : total.value);
+const unitCount = computed(() => items.value.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
 const canBuild = computed(() => Boolean(
   selectedEmpresa.value
   && selectedSucursal.value
@@ -739,7 +741,7 @@ function removeLine(id: number): void {
 </script>
 
 <template>
-  <div class="grid gap-6">
+  <div class="grid gap-6 pb-28">
     <BillingCustomerModal
       v-if="customerModalMode"
       :open="Boolean(customerModalMode)"
@@ -899,12 +901,6 @@ function removeLine(id: number): void {
           <h1 class="mt-1 text-2xl font-bold text-slate-950">Nueva factura</h1>
           <p class="mt-1 text-sm text-slate-500">Emite usando empresas configuradas, correlativos, firma y bearer del Core DTE.</p>
         </div>
-        <div class="rounded-md bg-slate-100 px-3 py-2 text-right">
-          <p class="text-xs text-slate-500">Total neto</p>
-          <p class="font-bold text-slate-950">{{ currency(totalLabel) }}</p>
-          <p v-if="discountTotal > 0" class="mt-1 text-[11px] text-slate-500">Subtotal {{ currency(subtotal) }}</p>
-          <p v-if="discountTotal > 0" class="mt-1 text-[11px] text-emerald-700">Descuento {{ currency(discountTotal) }}</p>
-        </div>
       </div>
 
       <div v-if="contextLoading" class="mt-6 text-sm text-slate-500">Cargando contexto real...</div>
@@ -913,38 +909,40 @@ function removeLine(id: number): void {
       </div>
 
       <div v-else class="mt-6 grid gap-6">
-        <section class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div class="min-w-0">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Emisor activo</p>
-              <p class="mt-1 truncate text-sm font-bold text-slate-950">{{ selectedEmpresa?.razon_social }}</p>
-              <p class="mt-1 truncate text-xs text-slate-500">
-                {{ selectedEmpresa?.ambiente === '01' ? 'Produccion' : 'Pruebas' }} ·
-                {{ documentLabel }} ·
-                {{ selectedSucursal?.codigo }} {{ selectedSucursal?.nombre }} ·
-                {{ selectedPuntoVenta?.codigo }} {{ selectedPuntoVenta?.nombre }}
-              </p>
+        <div class="grid gap-4 lg:grid-cols-2">
+          <section class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+            <div class="flex h-full flex-col justify-between gap-4">
+              <div class="min-w-0">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Emisor activo</p>
+                <p class="mt-1 truncate text-sm font-bold text-slate-950">{{ selectedEmpresa?.razon_social }}</p>
+                <p class="mt-1 truncate text-xs text-slate-500">
+                  {{ selectedEmpresa?.ambiente === '01' ? 'Produccion' : 'Pruebas' }} ·
+                  {{ documentLabel }} ·
+                  {{ selectedSucursal?.codigo }} {{ selectedSucursal?.nombre }} ·
+                  {{ selectedPuntoVenta?.codigo }} {{ selectedPuntoVenta?.nombre }}
+                </p>
+              </div>
+              <div class="flex flex-wrap items-end justify-between gap-3">
+                <p v-if="correlativoPreview" class="text-xs text-slate-500">
+                  Disponibles despues de este: {{ correlativoPreview.remaining }}
+                </p>
+                <p v-else class="text-sm text-red-700">No hay correlativo activo para esta combinacion.</p>
+                <div class="text-right">
+                  <span
+                    class="rounded px-2 py-1 text-xs font-semibold"
+                    :class="correlativoPreview ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'"
+                  >
+                    {{ correlativoPreview ? 'Correlativo activo' : 'Sin correlativo' }}
+                  </span>
+                  <p v-if="correlativoPreview" class="mt-2 max-w-[320px] truncate font-mono text-[11px] text-slate-500">
+                    {{ correlativoPreview.numero_control }}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div class="text-right">
-              <span
-                class="rounded px-2 py-1 text-xs font-semibold"
-                :class="correlativoPreview ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'"
-              >
-                {{ correlativoPreview ? 'Correlativo activo' : 'Sin correlativo' }}
-              </span>
-              <p v-if="correlativoPreview" class="mt-2 max-w-[320px] truncate font-mono text-[11px] text-slate-500">
-                {{ correlativoPreview.numero_control }}
-              </p>
-            </div>
-          </div>
+          </section>
 
-          <p v-if="correlativoPreview" class="mt-2 text-xs text-slate-500">
-            Disponibles despues de este: {{ correlativoPreview.remaining }}
-          </p>
-          <p v-else class="mt-2 text-sm text-red-700">No hay correlativo activo para esta combinacion.</p>
-        </section>
-
-        <section class="rounded-md border border-slate-200 bg-white p-4">
+          <section class="rounded-md border border-slate-200 bg-white p-4">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 class="text-base font-semibold text-slate-950">Receptor</h2>
@@ -1032,7 +1030,8 @@ function removeLine(id: number): void {
               <UiInput v-model="form.customerAddress" label="Direccion receptor" />
             </div>
           </template>
-        </section>
+          </section>
+        </div>
 
         <section class="rounded-md border border-slate-200 bg-white p-4">
           <div class="flex flex-wrap items-center justify-between gap-3">
@@ -1158,5 +1157,14 @@ function removeLine(id: number): void {
 
       <p v-if="error" class="mt-4 whitespace-pre-wrap rounded-md bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
     </UiCard>
+
+    <BillingInvoiceSummaryBar
+      v-if="!contextLoading && empresas.length > 0"
+      :line-count="items.length"
+      :unit-count="unitCount"
+      :subtotal="subtotal"
+      :discount-total="discountTotal"
+      :total-label="totalLabel"
+    />
   </div>
 </template>
