@@ -6,6 +6,7 @@ export type BillingItem = {
   description: string;
   quantity: number;
   unitPrice: Money;
+  discount?: Money;
 };
 
 export type ApiState<T> = {

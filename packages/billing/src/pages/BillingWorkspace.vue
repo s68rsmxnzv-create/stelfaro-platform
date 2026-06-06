@@ -88,7 +88,7 @@ const form = reactive({
 });
 const customerMode = ref<CustomerMode>('generic');
 const lines = ref<InvoiceLine[]>([
-  { id: 1, description: '', quantity: 1, unitPrice: 0 }
+  { id: 1, description: '', quantity: 1, unitPrice: 0, discount: 0 }
 ]);
 let lineId = 2;
 
@@ -108,10 +108,13 @@ const items = computed<BillingItem[]>(() => lines.value
   .map((line) => ({
     description: line.description.trim(),
     quantity: Number(line.quantity),
-    unitPrice: Number(line.unitPrice)
+    unitPrice: Number(line.unitPrice),
+    discount: lineDiscountAmount(line)
   }))
   .filter((line) => line.description !== '' && line.quantity > 0 && line.unitPrice >= 0));
-const total = computed(() => items.value.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0));
+const subtotal = computed(() => items.value.reduce((sum, item) => sum + lineGrossTotal(item), 0));
+const discountTotal = computed(() => items.value.reduce((sum, item) => sum + lineDiscountAmount(item), 0));
+const total = computed(() => items.value.reduce((sum, item) => sum + lineNetTotal(item), 0));
 const iva = computed(() => isCreditoFiscal.value ? total.value * 0.13 : 0);
 const totalLabel = computed(() => isCreditoFiscal.value ? total.value + iva.value : total.value);
 const canBuild = computed(() => Boolean(
@@ -164,6 +167,20 @@ const customerSummary = computed(() => {
   ].filter(Boolean);
   return details.length > 0 ? details.join(' · ') : 'Datos opcionales pendientes.';
 });
+
+function lineGrossTotal(line: BillingItem): number {
+  return Math.max(0, Number(line.quantity || 0) * Number(line.unitPrice || 0));
+}
+
+function lineDiscountAmount(line: BillingItem): number {
+  const discount = Math.max(0, Number(line.discount || 0));
+
+  return Math.min(lineGrossTotal(line), discount);
+}
+
+function lineNetTotal(line: BillingItem): number {
+  return Math.max(0, lineGrossTotal(line) - lineDiscountAmount(line));
+}
 
 onMounted(() => {
   void loadContext();
@@ -225,7 +242,7 @@ async function loadContext(): Promise<void> {
     form.sucursalId = context.value.empresas[0]?.sucursales[0]?.id ?? null;
     form.puntoVentaId = context.value.empresas[0]?.sucursales[0]?.puntosVenta[0]?.id ?? null;
     setGenericCustomer();
-    lines.value = [{ id: 1, description: '', quantity: 1, unitPrice: 0 }];
+    lines.value = [{ id: 1, description: '', quantity: 1, unitPrice: 0, discount: 0 }];
     lineId = 2;
     await Promise.all([loadCustomers(), loadItemTemplates()]);
   } catch (caught) {
@@ -397,7 +414,7 @@ function resetInvoiceForm(): void {
   itemTemplateSearch.value = '';
   customerMode.value = 'generic';
   setGenericCustomer();
-  lines.value = [{ id: 1, description: '', quantity: 1, unitPrice: 0 }];
+  lines.value = [{ id: 1, description: '', quantity: 1, unitPrice: 0, discount: 0 }];
   lineId = 2;
 }
 
@@ -653,7 +670,8 @@ function addTemplateLine(template: BillingItemTemplate): void {
     id: lineId++,
     description: template.description,
     quantity: Number(template.default_quantity || 1),
-    unitPrice: Number(template.default_price || 0)
+    unitPrice: Number(template.default_price || 0),
+    discount: 0
   };
   const emptyIndex = lines.value.findIndex((line) => line.description.trim() === '' && Number(line.unitPrice) === 0);
   if (emptyIndex >= 0) {
@@ -686,12 +704,12 @@ async function saveLineAsTemplate(line: InvoiceLine): Promise<void> {
 }
 
 function addLine(): void {
-  lines.value = [...lines.value, { id: lineId++, description: '', quantity: 1, unitPrice: 0 }];
+  lines.value = [...lines.value, { id: lineId++, description: '', quantity: 1, unitPrice: 0, discount: 0 }];
 }
 
 function removeLine(id: number): void {
   if (lines.value.length === 1) {
-    lines.value = [{ id: lineId++, description: '', quantity: 1, unitPrice: 0 }];
+    lines.value = [{ id: lineId++, description: '', quantity: 1, unitPrice: 0, discount: 0 }];
     return;
   }
 
@@ -861,8 +879,10 @@ function removeLine(id: number): void {
           <p class="mt-1 text-sm text-slate-500">Emite usando empresas configuradas, correlativos, firma y bearer del Core DTE.</p>
         </div>
         <div class="rounded-md bg-slate-100 px-3 py-2 text-right">
-          <p class="text-xs text-slate-500">Total</p>
+          <p class="text-xs text-slate-500">Total neto</p>
           <p class="font-bold text-slate-950">{{ currency(totalLabel) }}</p>
+          <p v-if="discountTotal > 0" class="mt-1 text-[11px] text-slate-500">Subtotal {{ currency(subtotal) }}</p>
+          <p v-if="discountTotal > 0" class="mt-1 text-[11px] text-emerald-700">Descuento {{ currency(discountTotal) }}</p>
         </div>
       </div>
 
@@ -1022,13 +1042,14 @@ function removeLine(id: number): void {
           </div>
 
           <div class="mt-4 overflow-hidden rounded-md border border-slate-200">
-            <table class="w-full min-w-[680px] text-left text-sm">
+            <table class="w-full min-w-[780px] text-left text-sm">
               <thead class="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
                   <th class="px-3 py-2">Descripcion</th>
                   <th class="w-28 px-3 py-2">Cantidad</th>
                   <th class="w-36 px-3 py-2">Precio</th>
-                  <th class="w-32 px-3 py-2 text-right">Total</th>
+                  <th class="w-36 px-3 py-2">Descuento</th>
+                  <th class="w-32 px-3 py-2 text-right">Neto</th>
                   <th class="w-32 px-3 py-2"></th>
                 </tr>
               </thead>
@@ -1043,7 +1064,13 @@ function removeLine(id: number): void {
                   <td class="px-3 py-2">
                     <input v-model.number="line.unitPrice" class="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0" step="0.01" type="number">
                   </td>
-                  <td class="px-3 py-2 text-right font-semibold text-slate-900">{{ currency(Number(line.quantity) * Number(line.unitPrice)) }}</td>
+                  <td class="px-3 py-2">
+                    <input v-model.number="line.discount" class="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0" step="0.01" type="number">
+                  </td>
+                  <td class="px-3 py-2 text-right">
+                    <p class="font-semibold text-slate-900">{{ currency(lineNetTotal(line)) }}</p>
+                    <p v-if="lineDiscountAmount(line) > 0" class="text-[11px] text-slate-500">Bruto {{ currency(lineGrossTotal(line)) }}</p>
+                  </td>
                   <td class="px-3 py-2 text-right">
                     <button class="rounded px-2 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-50" type="button" @click="saveLineAsTemplate(line)">Guardar</button>
                     <button class="rounded px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-red-700" type="button" @click="removeLine(line.id)">Quitar</button>

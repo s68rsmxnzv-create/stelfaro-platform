@@ -42,6 +42,21 @@ const previewStatus = computed(() => {
   if (!props.preview) return null;
   return props.preview.valid ? 'Schema valido' : 'Schema invalido';
 });
+
+const subtotal = computed(() => props.items.reduce((sum, item) => sum + lineGrossTotal(item), 0));
+const discountTotal = computed(() => props.items.reduce((sum, item) => sum + lineDiscountAmount(item), 0));
+
+function lineGrossTotal(item: BillingItem): number {
+  return Math.max(0, Number(item.quantity || 0) * Number(item.unitPrice || 0));
+}
+
+function lineDiscountAmount(item: BillingItem): number {
+  return Math.min(lineGrossTotal(item), Math.max(0, Number(item.discount || 0)));
+}
+
+function lineNetTotal(item: BillingItem): number {
+  return Math.max(0, lineGrossTotal(item) - lineDiscountAmount(item));
+}
 </script>
 
 <template>
@@ -106,11 +121,15 @@ const previewStatus = computed(() => {
       <div class="my-4 border-t border-dashed border-slate-300"></div>
 
       <div v-if="items.length" class="space-y-3">
-        <div v-for="item in items" :key="`${item.description}-${item.quantity}-${item.unitPrice}`">
+        <div v-for="item in items" :key="`${item.description}-${item.quantity}-${item.unitPrice}-${item.discount ?? 0}`">
           <p class="font-semibold text-slate-950">{{ item.description }}</p>
           <div class="flex justify-between gap-3 text-slate-600">
             <span>{{ item.quantity }} x {{ currency(item.unitPrice) }}</span>
-            <span class="font-semibold text-slate-950">{{ currency(item.quantity * item.unitPrice) }}</span>
+            <span class="font-semibold text-slate-950">{{ currency(lineNetTotal(item)) }}</span>
+          </div>
+          <div v-if="lineDiscountAmount(item) > 0" class="flex justify-between gap-3 text-slate-500">
+            <span>Descuento</span>
+            <span>-{{ currency(lineDiscountAmount(item)) }}</span>
           </div>
         </div>
       </div>
@@ -121,6 +140,14 @@ const previewStatus = computed(() => {
       <dl class="grid gap-1">
         <div class="flex justify-between gap-3">
           <dt>Subtotal</dt>
+          <dd>{{ currency(subtotal) }}</dd>
+        </div>
+        <div v-if="discountTotal > 0" class="flex justify-between gap-3">
+          <dt>Descuento</dt>
+          <dd>-{{ currency(discountTotal) }}</dd>
+        </div>
+        <div v-if="discountTotal > 0" class="flex justify-between gap-3">
+          <dt>Neto</dt>
           <dd>{{ currency(total) }}</dd>
         </div>
         <div v-if="iva > 0" class="flex justify-between gap-3">

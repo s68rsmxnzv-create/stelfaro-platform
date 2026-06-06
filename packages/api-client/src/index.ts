@@ -728,6 +728,17 @@ export class CoreDteClient {
 
 export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewRequest {
   const receptorDocument = normalizeRecipientDocument(input.customerDocumentType, input.customerDocument);
+  const items = input.items.map((item) => {
+    const discount = lineDiscount(item);
+
+    return {
+      descripcion: item.description,
+      cantidad: item.quantity,
+      precioUni: item.unitPrice,
+      montoDescu: discount,
+      ...(input.documentType === '03' ? { tributos: ['20'] } : {})
+    };
+  });
 
   return {
     tipoDte: input.documentType,
@@ -786,16 +797,25 @@ export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewReques
         telefono: input.customerPhone,
         correo: input.customerEmail
       },
-    items: input.items.map((item) => ({
-      descripcion: item.description,
-      cantidad: item.quantity,
-      precioUni: item.unitPrice,
-      ...(input.documentType === '03' ? { tributos: ['20'] } : {})
-    })),
+    items,
     resumen: {
-      totalPagar: input.items.reduce((total, item) => total + item.quantity * item.unitPrice, 0)
+      totalPagar: input.items.reduce((total, item) => total + lineNetTotal(item), 0)
     }
   };
+}
+
+function lineGrossTotal(item: BillingItem): number {
+  return Math.max(0, Number(item.quantity || 0) * Number(item.unitPrice || 0));
+}
+
+function lineDiscount(item: BillingItem): number {
+  const discount = Math.max(0, Number(item.discount || 0));
+
+  return Math.min(lineGrossTotal(item), discount);
+}
+
+function lineNetTotal(item: BillingItem): number {
+  return Math.max(0, lineGrossTotal(item) - lineDiscount(item));
 }
 
 function onlyDigits(value: string | null | undefined): string | null {
