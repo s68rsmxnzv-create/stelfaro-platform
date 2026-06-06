@@ -18,7 +18,6 @@ import {
 import { currency, type BillingItem, type DocumentType } from '@stelfaro/shared';
 import { UiButton, UiCard, UiInput } from '@stelfaro/ui';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
-import BillingTicketPreview from '../components/BillingTicketPreview.vue';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -740,7 +739,7 @@ function removeLine(id: number): void {
 </script>
 
 <template>
-  <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+  <div class="grid gap-6">
     <BillingCustomerModal
       v-if="customerModalMode"
       :open="Boolean(customerModalMode)"
@@ -1159,26 +1158,5 @@ function removeLine(id: number): void {
 
       <p v-if="error" class="mt-4 whitespace-pre-wrap rounded-md bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
     </UiCard>
-
-    <aside class="content-start">
-      <BillingTicketPreview
-        :empresa="selectedEmpresa"
-        :sucursal="selectedSucursal"
-        :punto-venta="selectedPuntoVenta"
-        :document-label="documentLabel"
-        :correlativo="correlativoPreview"
-        :customer-name="form.customerName"
-        :customer-document-type="form.customerDocumentType || null"
-        :customer-document="form.customerDocument || null"
-        :customer-email="form.customerEmail || null"
-        :customer-phone="form.customerPhone || null"
-        :items="items"
-        :total="total"
-        :iva="iva"
-        :total-label="totalLabel"
-        :preview="preview"
-        :draft="draft"
-      />
-    </aside>
   </div>
 </template>
