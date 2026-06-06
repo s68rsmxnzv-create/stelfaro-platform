@@ -1023,12 +1023,12 @@ function removeLine(id: number): void {
             </div>
           </div>
 
-          <div v-else class="mt-4 flex flex-wrap gap-2">
+          <div v-else class="mt-4 grid gap-2 sm:grid-cols-2">
             <button
               v-for="mode in customerModes"
               :key="mode.key"
-              class="rounded-full border px-3 py-1.5 text-sm font-semibold transition"
-              :class="customerMode === mode.key ? 'border-sky-500 bg-sky-50 text-sky-700' : 'border-slate-200 bg-white text-slate-600 hover:border-sky-200 hover:bg-sky-50'"
+              class="rounded-lg px-4 py-2 text-sm font-semibold tracking-wide transition-colors duration-200 focus:outline-none focus:ring focus:ring-sky-300 focus:ring-opacity-70"
+              :class="customerMode === mode.key ? 'bg-sky-600 text-white hover:bg-sky-500' : 'bg-slate-100 text-slate-900 hover:bg-slate-200'"
               type="button"
               @click="selectCustomerMode(mode.key)"
             >
