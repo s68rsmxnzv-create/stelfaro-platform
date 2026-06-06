@@ -243,6 +243,7 @@ export type BillingCustomer = {
   nombre_comercial: string | null;
   departamento: string | null;
   municipio: string | null;
+  distrito: string | null;
   direccion_complemento: string | null;
   allowed_dte_codes: string[];
   is_active: boolean;
@@ -436,9 +437,12 @@ export type ManualInvoiceInput = {
   customerCommercialName?: string | null;
   customerDepartment?: string | null;
   customerMunicipality?: string | null;
+  customerDistrict?: string | null;
   customerAddress?: string | null;
   customerPhone?: string | null;
   customerEmail: string | null;
+  priceIncludesIva?: boolean;
+  retainIva10?: boolean;
   items: BillingItem[];
 };
 
@@ -461,7 +465,7 @@ export class CoreDteClient {
   constructor(baseUrl: string, options: CoreDteClientOptions = {}) {
     this.authToken = options.authToken;
     this.onSessionRefresh = options.onSessionRefresh;
-    this.baseUrl = baseUrl.replace(/^\/+/, '').replace(/\/$/, '');
+    this.baseUrl = this.normalizeBaseUrl(baseUrl);
     this.http = ky.create({
       prefixUrl: this.baseUrl,
       timeout: 15000,
@@ -492,6 +496,24 @@ export class CoreDteClient {
         ]
       }
     });
+  }
+
+  private normalizeBaseUrl(baseUrl: string): string {
+    const trimmed = baseUrl.trim().replace(/\/$/, '');
+
+    if (/^https?:\/\//i.test(trimmed)) {
+      return trimmed;
+    }
+
+    if (trimmed.startsWith('/')) {
+      if (typeof window !== 'undefined' && window.location?.origin) {
+        return `${window.location.origin}${trimmed}`;
+      }
+
+      return trimmed.replace(/^\/+/, '');
+    }
+
+    return trimmed.replace(/^\/+/, '');
   }
 
   login(payload: { email: string; password: string; device_name?: string }): Promise<LoginResponse> {
@@ -648,7 +670,7 @@ export class CoreDteClient {
 
   async issueProgress(payload: DtePreviewRequest, onEvent: (event: DteIssueProgressEvent) => void): Promise<DteIssueResponse> {
     const token = typeof this.authToken === 'function' ? this.authToken() : this.authToken;
-    const response = await fetch(`/${this.baseUrl}/dte/issue-progress`, {
+    const response = await fetch(`${this.baseUrl}/dte/issue-progress`, {
       method: 'POST',
       headers: {
         'Accept': 'application/x-ndjson',
@@ -728,7 +750,11 @@ export class CoreDteClient {
 
 export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewRequest {
   const receptorDocument = normalizeRecipientDocument(input.customerDocumentType, input.customerDocument);
-  const items = input.items.map((item) => {
+  const priceIncludesIva = input.documentType === '03' && input.priceIncludesIva !== false;
+  const ivaRetention = input.documentType === '03' && input.retainIva10
+    ? roundMoney(totalTaxableBase(input.items, priceIncludesIva) * 0.01)
+    : 0;
+  const items: Array<Record<string, unknown>> = input.items.map((item) => {
     const discount = lineDiscount(item);
 
     return {
@@ -736,9 +762,16 @@ export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewReques
       cantidad: item.quantity,
       precioUni: item.unitPrice,
       montoDescu: discount,
-      ...(input.documentType === '03' ? { tributos: ['20'] } : {})
+      ...(input.documentType === '03' ? { tributos: ['20'], precioIncluyeIva: priceIncludesIva } : {})
     };
   });
+
+  if (ivaRetention > 0 && items[0]) {
+    items[0] = {
+      ...items[0],
+      ivaRete1: ivaRetention
+    };
+  }
 
   return {
     tipoDte: input.documentType,
@@ -781,6 +814,7 @@ export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewReques
         direccion: {
           departamento: input.customerDepartment,
           municipio: input.customerMunicipality,
+          distrito: normalizeDistrict(input.customerDistrict),
           complemento: input.customerAddress
         },
         telefono: input.customerPhone,
@@ -818,6 +852,30 @@ function lineNetTotal(item: BillingItem): number {
   return Math.max(0, lineGrossTotal(item) - lineDiscount(item));
 }
 
+function lineTaxableBase(item: BillingItem, priceIncludesIva: boolean): number {
+  if (!priceIncludesIva) return lineNetTotal(item);
+
+  const quantity = Math.max(0, Number(item.quantity || 0));
+  const gross = lineGrossTotal(item);
+  const discount = lineDiscount(item);
+  const baseUnit = quantity > 0 ? roundUpMoney((gross / 1.13) / quantity) : 0;
+  const baseDiscount = roundUpMoney(discount / 1.13);
+
+  return roundMoney(Math.max(0, (baseUnit * quantity) - baseDiscount));
+}
+
+function totalTaxableBase(items: BillingItem[], priceIncludesIva: boolean): number {
+  return roundMoney(items.reduce((total, item) => total + lineTaxableBase(item, priceIncludesIva), 0));
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function roundUpMoney(value: number): number {
+  return Math.ceil((value - 0.000000001) * 100) / 100;
+}
+
 function onlyDigits(value: string | null | undefined): string | null {
   if (value === null || value === undefined) {
     return null;
@@ -826,6 +884,13 @@ function onlyDigits(value: string | null | undefined): string | null {
   const digits = value.replace(/\D+/g, '');
 
   return digits === '' ? value : digits;
+}
+
+function normalizeDistrict(value: string | null | undefined): string | null {
+  const digits = onlyDigits(value);
+  if (!digits) return null;
+
+  return digits.padStart(2, '0');
 }
 
 function normalizeRecipientDocument(type: string | null | undefined, value: string | null | undefined): { documentType: string | null; documentNumber: string | null } {

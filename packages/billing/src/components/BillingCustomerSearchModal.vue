@@ -16,6 +16,22 @@ const emit = defineEmits<{
   select: [customer: BillingCustomer];
   'update:search': [value: string];
 }>();
+
+function customerDocumentLabel(customer: BillingCustomer): string {
+  const value = customer.nit ?? customer.document_number ?? '';
+  const digits = value.replace(/\D+/g, '');
+  const label = digits.length === 14 ? 'NIT' : digits.length === 9 ? 'DUI' : customer.document_type ?? 'Doc';
+
+  if (digits.length === 9) {
+    return `${label} ${digits.slice(0, 8)}-${digits.slice(8)}`;
+  }
+
+  if (digits.length === 14) {
+    return `${label} ${digits.slice(0, 4)}-${digits.slice(4, 10)}-${digits.slice(10, 13)}-${digits.slice(13)}`;
+  }
+
+  return value ? `${label} ${value}` : 'Sin documento';
+}
 </script>
 
 <template>
@@ -74,7 +90,7 @@ const emit = defineEmits<{
             >
               <span class="block font-semibold text-slate-950">{{ customer.name }}</span>
               <span class="mt-1 block text-xs text-slate-500">
-                {{ customer.document_type ?? 'Doc' }} {{ customer.nit ?? customer.document_number ?? 'sin documento' }}
+                {{ customerDocumentLabel(customer) }}
                 <span v-if="customer.email"> · {{ customer.email }}</span>
                 <span v-if="customer.phone"> · {{ customer.phone }}</span>
               </span>

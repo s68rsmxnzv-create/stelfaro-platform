@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import {
   buildFacturaRequest,
+  type BillingCatalogs,
   CoreDteClient,
   type BillingCustomer,
   type BillingContext,
@@ -16,8 +17,10 @@ import {
   type DtePreviewResponse
 } from '@stelfaro/api-client';
 import { currency, type BillingItem, type DocumentType } from '@stelfaro/shared';
-import { UiButton, UiCard, UiInput } from '@stelfaro/ui';
+import { UiButton, UiCard, UiInput, UiLoadingMark } from '@stelfaro/ui';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
+import BillingFiscalCustomerModal, { type BillingFiscalCustomerModalPayload } from '../components/BillingFiscalCustomerModal.vue';
+import BillingFiscalOptions from '../components/BillingFiscalOptions.vue';
 import BillingCustomerSearchModal from '../components/BillingCustomerSearchModal.vue';
 import BillingInvoiceSummaryBar from '../components/BillingInvoiceSummaryBar.vue';
 
@@ -36,6 +39,7 @@ const loading = ref(false);
 const contextLoading = ref(false);
 const error = ref<string | null>(null);
 const context = ref<BillingContext | null>(null);
+const catalogs = ref<BillingCatalogs | null>(null);
 const correlativoPreview = ref<CorrelativoReservation | null>(null);
 const preview = ref<DtePreviewResponse | null>(null);
 const draft = ref<DteDraftSummary | null>(null);
@@ -46,7 +50,11 @@ const issueModalOpen = ref(false);
 const issuePhaseIndex = ref(0);
 const issueResult = ref<DteIssueResponse | null>(null);
 const issueProgress = ref(0);
-const issueLog = ref<string[]>([]);
+type IssueLogEntry = {
+  message: string;
+  status: 'ok' | 'error';
+};
+const issueLog = ref<IssueLogEntry[]>([]);
 const customers = ref<BillingCustomer[]>([]);
 const customerSearch = ref('');
 const customerSearchLocked = ref(false);
@@ -55,18 +63,28 @@ const selectedCustomerRecord = ref<BillingCustomer | null>(null);
 const itemTemplates = ref<BillingItemTemplate[]>([]);
 const itemTemplateSearch = ref('');
 const customerModalMode = ref<'new' | 'quick' | null>(null);
+const fiscalCustomerModalOpen = ref(false);
 const customerSearchModalOpen = ref(false);
+const fiscalModalDepartamento = ref('');
+const fiscalModalMunicipio = ref('');
+const ccfPriceIncludesIva = ref(true);
+const ccfRetainIva10 = ref(false);
+let issueAutoCloseTimer: ReturnType<typeof window.setTimeout> | null = null;
 
 type InvoiceLine = BillingItem & {
   id: number;
   discountPercent: number;
 };
-type CustomerMode = 'generic' | 'base' | 'new' | 'quick';
-const customerModes: Array<{ key: CustomerMode; label: string }> = [
+type CustomerMode = 'generic' | 'base' | 'new' | 'quick' | 'fiscal_new';
+const simpleCustomerModes: Array<{ key: CustomerMode; label: string }> = [
   { key: 'generic', label: 'Generico default' },
   { key: 'base', label: 'Cliente base' },
   { key: 'new', label: 'Nuevo cliente' },
   { key: 'quick', label: 'Cliente rapido' },
+];
+const fiscalCustomerModes: Array<{ key: CustomerMode; label: string }> = [
+  { key: 'base', label: 'Cliente fiscal guardado' },
+  { key: 'fiscal_new', label: 'Nuevo cliente fiscal' },
 ];
 
 const form = reactive({
@@ -83,6 +101,7 @@ const form = reactive({
   customerCommercialName: '',
   customerDepartment: '',
   customerMunicipality: '',
+  customerDistrict: '',
   customerAddress: '',
   customerPhone: '',
   customerEmail: '',
@@ -102,24 +121,49 @@ const selectedSucursal = computed<BillingSucursal | null>(() => sucursales.value
 const puntosVenta = computed(() => selectedSucursal.value?.puntosVenta ?? []);
 const selectedPuntoVenta = computed<BillingPuntoVenta | null>(() => puntosVenta.value.find((punto) => punto.id === form.puntoVentaId) ?? null);
 const documentTypes = computed(() => context.value?.documentTypes ?? []);
+const departamentos = computed(() => catalogs.value?.departamentos ?? []);
+const municipios = computed(() => (catalogs.value?.municipios ?? []).filter((item) => departmentCode(item.departamento) === departmentCode(fiscalModalDepartamento.value)));
+const distritos = computed(() => (catalogs.value?.distritos ?? []).filter((item) => (
+  departmentCode(item.departamento) === departmentCode(fiscalModalDepartamento.value)
+  && String(item.municipio) === String(fiscalModalMunicipio.value)
+)));
+const actividadesEconomicas = computed(() => catalogs.value?.actividadesEconomicas ?? []);
+const departamentoOptions = computed(() => departamentos.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
+const municipioOptions = computed(() => municipios.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
+const distritoOptions = computed(() => distritos.value.map((item) => {
+  const code = item.code.replace(/\D+/g, '').padStart(2, '0');
+
+  return { value: code, label: item.label, hint: code };
+}));
+const actividadOptions = computed(() => actividadesEconomicas.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
 const availableDocumentTypes = computed(() => {
   const enabled = selectedEmpresa.value?.enabled_document_types ?? [];
   return documentTypes.value.filter((type) => ['01', '03'].includes(type.code) && (enabled.length === 0 || enabled.includes(type.code)));
 });
 const isCreditoFiscal = computed(() => form.documentType === '03');
+const customerModes = computed(() => isCreditoFiscal.value ? fiscalCustomerModes : simpleCustomerModes);
 const items = computed<BillingItem[]>(() => lines.value
   .map((line) => ({
     description: line.description.trim(),
     quantity: Number(line.quantity),
     unitPrice: Number(line.unitPrice),
-    discount: lineDiscountAmount(line)
+    discount: lineDiscountAmount(line),
+    priceIncludesIva: isCreditoFiscal.value ? ccfPriceIncludesIva.value : false
   }))
   .filter((line) => line.description !== '' && line.quantity > 0 && line.unitPrice >= 0));
 const subtotal = computed(() => items.value.reduce((sum, item) => sum + lineGrossTotal(item), 0));
 const discountTotal = computed(() => items.value.reduce((sum, item) => sum + lineDiscountAmount(item), 0));
 const total = computed(() => items.value.reduce((sum, item) => sum + lineNetTotal(item), 0));
-const iva = computed(() => isCreditoFiscal.value ? total.value * 0.13 : 0);
-const totalLabel = computed(() => isCreditoFiscal.value ? total.value + iva.value : total.value);
+const iva = computed(() => isCreditoFiscal.value ? items.value.reduce((sum, item) => sum + lineIvaAmount(item), 0) : 0);
+const taxableBase = computed(() => isCreditoFiscal.value ? items.value.reduce((sum, item) => sum + lineTaxableBase(item), 0) : 0);
+const ivaRetention = computed(() => isCreditoFiscal.value && ccfRetainIva10.value ? roundMoney(taxableBase.value * 0.01) : 0);
+const totalLabel = computed(() => {
+  if (!isCreditoFiscal.value) return total.value;
+
+  const totalWithIva = ccfPriceIncludesIva.value ? total.value : total.value + iva.value;
+
+  return roundMoney(Math.max(0, totalWithIva - ivaRetention.value));
+});
 const unitCount = computed(() => items.value.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
 const canBuild = computed(() => Boolean(
   selectedEmpresa.value
@@ -137,6 +181,7 @@ const canBuildCreditoFiscal = computed(() => Boolean(
   && form.customerActivityDescription.trim()
   && form.customerDepartment.trim()
   && form.customerMunicipality.trim()
+  && form.customerDistrict.trim()
   && form.customerAddress.trim()
   && form.customerEmail.trim()
 ));
@@ -149,15 +194,14 @@ const issuePhases = computed(() => [
   { label: 'Esperando respuesta', detail: 'Registrando resultado y posibles saltos de correlativo.' }
 ]);
 const issueRejected = computed(() => issueResult.value?.document.transmission?.status === 'REJECTED' || issueResult.value?.document.estado === 'rejected');
-const issueMhJson = computed(() => JSON.stringify(
-  issueResult.value?.document.mh_response
-    ?? issueResult.value?.document.transmission?.raw_response
-    ?? issueResult.value?.document.transmission
-    ?? {},
-  null,
-  2
-));
 const issueTransmissionAttempts = computed(() => issueResult.value?.document.transmission_attempts ?? []);
+const issueAttemptCount = computed(() => Math.max(
+  issueResult.value?.attempts.length ?? 0,
+  issueTransmissionAttempts.value.length
+));
+const pushIssueLog = (message: string, status: IssueLogEntry['status'] = 'ok'): void => {
+  issueLog.value = [...issueLog.value.slice(-8), { message, status }];
+};
 const selectedCustomer = computed(() => selectedCustomerRecord.value);
 const selectedDocumentType = computed(() => availableDocumentTypes.value.find((type) => type.code === form.documentType) ?? null);
 const documentLabel = computed(() => `${form.documentType} · ${selectedDocumentType.value?.label ?? 'Factura Electronica'}`);
@@ -172,6 +216,7 @@ const customerSummary = computed(() => {
   return details.length > 0 ? details.join(' · ') : 'Datos opcionales pendientes.';
 });
 const customerDocumentTypeLabel = computed(() => {
+  if (isCreditoFiscal.value && form.customerDocument) return form.customerDocument.length === 9 ? 'NIT / DUI homologado' : 'NIT';
   if (form.customerDocumentType === '36') return 'NIT';
   if (form.customerDocumentType === '13') return 'DUI';
 
@@ -196,6 +241,36 @@ function lineNetTotal(line: BillingItem): number {
   return Math.max(0, lineGrossTotal(line) - lineDiscountAmount(line));
 }
 
+function lineTaxableBase(line: BillingItem): number {
+  if (!isCreditoFiscal.value || !ccfPriceIncludesIva.value) return lineNetTotal(line);
+
+  const quantity = Math.max(0, Number(line.quantity || 0));
+  const gross = lineGrossTotal(line);
+  const discount = lineDiscountAmount(line);
+  const baseUnit = quantity > 0 ? roundUpMoney((gross / 1.13) / quantity) : 0;
+  const baseDiscount = roundUpMoney(discount / 1.13);
+
+  return roundMoney(Math.max(0, (baseUnit * quantity) - baseDiscount));
+}
+
+function lineIvaAmount(line: BillingItem): number {
+  if (!isCreditoFiscal.value) return 0;
+
+  if (ccfPriceIncludesIva.value) {
+    return roundMoney(lineNetTotal(line) - lineTaxableBase(line));
+  }
+
+  return roundMoney(lineTaxableBase(line) * 0.13);
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function roundUpMoney(value: number): number {
+  return Math.ceil((value - 0.000000001) * 100) / 100;
+}
+
 function formatCustomerDocument(value: string): string {
   const digits = value.replace(/\D+/g, '');
 
@@ -215,6 +290,12 @@ function formatCustomerDocument(value: string): string {
   return value || 'Sin numero';
 }
 
+function departmentCode(value: string | number | null | undefined): string {
+  const digits = String(value ?? '').replace(/\D+/g, '');
+
+  return digits.padStart(2, '0');
+}
+
 function newInvoiceLine(): InvoiceLine {
   return {
     id: lineId++,
@@ -227,8 +308,36 @@ function newInvoiceLine(): InvoiceLine {
 }
 
 onMounted(() => {
+  window.addEventListener('keydown', handleIssueModalKeydown);
   void loadContext();
 });
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleIssueModalKeydown);
+  clearIssueAutoClose();
+});
+
+watch(issueResult, (result) => {
+  clearIssueAutoClose();
+  if (result && !issueRejected.value) {
+    issueAutoCloseTimer = window.setTimeout(() => {
+      closeIssueModal();
+    }, 4500);
+  }
+});
+
+function clearIssueAutoClose(): void {
+  if (issueAutoCloseTimer) {
+    window.clearTimeout(issueAutoCloseTimer);
+    issueAutoCloseTimer = null;
+  }
+}
+
+function handleIssueModalKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape' && issueModalOpen.value && !issuing.value) {
+    closeIssueModal();
+  }
+}
 
 watch([
   () => form.documentType,
@@ -281,11 +390,21 @@ async function loadContext(): Promise<void> {
   error.value = null;
 
   try {
-    context.value = await client.value.billingContext();
+    const [contextResult, catalogsResult] = await Promise.all([
+      client.value.billingContext(),
+      client.value.billingCatalogs()
+    ]);
+    context.value = contextResult;
+    catalogs.value = catalogsResult;
     form.empresaId = context.value.empresas[0]?.id ?? null;
     form.sucursalId = context.value.empresas[0]?.sucursales[0]?.id ?? null;
     form.puntoVentaId = context.value.empresas[0]?.sucursales[0]?.puntosVenta[0]?.id ?? null;
-    setGenericCustomer();
+    if (isCreditoFiscal.value) {
+      customerMode.value = 'base';
+      clearCustomerFields('');
+    } else {
+      setGenericCustomer();
+    }
     lineId = 1;
     draftLine.value = newInvoiceLine();
     lines.value = [];
@@ -309,6 +428,23 @@ watch(customerMode, (mode) => {
     clearCustomerFields('');
     void loadCustomers();
   }
+});
+
+watch(() => form.documentType, (documentType) => {
+  selectedCustomerId.value = null;
+  selectedCustomerRecord.value = null;
+  customerSearch.value = '';
+  customerSearchLocked.value = false;
+  customers.value = [];
+
+  if (documentType === '03') {
+    customerMode.value = 'base';
+    clearCustomerFields('');
+    return;
+  }
+
+  customerMode.value = 'generic';
+  setGenericCustomer();
 });
 
 async function run<T>(task: () => Promise<T>): Promise<T | null> {
@@ -337,48 +473,8 @@ async function previewNextCorrelativo(): Promise<void> {
   }
 }
 
-async function previewDocument(): Promise<void> {
-  const payload = buildPayloadOrNull();
-  if (!payload) {
-    error.value = 'Completa emisor, punto de venta, correlativo, receptor e item antes de previsualizar.';
-    return;
-  }
-
-  const result = await run(() => client.value.preview(payload));
-  if (result) {
-    preview.value = result;
-  }
-}
-
-async function createDraft(): Promise<void> {
-  const scope = correlativoScope();
-  if (!scope) {
-    error.value = 'Selecciona empresa, sucursal y punto de venta antes de crear el draft.';
-    return;
-  }
-
-  const reservation = await run(() => client.value.reserveCorrelativo(scope));
-  if (!reservation) {
-    return;
-  }
-
-  correlativoPreview.value = reservation;
-  const payload = buildPayloadOrNull(reservation);
-  if (!payload) {
-    error.value = 'No fue posible construir el payload DTE con el correlativo reservado.';
-    return;
-  }
-
-  const result = await run(() => client.value.createDraft(payload));
-  if (result) {
-    draft.value = result;
-    currentStep.value = 'draft';
-    preview.value = null;
-    history.value = [];
-  }
-}
-
 async function issueDocument(): Promise<void> {
+  clearIssueAutoClose();
   issuing.value = true;
   error.value = null;
   issueModalOpen.value = true;
@@ -403,7 +499,7 @@ async function issueDocument(): Promise<void> {
     const result = await client.value.issueProgress(payload, (event) => {
       if (event.type === 'stage') {
         issueProgress.value = event.progress;
-        issueLog.value = [...issueLog.value.slice(-8), event.message];
+        pushIssueLog(event.message);
         const idx = issuePhases.value.findIndex((phase) => phase.label.toLowerCase().includes(event.stage));
         if (idx >= 0) issuePhaseIndex.value = idx;
         return;
@@ -411,7 +507,7 @@ async function issueDocument(): Promise<void> {
 
       if (event.type === 'completed') {
         issueProgress.value = event.progress ?? 100;
-        issueLog.value = [...issueLog.value.slice(-8), event.message];
+        pushIssueLog(event.message, event.ok ? 'ok' : 'error');
       }
     });
     if (result) {
@@ -424,7 +520,7 @@ async function issueDocument(): Promise<void> {
     }
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible emitir el DTE.';
-    issueLog.value = [...issueLog.value.slice(-8), error.value];
+    pushIssueLog(error.value, 'error');
   } finally {
     issuing.value = false;
   }
@@ -435,6 +531,7 @@ function closeIssueModal(): void {
     return;
   }
 
+  clearIssueAutoClose();
   const shouldResetInvoice = Boolean(issueResult.value);
   issueModalOpen.value = false;
   if (shouldResetInvoice) {
@@ -458,10 +555,17 @@ function resetInvoiceForm(): void {
   customerSearchLocked.value = false;
   customers.value = [];
   customerModalMode.value = null;
+  fiscalCustomerModalOpen.value = false;
   customerSearchModalOpen.value = false;
+  fiscalModalDepartamento.value = '';
+  fiscalModalMunicipio.value = '';
   itemTemplateSearch.value = '';
-  customerMode.value = 'generic';
-  setGenericCustomer();
+  customerMode.value = isCreditoFiscal.value ? 'base' : 'generic';
+  if (isCreditoFiscal.value) {
+    clearCustomerFields('');
+  } else {
+    setGenericCustomer();
+  }
   lineId = 1;
   draftLine.value = newInvoiceLine();
   lines.value = [];
@@ -538,9 +642,12 @@ function buildPayloadOrNull(reservation: CorrelativoReservation | null = correla
     customerCommercialName: form.customerCommercialName.trim() === '' ? null : form.customerCommercialName.trim(),
     customerDepartment: form.customerDepartment.trim() === '' ? null : form.customerDepartment.trim(),
     customerMunicipality: form.customerMunicipality.trim() === '' ? null : form.customerMunicipality.trim(),
+    customerDistrict: form.customerDistrict.trim() === '' ? null : form.customerDistrict.trim(),
     customerAddress: form.customerAddress.trim() === '' ? null : form.customerAddress.trim(),
     customerPhone: form.customerPhone.trim() === '' ? null : form.customerPhone.trim(),
     customerEmail: form.customerEmail.trim() === '' ? null : form.customerEmail.trim(),
+    priceIncludesIva: isCreditoFiscal.value ? ccfPriceIncludesIva.value : false,
+    retainIva10: isCreditoFiscal.value ? ccfRetainIva10.value : false,
     items: items.value
   });
 }
@@ -555,6 +662,7 @@ function clearCustomerFields(name = ''): void {
   form.customerCommercialName = '';
   form.customerDepartment = '';
   form.customerMunicipality = '';
+  form.customerDistrict = '';
   form.customerAddress = '';
   form.customerPhone = '';
   form.customerEmail = '';
@@ -565,6 +673,11 @@ function setGenericCustomer(): void {
 }
 
 function selectCustomerMode(mode: CustomerMode): void {
+  if (mode === 'fiscal_new') {
+    fiscalCustomerModalOpen.value = true;
+    return;
+  }
+
   if (mode === 'new' || mode === 'quick') {
     customerModalMode.value = mode;
     return;
@@ -573,6 +686,25 @@ function selectCustomerMode(mode: CustomerMode): void {
   customerMode.value = mode;
   if (mode === 'base') {
     customerSearchModalOpen.value = true;
+  }
+}
+
+async function handleFiscalCustomerSave(payload: BillingFiscalCustomerModalPayload): Promise<void> {
+  if (!selectedEmpresa.value) {
+    error.value = 'Selecciona una empresa emisora antes de guardar clientes.';
+    return;
+  }
+
+  const response = await run(() => client.value.saveCustomer({
+    empresa_id: selectedEmpresa.value!.id,
+    ...payload
+  }));
+
+  if (response) {
+    await loadCustomers();
+    customerMode.value = 'base';
+    applyCustomer(response.customer);
+    fiscalCustomerModalOpen.value = false;
   }
 }
 
@@ -652,7 +784,7 @@ function applyCustomer(customer: BillingCustomer): void {
   form.customerEmail = customer.email ?? '';
   form.customerPhone = customer.phone ?? '';
   const normalized = normalizeCustomerDocument(customer.document_type ?? (customer.nit ? '36' : ''), customer.nit ?? customer.document_number ?? '');
-  form.customerDocumentType = normalized.documentType;
+  form.customerDocumentType = isCreditoFiscal.value && normalized.documentNumber ? '36' : normalized.documentType;
   form.customerDocument = normalized.documentNumber;
   form.customerNrc = onlyDigits(customer.nrc ?? '');
   form.customerActivityCode = customer.cod_actividad ?? '';
@@ -660,6 +792,7 @@ function applyCustomer(customer: BillingCustomer): void {
   form.customerCommercialName = customer.nombre_comercial ?? customer.name;
   form.customerDepartment = customer.departamento ?? '';
   form.customerMunicipality = customer.municipio ?? '';
+  form.customerDistrict = customer.distrito ?? '';
   form.customerAddress = customer.direccion_complemento ?? '';
   customerSearch.value = customerSearchLabel(customer);
   customers.value = [];
@@ -727,17 +860,15 @@ async function loadItemTemplates(): Promise<void> {
   }
 }
 
-function addTemplateLine(template: BillingItemTemplate): void {
-  const next = {
-    id: lineId++,
+function fillCurrentLineFromTemplate(template: BillingItemTemplate): void {
+  draftLine.value = {
+    ...draftLine.value,
     description: template.description,
     quantity: Number(template.default_quantity || 1),
     unitPrice: Number(template.default_price || 0),
     discount: 0,
     discountPercent: 0
   };
-
-  lines.value = [...lines.value, next];
 }
 
 async function saveLineAsTemplate(line: InvoiceLine): Promise<void> {
@@ -802,6 +933,19 @@ function removeLine(id: number): void {
       @save="handleCustomerModalSave"
     />
 
+    <BillingFiscalCustomerModal
+      :open="fiscalCustomerModalOpen"
+      :loading="loading"
+      :actividad-options="actividadOptions"
+      :departamento-options="departamentoOptions"
+      :municipio-options="municipioOptions"
+      :distrito-options="distritoOptions"
+      @close="fiscalCustomerModalOpen = false"
+      @save="handleFiscalCustomerSave"
+      @update:departamento="fiscalModalDepartamento = $event"
+      @update:municipio="fiscalModalMunicipio = $event"
+    />
+
     <BillingCustomerSearchModal
       :open="customerSearchModalOpen"
       :loading="loading"
@@ -846,19 +990,25 @@ function removeLine(id: number): void {
               <span v-else-if="issueResult" class="h-4 w-4 rounded-full bg-emerald-500"></span>
               <span v-else class="h-4 w-4 rounded-full bg-red-500"></span>
             </div>
-            <div>
+            <div class="min-w-0 flex-1">
               <p class="font-semibold text-slate-950">
                 {{ issuing ? issuePhases[issuePhaseIndex].label : issueRejected ? 'MH rechazo el documento' : issueResult ? 'Documento transmitido' : 'No fue posible emitir' }}
               </p>
-              <p class="mt-1 text-sm text-slate-600">
+              <p class="mt-1 break-all text-sm text-slate-600">
                 {{ issuing ? issuePhases[issuePhaseIndex].detail : issueRejected ? issueResult?.document.transmission?.descripcion_msg : issueResult ? issueResult.document.numeroControl : error }}
               </p>
             </div>
+            <span
+              v-if="issueResult && issueAttemptCount > 1"
+              class="shrink-0 rounded-md bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+            >
+              {{ issueAttemptCount }} intentos
+            </span>
           </div>
 
           <div class="mt-4">
             <div class="flex items-center justify-between text-xs font-semibold text-slate-500">
-              <span>Progreso real backend</span>
+              <span>Sistema en produccion</span>
               <span>{{ issueProgress }}%</span>
             </div>
             <div class="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
@@ -870,38 +1020,34 @@ function removeLine(id: number): void {
             </div>
             <div v-if="issueLog.length" class="mt-3 rounded-md border border-slate-200 bg-white p-3">
               <p class="text-xs font-semibold uppercase text-slate-500">Eventos</p>
-              <ul class="mt-2 space-y-1 text-sm text-slate-600">
-                <li v-for="(entry, index) in issueLog" :key="`${entry}-${index}`">{{ entry }}</li>
+              <ul class="mt-2 max-h-16 space-y-1 overflow-y-auto pr-1 text-sm text-slate-600">
+                <li v-for="(entry, index) in issueLog" :key="`${entry.message}-${index}`" class="flex items-start gap-2">
+                  <span
+                    class="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white"
+                    :class="entry.status === 'error' ? 'bg-red-500' : 'bg-emerald-500'"
+                  >
+                    {{ entry.status === 'error' ? 'x' : '✓' }}
+                  </span>
+                  <span>{{ entry.message }}</span>
+                </li>
               </ul>
             </div>
           </div>
 
-          <ol class="mt-5 grid gap-3 md:grid-cols-2">
-            <li
-              v-for="(phase, index) in issuePhases"
-              :key="phase.label"
-              class="flex gap-3 rounded-md border px-3 py-2"
-              :class="index <= issuePhaseIndex || issueResult ? 'border-sky-100 bg-sky-50/60' : 'border-slate-200 bg-white'"
-            >
-              <span
-                class="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold"
-                :class="index <= issuePhaseIndex || issueResult ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-400'"
-              >
-                {{ index + 1 }}
-              </span>
-              <span>
-                <span class="block text-sm font-semibold text-slate-900">{{ phase.label }}</span>
-                <span class="block text-xs text-slate-500">{{ phase.detail }}</span>
-              </span>
-            </li>
-          </ol>
-
           <div v-if="issueResult" class="mt-5 rounded-md border p-4" :class="issueRejected ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'">
-            <p class="text-sm font-semibold" :class="issueRejected ? 'text-red-900' : 'text-emerald-900'">Resultado MH/Core</p>
-            <p class="mt-1 font-mono text-sm" :class="issueRejected ? 'text-red-950' : 'text-emerald-950'">{{ issueResult.document.numeroControl }}</p>
-            <p class="mt-1 text-sm" :class="issueRejected ? 'text-red-800' : 'text-emerald-800'">Documento #{{ issueResult.document.id }} · Estado {{ issueResult.document.estado }}</p>
-            <p class="mt-1 text-sm" :class="issueRejected ? 'text-red-800' : 'text-emerald-800'">
-              HTTP {{ issueResult.document.transmission?.http_status ?? 'N/D' }} · MH {{ issueResult.document.transmission?.mh_estado ?? issueResult.document.transmission?.status ?? 'sin estado' }}
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p class="text-sm font-semibold" :class="issueRejected ? 'text-red-900' : 'text-emerald-900'">
+                  {{ issueRejected ? 'Documento rechazado' : 'Documento aceptado' }}
+                </p>
+                <p class="mt-1 font-mono text-sm" :class="issueRejected ? 'text-red-950' : 'text-emerald-950'">{{ issueResult.document.numeroControl }}</p>
+              </div>
+              <span class="rounded bg-white/75 px-2 py-1 text-xs font-semibold" :class="issueRejected ? 'text-red-800' : 'text-emerald-800'">
+                HTTP {{ issueResult.document.transmission?.http_status ?? 'N/D' }}
+              </span>
+            </div>
+            <p class="mt-2 text-sm" :class="issueRejected ? 'text-red-800' : 'text-emerald-800'">
+              MH {{ issueResult.document.transmission?.mh_estado ?? issueResult.document.transmission?.status ?? 'sin estado' }}
             </p>
             <p v-if="issueRejected" class="mt-2 text-sm text-red-800">
               {{ issueResult.document.transmission?.descripcion_msg }}
@@ -912,36 +1058,30 @@ function removeLine(id: number): void {
             <div v-if="issueResult.attempts.length > 1" class="mt-3 rounded-md bg-white/70 p-3 text-xs" :class="issueRejected ? 'text-red-900' : 'text-emerald-900'">
               Se resolvio con {{ issueResult.attempts.length }} intentos de correlativo.
             </div>
-          </div>
-
-          <div v-if="issueResult" class="mt-5 rounded-md border border-slate-200 bg-white p-4">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <p class="text-sm font-semibold text-slate-950">Respuestas MH guardadas</p>
-              <span class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
-                {{ issueTransmissionAttempts.length }} intento{{ issueTransmissionAttempts.length === 1 ? '' : 's' }}
-              </span>
-            </div>
-
-            <div v-if="issueTransmissionAttempts.length" class="mt-3 overflow-hidden rounded-md border border-slate-200">
-              <div
-                v-for="attempt in issueTransmissionAttempts"
-                :key="attempt.id"
-                class="border-b border-slate-200 p-3 text-sm last:border-b-0"
+            <div v-if="!issueRejected" class="mt-4 flex flex-wrap gap-2 border-t border-emerald-200/80 pt-3">
+              <button
+                class="rounded-lg bg-white/80 px-3 py-2 text-xs font-semibold text-emerald-900 shadow-sm opacity-75"
+                disabled
+                type="button"
               >
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <p class="font-semibold text-slate-900">
-                    Intento {{ attempt.attempt_number }} · {{ attempt.result_status ?? 'sin resultado' }}
-                  </p>
-                  <p class="text-xs text-slate-500">
-                    HTTP {{ attempt.http_status ?? 'N/D' }} · {{ attempt.duration_ms ?? 0 }} ms
-                  </p>
-                </div>
-                <p class="mt-1 break-all text-xs text-slate-500">{{ attempt.endpoint }}</p>
-                <p v-if="attempt.error_message" class="mt-2 text-sm text-red-700">{{ attempt.error_message }}</p>
-              </div>
+                Imprimir
+              </button>
+              <button
+                class="rounded-lg bg-white/80 px-3 py-2 text-xs font-semibold text-emerald-900 shadow-sm opacity-75"
+                disabled
+                type="button"
+              >
+                Enviar correo
+              </button>
+              <button
+                class="rounded-lg bg-white/80 px-3 py-2 text-xs font-semibold text-emerald-900 shadow-sm opacity-75"
+                disabled
+                type="button"
+              >
+                Descargar PDF
+              </button>
+              <span class="self-center text-xs text-emerald-700">Acciones proximas</span>
             </div>
-
-            <pre class="mt-4 max-h-72 overflow-auto rounded-md bg-slate-950 p-3 text-xs text-slate-100">{{ issueMhJson }}</pre>
           </div>
 
           <div v-else-if="error && !issuing" class="mt-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -952,7 +1092,7 @@ function removeLine(id: number): void {
     </div>
 
     <UiCard>
-      <div v-if="contextLoading" class="text-sm text-slate-500">Cargando contexto real...</div>
+      <UiLoadingMark v-if="contextLoading" label="Estamos verificando conexiones" />
       <div v-else-if="empresas.length === 0" class="rounded-md bg-amber-50 p-4 text-sm text-amber-800">
         No hay empresas configuradas en Core DTE. Billing real necesita empresa, sucursal, punto de venta y correlativos activos.
       </div>
@@ -1011,7 +1151,7 @@ function removeLine(id: number): void {
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
-                  <span class="rounded bg-white px-2 py-1">Cliente base</span>
+                  <span class="rounded bg-white px-2 py-1">{{ isCreditoFiscal ? 'Cliente fiscal' : 'Cliente base' }}</span>
                 </div>
                 <div class="mt-3 grid gap-x-4 gap-y-3 text-[13px] sm:grid-cols-2">
                   <p class="min-w-0 sm:col-span-2">
@@ -1034,6 +1174,20 @@ function removeLine(id: number): void {
                     <span class="block text-[11px] font-semibold text-slate-500">Correo</span>
                     <span class="block truncate font-semibold text-slate-950">{{ form.customerEmail || 'Sin correo' }}</span>
                   </p>
+                  <template v-if="isCreditoFiscal">
+                    <p>
+                      <span class="block text-[11px] font-semibold text-slate-500">NRC</span>
+                      <span class="block font-semibold text-slate-950">{{ form.customerNrc }}</span>
+                    </p>
+                    <p>
+                      <span class="block text-[11px] font-semibold text-slate-500">Actividad</span>
+                      <span class="block truncate font-semibold text-slate-950">{{ form.customerActivityCode }} · {{ form.customerActivityDescription }}</span>
+                    </p>
+                    <p class="min-w-0 sm:col-span-2">
+                      <span class="block text-[11px] font-semibold text-slate-500">Direccion</span>
+                      <span class="block truncate font-semibold text-slate-950">{{ form.customerDepartment }} / {{ form.customerMunicipality }} / {{ form.customerDistrict }} · {{ form.customerAddress }}</span>
+                    </p>
+                  </template>
                 </div>
               </div>
               <button
@@ -1070,17 +1224,9 @@ function removeLine(id: number): void {
             </div>
           </div>
 
-          <template v-if="isCreditoFiscal">
-            <div class="mt-4 grid gap-4 md:grid-cols-2">
-              <UiInput v-model="form.customerNrc" label="NRC receptor" />
-              <UiInput v-model="form.customerCommercialName" label="Nombre comercial receptor" />
-              <UiInput v-model="form.customerActivityCode" label="Codigo actividad receptor" />
-              <UiInput v-model="form.customerActivityDescription" label="Actividad receptor" />
-              <UiInput v-model="form.customerDepartment" label="Departamento receptor" />
-              <UiInput v-model="form.customerMunicipality" label="Municipio receptor" />
-              <UiInput v-model="form.customerAddress" label="Direccion receptor" />
-            </div>
-          </template>
+          <p v-if="isCreditoFiscal && !selectedCustomer" class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            CCF requiere un cliente fiscal guardado con NIT/DUI homologado, NRC, actividad, direccion, telefono y correo.
+          </p>
           </section>
 
           <section class="rounded-md border border-slate-200 bg-white p-4">
@@ -1089,18 +1235,18 @@ function removeLine(id: number): void {
               <p class="mt-1 text-xs text-slate-500">Agrega servicios frecuentes al detalle.</p>
             </div>
             <UiInput v-model="itemTemplateSearch" class="mt-4" label="Buscar producto o servicio" placeholder="Nombre o descripcion" />
-            <div class="mt-3 flex max-h-36 flex-wrap content-start gap-2 overflow-y-auto">
+            <div v-if="itemTemplateSearch.trim()" class="mt-3 max-h-40 overflow-y-auto rounded-md border border-slate-200">
               <button
                 v-for="template in itemTemplates.slice(0, 8)"
                 :key="template.id"
-                class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs hover:border-sky-300 hover:bg-sky-50"
+                class="block w-full border-b border-slate-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-sky-50"
                 type="button"
-                @click="addTemplateLine(template)"
+                @click="fillCurrentLineFromTemplate(template)"
               >
-                <span class="block max-w-44 truncate font-semibold text-slate-950">{{ template.name }}</span>
-                <span class="block text-slate-500">{{ currency(template.default_price) }}</span>
+                <span class="block truncate font-semibold text-slate-950">{{ template.name }}</span>
+                <span class="block text-xs text-slate-500">{{ currency(template.default_price) }}</span>
               </button>
-              <span v-if="itemTemplates.length === 0" class="text-sm text-slate-500">Sin productos rapidos guardados.</span>
+              <span v-if="itemTemplates.length === 0" class="block px-3 py-3 text-sm text-slate-500">Sin resultados.</span>
             </div>
           </section>
         </div>
@@ -1109,9 +1255,14 @@ function removeLine(id: number): void {
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 class="text-base font-semibold text-slate-950">Detalle</h2>
-              <p class="mt-1 text-xs text-slate-500">Agrega productos o servicios. El core calcula normativa y valida schema.</p>
             </div>
           </div>
+          <BillingFiscalOptions
+            v-if="isCreditoFiscal"
+            v-model:price-includes-iva="ccfPriceIncludesIva"
+            v-model:retain-iva="ccfRetainIva10"
+            class="mt-4"
+          />
           <div class="mt-4 overflow-hidden rounded-md border border-slate-200">
             <table class="w-full min-w-[780px] text-left text-sm">
               <thead class="bg-slate-50 text-xs uppercase text-slate-500">
@@ -1141,10 +1292,11 @@ function removeLine(id: number): void {
                   </td>
                   <td class="px-3 py-2 text-right">
                     <p class="font-semibold text-slate-900">{{ currency(lineNetTotal(draftLine)) }}</p>
+                    <p v-if="isCreditoFiscal" class="text-[11px] text-slate-500">IVA {{ currency(lineIvaAmount(draftLine)) }}</p>
                     <p v-if="lineDiscountAmount(draftLine) > 0" class="text-[11px] text-slate-500">Bruto {{ currency(lineGrossTotal(draftLine)) }}</p>
                   </td>
                   <td class="px-3 py-2 text-right">
-                    <UiButton variant="secondary" @click="addLine">Agregar</UiButton>
+                    <UiButton @click="addLine">Agregar</UiButton>
                   </td>
                 </tr>
                 <tr v-for="line in lines" :key="line.id">
@@ -1163,6 +1315,7 @@ function removeLine(id: number): void {
                   </td>
                   <td class="px-3 py-2 text-right">
                     <p class="font-semibold text-slate-900">{{ currency(lineNetTotal(line)) }}</p>
+                    <p v-if="isCreditoFiscal" class="text-[11px] text-slate-500">IVA {{ currency(lineIvaAmount(line)) }}</p>
                     <p v-if="lineDiscountAmount(line) > 0" class="text-[11px] text-slate-500">Bruto {{ currency(lineGrossTotal(line)) }}</p>
                   </td>
                   <td class="px-3 py-2 text-right">
@@ -1178,13 +1331,6 @@ function removeLine(id: number): void {
           </div>
         </section>
 
-        <div class="flex flex-wrap gap-3">
-          <UiButton :disabled="loading || !canBuild" @click="previewDocument">Validar</UiButton>
-          <UiButton variant="secondary" :disabled="loading || !canBuild" @click="createDraft">Crear draft</UiButton>
-          <UiButton :disabled="loading || issuing || !canBuild" @click="issueDocument">
-            {{ issuing ? 'Emitiendo...' : 'Emitir ahora' }}
-          </UiButton>
-        </div>
       </div>
 
       <div v-if="draft" class="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -1216,7 +1362,12 @@ function removeLine(id: number): void {
       :unit-count="unitCount"
       :subtotal="subtotal"
       :discount-total="discountTotal"
+      :iva-total="isCreditoFiscal ? iva : undefined"
+      :retention-total="isCreditoFiscal ? ivaRetention : undefined"
       :total-label="totalLabel"
+      :issue-disabled="loading || issuing || !canBuild"
+      :issuing="issuing"
+      @issue="issueDocument"
     />
   </div>
 </template>
