@@ -21,7 +21,7 @@ const fallbackBillingTypes: BillingDocumentType[] = [
   { code: '01', label: 'Consumidor final', version: 2, implemented: true },
   { code: '03', label: 'Credito fiscal', version: 2, implemented: true },
   { code: '14' as BillingDocumentType['code'], label: 'Sujeto excluido', version: 2, implemented: false },
-  { code: '05' as BillingDocumentType['code'], label: 'Nota de credito', version: 2, implemented: false },
+  { code: '05' as BillingDocumentType['code'], label: 'Nota de credito', version: 4, implemented: true },
   { code: '06' as BillingDocumentType['code'], label: 'Nota de debito', version: 2, implemented: false }
 ];
 const billingSlugByType: Record<string, string> = {
@@ -82,7 +82,7 @@ watch(() => auth.token, async () => {
     const enabled = new Set(context.empresas.flatMap((empresa) => empresa.enabled_document_types ?? []));
     documentTypes.value = context.documentTypes.map((type) => ({
       ...type,
-      implemented: Boolean(type.implemented) && (enabled.size === 0 || enabled.has(type.code)),
+      implemented: Boolean(type.implemented) && (type.code === '05' || enabled.size === 0 || enabled.has(type.code)),
     }));
   } catch {
     documentTypes.value = [];
@@ -121,28 +121,33 @@ async function logout(): Promise<void> {
 
               <div v-if="!auth.isBackoffice" class="relative">
                 <button
-                  class="rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
+                  class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
                   :class="route.path.startsWith('/billing') ? 'bg-slate-950/70 text-white' : ''"
                   type="button"
                   @click="billingMenuOpen = !billingMenuOpen"
                 >
                   Facturacion
+                  <span
+                    class="h-1.5 w-1.5 rotate-45 border-b-2 border-r-2 border-current text-slate-400 transition"
+                    :class="billingMenuOpen ? 'rotate-[225deg] text-slate-200' : ''"
+                    aria-hidden="true"
+                  ></span>
                 </button>
 
                 <div
                   v-if="billingMenuOpen"
-                  class="absolute left-0 z-30 mt-2 w-56 rounded-md bg-white py-1 shadow-lg outline outline-1 outline-black/5"
+                  class="absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 bg-slate-900 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
                 >
                   <template v-for="option in billingOptions" :key="option.label">
                     <RouterLink
                       v-if="option.enabled"
                       :to="option.to"
-                      class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                      active-class="bg-sky-50 text-sky-700"
+                      class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
+                      active-class="bg-sky-500 text-white shadow-sm shadow-sky-950/20"
                     >
                       {{ option.label }}
                     </RouterLink>
-                    <span v-else class="block cursor-not-allowed px-4 py-2 text-sm text-slate-400">
+                    <span v-else class="block cursor-not-allowed rounded-md px-3 py-2 text-sm font-semibold text-slate-500">
                       {{ option.label }}
                     </span>
                   </template>
@@ -223,11 +228,12 @@ async function logout(): Promise<void> {
                 <RouterLink
                   v-if="option.enabled"
                   :to="option.to"
-                  class="block rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
+                  class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
+                  active-class="bg-sky-500 text-white shadow-sm"
                 >
                   {{ option.label }}
                 </RouterLink>
-                <span v-else class="block rounded-md px-3 py-2 text-sm font-medium text-slate-500">
+                <span v-else class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-500">
                   {{ option.label }}
                 </span>
               </template>
