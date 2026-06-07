@@ -20,9 +20,9 @@ const nav = computed(() => [
 const fallbackBillingTypes: BillingDocumentType[] = [
   { code: '01', label: 'Consumidor final', version: 2, implemented: true },
   { code: '03', label: 'Credito fiscal', version: 2, implemented: true },
-  { code: '14' as BillingDocumentType['code'], label: 'Sujeto excluido', version: 2, implemented: false },
+  { code: '14' as BillingDocumentType['code'], label: 'Sujeto excluido', version: 2, implemented: true },
   { code: '05' as BillingDocumentType['code'], label: 'Nota de credito', version: 4, implemented: true },
-  { code: '06' as BillingDocumentType['code'], label: 'Nota de debito', version: 2, implemented: false }
+  { code: '06' as BillingDocumentType['code'], label: 'Nota de debito', version: 4, implemented: true }
 ];
 const billingSlugByType: Record<string, string> = {
   '01': 'fe',
@@ -41,10 +41,18 @@ const billingOptions = computed(() => {
       enabled: Boolean(type.implemented),
     }));
 });
+const operationsNav = computed(() => [
+  { label: 'Eventos MH', to: '/mh-events', show: !auth.isBackoffice },
+  { label: 'Respuestas MH', to: '/mh-responses', show: !auth.isBackoffice },
+].filter((item) => item.show));
 const pageTitle = computed(() => {
   if (route.path.startsWith('/billing')) {
     const currentDte = billingOptions.value.find((item) => item.to === route.path);
     return currentDte?.label ?? 'Facturacion';
+  }
+
+  if (route.path === '/mh-events') {
+    return 'Eventos MH';
   }
 
   if (route.path === '/mh-responses') {
@@ -82,7 +90,7 @@ watch(() => auth.token, async () => {
     const enabled = new Set(context.empresas.flatMap((empresa) => empresa.enabled_document_types ?? []));
     documentTypes.value = context.documentTypes.map((type) => ({
       ...type,
-      implemented: Boolean(type.implemented) && (type.code === '05' || enabled.size === 0 || enabled.has(type.code)),
+      implemented: Boolean(type.implemented) && (['05', '06', '14'].includes(type.code) || enabled.size === 0 || enabled.has(type.code)),
     }));
   } catch {
     documentTypes.value = [];
@@ -98,7 +106,7 @@ async function logout(): Promise<void> {
 <template>
   <RouterView v-if="isPublicLayout" />
 
-  <div v-else class="min-h-screen bg-slate-100 text-slate-950">
+  <div v-else class="min-h-screen bg-[#eaf7ff] text-slate-950">
     <nav class="bg-slate-900 shadow-sm">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
@@ -155,12 +163,13 @@ async function logout(): Promise<void> {
               </div>
 
               <RouterLink
-                v-if="!auth.isBackoffice"
-                to="/mh-responses"
+                v-for="item in operationsNav"
+                :key="item.to"
+                :to="item.to"
                 class="rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
                 active-class="bg-slate-950/70 text-white"
               >
-                Respuestas MH
+                {{ item.label }}
               </RouterLink>
             </div>
           </div>
@@ -241,12 +250,13 @@ async function logout(): Promise<void> {
           </div>
 
           <RouterLink
-            v-if="!auth.isBackoffice"
-            to="/mh-responses"
+            v-for="item in operationsNav"
+            :key="item.to"
+            :to="item.to"
             class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white"
             active-class="bg-slate-950/70 text-white"
           >
-            Respuestas MH
+            {{ item.label }}
           </RouterLink>
         </div>
         <div class="border-t border-white/10 pb-3 pt-4">

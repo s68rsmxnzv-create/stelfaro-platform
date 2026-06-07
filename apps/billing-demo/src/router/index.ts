@@ -1,13 +1,14 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import DashboardPage from '../pages/DashboardPage.vue';
 import BillingPage from '../pages/BillingPage.vue';
+import MhEventsPage from '../pages/MhEventsPage.vue';
 import MhResponsesPage from '../pages/MhResponsesPage.vue';
 import SettingsPage from '../pages/SettingsPage.vue';
 import OnboardingPage from '../pages/OnboardingPage.vue';
 import LoginPage from '../pages/LoginPage.vue';
 import { useAuthStore } from '../stores/auth';
 
-const billingSlugs = new Set(['fe', 'ccf', 'nc', 'nd']);
+const billingSlugs = new Set(['fe', 'ccf', 'nc', 'nd', 'se']);
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -18,6 +19,7 @@ export const router = createRouter({
     { path: '/companies', name: 'companies', component: SettingsPage, meta: { requiresAuth: true, requiresBackoffice: true } },
     { path: '/billing', redirect: '/billing/fe' },
     { path: '/billing/:documentSlug', name: 'billing', component: BillingPage, meta: { requiresAuth: true, requiresBilling: true } },
+    { path: '/mh-events', name: 'mh-events', component: MhEventsPage, meta: { requiresAuth: true, requiresBilling: true } },
     { path: '/mh-responses', name: 'mh-responses', component: MhResponsesPage, meta: { requiresAuth: true, requiresBilling: true } },
     { path: '/settings', redirect: '/companies' }
   ]

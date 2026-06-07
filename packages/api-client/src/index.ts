@@ -145,6 +145,59 @@ export type DteHistoryEntry = {
   payload: Record<string, unknown>;
 };
 
+export type MhFiscalEventSummary = {
+  id: number;
+  estado: string;
+  eventType: string;
+  schemaVersion: number;
+  ambiente: string;
+  numeroControl: string | null;
+  codigoGeneracion: string | null;
+  payload: Record<string, unknown>;
+  relations: Array<{
+    id: number;
+    relationType: string;
+    dteDocumentId: number | null;
+    relatedMhFiscalEventId: number | null;
+    tipoDte: string | null;
+    numeroControl: string | null;
+    codigoGeneracion: string | null;
+    amount: number | null;
+    payload: Record<string, unknown> | null;
+  }>;
+  signature?: Record<string, unknown> | null;
+  transmission?: {
+    status?: string | null;
+    mh_estado?: string | null;
+    codigo_msg?: string | null;
+    descripcion_msg?: string | null;
+    receipt_stamp?: string | null;
+    observaciones?: string[];
+    endpoint?: string | null;
+    http_status?: number | null;
+    raw_response?: Record<string, unknown> | null;
+  } | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type MhFiscalEventValidation = {
+  id: number;
+  estado: string;
+  eventType: string;
+  validation: {
+    valid: boolean;
+    errors: Array<{ field: string; message: string }>;
+  };
+};
+
+export type MhFiscalEventDraftRequest = {
+  empresa_id: number;
+  ambiente: '00' | '01';
+  payload: Record<string, unknown>;
+  relations?: Array<Record<string, unknown>>;
+};
+
 export type BillingDocumentType = {
   code: DocumentType;
   label: string;
@@ -456,6 +509,7 @@ export type ManualInvoiceInput = {
   retainIva10?: boolean;
   ivaRete?: number;
   ivaPerci?: number;
+  reteRenta?: number;
   totalNoGravado?: number;
   relatedDocument?: DteDraftSummary | null;
   observations?: string | null;
@@ -762,11 +816,28 @@ export class CoreDteClient {
   history(id: number): Promise<DteHistoryEntry[]> {
     return this.http.get(`dte/drafts/${id}/history`).json();
   }
+
+  createMhEvent(eventType: string, payload: MhFiscalEventDraftRequest): Promise<MhFiscalEventSummary> {
+    return this.http.post(`mh/events/${eventType}/drafts`, { json: payload }).json();
+  }
+
+  validateMhEvent(id: number): Promise<MhFiscalEventValidation> {
+    return this.http.post(`mh/events/${id}/validate`).json();
+  }
+
+  signMhEvent(id: number): Promise<MhFiscalEventSummary> {
+    return this.http.post(`mh/events/${id}/sign`).json();
+  }
+
+  transmitMhEvent(id: number): Promise<MhFiscalEventSummary> {
+    return this.http.post(`mh/events/${id}/transmit`).json();
+  }
 }
 
 export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewRequest {
   const receptorDocument = normalizeRecipientDocument(input.customerDocumentType, input.customerDocument);
   const isAdjustmentNote = input.documentType === '05' || input.documentType === '06';
+  const isSujetoExcluido = input.documentType === '14';
   const isFiscalStyle = input.documentType === '03' || isAdjustmentNote;
   const priceIncludesIva = input.documentType === '03' && input.priceIncludesIva !== false;
   const ivaRetention = input.documentType === '03' && input.retainIva10
@@ -823,7 +894,7 @@ export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewReques
       codPuntoVentaMH: null,
       codPuntoVenta: input.puntoVenta.codigo
     },
-    receptor: isFiscalStyle
+    receptor: isFiscalStyle || isSujetoExcluido
       ? {
         ...(input.documentType === '03'
           ? { nit: onlyDigits(input.customerDocument) }
@@ -861,6 +932,7 @@ export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewReques
       totalPagar: input.items.reduce((total, item) => total + lineNetTotal(item), 0),
       ...(input.ivaRete !== undefined ? { ivaRete: roundMoney(input.ivaRete) } : {}),
       ...(input.ivaPerci !== undefined ? { ivaPerci: roundMoney(input.ivaPerci) } : {}),
+      ...(input.reteRenta !== undefined ? { reteRenta: roundMoney(input.reteRenta) } : {}),
       ...(input.totalNoGravado !== undefined ? { totalNoGravado: roundMoney(input.totalNoGravado) } : {}),
       observaciones: input.observations ?? null,
       codigoRetencionMH: null
