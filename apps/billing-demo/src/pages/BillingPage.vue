@@ -6,12 +6,13 @@ import { useAuthStore } from '../stores/auth';
 
 const auth = useAuthStore();
 const route = useRoute();
-type SupportedDocumentType = '01' | '03' | '05' | '06';
+type SupportedDocumentType = '01' | '03' | '05' | '06' | '14';
 const documentTypeBySlug: Record<string, SupportedDocumentType> = {
   fe: '01',
   ccf: '03',
   nc: '05',
-  nd: '06'
+  nd: '06',
+  se: '14'
 };
 const initialDocumentType = computed<SupportedDocumentType>(() => documentTypeBySlug[String(route.params.documentSlug ?? 'fe')] ?? '01');
 </script>

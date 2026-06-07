@@ -20,6 +20,7 @@ import { currency, type BillingItem, type DocumentType } from '@stelfaro/shared'
 import { UiButton, UiCard, UiInput, UiLoadingMark } from '@stelfaro/ui';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import BillingFiscalCustomerModal, { type BillingFiscalCustomerModalPayload } from '../components/BillingFiscalCustomerModal.vue';
+import BillingSujetoExcluidoModal, { type BillingSujetoExcluidoModalPayload } from '../components/BillingSujetoExcluidoModal.vue';
 import BillingFiscalOptions from '../components/BillingFiscalOptions.vue';
 import BillingCustomerSearchModal from '../components/BillingCustomerSearchModal.vue';
 import BillingInvoiceSummaryBar from '../components/BillingInvoiceSummaryBar.vue';
@@ -67,6 +68,7 @@ const itemTemplates = ref<BillingItemTemplate[]>([]);
 const itemTemplateSearch = ref('');
 const customerModalMode = ref<'new' | 'quick' | null>(null);
 const fiscalCustomerModalOpen = ref(false);
+const sujetoExcluidoModalOpen = ref(false);
 const customerSearchModalOpen = ref(false);
 const fiscalModalDepartamento = ref('');
 const fiscalModalMunicipio = ref('');
@@ -80,6 +82,7 @@ type InvoiceLine = BillingItem & {
   originalQuantity?: number;
   originalUnitPrice?: number;
   originalIva?: number;
+  sourceLine?: boolean;
 };
 type CustomerMode = 'generic' | 'base' | 'new' | 'quick' | 'fiscal_new';
 const simpleCustomerModes: Array<{ key: CustomerMode; label: string }> = [
@@ -91,6 +94,10 @@ const simpleCustomerModes: Array<{ key: CustomerMode; label: string }> = [
 const fiscalCustomerModes: Array<{ key: CustomerMode; label: string }> = [
   { key: 'base', label: 'Cliente fiscal guardado' },
   { key: 'fiscal_new', label: 'Nuevo cliente fiscal' },
+];
+const sujetoExcluidoCustomerModes: Array<{ key: CustomerMode; label: string }> = [
+  { key: 'base', label: 'Sujeto excluido guardado' },
+  { key: 'fiscal_new', label: 'Nuevo sujeto excluido' },
 ];
 
 const form = reactive({
@@ -144,29 +151,33 @@ const distritoOptions = computed(() => distritos.value.map((item) => {
 const actividadOptions = computed(() => actividadesEconomicas.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
 const availableDocumentTypes = computed(() => {
   const enabled = selectedEmpresa.value?.enabled_document_types ?? [];
-  return documentTypes.value.filter((type) => ['01', '03', '05', '06'].includes(type.code) && (enabled.length === 0 || enabled.includes(type.code)));
+  return documentTypes.value.filter((type) => ['01', '03', '05', '06', '14'].includes(type.code) && (enabled.length === 0 || enabled.includes(type.code)));
 });
 const isCreditoFiscal = computed(() => form.documentType === '03');
 const isNotaCredito = computed(() => form.documentType === '05');
 const isNotaDebito = computed(() => form.documentType === '06');
+const isSujetoExcluido = computed(() => form.documentType === '14');
 const isAdjustmentNote = computed(() => isNotaCredito.value || isNotaDebito.value);
 const adjustmentNoteLabel = computed(() => isNotaDebito.value ? 'Nota de Debito' : 'Nota de Credito');
 const isFiscalStyleDocument = computed(() => isCreditoFiscal.value || isAdjustmentNote.value);
+const requiresStructuredCustomer = computed(() => isCreditoFiscal.value || isAdjustmentNote.value || isSujetoExcluido.value);
 const customerModes = computed(() => {
   if (isAdjustmentNote.value) return [];
 
-  return isCreditoFiscal.value ? fiscalCustomerModes : simpleCustomerModes;
+  if (isSujetoExcluido.value) return sujetoExcluidoCustomerModes;
+
+  return requiresStructuredCustomer.value ? fiscalCustomerModes : simpleCustomerModes;
 });
 const items = computed<BillingItem[]>(() => lines.value
   .map((line) => ({
     description: line.description.trim(),
-    quantity: Number(line.quantity),
-    unitPrice: Number(line.unitPrice),
-    discount: lineDiscountAmount(line),
+    quantity: isNotaDebito.value ? notaDebitoPayloadQuantity(line) : Number(line.quantity),
+    unitPrice: isNotaDebito.value ? notaDebitoPayloadUnitPrice(line) : Number(line.unitPrice),
+    discount: isNotaDebito.value ? 0 : lineDiscountAmount(line),
     ivaAmount: isNotaCredito.value ? lineIvaAmount(line) : undefined,
     priceIncludesIva: isCreditoFiscal.value ? ccfPriceIncludesIva.value : false
   }))
-  .filter((line) => line.description !== '' && line.quantity > 0 && line.unitPrice >= 0));
+  .filter((line) => line.description !== '' && line.quantity > 0 && (isNotaDebito.value ? line.unitPrice > 0 : line.unitPrice >= 0)));
 const subtotal = computed(() => items.value.reduce((sum, item) => sum + lineGrossTotal(item), 0));
 const discountTotal = computed(() => items.value.reduce((sum, item) => sum + lineDiscountAmount(item), 0));
 const total = computed(() => items.value.reduce((sum, item) => sum + lineNetTotal(item), 0));
@@ -197,7 +208,12 @@ const notaCreditoIvaRete = computed(() => 0);
 const notaCreditoIvaPerci = computed(() => 0);
 const notaCreditoTotalNoGravado = computed(() => proportionalSourceSummaryAmount(['totalNoGravado', 'noGravado']));
 const notaCreditoHasFiscalAdjustments = computed(() => notaCreditoSourceIvaRete.value > 0 || notaCreditoSourceIvaPerci.value > 0);
+const sujetoExcluidoReteRenta = computed(() => isSujetoExcluido.value ? roundMoney(total.value * 0.10) : 0);
 const totalLabel = computed(() => {
+  if (isSujetoExcluido.value) {
+    return roundMoney(Math.max(0, total.value - sujetoExcluidoReteRenta.value));
+  }
+
   if (!isFiscalStyleDocument.value) return total.value;
 
   const totalWithIva = isCreditoFiscal.value && ccfPriceIncludesIva.value
@@ -217,6 +233,7 @@ const canBuild = computed(() => Boolean(
   && form.customerName.trim()
   && items.value.length > 0
   && (!isFiscalStyleDocument.value || canBuildCreditoFiscal.value)
+  && (!isSujetoExcluido.value || canBuildSujetoExcluido.value)
   && (!isAdjustmentNote.value || selectedSourceDocument.value)
 ));
 const canBuildCreditoFiscal = computed(() => Boolean(
@@ -229,6 +246,13 @@ const canBuildCreditoFiscal = computed(() => Boolean(
   && form.customerDistrict.trim()
   && form.customerAddress.trim()
   && form.customerEmail.trim()
+));
+const canBuildSujetoExcluido = computed(() => Boolean(
+  form.customerDocument.trim()
+  && form.customerDepartment.trim()
+  && form.customerMunicipality.trim()
+  && form.customerDistrict.trim()
+  && form.customerAddress.trim()
 ));
 const issuePhases = computed(() => [
   { label: 'Preparando emision', detail: 'Validando datos fiscales, receptor y detalle.' },
@@ -271,7 +295,15 @@ const customerDocumentTypeLabel = computed(() => {
 const customerDocumentNumberLabel = computed(() => formatCustomerDocument(form.customerDocument));
 
 function lineGrossTotal(line: BillingItem): number {
-  return Math.max(0, Number(line.quantity || 0) * Number(line.unitPrice || 0));
+  if (isNotaDebito.value && (line as Partial<InvoiceLine>).sourceLine !== false) {
+    return notaDebitoIncrementTotal(line as Partial<InvoiceLine>);
+  }
+
+  const unitPrice = isNotaDebito.value
+    ? notaDebitoPayloadUnitPrice(line as Partial<InvoiceLine>)
+    : Number(line.unitPrice || 0);
+
+  return Math.max(0, Number(line.quantity || 0) * unitPrice);
 }
 
 function lineDiscountAmount(line: BillingItem): number {
@@ -322,6 +354,41 @@ function lineIvaAmount(line: BillingItem): number {
   }
 
   return roundMoney(lineTaxableBase(line) * 0.13);
+}
+
+function notaDebitoPayloadUnitPrice(line: Partial<InvoiceLine> | BillingItem): number {
+  const unitPrice = Math.max(0, Number(line.unitPrice || 0));
+
+  if (!isNotaDebito.value || (line as Partial<InvoiceLine>).sourceLine === false) {
+    return roundMoney(unitPrice);
+  }
+
+  return notaDebitoIncrementTotal(line);
+}
+
+function notaDebitoPayloadQuantity(line: Partial<InvoiceLine> | BillingItem): number {
+  if (!isNotaDebito.value || (line as Partial<InvoiceLine>).sourceLine === false) {
+    return Math.max(0, Number(line.quantity || 0));
+  }
+
+  return notaDebitoIncrementTotal(line) > 0 ? 1 : 0;
+}
+
+function notaDebitoIncrementTotal(line: Partial<InvoiceLine> | BillingItem): number {
+  const quantity = Math.max(0, Number(line.quantity || 0));
+  const unitPrice = Math.max(0, Number(line.unitPrice || 0));
+  const originalQuantity = Math.max(0, Number((line as Partial<InvoiceLine>).originalQuantity || 0));
+  const originalUnitPrice = Math.max(0, Number((line as Partial<InvoiceLine>).originalUnitPrice || 0));
+
+  return roundMoney(Math.max(0, (quantity * unitPrice) - (originalQuantity * originalUnitPrice)));
+}
+
+function notaDebitoOriginalLabel(line: InvoiceLine): string {
+  return `Origen ${Number(line.originalQuantity ?? 0)} x ${currency(Number(line.originalUnitPrice ?? 0))}`;
+}
+
+function notaDebitoIncrementLabel(line: InvoiceLine): string {
+  return `Incremento ${currency(notaDebitoPayloadUnitPrice(line))}`;
 }
 
 function roundMoney(value: number): number {
@@ -417,6 +484,21 @@ watch([
   }
 });
 
+watch(() => form.documentType, () => {
+  selectedCustomerId.value = null;
+  selectedCustomerRecord.value = null;
+  customerSearch.value = '';
+  customerSearchLocked.value = false;
+  customers.value = [];
+  customerMode.value = requiresStructuredCustomer.value ? 'base' : 'generic';
+
+  if (requiresStructuredCustomer.value) {
+    clearCustomerFields('');
+  } else {
+    setGenericCustomer();
+  }
+});
+
 watch([
   () => form.empresaId,
   () => form.documentType,
@@ -449,7 +531,7 @@ watch(() => form.sucursalId, () => {
 });
 
 watch(() => props.initialDocumentType, (documentType) => {
-  if (['01', '03', '05', '06'].includes(documentType)) {
+  if (['01', '03', '05', '06', '14'].includes(documentType)) {
     form.documentType = documentType;
   }
 });
@@ -468,7 +550,7 @@ async function loadContext(): Promise<void> {
     form.empresaId = context.value.empresas[0]?.id ?? null;
     form.sucursalId = context.value.empresas[0]?.sucursales[0]?.id ?? null;
     form.puntoVentaId = context.value.empresas[0]?.sucursales[0]?.puntosVenta[0]?.id ?? null;
-    if (isFiscalStyleDocument.value) {
+    if (requiresStructuredCustomer.value) {
       customerMode.value = 'base';
       clearCustomerFields('');
     } else {
@@ -509,7 +591,7 @@ watch(() => form.documentType, (documentType) => {
   sourceDocumentSearch.value = '';
   sourceDocuments.value = [];
 
-  if (documentType === '03' || documentType === '05' || documentType === '06') {
+  if (documentType === '03' || documentType === '05' || documentType === '06' || documentType === '14') {
     customerMode.value = 'base';
     clearCustomerFields('');
     return;
@@ -633,6 +715,7 @@ function resetInvoiceForm(): void {
   customers.value = [];
   customerModalMode.value = null;
   fiscalCustomerModalOpen.value = false;
+  sujetoExcluidoModalOpen.value = false;
   customerSearchModalOpen.value = false;
   fiscalModalDepartamento.value = '';
   fiscalModalMunicipio.value = '';
@@ -640,8 +723,8 @@ function resetInvoiceForm(): void {
   selectedSourceDocument.value = null;
   sourceDocumentSearch.value = '';
   sourceDocuments.value = [];
-  customerMode.value = isFiscalStyleDocument.value ? 'base' : 'generic';
-  if (isFiscalStyleDocument.value) {
+  customerMode.value = requiresStructuredCustomer.value ? 'base' : 'generic';
+  if (requiresStructuredCustomer.value) {
     clearCustomerFields('');
   } else {
     setGenericCustomer();
@@ -730,6 +813,7 @@ function buildPayloadOrNull(reservation: CorrelativoReservation | null = correla
     retainIva10: isCreditoFiscal.value ? ccfRetainIva10.value : false,
     ivaRete: isNotaCredito.value ? notaCreditoIvaRete.value : undefined,
     ivaPerci: isNotaCredito.value ? notaCreditoIvaPerci.value : undefined,
+    reteRenta: isSujetoExcluido.value ? sujetoExcluidoReteRenta.value : undefined,
     totalNoGravado: isNotaCredito.value ? notaCreditoTotalNoGravado.value : undefined,
     relatedDocument: isAdjustmentNote.value ? selectedSourceDocument.value : null,
     observations: isAdjustmentNote.value && selectedSourceDocument.value
@@ -761,6 +845,11 @@ function setGenericCustomer(): void {
 
 function selectCustomerMode(mode: CustomerMode): void {
   if (mode === 'fiscal_new') {
+    if (isSujetoExcluido.value) {
+      sujetoExcluidoModalOpen.value = true;
+      return;
+    }
+
     fiscalCustomerModalOpen.value = true;
     return;
   }
@@ -792,6 +881,25 @@ async function handleFiscalCustomerSave(payload: BillingFiscalCustomerModalPaylo
     customerMode.value = 'base';
     applyCustomer(response.customer);
     fiscalCustomerModalOpen.value = false;
+  }
+}
+
+async function handleSujetoExcluidoSave(payload: BillingSujetoExcluidoModalPayload): Promise<void> {
+  if (!selectedEmpresa.value) {
+    error.value = 'Selecciona una empresa emisora antes de guardar sujetos excluidos.';
+    return;
+  }
+
+  const response = await run(() => client.value.saveCustomer({
+    empresa_id: selectedEmpresa.value!.id,
+    ...payload
+  }));
+
+  if (response) {
+    await loadCustomers();
+    customerMode.value = 'base';
+    applyCustomer(response.customer);
+    sujetoExcluidoModalOpen.value = false;
   }
 }
 
@@ -1043,6 +1151,7 @@ function sourceLineToInvoiceLine(sourceItem: Record<string, unknown>, index: num
     originalQuantity: quantity,
     originalUnitPrice: unitPrice,
     originalIva: ivaAmount,
+    sourceLine: true,
   };
 }
 
@@ -1115,13 +1224,32 @@ function sourceLineTaxableBase(sourceItem: Record<string, unknown>): number {
 
 function updateNotaCreditoPrice(line: InvoiceLine, value: number | string): void {
   if (isNotaDebito.value) {
-    line.unitPrice = roundMoney(Math.max(0, Number(value || 0)));
+    const minimum = line.sourceLine === false ? 0 : Number(line.originalUnitPrice ?? 0);
+    line.unitPrice = roundMoney(Math.max(minimum, Number(value || 0)));
     return;
   }
 
   const max = Number(line.originalUnitPrice ?? line.unitPrice ?? 0);
   const next = Math.max(0, Math.min(max, Number(value || 0)));
   line.unitPrice = roundMoney(next);
+}
+
+function updateAdjustmentQuantity(line: InvoiceLine, value: number | string): void {
+  const next = Math.max(0, Number(value || 0));
+
+  if (isNotaDebito.value) {
+    const minimum = line.sourceLine === false ? 0.01 : Number(line.originalQuantity ?? line.quantity ?? 0);
+    line.quantity = roundMoney(Math.max(minimum, next));
+    return;
+  }
+
+  if (isNotaCredito.value) {
+    const max = Number(line.originalQuantity ?? line.quantity ?? 0);
+    line.quantity = roundMoney(Math.min(max, next));
+    return;
+  }
+
+  line.quantity = roundMoney(next);
 }
 
 function sourceLineMaxLabel(line: InvoiceLine): string {
@@ -1174,7 +1302,7 @@ async function saveLineAsTemplate(line: InvoiceLine): Promise<void> {
 
 function addLine(): void {
   const line = draftLine.value;
-  if (!line.description.trim() || Number(line.quantity) <= 0 || Number(line.unitPrice) < 0) {
+  if (!line.description.trim() || Number(line.quantity) <= 0 || Number(line.unitPrice) < 0 || (isNotaDebito.value && Number(line.unitPrice) <= 0)) {
     error.value = 'Completa descripcion, cantidad y precio antes de agregar la linea.';
     return;
   }
@@ -1184,8 +1312,9 @@ function addLine(): void {
     description: line.description.trim(),
     quantity: Number(line.quantity),
     unitPrice: Number(line.unitPrice),
-    discount: lineDiscountAmount(line),
-    discountPercent: Math.max(0, Math.min(100, Number(line.discountPercent || 0))),
+    discount: isNotaDebito.value ? 0 : lineDiscountAmount(line),
+    discountPercent: isNotaDebito.value ? 0 : Math.max(0, Math.min(100, Number(line.discountPercent || 0))),
+    sourceLine: false,
   }];
   draftLine.value = newInvoiceLine();
   error.value = null;
@@ -1222,6 +1351,19 @@ function removeLine(id: number): void {
       :distrito-options="distritoOptions"
       @close="fiscalCustomerModalOpen = false"
       @save="handleFiscalCustomerSave"
+      @update:departamento="fiscalModalDepartamento = $event"
+      @update:municipio="fiscalModalMunicipio = $event"
+    />
+
+    <BillingSujetoExcluidoModal
+      :open="sujetoExcluidoModalOpen"
+      :loading="loading"
+      :actividad-options="actividadOptions"
+      :departamento-options="departamentoOptions"
+      :municipio-options="municipioOptions"
+      :distrito-options="distritoOptions"
+      @close="sujetoExcluidoModalOpen = false"
+      @save="handleSujetoExcluidoSave"
       @update:departamento="fiscalModalDepartamento = $event"
       @update:municipio="fiscalModalMunicipio = $event"
     />
@@ -1503,7 +1645,7 @@ function removeLine(id: number): void {
           <section class="rounded-md border border-slate-200 bg-white p-4">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 class="text-base font-semibold text-slate-950">Receptor</h2>
+              <h2 class="text-base font-semibold text-slate-950">{{ isSujetoExcluido ? 'Sujeto excluido' : 'Receptor' }}</h2>
             </div>
           </div>
 
@@ -1511,7 +1653,7 @@ function removeLine(id: number): void {
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
-                  <span class="rounded bg-white px-2 py-1">{{ isAdjustmentNote ? 'Receptor del CCF origen' : isCreditoFiscal ? 'Cliente fiscal' : 'Cliente base' }}</span>
+                  <span class="rounded bg-white px-2 py-1">{{ isAdjustmentNote ? 'Receptor del CCF origen' : isSujetoExcluido ? 'Sujeto excluido' : isCreditoFiscal ? 'Cliente fiscal' : 'Cliente base' }}</span>
                 </div>
                 <div class="mt-3 grid gap-x-4 gap-y-3 text-[13px] sm:grid-cols-2">
                   <p class="min-w-0 sm:col-span-2">
@@ -1534,8 +1676,8 @@ function removeLine(id: number): void {
                     <span class="block text-[11px] font-semibold text-slate-500">Correo</span>
                     <span class="block truncate font-semibold text-slate-950">{{ form.customerEmail || 'Sin correo' }}</span>
                   </p>
-                  <template v-if="isFiscalStyleDocument">
-                    <p>
+                  <template v-if="requiresStructuredCustomer">
+                    <p v-if="!isSujetoExcluido">
                       <span class="block text-[11px] font-semibold text-slate-500">NRC</span>
                       <span class="block font-semibold text-slate-950">{{ form.customerNrc }}</span>
                     </p>
@@ -1587,6 +1729,9 @@ function removeLine(id: number): void {
           <p v-if="isCreditoFiscal && !selectedCustomer" class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
             CCF requiere un cliente fiscal guardado con NIT/DUI homologado, NRC, actividad, direccion, telefono y correo.
           </p>
+          <p v-if="isSujetoExcluido && !selectedCustomer" class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            Sujeto excluido requiere receptor guardado con documento y direccion completa.
+          </p>
           <p v-if="isAdjustmentNote && !selectedSourceDocument" class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
             Selecciona un CCF aceptado para cargar automaticamente el receptor.
           </p>
@@ -1594,8 +1739,8 @@ function removeLine(id: number): void {
 
           <section v-if="!isAdjustmentNote" class="rounded-md border border-slate-200 bg-white p-4">
             <div>
-              <h2 class="text-base font-semibold text-slate-950">Productos rapidos</h2>
-              <p class="mt-1 text-xs text-slate-500">Agrega servicios frecuentes al detalle.</p>
+              <h2 class="text-base font-semibold text-slate-950">{{ isSujetoExcluido ? 'Compras frecuentes' : 'Productos rapidos' }}</h2>
+              <p class="mt-1 text-xs text-slate-500">{{ isSujetoExcluido ? 'Agrega compras o servicios recibidos.' : 'Agrega servicios frecuentes al detalle.' }}</p>
             </div>
             <UiInput v-model="itemTemplateSearch" class="mt-4" label="Buscar producto o servicio" placeholder="Nombre o descripcion" />
             <div v-if="itemTemplateSearch.trim()" class="mt-3 max-h-40 overflow-y-auto rounded-md border border-slate-200">
@@ -1617,7 +1762,7 @@ function removeLine(id: number): void {
         <section class="rounded-md border border-slate-200 bg-white p-4">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 class="text-base font-semibold text-slate-950">Detalle</h2>
+              <h2 class="text-base font-semibold text-slate-950">{{ isSujetoExcluido ? 'Detalle de compra' : 'Detalle' }}</h2>
             </div>
           </div>
           <BillingFiscalOptions
@@ -1632,8 +1777,8 @@ function removeLine(id: number): void {
                 <tr>
                   <th class="px-3 py-2">Descripcion</th>
                   <th class="w-28 px-3 py-2">Cantidad</th>
-                  <th class="w-36 px-3 py-2">Precio</th>
-                  <th class="w-36 px-3 py-2">{{ isAdjustmentNote ? (isNotaDebito ? 'Incremento' : 'Ajuste') : '% desc.' }}</th>
+                  <th class="w-36 px-3 py-2">{{ isNotaDebito ? 'Nuevo valor' : isSujetoExcluido ? 'Monto compra' : 'Precio' }}</th>
+                  <th class="w-36 px-3 py-2">{{ isAdjustmentNote ? (isNotaDebito ? 'Incremento' : 'Ajuste') : isSujetoExcluido ? 'Descuento' : '% desc.' }}</th>
                   <th class="w-32 px-3 py-2 text-right">Neto</th>
                   <th class="w-32 px-3 py-2"></th>
                 </tr>
@@ -1641,7 +1786,7 @@ function removeLine(id: number): void {
               <tbody class="divide-y divide-slate-200">
                 <tr v-if="!isAdjustmentNote" class="bg-slate-50/70">
                   <td class="px-3 py-2">
-                    <input v-model="draftLine.description" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" placeholder="Producto o servicio">
+                    <input v-model="draftLine.description" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" :placeholder="isSujetoExcluido ? 'Compra o servicio recibido' : 'Producto o servicio'">
                   </td>
                   <td class="px-3 py-2">
                     <input v-model.number="draftLine.quantity" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0.01" step="0.01" type="number">
@@ -1665,10 +1810,29 @@ function removeLine(id: number): void {
                 <tr v-for="line in lines" :key="line.id">
                   <td class="px-3 py-2">
                     <span class="font-medium text-slate-950">{{ line.description }}</span>
-                    <p v-if="isAdjustmentNote" class="mt-1 text-[11px] text-slate-500">Descripcion tomada del CCF origen</p>
+                    <p v-if="isAdjustmentNote" class="mt-1 text-[11px] text-slate-500">
+                      {{ line.sourceLine === false ? 'Linea nueva agregada a la Nota de Debito' : 'Descripcion tomada del CCF origen' }}
+                    </p>
                   </td>
                   <td class="px-3 py-2">
-                    <span>{{ Number(line.quantity) }}</span>
+                    <template v-if="isAdjustmentNote">
+                      <input
+                        class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                        :max="isNotaCredito ? Number(line.originalQuantity ?? line.quantity ?? 0) : undefined"
+                        :min="isNotaDebito && line.sourceLine !== false ? Number(line.originalQuantity ?? line.quantity ?? 0) : 0.01"
+                        step="0.01"
+                        type="number"
+                        :value="Number(line.quantity)"
+                        @input="updateAdjustmentQuantity(line, ($event.target as HTMLInputElement).value)"
+                      >
+                      <p v-if="isNotaCredito" class="mt-1 text-[11px] text-slate-500">
+                        Max. {{ Number(line.originalQuantity ?? line.quantity ?? 0) }}
+                      </p>
+                      <p v-else-if="line.sourceLine !== false" class="mt-1 text-[11px] text-slate-500">
+                        Origen {{ Number(line.originalQuantity ?? line.quantity ?? 0) }}
+                      </p>
+                    </template>
+                    <span v-else>{{ Number(line.quantity) }}</span>
                   </td>
                   <td class="px-3 py-2">
                     <template v-if="isAdjustmentNote">
@@ -1682,7 +1846,8 @@ function removeLine(id: number): void {
                         @input="updateNotaCreditoPrice(line, ($event.target as HTMLInputElement).value)"
                       >
                       <p v-if="isNotaCredito" class="mt-1 text-[11px] text-slate-500">{{ sourceLineMaxLabel(line) }}</p>
-                      <p v-else class="mt-1 text-[11px] text-slate-500">Monto adicional a debitar</p>
+                      <p v-else-if="line.sourceLine === false" class="mt-1 text-[11px] text-slate-500">Monto de la linea nueva</p>
+                      <p v-else class="mt-1 text-[11px] text-slate-500">{{ notaDebitoOriginalLabel(line) }}</p>
                     </template>
                     <template v-else>
                       {{ currency(Number(line.unitPrice)) }}
@@ -1690,7 +1855,8 @@ function removeLine(id: number): void {
                   </td>
                   <td class="px-3 py-2">
                     <template v-if="isAdjustmentNote">
-                      <span class="text-slate-400">No aplica</span>
+                      <span v-if="isNotaDebito && line.sourceLine !== false" class="font-semibold text-slate-700">{{ notaDebitoIncrementLabel(line) }}</span>
+                      <span v-else class="text-slate-400">No aplica</span>
                     </template>
                     <template v-else>
                       <span>{{ Number(line.discountPercent || 0) }}%</span>
@@ -1709,6 +1875,28 @@ function removeLine(id: number): void {
                 </tr>
                 <tr v-if="lines.length === 0">
                   <td class="px-3 py-4 text-sm text-slate-500" colspan="6">{{ isAdjustmentNote ? `Selecciona un CCF origen para cargar las lineas de ${isNotaDebito ? 'debito' : 'credito'}.` : 'Aun no hay lineas agregadas.' }}</td>
+                </tr>
+                <tr v-if="isNotaDebito && selectedSourceDocument" class="border-t-2 border-slate-200 bg-slate-50/70">
+                  <td class="px-3 py-2">
+                    <input v-model="draftLine.description" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" placeholder="Nueva linea a debitar">
+                    <p class="mt-1 text-[11px] text-slate-500">Agregar linea nueva a la Nota de Debito</p>
+                  </td>
+                  <td class="px-3 py-2">
+                    <input v-model.number="draftLine.quantity" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0.01" step="0.01" type="number">
+                  </td>
+                  <td class="px-3 py-2">
+                    <input v-model.number="draftLine.unitPrice" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0.01" step="0.01" type="number">
+                  </td>
+                  <td class="px-3 py-2">
+                    <span class="text-slate-400">No aplica</span>
+                  </td>
+                  <td class="px-3 py-2 text-right">
+                    <p class="font-semibold text-slate-900">{{ currency(lineNetTotal(draftLine)) }}</p>
+                    <p class="text-[11px] text-slate-500">IVA {{ currency(lineIvaAmount(draftLine)) }}</p>
+                  </td>
+                  <td class="px-3 py-2 text-right">
+                    <UiButton @click="addLine">Agregar</UiButton>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -1747,7 +1935,7 @@ function removeLine(id: number): void {
       :subtotal="subtotal"
       :discount-total="discountTotal"
       :iva-total="isFiscalStyleDocument ? iva : undefined"
-      :retention-total="isCreditoFiscal ? ivaRetention : (isNotaCredito && notaCreditoIvaRete > 0 ? notaCreditoIvaRete : undefined)"
+      :retention-total="isSujetoExcluido ? sujetoExcluidoReteRenta : (isCreditoFiscal ? ivaRetention : (isNotaCredito && notaCreditoIvaRete > 0 ? notaCreditoIvaRete : undefined))"
       :total-label="totalLabel"
       :issue-disabled="loading || issuing || !canBuild"
       :issuing="issuing"

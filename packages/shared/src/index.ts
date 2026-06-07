@@ -1,4 +1,4 @@
-export type DocumentType = '01' | '03' | '05' | '06';
+export type DocumentType = '01' | '03' | '05' | '06' | '14';
 
 export type Money = number;
 
