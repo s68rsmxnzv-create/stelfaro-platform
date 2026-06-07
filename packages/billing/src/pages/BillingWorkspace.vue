@@ -60,6 +60,9 @@ const customerSearch = ref('');
 const customerSearchLocked = ref(false);
 const selectedCustomerId = ref<number | null>(null);
 const selectedCustomerRecord = ref<BillingCustomer | null>(null);
+const sourceDocumentSearch = ref('');
+const sourceDocuments = ref<DteDraftSummary[]>([]);
+const selectedSourceDocument = ref<DteDraftSummary | null>(null);
 const itemTemplates = ref<BillingItemTemplate[]>([]);
 const itemTemplateSearch = ref('');
 const customerModalMode = ref<'new' | 'quick' | null>(null);
@@ -74,6 +77,9 @@ let issueAutoCloseTimer: ReturnType<typeof window.setTimeout> | null = null;
 type InvoiceLine = BillingItem & {
   id: number;
   discountPercent: number;
+  originalQuantity?: number;
+  originalUnitPrice?: number;
+  originalIva?: number;
 };
 type CustomerMode = 'generic' | 'base' | 'new' | 'quick' | 'fiscal_new';
 const simpleCustomerModes: Array<{ key: CustomerMode; label: string }> = [
@@ -138,31 +144,69 @@ const distritoOptions = computed(() => distritos.value.map((item) => {
 const actividadOptions = computed(() => actividadesEconomicas.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
 const availableDocumentTypes = computed(() => {
   const enabled = selectedEmpresa.value?.enabled_document_types ?? [];
-  return documentTypes.value.filter((type) => ['01', '03'].includes(type.code) && (enabled.length === 0 || enabled.includes(type.code)));
+  return documentTypes.value.filter((type) => ['01', '03', '05', '06'].includes(type.code) && (enabled.length === 0 || enabled.includes(type.code)));
 });
 const isCreditoFiscal = computed(() => form.documentType === '03');
-const customerModes = computed(() => isCreditoFiscal.value ? fiscalCustomerModes : simpleCustomerModes);
+const isNotaCredito = computed(() => form.documentType === '05');
+const isNotaDebito = computed(() => form.documentType === '06');
+const isAdjustmentNote = computed(() => isNotaCredito.value || isNotaDebito.value);
+const adjustmentNoteLabel = computed(() => isNotaDebito.value ? 'Nota de Debito' : 'Nota de Credito');
+const isFiscalStyleDocument = computed(() => isCreditoFiscal.value || isAdjustmentNote.value);
+const customerModes = computed(() => {
+  if (isAdjustmentNote.value) return [];
+
+  return isCreditoFiscal.value ? fiscalCustomerModes : simpleCustomerModes;
+});
 const items = computed<BillingItem[]>(() => lines.value
   .map((line) => ({
     description: line.description.trim(),
     quantity: Number(line.quantity),
     unitPrice: Number(line.unitPrice),
     discount: lineDiscountAmount(line),
+    ivaAmount: isNotaCredito.value ? lineIvaAmount(line) : undefined,
     priceIncludesIva: isCreditoFiscal.value ? ccfPriceIncludesIva.value : false
   }))
   .filter((line) => line.description !== '' && line.quantity > 0 && line.unitPrice >= 0));
 const subtotal = computed(() => items.value.reduce((sum, item) => sum + lineGrossTotal(item), 0));
 const discountTotal = computed(() => items.value.reduce((sum, item) => sum + lineDiscountAmount(item), 0));
 const total = computed(() => items.value.reduce((sum, item) => sum + lineNetTotal(item), 0));
-const iva = computed(() => isCreditoFiscal.value ? items.value.reduce((sum, item) => sum + lineIvaAmount(item), 0) : 0);
-const taxableBase = computed(() => isCreditoFiscal.value ? items.value.reduce((sum, item) => sum + lineTaxableBase(item), 0) : 0);
+const iva = computed(() => isFiscalStyleDocument.value ? items.value.reduce((sum, item) => sum + lineIvaAmount(item), 0) : 0);
+const taxableBase = computed(() => isFiscalStyleDocument.value ? items.value.reduce((sum, item) => sum + lineTaxableBase(item), 0) : 0);
 const ivaRetention = computed(() => isCreditoFiscal.value && ccfRetainIva10.value ? roundMoney(taxableBase.value * 0.01) : 0);
+const notaCreditoSourceTotalGravada = computed(() => {
+  if (!selectedSourceDocument.value) return 0;
+
+  const payload = documentPayload(selectedSourceDocument.value);
+  const resumenTotal = sourceSummaryNumber(payload, ['totalGravada']);
+  if (resumenTotal > 0) return resumenTotal;
+
+  const sourceItems = Array.isArray(payload.cuerpoDocumento) ? payload.cuerpoDocumento : [];
+
+  return roundMoney(sourceItems
+    .map((item) => sourceLineTaxableBase(asRecord(item)))
+    .reduce((sum, value) => sum + value, 0));
+});
+const notaCreditoRatio = computed(() => {
+  if (!isAdjustmentNote.value || notaCreditoSourceTotalGravada.value <= 0) return 0;
+
+  return Math.min(1, taxableBase.value / notaCreditoSourceTotalGravada.value);
+});
+const notaCreditoSourceIvaRete = computed(() => selectedSourceDocument.value ? sourceSummaryNumber(documentPayload(selectedSourceDocument.value), ['ivaRete', 'ivaRete1', 'ivaRetenido']) : 0);
+const notaCreditoSourceIvaPerci = computed(() => selectedSourceDocument.value ? sourceSummaryNumber(documentPayload(selectedSourceDocument.value), ['ivaPerci', 'ivaPerci1', 'ivaPercibido']) : 0);
+const notaCreditoIvaRete = computed(() => 0);
+const notaCreditoIvaPerci = computed(() => 0);
+const notaCreditoTotalNoGravado = computed(() => proportionalSourceSummaryAmount(['totalNoGravado', 'noGravado']));
+const notaCreditoHasFiscalAdjustments = computed(() => notaCreditoSourceIvaRete.value > 0 || notaCreditoSourceIvaPerci.value > 0);
 const totalLabel = computed(() => {
-  if (!isCreditoFiscal.value) return total.value;
+  if (!isFiscalStyleDocument.value) return total.value;
 
-  const totalWithIva = ccfPriceIncludesIva.value ? total.value : total.value + iva.value;
+  const totalWithIva = isCreditoFiscal.value && ccfPriceIncludesIva.value
+    ? total.value
+    : total.value + iva.value + (isNotaCredito.value ? notaCreditoTotalNoGravado.value : 0);
+  const retention = isNotaCredito.value ? notaCreditoIvaRete.value : ivaRetention.value;
+  const perception = isNotaCredito.value ? notaCreditoIvaPerci.value : 0;
 
-  return roundMoney(Math.max(0, totalWithIva - ivaRetention.value));
+  return roundMoney(Math.max(0, totalWithIva + perception - retention));
 });
 const unitCount = computed(() => items.value.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
 const canBuild = computed(() => Boolean(
@@ -172,7 +216,8 @@ const canBuild = computed(() => Boolean(
   && correlativoPreview.value
   && form.customerName.trim()
   && items.value.length > 0
-  && (!isCreditoFiscal.value || canBuildCreditoFiscal.value)
+  && (!isFiscalStyleDocument.value || canBuildCreditoFiscal.value)
+  && (!isAdjustmentNote.value || selectedSourceDocument.value)
 ));
 const canBuildCreditoFiscal = computed(() => Boolean(
   form.customerDocument.trim()
@@ -203,8 +248,9 @@ const pushIssueLog = (message: string, status: IssueLogEntry['status'] = 'ok'): 
   issueLog.value = [...issueLog.value.slice(-8), { message, status }];
 };
 const selectedCustomer = computed(() => selectedCustomerRecord.value);
+const hasReceptorCard = computed(() => Boolean(selectedCustomer.value || (isAdjustmentNote.value && selectedSourceDocument.value)));
 const selectedDocumentType = computed(() => availableDocumentTypes.value.find((type) => type.code === form.documentType) ?? null);
-const documentLabel = computed(() => `${form.documentType} · ${selectedDocumentType.value?.label ?? 'Factura Electronica'}`);
+const documentLabel = computed(() => `${form.documentType} · ${selectedDocumentType.value?.label ?? (isAdjustmentNote.value ? adjustmentNoteLabel.value : 'Factura Electronica')}`);
 const customerResults = computed(() => !customerSearchLocked.value && customerSearch.value.trim().length >= 2 ? customers.value : []);
 const customerSummary = computed(() => {
   if (customerMode.value === 'generic') return 'Sin documento, telefono ni correo.';
@@ -254,9 +300,24 @@ function lineTaxableBase(line: BillingItem): number {
 }
 
 function lineIvaAmount(line: BillingItem): number {
-  if (!isCreditoFiscal.value) return 0;
+  if (!isFiscalStyleDocument.value) return 0;
 
-  if (ccfPriceIncludesIva.value) {
+  if (isNotaCredito.value && typeof line.ivaAmount === 'number') {
+    return roundMoney(line.ivaAmount);
+  }
+
+  const notaCreditoLine = line as Partial<InvoiceLine>;
+  if (isNotaCredito.value && typeof notaCreditoLine.originalIva === 'number') {
+    const originalQuantity = Math.max(0, Number(notaCreditoLine.originalQuantity || line.quantity || 0));
+    const originalUnitPrice = Math.max(0, Number(notaCreditoLine.originalUnitPrice || line.unitPrice || 0));
+    const originalBase = originalQuantity * originalUnitPrice;
+
+    if (originalBase > 0) {
+      return roundMoney(notaCreditoLine.originalIva * Math.min(1, lineNetTotal(line) / originalBase));
+    }
+  }
+
+  if (isCreditoFiscal.value && ccfPriceIncludesIva.value) {
     return roundMoney(lineNetTotal(line) - lineTaxableBase(line));
   }
 
@@ -371,6 +432,14 @@ watch([
   void loadItemTemplates();
 });
 
+watch([
+  () => form.empresaId,
+  () => form.documentType,
+  sourceDocumentSearch,
+], () => {
+  void loadSourceDocuments();
+});
+
 watch(() => form.empresaId, () => {
   form.sucursalId = selectedEmpresa.value?.sucursales[0]?.id ?? null;
 });
@@ -380,7 +449,7 @@ watch(() => form.sucursalId, () => {
 });
 
 watch(() => props.initialDocumentType, (documentType) => {
-  if (['01', '03'].includes(documentType)) {
+  if (['01', '03', '05', '06'].includes(documentType)) {
     form.documentType = documentType;
   }
 });
@@ -399,7 +468,7 @@ async function loadContext(): Promise<void> {
     form.empresaId = context.value.empresas[0]?.id ?? null;
     form.sucursalId = context.value.empresas[0]?.sucursales[0]?.id ?? null;
     form.puntoVentaId = context.value.empresas[0]?.sucursales[0]?.puntosVenta[0]?.id ?? null;
-    if (isCreditoFiscal.value) {
+    if (isFiscalStyleDocument.value) {
       customerMode.value = 'base';
       clearCustomerFields('');
     } else {
@@ -436,8 +505,11 @@ watch(() => form.documentType, (documentType) => {
   customerSearch.value = '';
   customerSearchLocked.value = false;
   customers.value = [];
+  selectedSourceDocument.value = null;
+  sourceDocumentSearch.value = '';
+  sourceDocuments.value = [];
 
-  if (documentType === '03') {
+  if (documentType === '03' || documentType === '05' || documentType === '06') {
     customerMode.value = 'base';
     clearCustomerFields('');
     return;
@@ -467,9 +539,14 @@ async function previewNextCorrelativo(): Promise<void> {
     return;
   }
 
-  const result = await run(() => client.value.previewCorrelativo(scope));
-  if (result) {
+  try {
+    const result = await client.value.previewCorrelativo(scope);
     correlativoPreview.value = result;
+  } catch (caught) {
+    correlativoPreview.value = null;
+    if (!isAdjustmentNote.value) {
+      error.value = caught instanceof Error ? caught.message : 'No fue posible consultar el correlativo.';
+    }
   }
 }
 
@@ -560,8 +637,11 @@ function resetInvoiceForm(): void {
   fiscalModalDepartamento.value = '';
   fiscalModalMunicipio.value = '';
   itemTemplateSearch.value = '';
-  customerMode.value = isCreditoFiscal.value ? 'base' : 'generic';
-  if (isCreditoFiscal.value) {
+  selectedSourceDocument.value = null;
+  sourceDocumentSearch.value = '';
+  sourceDocuments.value = [];
+  customerMode.value = isFiscalStyleDocument.value ? 'base' : 'generic';
+  if (isFiscalStyleDocument.value) {
     clearCustomerFields('');
   } else {
     setGenericCustomer();
@@ -648,6 +728,13 @@ function buildPayloadOrNull(reservation: CorrelativoReservation | null = correla
     customerEmail: form.customerEmail.trim() === '' ? null : form.customerEmail.trim(),
     priceIncludesIva: isCreditoFiscal.value ? ccfPriceIncludesIva.value : false,
     retainIva10: isCreditoFiscal.value ? ccfRetainIva10.value : false,
+    ivaRete: isNotaCredito.value ? notaCreditoIvaRete.value : undefined,
+    ivaPerci: isNotaCredito.value ? notaCreditoIvaPerci.value : undefined,
+    totalNoGravado: isNotaCredito.value ? notaCreditoTotalNoGravado.value : undefined,
+    relatedDocument: isAdjustmentNote.value ? selectedSourceDocument.value : null,
+    observations: isAdjustmentNote.value && selectedSourceDocument.value
+      ? `${adjustmentNoteLabel.value} relacionada a ${selectedSourceDocument.value.numeroControl}`
+      : null,
     items: items.value
   });
 }
@@ -858,6 +945,199 @@ async function loadItemTemplates(): Promise<void> {
   } catch {
     itemTemplates.value = [];
   }
+}
+
+async function loadSourceDocuments(): Promise<void> {
+  if (selectedSourceDocument.value && sourceDocumentSearch.value.includes(selectedSourceDocument.value.numeroControl)) {
+    sourceDocuments.value = [];
+    return;
+  }
+
+  if (!isAdjustmentNote.value || !selectedEmpresa.value || sourceDocumentSearch.value.trim().length < 2) {
+    sourceDocuments.value = [];
+    return;
+  }
+
+  try {
+    const response = await client.value.documents({
+      empresa_id: selectedEmpresa.value.id,
+      tipo_dte: '03',
+      estado: 'accepted',
+      q: sourceDocumentSearch.value.trim(),
+      include_payload: true,
+      limit: 10,
+    });
+    sourceDocuments.value = response.data;
+  } catch {
+    sourceDocuments.value = [];
+  }
+}
+
+function selectSourceDocument(document: DteDraftSummary): void {
+  if (document.is_related_by_adjustment) {
+    error.value = `Ese documento ya esta relacionado con ${document.related_by_adjustment?.numeroControl ?? 'otra nota de ajuste'}.`;
+    return;
+  }
+
+  selectedSourceDocument.value = document;
+  sourceDocumentSearch.value = `${document.numeroControl} · ${sourceReceptorName(document)}`;
+  sourceDocuments.value = [];
+  applyNotaCreditoSource(document);
+}
+
+function clearSourceDocument(): void {
+  selectedSourceDocument.value = null;
+  sourceDocumentSearch.value = '';
+  sourceDocuments.value = [];
+  selectedCustomerId.value = null;
+  selectedCustomerRecord.value = null;
+  clearCustomerFields('');
+  lines.value = [];
+  draftLine.value = newInvoiceLine();
+}
+
+function applyNotaCreditoSource(document: DteDraftSummary): void {
+  const payload = documentPayload(document);
+  const receptor = asRecord(payload.receptor);
+  const direccion = asRecord(receptor.direccion);
+  const documentNumber = onlyDigits(String(receptor.numDocumento ?? receptor.nit ?? ''));
+
+  selectedCustomerId.value = null;
+  selectedCustomerRecord.value = null;
+  customerSearchLocked.value = true;
+  customerMode.value = 'base';
+  form.customerName = String(receptor.nombre ?? '');
+  form.customerDocumentType = String(receptor.tipoDocumento ?? '36');
+  form.customerDocument = documentNumber;
+  form.customerNrc = onlyDigits(String(receptor.nrc ?? ''));
+  form.customerActivityCode = String(receptor.codActividad ?? '');
+  form.customerActivityDescription = String(receptor.descActividad ?? '');
+  form.customerCommercialName = String(receptor.nombreComercial ?? receptor.nombre ?? '');
+  form.customerDepartment = String(direccion.departamento ?? '');
+  form.customerMunicipality = String(direccion.municipio ?? '');
+  form.customerDistrict = String(direccion.distrito ?? '');
+  form.customerAddress = String(direccion.complemento ?? '');
+  form.customerPhone = String(receptor.telefono ?? '');
+  form.customerEmail = String(receptor.correo ?? '');
+
+  const sourceItems = Array.isArray(payload.cuerpoDocumento) ? payload.cuerpoDocumento : [];
+  const sourceRecords = sourceItems.map((sourceItem) => asRecord(sourceItem));
+  const sourceIva = allocateSourceIva(payload, sourceRecords);
+  lines.value = sourceItems
+    .map((sourceItem, index) => sourceLineToInvoiceLine(asRecord(sourceItem), index, sourceIva[index] ?? 0))
+    .filter((line) => line.description.trim() !== '' && Number(line.quantity) > 0);
+  draftLine.value = newInvoiceLine();
+}
+
+function sourceLineToInvoiceLine(sourceItem: Record<string, unknown>, index: number, ivaAmount: number): InvoiceLine {
+  const quantity = Number(sourceItem.cantidad ?? 1);
+  const unitPrice = Number(sourceItem.precioUni ?? 0);
+
+  return {
+    id: lineId++,
+    description: String(sourceItem.descripcion ?? `Linea ${index + 1}`),
+    quantity,
+    unitPrice,
+    discount: 0,
+    discountPercent: 0,
+    originalQuantity: quantity,
+    originalUnitPrice: unitPrice,
+    originalIva: ivaAmount,
+  };
+}
+
+function allocateSourceIva(payload: Record<string, unknown>, sourceItems: Record<string, unknown>[]): number[] {
+  const totalIva = sourceTotalIva(payload);
+  if (sourceItems.length === 0 || totalIva <= 0) return sourceItems.map(() => 0);
+
+  const bases = sourceItems.map((item) => sourceLineTaxableBase(item));
+  const totalBase = bases.reduce((sum, base) => sum + base, 0);
+  if (totalBase <= 0) {
+    return sourceItems.map((_, index) => index === 0 ? totalIva : 0);
+  }
+
+  let assigned = 0;
+
+  return sourceItems.map((_, index) => {
+    if (index === sourceItems.length - 1) {
+      return roundMoney(Math.max(0, totalIva - assigned));
+    }
+
+    const value = roundMoney(totalIva * (bases[index] / totalBase));
+    assigned = roundMoney(assigned + value);
+
+    return value;
+  });
+}
+
+function sourceTotalIva(payload: Record<string, unknown>): number {
+  const resumen = asRecord(payload.resumen);
+  const totalIva = Number(resumen.totalIva ?? 0);
+  if (totalIva > 0) return roundMoney(totalIva);
+
+  const tributos = Array.isArray(resumen.tributos) ? resumen.tributos : [];
+  const ivaTributo = tributos
+    .map((tributo) => asRecord(tributo))
+    .find((tributo) => String(tributo.codigo ?? '') === '20');
+
+  return roundMoney(Number(ivaTributo?.valor ?? 0));
+}
+
+function sourceSummaryNumber(payload: Record<string, unknown>, keys: string[]): number {
+  const resumen = asRecord(payload.resumen);
+
+  for (const key of keys) {
+    const value = Number(resumen[key] ?? 0);
+    if (Number.isFinite(value) && value > 0) return roundMoney(value);
+  }
+
+  return 0;
+}
+
+function proportionalSourceSummaryAmount(keys: string[]): number {
+  if (!selectedSourceDocument.value || !isAdjustmentNote.value || notaCreditoRatio.value <= 0) return 0;
+
+  const sourceAmount = sourceSummaryNumber(documentPayload(selectedSourceDocument.value), keys);
+
+  return roundMoney(sourceAmount * notaCreditoRatio.value);
+}
+
+function sourceLineTaxableBase(sourceItem: Record<string, unknown>): number {
+  const explicitBase = Number(sourceItem.ventaGravada ?? 0);
+  if (explicitBase > 0) return explicitBase;
+
+  const quantity = Number(sourceItem.cantidad ?? 1);
+  const unitPrice = Number(sourceItem.precioUni ?? 0);
+  const discount = Number(sourceItem.montoDescu ?? 0);
+
+  return Math.max(0, (quantity * unitPrice) - discount);
+}
+
+function updateNotaCreditoPrice(line: InvoiceLine, value: number | string): void {
+  if (isNotaDebito.value) {
+    line.unitPrice = roundMoney(Math.max(0, Number(value || 0)));
+    return;
+  }
+
+  const max = Number(line.originalUnitPrice ?? line.unitPrice ?? 0);
+  const next = Math.max(0, Math.min(max, Number(value || 0)));
+  line.unitPrice = roundMoney(next);
+}
+
+function sourceLineMaxLabel(line: InvoiceLine): string {
+  return `Max. ${currency(Number(line.originalUnitPrice ?? line.unitPrice ?? 0))}`;
+}
+
+function documentPayload(document: DteDraftSummary): Record<string, unknown> {
+  return asRecord(document.payload ?? document.dte_json ?? {});
+}
+
+function sourceReceptorName(document: DteDraftSummary): string {
+  return String(asRecord(documentPayload(document).receptor).nombre ?? document.empresa?.razon_social ?? 'Receptor fiscal');
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
 function fillCurrentLineFromTemplate(template: BillingItemTemplate): void {
@@ -1098,7 +1378,87 @@ function removeLine(id: number): void {
       </div>
 
       <div v-else class="grid gap-6">
-        <div class="grid gap-4 xl:grid-cols-3">
+        <section v-if="isAdjustmentNote" class="rounded-md border border-slate-200 bg-white p-4">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 class="text-base font-semibold text-slate-950">Documento origen</h2>
+              <p class="mt-1 text-sm text-slate-500">
+                Selecciona un CCF aceptado para {{ isNotaDebito ? 'incrementar o ajustar cargos' : 'acreditar total o parcialmente' }}.
+              </p>
+            </div>
+            <button
+              v-if="selectedSourceDocument"
+              class="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-600 hover:text-white"
+              type="button"
+              @click="clearSourceDocument"
+            >
+              Quitar origen
+            </button>
+          </div>
+
+          <div class="mt-4">
+            <UiInput v-model="sourceDocumentSearch" label="Buscar CCF aceptado" placeholder="Numero de control, codigo de generacion o cliente" />
+            <div v-if="sourceDocuments.length" class="mt-2 max-h-56 overflow-y-auto rounded-md border border-slate-200">
+              <button
+                v-for="document in sourceDocuments"
+                :key="document.id"
+                class="block w-full border-b border-slate-100 px-3 py-2 text-left text-sm last:border-b-0"
+                :class="document.is_related_by_adjustment ? 'cursor-not-allowed bg-slate-50 opacity-60' : 'hover:bg-sky-50'"
+                type="button"
+                :disabled="document.is_related_by_adjustment"
+                @click="selectSourceDocument(document)"
+              >
+                <span class="flex flex-wrap items-center gap-2 font-semibold text-slate-950">
+                  {{ document.numeroControl }}
+                  <span v-if="document.is_related_by_adjustment" class="rounded bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                    Relacionado
+                  </span>
+                </span>
+                <span class="block text-xs text-slate-500">
+                  {{ sourceReceptorName(document) }} · {{ currency(Number(document.totalPagar ?? 0)) }}
+                  <template v-if="document.related_by_adjustment?.numeroControl">
+                    · {{ document.related_by_adjustment.numeroControl }}
+                  </template>
+                </span>
+              </button>
+            </div>
+            <p v-else-if="!selectedSourceDocument && sourceDocumentSearch.trim().length >= 2" class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              No encontramos CCF aceptados para esa busqueda en la empresa activa.
+            </p>
+          </div>
+
+          <div v-if="selectedSourceDocument" class="mt-4 grid gap-3 rounded-md border border-sky-100 bg-sky-50 p-4 text-sm md:grid-cols-4">
+            <p>
+              <span class="block text-xs font-semibold uppercase text-slate-500">CCF origen</span>
+              <span class="mt-1 block font-mono text-xs text-slate-950">{{ selectedSourceDocument.numeroControl }}</span>
+            </p>
+            <p>
+              <span class="block text-xs font-semibold uppercase text-slate-500">Receptor</span>
+              <span class="mt-1 block truncate font-semibold text-slate-950">{{ form.customerName }}</span>
+            </p>
+            <p>
+              <span class="block text-xs font-semibold uppercase text-slate-500">Total origen</span>
+              <span class="mt-1 block font-semibold text-slate-950">{{ currency(Number(selectedSourceDocument.totalPagar ?? 0)) }}</span>
+            </p>
+            <p v-if="notaCreditoHasFiscalAdjustments">
+              <span class="block text-xs font-semibold uppercase text-slate-500">Ajustes IVA</span>
+              <span class="mt-1 block text-xs font-semibold text-slate-950">
+                Origen ret. {{ currency(notaCreditoSourceIvaRete) }} · perc. {{ currency(notaCreditoSourceIvaPerci) }}
+              </span>
+            </p>
+            <p>
+              <span class="block text-xs font-semibold uppercase text-slate-500">{{ isNotaDebito ? 'NDE' : 'NCE' }}</span>
+              <span
+                class="mt-1 inline-flex rounded px-2 py-1 text-xs font-semibold"
+                :class="correlativoPreview ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'"
+              >
+                {{ correlativoPreview ? correlativoPreview.numero_control : 'Sin correlativo' }}
+              </span>
+            </p>
+          </div>
+        </section>
+
+        <div v-if="!isAdjustmentNote" class="grid gap-4 xl:grid-cols-3">
           <section class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
             <div class="flex h-full flex-col justify-between gap-4">
               <div class="min-w-0">
@@ -1147,11 +1507,11 @@ function removeLine(id: number): void {
             </div>
           </div>
 
-          <div v-if="selectedCustomer" class="mt-4 rounded-md border border-sky-100 bg-sky-50/80 p-3">
+          <div v-if="hasReceptorCard" class="mt-4 rounded-md border border-sky-100 bg-sky-50/80 p-3">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
-                  <span class="rounded bg-white px-2 py-1">{{ isCreditoFiscal ? 'Cliente fiscal' : 'Cliente base' }}</span>
+                  <span class="rounded bg-white px-2 py-1">{{ isAdjustmentNote ? 'Receptor del CCF origen' : isCreditoFiscal ? 'Cliente fiscal' : 'Cliente base' }}</span>
                 </div>
                 <div class="mt-3 grid gap-x-4 gap-y-3 text-[13px] sm:grid-cols-2">
                   <p class="min-w-0 sm:col-span-2">
@@ -1174,7 +1534,7 @@ function removeLine(id: number): void {
                     <span class="block text-[11px] font-semibold text-slate-500">Correo</span>
                     <span class="block truncate font-semibold text-slate-950">{{ form.customerEmail || 'Sin correo' }}</span>
                   </p>
-                  <template v-if="isCreditoFiscal">
+                  <template v-if="isFiscalStyleDocument">
                     <p>
                       <span class="block text-[11px] font-semibold text-slate-500">NRC</span>
                       <span class="block font-semibold text-slate-950">{{ form.customerNrc }}</span>
@@ -1194,14 +1554,14 @@ function removeLine(id: number): void {
                 class="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-red-50 text-sm font-bold text-red-600 transition hover:bg-red-600 hover:text-white"
                 type="button"
                 aria-label="Quitar cliente seleccionado"
-                @click="clearSelectedCustomer"
+                @click="isAdjustmentNote ? clearSourceDocument() : clearSelectedCustomer()"
               >
                 x
               </button>
             </div>
           </div>
 
-          <div v-else class="mt-4 grid gap-2 sm:grid-cols-2">
+          <div v-else-if="!isAdjustmentNote" class="mt-4 grid gap-2 sm:grid-cols-2">
             <button
               v-for="mode in customerModes"
               :key="mode.key"
@@ -1214,7 +1574,7 @@ function removeLine(id: number): void {
             </button>
           </div>
 
-          <div v-if="!selectedCustomer && (customerMode === 'generic' || customerMode === 'quick' || customerMode === 'new')" class="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+          <div v-if="!selectedCustomer && !isAdjustmentNote && (customerMode === 'generic' || customerMode === 'quick' || customerMode === 'new')" class="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p class="text-sm font-semibold text-slate-950">{{ form.customerName || 'Consumidor Final' }}</p>
@@ -1227,9 +1587,12 @@ function removeLine(id: number): void {
           <p v-if="isCreditoFiscal && !selectedCustomer" class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
             CCF requiere un cliente fiscal guardado con NIT/DUI homologado, NRC, actividad, direccion, telefono y correo.
           </p>
+          <p v-if="isAdjustmentNote && !selectedSourceDocument" class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            Selecciona un CCF aceptado para cargar automaticamente el receptor.
+          </p>
           </section>
 
-          <section class="rounded-md border border-slate-200 bg-white p-4">
+          <section v-if="!isAdjustmentNote" class="rounded-md border border-slate-200 bg-white p-4">
             <div>
               <h2 class="text-base font-semibold text-slate-950">Productos rapidos</h2>
               <p class="mt-1 text-xs text-slate-500">Agrega servicios frecuentes al detalle.</p>
@@ -1270,13 +1633,13 @@ function removeLine(id: number): void {
                   <th class="px-3 py-2">Descripcion</th>
                   <th class="w-28 px-3 py-2">Cantidad</th>
                   <th class="w-36 px-3 py-2">Precio</th>
-                  <th class="w-36 px-3 py-2">% desc.</th>
+                  <th class="w-36 px-3 py-2">{{ isAdjustmentNote ? (isNotaDebito ? 'Incremento' : 'Ajuste') : '% desc.' }}</th>
                   <th class="w-32 px-3 py-2 text-right">Neto</th>
                   <th class="w-32 px-3 py-2"></th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200">
-                <tr class="bg-slate-50/70">
+                <tr v-if="!isAdjustmentNote" class="bg-slate-50/70">
                   <td class="px-3 py-2">
                     <input v-model="draftLine.description" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" placeholder="Producto o servicio">
                   </td>
@@ -1292,7 +1655,7 @@ function removeLine(id: number): void {
                   </td>
                   <td class="px-3 py-2 text-right">
                     <p class="font-semibold text-slate-900">{{ currency(lineNetTotal(draftLine)) }}</p>
-                    <p v-if="isCreditoFiscal" class="text-[11px] text-slate-500">IVA {{ currency(lineIvaAmount(draftLine)) }}</p>
+                    <p v-if="isFiscalStyleDocument" class="text-[11px] text-slate-500">IVA {{ currency(lineIvaAmount(draftLine)) }}</p>
                     <p v-if="lineDiscountAmount(draftLine) > 0" class="text-[11px] text-slate-500">Bruto {{ currency(lineGrossTotal(draftLine)) }}</p>
                   </td>
                   <td class="px-3 py-2 text-right">
@@ -1302,29 +1665,50 @@ function removeLine(id: number): void {
                 <tr v-for="line in lines" :key="line.id">
                   <td class="px-3 py-2">
                     <span class="font-medium text-slate-950">{{ line.description }}</span>
+                    <p v-if="isAdjustmentNote" class="mt-1 text-[11px] text-slate-500">Descripcion tomada del CCF origen</p>
                   </td>
                   <td class="px-3 py-2">
-                    {{ Number(line.quantity) }}
+                    <span>{{ Number(line.quantity) }}</span>
                   </td>
                   <td class="px-3 py-2">
-                    {{ currency(Number(line.unitPrice)) }}
+                    <template v-if="isAdjustmentNote">
+                      <input
+                        class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                        :max="isNotaCredito ? Number(line.originalUnitPrice ?? line.unitPrice ?? 0) : undefined"
+                        min="0"
+                        step="0.01"
+                        type="number"
+                        :value="Number(line.unitPrice)"
+                        @input="updateNotaCreditoPrice(line, ($event.target as HTMLInputElement).value)"
+                      >
+                      <p v-if="isNotaCredito" class="mt-1 text-[11px] text-slate-500">{{ sourceLineMaxLabel(line) }}</p>
+                      <p v-else class="mt-1 text-[11px] text-slate-500">Monto adicional a debitar</p>
+                    </template>
+                    <template v-else>
+                      {{ currency(Number(line.unitPrice)) }}
+                    </template>
                   </td>
                   <td class="px-3 py-2">
-                    <span>{{ Number(line.discountPercent || 0) }}%</span>
-                    <p v-if="lineDiscountAmount(line) > 0" class="text-[11px] text-slate-500">-{{ currency(lineDiscountAmount(line)) }}</p>
+                    <template v-if="isAdjustmentNote">
+                      <span class="text-slate-400">No aplica</span>
+                    </template>
+                    <template v-else>
+                      <span>{{ Number(line.discountPercent || 0) }}%</span>
+                      <p v-if="lineDiscountAmount(line) > 0" class="text-[11px] text-slate-500">-{{ currency(lineDiscountAmount(line)) }}</p>
+                    </template>
                   </td>
                   <td class="px-3 py-2 text-right">
                     <p class="font-semibold text-slate-900">{{ currency(lineNetTotal(line)) }}</p>
-                    <p v-if="isCreditoFiscal" class="text-[11px] text-slate-500">IVA {{ currency(lineIvaAmount(line)) }}</p>
+                    <p v-if="isFiscalStyleDocument" class="text-[11px] text-slate-500">IVA {{ currency(lineIvaAmount(line)) }}</p>
                     <p v-if="lineDiscountAmount(line) > 0" class="text-[11px] text-slate-500">Bruto {{ currency(lineGrossTotal(line)) }}</p>
                   </td>
                   <td class="px-3 py-2 text-right">
-                    <button class="rounded px-2 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-50" type="button" @click="saveLineAsTemplate(line)">Guardar</button>
+                    <button v-if="!isAdjustmentNote" class="rounded px-2 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-50" type="button" @click="saveLineAsTemplate(line)">Guardar</button>
                     <button class="rounded px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-red-700" type="button" @click="removeLine(line.id)">Quitar</button>
                   </td>
                 </tr>
                 <tr v-if="lines.length === 0">
-                  <td class="px-3 py-4 text-sm text-slate-500" colspan="6">Aun no hay lineas agregadas.</td>
+                  <td class="px-3 py-4 text-sm text-slate-500" colspan="6">{{ isAdjustmentNote ? `Selecciona un CCF origen para cargar las lineas de ${isNotaDebito ? 'debito' : 'credito'}.` : 'Aun no hay lineas agregadas.' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -1362,8 +1746,8 @@ function removeLine(id: number): void {
       :unit-count="unitCount"
       :subtotal="subtotal"
       :discount-total="discountTotal"
-      :iva-total="isCreditoFiscal ? iva : undefined"
-      :retention-total="isCreditoFiscal ? ivaRetention : undefined"
+      :iva-total="isFiscalStyleDocument ? iva : undefined"
+      :retention-total="isCreditoFiscal ? ivaRetention : (isNotaCredito && notaCreditoIvaRete > 0 ? notaCreditoIvaRete : undefined)"
       :total-label="totalLabel"
       :issue-disabled="loading || issuing || !canBuild"
       :issuing="issuing"

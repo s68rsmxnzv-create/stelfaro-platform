@@ -55,6 +55,9 @@ export type DtePreviewRequest = {
   correlativo?: number;
   emisor: Record<string, unknown>;
   receptor: Record<string, unknown>;
+  documentoRelacionado?: Array<Record<string, unknown>>;
+  ventaTercero?: Record<string, unknown> | null;
+  apendice?: Array<Record<string, unknown>> | null;
   items: Array<Record<string, unknown>>;
   resumen: Record<string, unknown>;
 };
@@ -116,6 +119,14 @@ export type DteDraftSummary = {
     attempted_at: string | null;
   }>;
   correlativo_retry?: Record<string, unknown> | null;
+  is_related_by_adjustment?: boolean;
+  related_by_adjustment?: {
+    id: number;
+    tipoDte: string;
+    estado: string;
+    numeroControl: string | null;
+    codigoGeneracion: string | null;
+  } | null;
 };
 
 export type DteDocumentListResponse = {
@@ -443,6 +454,11 @@ export type ManualInvoiceInput = {
   customerEmail: string | null;
   priceIncludesIva?: boolean;
   retainIva10?: boolean;
+  ivaRete?: number;
+  ivaPerci?: number;
+  totalNoGravado?: number;
+  relatedDocument?: DteDraftSummary | null;
+  observations?: string | null;
   items: BillingItem[];
 };
 
@@ -715,7 +731,7 @@ export class CoreDteClient {
     return finalResult;
   }
 
-  documents(params: { q?: string; estado?: string; tipo_dte?: string; empresa_id?: number; limit?: number } = {}): Promise<DteDocumentListResponse> {
+  documents(params: { q?: string; estado?: string; tipo_dte?: string; empresa_id?: number; limit?: number; include_payload?: boolean } = {}): Promise<DteDocumentListResponse> {
     return this.http.get('dte/drafts', { searchParams: compactParams(params) }).json();
   }
 
@@ -750,6 +766,8 @@ export class CoreDteClient {
 
 export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewRequest {
   const receptorDocument = normalizeRecipientDocument(input.customerDocumentType, input.customerDocument);
+  const isAdjustmentNote = input.documentType === '05' || input.documentType === '06';
+  const isFiscalStyle = input.documentType === '03' || isAdjustmentNote;
   const priceIncludesIva = input.documentType === '03' && input.priceIncludesIva !== false;
   const ivaRetention = input.documentType === '03' && input.retainIva10
     ? roundMoney(totalTaxableBase(input.items, priceIncludesIva) * 0.01)
@@ -762,7 +780,9 @@ export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewReques
       cantidad: item.quantity,
       precioUni: item.unitPrice,
       montoDescu: discount,
-      ...(input.documentType === '03' ? { tributos: ['20'], precioIncluyeIva: priceIncludesIva } : {})
+      ...(isFiscalStyle ? { tributos: ['20'], precioIncluyeIva: priceIncludesIva } : {}),
+      ...(input.documentType === '05' && typeof item.ivaAmount === 'number' ? { totalIva: roundMoney(item.ivaAmount), ivaItem: roundMoney(item.ivaAmount) } : {}),
+      ...(isAdjustmentNote && input.relatedDocument ? { numeroDocumento: input.relatedDocument.codigoGeneracion } : {})
     };
   });
 
@@ -773,7 +793,7 @@ export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewReques
     };
   }
 
-  return {
+  const request: DtePreviewRequest = {
     tipoDte: input.documentType,
     ambiente: input.empresa.ambiente,
     empresa_id: input.empresa.id,
@@ -803,9 +823,14 @@ export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewReques
       codPuntoVentaMH: null,
       codPuntoVenta: input.puntoVenta.codigo
     },
-    receptor: input.documentType === '03'
+    receptor: isFiscalStyle
       ? {
-        nit: onlyDigits(input.customerDocument),
+        ...(input.documentType === '03'
+          ? { nit: onlyDigits(input.customerDocument) }
+          : {
+            tipoDocumento: receptorDocument.documentType || '36',
+            numDocumento: receptorDocument.documentNumber || onlyDigits(input.customerDocument)
+          }),
         nrc: onlyDigits(input.customerNrc),
         nombre: input.customerName,
         codActividad: input.customerActivityCode,
@@ -833,9 +858,34 @@ export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewReques
       },
     items,
     resumen: {
-      totalPagar: input.items.reduce((total, item) => total + lineNetTotal(item), 0)
+      totalPagar: input.items.reduce((total, item) => total + lineNetTotal(item), 0),
+      ...(input.ivaRete !== undefined ? { ivaRete: roundMoney(input.ivaRete) } : {}),
+      ...(input.ivaPerci !== undefined ? { ivaPerci: roundMoney(input.ivaPerci) } : {}),
+      ...(input.totalNoGravado !== undefined ? { totalNoGravado: roundMoney(input.totalNoGravado) } : {}),
+      observaciones: input.observations ?? null,
+      codigoRetencionMH: null
     }
   };
+
+  if (isAdjustmentNote && input.relatedDocument) {
+    const payload = (input.relatedDocument.payload ?? input.relatedDocument.dte_json ?? {}) as Record<string, unknown>;
+    const identificacion = asRecord(payload.identificacion);
+
+    request.documentoRelacionado = [{
+      tipoDocumento: String(identificacion.tipoDte ?? input.relatedDocument.tipoDte),
+      tipoGeneracion: 2,
+      numeroDocumento: String(identificacion.codigoGeneracion ?? input.relatedDocument.codigoGeneracion),
+      fechaEmision: String(identificacion.fecEmi ?? input.relatedDocument.created_at?.slice(0, 10) ?? '')
+    }];
+    request.ventaTercero = null;
+    request.apendice = null;
+  }
+
+  return request;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
 function lineGrossTotal(item: BillingItem): number {
@@ -897,6 +947,10 @@ function normalizeRecipientDocument(type: string | null | undefined, value: stri
   const digits = onlyDigits(value);
   if (!digits) {
     return { documentType: null, documentNumber: null };
+  }
+
+  if (type === '36' && (digits.length === 9 || digits.length === 14)) {
+    return { documentType: '36', documentNumber: digits };
   }
 
   if (digits.length === 9) {
