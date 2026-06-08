@@ -6,7 +6,7 @@ import {
   type DteHistoryEntry
 } from '@stelfaro/api-client';
 import { currency } from '@stelfaro/shared';
-import { UiButton, UiCard, UiInput } from '@stelfaro/ui';
+import { UiButton, UiCard, UiSearchInput } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -203,7 +203,12 @@ function copyText(value: string): void {
 
     <UiCard>
       <div class="grid gap-4 p-1 md:grid-cols-[minmax(0,1fr)_240px_120px] md:items-end">
-        <UiInput v-model="query" label="Buscar DTE" placeholder="Numero, codigo, sello, empresa o NIT" />
+        <UiSearchInput
+          v-model="query"
+          label="Buscar DTE"
+          placeholder="Numero, codigo, sello, empresa o NIT"
+          @search="loadDocuments"
+        />
 
         <div>
           <label class="text-sm font-semibold text-slate-900" for="mh-status">Estado</label>

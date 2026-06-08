@@ -10,7 +10,7 @@ import {
   type BillingSignerVerification,
   type MhBearerVerification
 } from '@stelfaro/api-client';
-import { UiButton, UiCard, UiFiscalDocumentInput, UiInput, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCard, UiFiscalDocumentInput, UiInput, UiSearchInput, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -557,15 +557,11 @@ function markLogoBroken(empresa: BillingEmpresa): void {
 
       <div v-else class="grid gap-8 xl:grid-cols-[420px_minmax(0,1fr)]">
         <aside class="space-y-5">
-          <label class="block">
-            <span class="text-sm font-semibold text-slate-800">Buscar empresa</span>
-            <input
-              v-model="searchQuery"
-              class="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-              placeholder="DUI, NIT, nombre fiscal o comercial"
-              type="search"
-            >
-          </label>
+          <UiSearchInput
+            v-model="searchQuery"
+            label="Buscar empresa"
+            placeholder="DUI, NIT, nombre fiscal o comercial"
+          />
 
           <div>
             <div class="mb-3 flex items-center justify-between">

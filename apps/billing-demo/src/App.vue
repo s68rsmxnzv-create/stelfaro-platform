@@ -10,6 +10,7 @@ const auth = useAuthStore();
 const mobileOpen = ref(false);
 const userMenuOpen = ref(false);
 const billingMenuOpen = ref(false);
+const eventMenuOpen = ref(false);
 const documentTypes = ref<BillingDocumentType[]>([]);
 const isPublicLayout = computed(() => Boolean(route.meta.public));
 const nav = computed(() => [
@@ -42,17 +43,23 @@ const billingOptions = computed(() => {
     }));
 });
 const operationsNav = computed(() => [
-  { label: 'Eventos MH', to: '/mh-events', show: !auth.isBackoffice },
   { label: 'Respuestas MH', to: '/mh-responses', show: !auth.isBackoffice },
 ].filter((item) => item.show));
+const eventOptions = computed(() => [
+  { label: 'Invalidacion', to: '/mh-events/invalidacion', enabled: true },
+  { label: 'Contingencia', to: '/mh-events/contingencia', enabled: true },
+  { label: 'Retorno', to: '/mh-events/retorno', enabled: true },
+  { label: 'Operaciones especiales', to: '/mh-events/operaciones-especiales', enabled: true },
+]);
 const pageTitle = computed(() => {
   if (route.path.startsWith('/billing')) {
     const currentDte = billingOptions.value.find((item) => item.to === route.path);
     return currentDte?.label ?? 'Facturacion';
   }
 
-  if (route.path === '/mh-events') {
-    return 'Eventos MH';
+  if (route.path.startsWith('/mh-events')) {
+    const currentEvent = eventOptions.value.find((item) => item.to === route.path);
+    return currentEvent?.label ?? 'Eventos MH';
   }
 
   if (route.path === '/mh-responses') {
@@ -77,6 +84,7 @@ watch(() => route.fullPath, () => {
   mobileOpen.value = false;
   userMenuOpen.value = false;
   billingMenuOpen.value = false;
+  eventMenuOpen.value = false;
 });
 
 watch(() => auth.token, async () => {
@@ -147,6 +155,41 @@ async function logout(): Promise<void> {
                   class="absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 bg-slate-900 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
                 >
                   <template v-for="option in billingOptions" :key="option.label">
+                    <RouterLink
+                      v-if="option.enabled"
+                      :to="option.to"
+                      class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
+                      active-class="bg-sky-500 text-white shadow-sm shadow-sky-950/20"
+                    >
+                      {{ option.label }}
+                    </RouterLink>
+                    <span v-else class="block cursor-not-allowed rounded-md px-3 py-2 text-sm font-semibold text-slate-500">
+                      {{ option.label }}
+                    </span>
+                  </template>
+                </div>
+              </div>
+
+              <div v-if="!auth.isBackoffice" class="relative">
+                <button
+                  class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
+                  :class="route.path.startsWith('/mh-events') ? 'bg-slate-950/70 text-white' : ''"
+                  type="button"
+                  @click="eventMenuOpen = !eventMenuOpen"
+                >
+                  Eventos MH
+                  <span
+                    class="h-1.5 w-1.5 rotate-45 border-b-2 border-r-2 border-current text-slate-400 transition"
+                    :class="eventMenuOpen ? 'rotate-[225deg] text-slate-200' : ''"
+                    aria-hidden="true"
+                  ></span>
+                </button>
+
+                <div
+                  v-if="eventMenuOpen"
+                  class="absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 bg-slate-900 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+                >
+                  <template v-for="option in eventOptions" :key="option.label">
                     <RouterLink
                       v-if="option.enabled"
                       :to="option.to"
@@ -234,6 +277,25 @@ async function logout(): Promise<void> {
             <p class="text-base font-semibold text-white">Facturacion</p>
             <div class="mt-2 space-y-1">
               <template v-for="option in billingOptions" :key="option.label">
+                <RouterLink
+                  v-if="option.enabled"
+                  :to="option.to"
+                  class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
+                  active-class="bg-sky-500 text-white shadow-sm"
+                >
+                  {{ option.label }}
+                </RouterLink>
+                <span v-else class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-500">
+                  {{ option.label }}
+                </span>
+              </template>
+            </div>
+          </div>
+
+          <div v-if="!auth.isBackoffice" class="rounded-md bg-white/5 px-3 py-2">
+            <p class="text-base font-semibold text-white">Eventos MH</p>
+            <div class="mt-2 space-y-1">
+              <template v-for="option in eventOptions" :key="option.label">
                 <RouterLink
                   v-if="option.enabled"
                   :to="option.to"
