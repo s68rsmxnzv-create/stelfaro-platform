@@ -12,6 +12,7 @@ defineProps<{
   totalLabel: number;
   issueDisabled?: boolean;
   issuing?: boolean;
+  issueDisabledReason?: string | null;
 }>();
 
 defineEmits<{
@@ -49,6 +50,9 @@ defineEmits<{
         </div>
       </div>
       <div class="flex flex-wrap items-center justify-end gap-3">
+        <p v-if="issueDisabledReason" class="max-w-sm rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm font-semibold text-amber-100">
+          {{ issueDisabledReason }}
+        </p>
         <div class="min-w-[150px] rounded-md bg-sky-600 px-4 py-2 text-right text-white shadow-sm shadow-sky-950/30">
           <p class="text-[11px] font-semibold uppercase tracking-wide text-sky-100">Total a pagar</p>
           <p class="text-lg font-bold">{{ currency(totalLabel) }}</p>

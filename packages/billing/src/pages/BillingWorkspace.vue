@@ -17,13 +17,14 @@ import {
   type DtePreviewResponse
 } from '@stelfaro/api-client';
 import { currency, type BillingItem, type DocumentType } from '@stelfaro/shared';
-import { UiButton, UiCard, UiInput, UiLoadingMark } from '@stelfaro/ui';
+import { UiButton, UiCard, UiSearchInput, UiLoadingMark } from '@stelfaro/ui';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import BillingFiscalCustomerModal, { type BillingFiscalCustomerModalPayload } from '../components/BillingFiscalCustomerModal.vue';
 import BillingSujetoExcluidoModal, { type BillingSujetoExcluidoModalPayload } from '../components/BillingSujetoExcluidoModal.vue';
 import BillingFiscalOptions from '../components/BillingFiscalOptions.vue';
 import BillingCustomerSearchModal from '../components/BillingCustomerSearchModal.vue';
 import BillingInvoiceSummaryBar from '../components/BillingInvoiceSummaryBar.vue';
+import BillingProcessModal from '../components/BillingProcessModal.vue';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -38,6 +39,7 @@ const props = withDefaults(defineProps<{
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const loading = ref(false);
 const contextLoading = ref(false);
+const correlativoLoading = ref(false);
 const error = ref<string | null>(null);
 const context = ref<BillingContext | null>(null);
 const catalogs = ref<BillingCatalogs | null>(null);
@@ -75,6 +77,7 @@ const fiscalModalMunicipio = ref('');
 const ccfPriceIncludesIva = ref(true);
 const ccfRetainIva10 = ref(false);
 let issueAutoCloseTimer: ReturnType<typeof window.setTimeout> | null = null;
+const finalConsumerIdentificationThreshold = 25000;
 
 type InvoiceLine = BillingItem & {
   id: number;
@@ -154,6 +157,7 @@ const availableDocumentTypes = computed(() => {
   return documentTypes.value.filter((type) => ['01', '03', '05', '06', '14'].includes(type.code) && (enabled.length === 0 || enabled.includes(type.code)));
 });
 const isCreditoFiscal = computed(() => form.documentType === '03');
+const isFacturaElectronica = computed(() => form.documentType === '01');
 const isNotaCredito = computed(() => form.documentType === '05');
 const isNotaDebito = computed(() => form.documentType === '06');
 const isSujetoExcluido = computed(() => form.documentType === '14');
@@ -225,6 +229,20 @@ const totalLabel = computed(() => {
   return roundMoney(Math.max(0, totalWithIva + perception - retention));
 });
 const unitCount = computed(() => items.value.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
+const complianceTotal = computed(() => roundMoney(totalLabel.value));
+const requiresCustomerIdentificationByAmount = computed(() => (
+  isFacturaElectronica.value
+  && complianceTotal.value >= finalConsumerIdentificationThreshold
+));
+const hasRequiredCustomerIdentification = computed(() => Boolean(
+  form.customerName.trim()
+  && form.customerDocumentType.trim()
+  && form.customerDocument.trim()
+));
+const genericCustomerBlockedByAmount = computed(() => (
+  requiresCustomerIdentificationByAmount.value
+  && customerMode.value === 'generic'
+));
 const canBuild = computed(() => Boolean(
   selectedEmpresa.value
   && selectedSucursal.value
@@ -232,6 +250,8 @@ const canBuild = computed(() => Boolean(
   && correlativoPreview.value
   && form.customerName.trim()
   && items.value.length > 0
+  && !genericCustomerBlockedByAmount.value
+  && (!requiresCustomerIdentificationByAmount.value || hasRequiredCustomerIdentification.value)
   && (!isFiscalStyleDocument.value || canBuildCreditoFiscal.value)
   && (!isSujetoExcluido.value || canBuildSujetoExcluido.value)
   && (!isAdjustmentNote.value || selectedSourceDocument.value)
@@ -284,6 +304,16 @@ const customerSummary = computed(() => {
     form.customerPhone || null,
   ].filter(Boolean);
   return details.length > 0 ? details.join(' · ') : 'Datos opcionales pendientes.';
+});
+const customerIdentificationByAmountMessage = computed(() => (
+  `Factura Electronica por ${currency(finalConsumerIdentificationThreshold)} o mas requiere identificar al cliente antes de enviar a MH. Selecciona un cliente de base o agrega un cliente con nombre y DUI/NIT.`
+));
+const issueDisabledReason = computed(() => {
+  if (!requiresCustomerIdentificationByAmount.value || hasRequiredCustomerIdentification.value) {
+    return null;
+  }
+
+  return 'Identifica al cliente para emitir esta FE.';
 });
 const customerDocumentTypeLabel = computed(() => {
   if (isCreditoFiscal.value && form.customerDocument) return form.customerDocument.length === 9 ? 'NIT / DUI homologado' : 'NIT';
@@ -570,6 +600,13 @@ async function loadContext(): Promise<void> {
 watch(customerMode, (mode) => {
   customerSearchLocked.value = false;
   if (mode === 'generic') {
+    if (requiresCustomerIdentificationByAmount.value) {
+      customerMode.value = 'base';
+      clearCustomerFields('');
+      error.value = customerIdentificationByAmountMessage.value;
+      return;
+    }
+
     selectedCustomerId.value = null;
     selectedCustomerRecord.value = null;
     setGenericCustomer();
@@ -601,6 +638,22 @@ watch(() => form.documentType, (documentType) => {
   setGenericCustomer();
 });
 
+watch(requiresCustomerIdentificationByAmount, (required) => {
+  if (!required || customerMode.value !== 'generic') {
+    return;
+  }
+
+  selectedCustomerId.value = null;
+  selectedCustomerRecord.value = null;
+  customerSearchLocked.value = false;
+  customerSearch.value = '';
+  customers.value = [];
+  customerMode.value = 'base';
+  clearCustomerFields('');
+  customerSearchModalOpen.value = true;
+  error.value = customerIdentificationByAmountMessage.value;
+});
+
 async function run<T>(task: () => Promise<T>): Promise<T | null> {
   loading.value = true;
   error.value = null;
@@ -621,6 +674,7 @@ async function previewNextCorrelativo(): Promise<void> {
     return;
   }
 
+  correlativoLoading.value = true;
   try {
     const result = await client.value.previewCorrelativo(scope);
     correlativoPreview.value = result;
@@ -629,10 +683,17 @@ async function previewNextCorrelativo(): Promise<void> {
     if (!isAdjustmentNote.value) {
       error.value = caught instanceof Error ? caught.message : 'No fue posible consultar el correlativo.';
     }
+  } finally {
+    correlativoLoading.value = false;
   }
 }
 
 async function issueDocument(): Promise<void> {
+  if (genericCustomerBlockedByAmount.value || (requiresCustomerIdentificationByAmount.value && !hasRequiredCustomerIdentification.value)) {
+    error.value = customerIdentificationByAmountMessage.value;
+    return;
+  }
+
   clearIssueAutoClose();
   issuing.value = true;
   error.value = null;
@@ -844,6 +905,11 @@ function setGenericCustomer(): void {
 }
 
 function selectCustomerMode(mode: CustomerMode): void {
+  if (mode === 'generic' && requiresCustomerIdentificationByAmount.value) {
+    error.value = customerIdentificationByAmountMessage.value;
+    return;
+  }
+
   if (mode === 'fiscal_new') {
     if (isSujetoExcluido.value) {
       sujetoExcluidoModalOpen.value = true;
@@ -1380,83 +1446,31 @@ function removeLine(id: number): void {
       @update:search="updateCustomerSearch"
     />
 
-    <div v-if="issueModalOpen" class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 px-4 py-6">
-      <div class="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
-        <div class="border-b border-slate-200 px-6 py-5">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Emision DTE</p>
-              <h2 class="mt-1 text-xl font-bold text-slate-950">
-                {{ issuing ? 'Emitiendo factura real' : issueRejected ? 'Documento rechazado por MH' : issueResult ? 'Emision procesada' : 'Emision detenida' }}
-              </h2>
-              <p class="mt-1 text-sm text-slate-500">
-                Ambiente {{ selectedEmpresa?.ambiente ?? '00' }} · {{ selectedEmpresa?.nombre_comercial ?? 'Empresa emisora' }}
-              </p>
-            </div>
-            <button
-              class="rounded-md px-3 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
-              :disabled="issuing"
-              type="button"
-              @click="closeIssueModal"
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
+    <BillingProcessModal
+      :open="issueModalOpen"
+      eyebrow="Emision DTE"
+      :title="issuing ? 'Emitiendo factura real' : issueRejected ? 'Documento rechazado por MH' : issueResult ? 'Emision procesada' : 'Emision detenida'"
+      :subtitle="`Ambiente ${selectedEmpresa?.ambiente ?? '00'} · ${selectedEmpresa?.nombre_comercial ?? 'Empresa emisora'}`"
+      :processing="issuing"
+      :accepted="Boolean(issueResult && !issueRejected)"
+      :rejected="issueRejected || Boolean(error && !issuing && !issueResult)"
+      :status-label="issuing ? issuePhases[issuePhaseIndex].label : issueRejected ? 'MH rechazo el documento' : issueResult ? 'Documento transmitido' : 'No fue posible emitir'"
+      :status-detail="issuing ? issuePhases[issuePhaseIndex].detail : issueRejected ? issueResult?.document.transmission?.descripcion_msg : issueResult ? issueResult.document.numeroControl : error"
+      :progress="issueProgress"
+      progress-label="Sistema en produccion"
+      :logs="issueLog"
+      @close="closeIssueModal"
+    >
+      <template #status-badge>
+        <span
+          v-if="issueResult && issueAttemptCount > 1"
+          class="shrink-0 rounded-md bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+        >
+          {{ issueAttemptCount }} intentos
+        </span>
+      </template>
 
-        <div class="min-h-0 overflow-y-auto px-6 py-5">
-          <div class="flex items-center gap-4 rounded-md border border-sky-100 bg-sky-50 p-4">
-            <div class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white">
-              <span v-if="issuing" class="h-4 w-4 animate-ping rounded-full bg-sky-500"></span>
-              <span v-else-if="issueRejected" class="h-4 w-4 rounded-full bg-red-500"></span>
-              <span v-else-if="issueResult" class="h-4 w-4 rounded-full bg-emerald-500"></span>
-              <span v-else class="h-4 w-4 rounded-full bg-red-500"></span>
-            </div>
-            <div class="min-w-0 flex-1">
-              <p class="font-semibold text-slate-950">
-                {{ issuing ? issuePhases[issuePhaseIndex].label : issueRejected ? 'MH rechazo el documento' : issueResult ? 'Documento transmitido' : 'No fue posible emitir' }}
-              </p>
-              <p class="mt-1 break-all text-sm text-slate-600">
-                {{ issuing ? issuePhases[issuePhaseIndex].detail : issueRejected ? issueResult?.document.transmission?.descripcion_msg : issueResult ? issueResult.document.numeroControl : error }}
-              </p>
-            </div>
-            <span
-              v-if="issueResult && issueAttemptCount > 1"
-              class="shrink-0 rounded-md bg-white px-3 py-1 text-xs font-semibold text-slate-600"
-            >
-              {{ issueAttemptCount }} intentos
-            </span>
-          </div>
-
-          <div class="mt-4">
-            <div class="flex items-center justify-between text-xs font-semibold text-slate-500">
-              <span>Sistema en produccion</span>
-              <span>{{ issueProgress }}%</span>
-            </div>
-            <div class="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
-              <div
-                class="h-full rounded-full bg-sky-600 transition-all"
-                :class="issuing ? 'animate-pulse' : issueRejected ? 'bg-red-500' : issueResult ? 'bg-emerald-500' : ''"
-                :style="{ width: `${issueProgress}%` }"
-              ></div>
-            </div>
-            <div v-if="issueLog.length" class="mt-3 rounded-md border border-slate-200 bg-white p-3">
-              <p class="text-xs font-semibold uppercase text-slate-500">Eventos</p>
-              <ul class="mt-2 max-h-16 space-y-1 overflow-y-auto pr-1 text-sm text-slate-600">
-                <li v-for="(entry, index) in issueLog" :key="`${entry.message}-${index}`" class="flex items-start gap-2">
-                  <span
-                    class="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white"
-                    :class="entry.status === 'error' ? 'bg-red-500' : 'bg-emerald-500'"
-                  >
-                    {{ entry.status === 'error' ? 'x' : '✓' }}
-                  </span>
-                  <span>{{ entry.message }}</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div v-if="issueResult" class="mt-5 rounded-md border p-4" :class="issueRejected ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'">
+      <div v-if="issueResult" class="mt-5 rounded-md border p-4" :class="issueRejected ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p class="text-sm font-semibold" :class="issueRejected ? 'text-red-900' : 'text-emerald-900'">
@@ -1509,9 +1523,7 @@ function removeLine(id: number): void {
           <div v-else-if="error && !issuing" class="mt-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {{ error }}
           </div>
-        </div>
-      </div>
-    </div>
+    </BillingProcessModal>
 
     <UiCard>
       <UiLoadingMark v-if="contextLoading" label="Estamos verificando conexiones" />
@@ -1539,7 +1551,12 @@ function removeLine(id: number): void {
           </div>
 
           <div class="mt-4">
-            <UiInput v-model="sourceDocumentSearch" label="Buscar CCF aceptado" placeholder="Numero de control, codigo de generacion o cliente" />
+            <UiSearchInput
+              v-model="sourceDocumentSearch"
+              label="Buscar CCF aceptado"
+              placeholder="Numero de control, codigo de generacion o cliente"
+              @search="loadSourceDocuments"
+            />
             <div v-if="sourceDocuments.length" class="mt-2 max-h-56 overflow-y-auto rounded-md border border-slate-200">
               <button
                 v-for="document in sourceDocuments"
@@ -1591,10 +1608,15 @@ function removeLine(id: number): void {
             <p>
               <span class="block text-xs font-semibold uppercase text-slate-500">{{ isNotaDebito ? 'NDE' : 'NCE' }}</span>
               <span
-                class="mt-1 inline-flex rounded px-2 py-1 text-xs font-semibold"
-                :class="correlativoPreview ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'"
+                class="mt-1 inline-flex items-center gap-2 rounded px-2 py-1 text-xs font-semibold"
+                :class="correlativoLoading
+                  ? 'bg-sky-100 text-sky-700'
+                  : correlativoPreview
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-red-100 text-red-700'"
               >
-                {{ correlativoPreview ? correlativoPreview.numero_control : 'Sin correlativo' }}
+                <span v-if="correlativoLoading" class="h-3 w-3 animate-spin rounded-full border-2 border-sky-200 border-t-sky-700"></span>
+                {{ correlativoLoading ? 'Consultando correlativo' : correlativoPreview ? correlativoPreview.numero_control : 'Sin correlativo' }}
               </span>
             </p>
           </div>
@@ -1626,13 +1648,21 @@ function removeLine(id: number): void {
                 </div>
               </div>
               <div class="flex flex-wrap items-end justify-between gap-3 border-t border-slate-200 pt-3">
-                <p v-if="!correlativoPreview" class="text-sm text-red-700">No hay correlativo activo para esta combinacion.</p>
+                <p v-if="correlativoLoading" class="inline-flex items-center gap-2 text-sm font-medium text-sky-700">
+                  <span class="h-4 w-4 animate-spin rounded-full border-2 border-sky-200 border-t-sky-700"></span>
+                  Consultando correlativo disponible...
+                </p>
+                <p v-else-if="!correlativoPreview" class="text-sm text-red-700">No hay correlativo activo para esta combinacion.</p>
                 <div class="text-right">
                   <span
-                    class="rounded px-2 py-1 text-xs font-semibold"
-                    :class="correlativoPreview ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'"
+                    class="inline-flex items-center gap-2 rounded px-2 py-1 text-xs font-semibold"
+                    :class="correlativoLoading
+                      ? 'bg-sky-100 text-sky-700'
+                      : correlativoPreview
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-red-100 text-red-700'"
                   >
-                    {{ correlativoPreview ? 'Numero correlativo' : 'Sin correlativo' }}
+                    {{ correlativoLoading ? 'Consultando' : correlativoPreview ? 'Numero correlativo' : 'Sin correlativo' }}
                   </span>
                   <p v-if="correlativoPreview" class="mt-2 max-w-[320px] truncate font-mono text-[11px] text-slate-500">
                     {{ correlativoPreview.numero_control }}
@@ -1708,7 +1738,11 @@ function removeLine(id: number): void {
               v-for="mode in customerModes"
               :key="mode.key"
               class="rounded-lg px-4 py-2 text-sm font-semibold tracking-wide transition-colors duration-200 focus:outline-none focus:ring focus:ring-sky-300 focus:ring-opacity-70"
-              :class="customerMode === mode.key ? 'bg-sky-600 text-white hover:bg-sky-500' : 'bg-slate-100 text-slate-900 hover:bg-slate-200'"
+              :class="[
+                customerMode === mode.key ? 'bg-sky-600 text-white hover:bg-sky-500' : 'bg-slate-100 text-slate-900 hover:bg-slate-200',
+                mode.key === 'generic' && requiresCustomerIdentificationByAmount ? 'cursor-not-allowed opacity-50 hover:bg-slate-100' : ''
+              ]"
+              :disabled="mode.key === 'generic' && requiresCustomerIdentificationByAmount"
               type="button"
               @click="selectCustomerMode(mode.key)"
             >
@@ -1726,6 +1760,9 @@ function removeLine(id: number): void {
             </div>
           </div>
 
+          <p v-if="requiresCustomerIdentificationByAmount && !hasRequiredCustomerIdentification" class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            {{ customerIdentificationByAmountMessage }}
+          </p>
           <p v-if="isCreditoFiscal && !selectedCustomer" class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
             CCF requiere un cliente fiscal guardado con NIT/DUI homologado, NRC, actividad, direccion, telefono y correo.
           </p>
@@ -1742,7 +1779,13 @@ function removeLine(id: number): void {
               <h2 class="text-base font-semibold text-slate-950">{{ isSujetoExcluido ? 'Compras frecuentes' : 'Productos rapidos' }}</h2>
               <p class="mt-1 text-xs text-slate-500">{{ isSujetoExcluido ? 'Agrega compras o servicios recibidos.' : 'Agrega servicios frecuentes al detalle.' }}</p>
             </div>
-            <UiInput v-model="itemTemplateSearch" class="mt-4" label="Buscar producto o servicio" placeholder="Nombre o descripcion" />
+            <UiSearchInput
+              v-model="itemTemplateSearch"
+              class="mt-4"
+              label="Buscar producto o servicio"
+              placeholder="Nombre o descripcion"
+              @search="loadItemTemplates"
+            />
             <div v-if="itemTemplateSearch.trim()" class="mt-3 max-h-40 overflow-y-auto rounded-md border border-slate-200">
               <button
                 v-for="template in itemTemplates.slice(0, 8)"
@@ -1938,6 +1981,7 @@ function removeLine(id: number): void {
       :retention-total="isSujetoExcluido ? sujetoExcluidoReteRenta : (isCreditoFiscal ? ivaRetention : (isNotaCredito && notaCreditoIvaRete > 0 ? notaCreditoIvaRete : undefined))"
       :total-label="totalLabel"
       :issue-disabled="loading || issuing || !canBuild"
+      :issue-disabled-reason="issueDisabledReason"
       :issuing="issuing"
       @issue="issueDocument"
     />
