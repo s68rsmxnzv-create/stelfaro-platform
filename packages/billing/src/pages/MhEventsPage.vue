@@ -44,6 +44,8 @@ const eventLog = ref<Array<{ label: string; status: 'ok' | 'error' }>>([]);
 const motivoModalOpen = ref(false);
 const motivoDraft = ref('');
 const motivoModalMode = ref<'invalidacion' | 'contingencia'>('invalidacion');
+const contingencyStartTouched = ref(false);
+const contingencyEndTouched = ref(false);
 let searchTimer: ReturnType<typeof window.setTimeout> | null = null;
 let replacementSearchTimer: ReturnType<typeof window.setTimeout> | null = null;
 
@@ -293,6 +295,7 @@ watch(() => form.tipoContingencia, () => {
   contingencyCandidatesLoaded.value = false;
   eventResult.value = null;
   eventLog.value = [];
+  resetContingencyWindowAutomation();
 
   if (isContingencia.value) {
     void loadContingencyCandidates();
@@ -311,6 +314,7 @@ watch(() => props.initialEventType, () => {
   contingencyCandidatesLoaded.value = false;
   query.value = '';
   searched.value = false;
+  resetContingencyWindowAutomation();
 
   if (isContingencia.value) {
     void loadContingencyCandidates();
@@ -592,6 +596,10 @@ async function reportContingency(): Promise<void> {
   const ambiente = selectedContingencyDocuments.value[0]?.ambiente as '00' | '01' | undefined;
   if (!company?.id || !ambiente) return;
 
+  if (!contingencyEndTouched.value) {
+    setContingencyEndToNow();
+  }
+
   let eventIdForRecovery: number | null = null;
   processing.value = true;
   eventModalOpen.value = true;
@@ -739,6 +747,11 @@ function currentLocalTime(): string {
   return new Date().toTimeString().slice(0, 5);
 }
 
+function setContingencyEndToNow(): void {
+  form.contingenciaFFin = currentLocalDate();
+  form.contingenciaHFin = currentLocalTime();
+}
+
 function normalizeTime(value: string): string {
   if (/^\d{2}:\d{2}:\d{2}$/.test(value)) return value;
   if (/^\d{2}:\d{2}$/.test(value)) return `${value}:00`;
@@ -747,14 +760,45 @@ function normalizeTime(value: string): string {
 }
 
 function syncContingencyWindowFromSelection(): void {
+  if (selectedContingencyDocuments.value.length === 0) {
+    if (!contingencyStartTouched.value) {
+      form.contingenciaFInicio = currentLocalDate();
+      form.contingenciaHInicio = currentLocalTime();
+    }
+    if (!contingencyEndTouched.value) {
+      setContingencyEndToNow();
+    }
+    return;
+  }
+
   const identificacion = selectedContingencyIdentificacion.value;
   const fecEmi = String(identificacion.fecEmi ?? '').trim();
   const horEmi = String(identificacion.horEmi ?? '').trim();
 
-  if (fecEmi) form.contingenciaFInicio = fecEmi;
-  if (horEmi) form.contingenciaHInicio = horEmi.slice(0, 5);
-  if (!form.contingenciaFFin) form.contingenciaFFin = currentLocalDate();
-  if (!form.contingenciaHFin) form.contingenciaHFin = currentLocalTime();
+  if (!contingencyStartTouched.value) {
+    if (fecEmi) form.contingenciaFInicio = fecEmi;
+    if (horEmi) form.contingenciaHInicio = horEmi.slice(0, 5);
+  }
+
+  if (!contingencyEndTouched.value) {
+    setContingencyEndToNow();
+  }
+}
+
+function markContingencyStartTouched(): void {
+  contingencyStartTouched.value = true;
+}
+
+function markContingencyEndTouched(): void {
+  contingencyEndTouched.value = true;
+}
+
+function resetContingencyWindowAutomation(): void {
+  contingencyStartTouched.value = false;
+  contingencyEndTouched.value = false;
+  form.contingenciaFInicio = currentLocalDate();
+  form.contingenciaHInicio = currentLocalTime();
+  setContingencyEndToNow();
 }
 
 function isGenericReceptor(document: DteDraftSummary | null): boolean {
@@ -1048,6 +1092,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                   v-model="form.contingenciaFInicio"
                   type="date"
                   class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  @input="markContingencyStartTouched"
                 >
               </label>
               <label class="block">
@@ -1057,6 +1102,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                   type="time"
                   step="1"
                   class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  @input="markContingencyStartTouched"
                 >
               </label>
               <label class="block">
@@ -1065,6 +1111,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                   v-model="form.contingenciaFFin"
                   type="date"
                   class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  @input="markContingencyEndTouched"
                 >
               </label>
               <label class="block">
@@ -1074,6 +1121,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                   type="time"
                   step="1"
                   class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  @input="markContingencyEndTouched"
                 >
               </label>
             </div>
