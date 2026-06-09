@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { BillingCustomer } from '@stelfaro/api-client';
-import { UiButton, UiSearchInput } from '@stelfaro/ui';
+import { UiSearchInput } from '@stelfaro/ui';
+import { onBeforeUnmount, watch } from 'vue';
 
-defineProps<{
+const props = defineProps<{
   open: boolean;
   loading?: boolean;
   search: string;
@@ -16,6 +17,28 @@ const emit = defineEmits<{
   select: [customer: BillingCustomer];
   'update:search': [value: string];
 }>();
+
+function closeOnEscape(event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
+    emit('close');
+  }
+}
+
+watch(
+  () => props.open,
+  (open) => {
+    if (open) {
+      window.addEventListener('keydown', closeOnEscape);
+    } else {
+      window.removeEventListener('keydown', closeOnEscape);
+    }
+  },
+  { immediate: true }
+);
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', closeOnEscape);
+});
 
 function customerDocumentLabel(customer: BillingCustomer): string {
   const value = customer.nit ?? customer.document_number ?? '';
@@ -93,13 +116,9 @@ function customerDocumentLabel(customer: BillingCustomer): string {
             </button>
           </div>
 
-          <p v-else class="mt-4 rounded-md bg-slate-50 p-3 text-sm text-slate-500">
-            {{ search.trim().length < 2 ? 'Escribe al menos 2 caracteres para buscar.' : loading ? 'Buscando clientes...' : 'Sin clientes encontrados para esa busqueda.' }}
+          <p v-else-if="search.trim().length >= 2" class="mt-4 rounded-md bg-slate-50 p-3 text-sm text-slate-500">
+            {{ loading ? 'Buscando clientes...' : 'Sin clientes encontrados para esa busqueda.' }}
           </p>
-        </div>
-
-        <div class="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
-          <UiButton variant="secondary" type="button" @click="emit('close')">Cerrar</UiButton>
         </div>
       </section>
     </div>
