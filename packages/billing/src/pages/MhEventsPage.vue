@@ -47,6 +47,7 @@ const contingencyRetransmissionResults = ref<Array<{
   id: number;
   numeroControl: string;
   status: 'accepted' | 'sent' | 'rejected' | 'error' | string;
+  source?: 'mh' | 'local';
   message?: string;
 }>>([]);
 const eventResult = ref<MhFiscalEventSummary | null>(null);
@@ -308,8 +309,9 @@ const eventMhProcessedAt = computed(() => String(
   ?? ''
 ));
 const eventMhResponseJson = computed(() => JSON.stringify(eventMhResponse.value, null, 2));
+const retransmittableContingencyDocuments = computed(() => reportedContingencyDocuments.value.filter(isRetransmittableContingencyDocument));
 const canRetransmitContingencyDocuments = computed(() => eventAccepted.value
-  && reportedContingencyDocuments.value.length > 0
+  && retransmittableContingencyDocuments.value.length > 0
   && !contingencyRetransmissionLoading.value);
 const actionStatusLabel = computed(() => {
   if (isContingencia.value) {
@@ -789,24 +791,30 @@ async function retransmitContingencyDocuments(): Promise<void> {
   contingencyRetransmissionError.value = null;
   contingencyRetransmissionResults.value = [];
 
-  const updatedDocuments: DteDraftSummary[] = [];
+  const updatedDocuments = [...reportedContingencyDocuments.value];
 
-  for (const document of reportedContingencyDocuments.value) {
+  const documentsToRetransmit = retransmittableContingencyDocuments.value;
+
+  for (const document of documentsToRetransmit) {
     try {
       const sent = await client.value.sendDraft(document.id);
-      updatedDocuments.push(sent);
+      const index = updatedDocuments.findIndex((item) => item.id === document.id);
+      if (index >= 0) updatedDocuments[index] = sent;
       contingencyRetransmissionResults.value.push({
         id: document.id,
         numeroControl: document.numeroControl,
         status: sent.estado,
-        message: sent.selloRecibido ? `Sello ${sent.selloRecibido}` : sent.errorMessage ?? undefined
+        source: sent.estado === 'rejected' ? 'mh' : undefined,
+        message: sent.selloRecibido
+          ? `Sello ${sent.selloRecibido}`
+          : sent.transmission?.descripcion_msg ?? sent.errorMessage ?? undefined
       });
     } catch (caught) {
-      updatedDocuments.push(document);
       contingencyRetransmissionResults.value.push({
         id: document.id,
         numeroControl: document.numeroControl,
         status: 'error',
+        source: 'local',
         message: caught instanceof Error ? caught.message : 'No fue posible transmitir el DTE.'
       });
     }
@@ -815,8 +823,14 @@ async function retransmitContingencyDocuments(): Promise<void> {
   reportedContingencyDocuments.value = updatedDocuments;
   contingencyRetransmissionLoading.value = false;
   const failed = contingencyRetransmissionResults.value.filter((result) => ['error', 'rejected'].includes(String(result.status).toLowerCase()));
+  const simulationFailure = failed.some((result) => String(result.message ?? '').includes('simulacion local de indisponibilidad MH'));
+  const mhRejected = failed.some((result) => result.source === 'mh' || String(result.status).toLowerCase() === 'rejected');
   contingencyRetransmissionError.value = failed.length > 0
-    ? 'Algunos DTE no pudieron transmitirse. Revisa el detalle y confirma que el simulador MH este inactivo.'
+    ? mhRejected
+      ? 'Hacienda rechazo uno o mas DTE. Revisa el detalle; esos documentos no se reintentaran hasta corregirlos.'
+      : simulationFailure
+      ? 'Algunos DTE aun fueron rechazados por la simulacion local de indisponibilidad MH. Confirma que el simulador este apagado y reintenta solo los pendientes.'
+      : 'Algunos DTE no pudieron transmitirse. Revisa el detalle y reintenta solo los pendientes.'
     : null;
   await loadContingencyCandidates();
 }
@@ -1042,6 +1056,46 @@ function canAddContingencyDocument(document: DteDraftSummary): boolean {
     && selectedContingencyDocuments.value[0]?.ambiente === document.ambiente;
 }
 
+function isRetransmittableContingencyDocument(document: DteDraftSummary): boolean {
+  return !['accepted', 'rejected'].includes(String(document.estado).toLowerCase());
+}
+
+function contingencyDocumentStatusLabel(document: DteDraftSummary): string {
+  const status = String(document.estado).toLowerCase();
+  if (status === 'accepted') return 'Aceptado';
+  if (status === 'rejected') return 'Rechazado por MH';
+  if (status === 'contingency') return 'Pendiente';
+
+  return statusLabel(document);
+}
+
+function contingencyDocumentStatusClass(document: DteDraftSummary): string {
+  const status = String(document.estado).toLowerCase();
+  if (status === 'accepted') return 'bg-emerald-100 text-emerald-700';
+  if (status === 'rejected') return 'bg-red-100 text-red-700';
+  if (status === 'contingency') return 'bg-amber-100 text-amber-700';
+
+  return 'bg-slate-100 text-slate-600';
+}
+
+function contingencyRetransmissionResultLabel(result: { status: string; source?: 'mh' | 'local' }): string {
+  const status = String(result.status).toLowerCase();
+  if (status === 'accepted') return 'Aceptado por MH';
+  if (status === 'rejected') return result.source === 'mh' ? 'Rechazado por MH' : 'Rechazado';
+  if (status === 'error') return 'Error local';
+
+  return String(result.status);
+}
+
+function contingencyRetransmissionResultClass(result: { status: string; source?: 'mh' | 'local' }): string {
+  const status = String(result.status).toLowerCase();
+  if (status === 'accepted') return 'bg-emerald-100 text-emerald-800';
+  if (status === 'rejected') return 'bg-red-100 text-red-800';
+  if (status === 'error') return result.source === 'local' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800';
+
+  return 'bg-slate-100 text-slate-700';
+}
+
 function formatDate(value?: string | null): string {
   if (!value) return 'Sin fecha';
   return new Intl.DateTimeFormat('es-SV', {
@@ -1136,8 +1190,8 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                   <span class="block truncate font-semibold text-slate-950">{{ document.numeroControl }}</span>
                   <span class="block truncate font-mono text-xs text-slate-500">{{ document.codigoGeneracion }}</span>
                 </span>
-                <span class="rounded px-2 py-1 text-xs font-semibold" :class="document.estado === 'accepted' ? 'bg-emerald-100 text-emerald-700' : document.estado === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'">
-                  {{ document.estado }}
+                <span class="rounded px-2 py-1 text-xs font-semibold" :class="contingencyDocumentStatusClass(document)">
+                  {{ contingencyDocumentStatusLabel(document) }}
                 </span>
               </div>
             </div>
@@ -1147,9 +1201,9 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 v-for="result in contingencyRetransmissionResults"
                 :key="result.id"
                 class="rounded-md px-3 py-2 text-xs"
-                :class="String(result.status).toLowerCase() === 'accepted' ? 'bg-emerald-100 text-emerald-800' : ['error', 'rejected'].includes(String(result.status).toLowerCase()) ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-700'"
+                :class="contingencyRetransmissionResultClass(result)"
               >
-                <span class="font-semibold">{{ result.numeroControl }} · {{ result.status }}</span>
+                <span class="font-semibold">{{ result.numeroControl }} · {{ contingencyRetransmissionResultLabel(result) }}</span>
                 <span v-if="result.message" class="ml-1">{{ result.message }}</span>
               </p>
             </div>
@@ -1157,14 +1211,19 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
           <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4">
             <p class="text-sm text-slate-600">
-              Confirma que el simulador MH este inactivo antes de retransmitir.
+              <span v-if="retransmittableContingencyDocuments.length">
+                {{ retransmittableContingencyDocuments.length }} DTE pendiente{{ retransmittableContingencyDocuments.length === 1 ? '' : 's' }} de retransmitir.
+              </span>
+              <span v-else>
+                Sin DTE pendientes de retransmitir.
+              </span>
             </p>
             <UiButton
               type="button"
               :disabled="!canRetransmitContingencyDocuments"
               @click="retransmitContingencyDocuments"
             >
-              {{ contingencyRetransmissionLoading ? 'Transmitiendo...' : 'Retransmitir DTE' }}
+              {{ contingencyRetransmissionLoading ? 'Transmitiendo...' : 'Retransmitir pendientes' }}
             </UiButton>
           </div>
         </section>
@@ -1258,8 +1317,8 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 <span class="block truncate font-semibold text-slate-950">{{ document.numeroControl }}</span>
                 <span class="block truncate font-mono text-xs text-slate-500">{{ document.codigoGeneracion }}</span>
               </span>
-              <span class="rounded px-2 py-1 text-xs font-semibold" :class="document.estado === 'accepted' ? 'bg-emerald-100 text-emerald-700' : document.estado === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'">
-                {{ document.estado }}
+              <span class="rounded px-2 py-1 text-xs font-semibold" :class="contingencyDocumentStatusClass(document)">
+                {{ contingencyDocumentStatusLabel(document) }}
               </span>
             </div>
           </div>
@@ -1269,9 +1328,9 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               v-for="result in contingencyRetransmissionResults"
               :key="result.id"
               class="rounded-md px-3 py-2 text-xs"
-              :class="String(result.status).toLowerCase() === 'accepted' ? 'bg-emerald-100 text-emerald-800' : ['error', 'rejected'].includes(String(result.status).toLowerCase()) ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-700'"
+              :class="contingencyRetransmissionResultClass(result)"
             >
-              <span class="font-semibold">{{ result.numeroControl }} · {{ result.status }}</span>
+              <span class="font-semibold">{{ result.numeroControl }} · {{ contingencyRetransmissionResultLabel(result) }}</span>
               <span v-if="result.message" class="ml-1">{{ result.message }}</span>
             </p>
           </div>
