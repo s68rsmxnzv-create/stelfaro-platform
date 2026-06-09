@@ -207,12 +207,6 @@ const contingencyWindowLabel = computed(() => {
 const selectedPayload = computed(() => selected.value?.payload ?? selected.value?.dte_json ?? {});
 const selectedReceptor = computed(() => recordValue(selectedPayload.value.receptor));
 const selectedIdentificacion = computed(() => recordValue(selectedPayload.value.identificacion));
-const resultStatusClass = computed(() => {
-  const status = String(eventResult.value?.transmission?.status ?? eventResult.value?.estado ?? '').toUpperCase();
-  if (status.includes('ACCEPTED') || eventResult.value?.estado === 'accepted') return 'border-emerald-200 bg-emerald-50 text-emerald-900';
-  if (status.includes('REJECTED') || eventResult.value?.estado === 'rejected') return 'border-rose-200 bg-rose-50 text-rose-900';
-  return 'border-sky-200 bg-sky-50 text-sky-900';
-});
 const eventPhases = computed(() => isContingencia.value ? [
   { label: 'Preparando contingencia', detail: 'Revisando DTE emitidos en contingencia y motivo.' },
   { label: 'Validando datos', detail: 'Comprobando estructura del evento y documentos relacionados.' },
@@ -601,6 +595,11 @@ function openMotivoModal(mode: 'invalidacion' | 'contingencia' = 'invalidacion')
 }
 
 function closeMotivoModal(): void {
+  if (motivoModalMode.value === 'invalidacion' && requiresMotivoAnulacion.value && !form.motivoAnulacion.trim() && !motivoDraft.value.trim()) {
+    form.tipoAnulacion = 2;
+    clearReplacementDocument();
+  }
+
   motivoModalOpen.value = false;
 }
 
@@ -849,7 +848,35 @@ function wait(milliseconds: number): Promise<void> {
 
 function closeEventModal(): void {
   if (processing.value) return;
+
+  const shouldResetAcceptedEvent = eventAccepted.value && !eventRejected.value && !eventStopped.value;
   eventModalOpen.value = false;
+
+  if (shouldResetAcceptedEvent) {
+    resetEventWorkspaceAfterSuccess();
+  }
+}
+
+function resetEventWorkspaceAfterSuccess(): void {
+  if (isContingencia.value) {
+    selectedContingencyDocuments.value = [];
+    reportedContingencyDocuments.value = [];
+    contingencyRetransmissionResults.value = [];
+    contingencyRetransmissionError.value = null;
+    resetContingencyWindowAutomation();
+    void loadContingencyCandidates();
+  } else {
+    clearSelectedDocument();
+    form.tipoAnulacion = 2;
+    form.motivoAnulacion = '';
+    motivoDraft.value = '';
+  }
+
+  error.value = null;
+  eventResult.value = null;
+  eventLog.value = [];
+  eventProgress.value = 0;
+  eventPhaseIndex.value = 0;
 }
 
 function pushLog(label: string): void {
@@ -1466,12 +1493,6 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
             </dl>
           </div>
 
-          <div v-if="eventResult" class="rounded-md border p-4 lg:col-span-2" :class="resultStatusClass">
-            <p class="text-sm font-semibold">Evento {{ eventResult.estado }}</p>
-            <p class="mt-1 break-all font-mono text-xs">{{ eventResult.codigoGeneracion }}</p>
-            <p class="mt-3 text-sm">{{ eventResult.transmission?.descripcion_msg ?? eventResult.transmission?.mh_estado ?? 'Evento creado.' }}</p>
-            <p v-if="eventResult.transmission?.receipt_stamp" class="mt-2 break-all font-mono text-xs">{{ eventResult.transmission.receipt_stamp }}</p>
-          </div>
         </div>
       </UiCard>
 
@@ -1797,12 +1818,6 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
             </div>
           </div>
 
-          <div v-if="eventResult" class="rounded-md border p-4 lg:col-span-2" :class="resultStatusClass">
-            <p class="text-sm font-semibold">Evento {{ eventResult.estado }}</p>
-            <p class="mt-1 break-all font-mono text-xs">{{ eventResult.codigoGeneracion }}</p>
-            <p class="mt-3 text-sm">{{ eventResult.transmission?.descripcion_msg ?? eventResult.transmission?.mh_estado ?? 'Evento creado.' }}</p>
-            <p v-if="eventResult.transmission?.receipt_stamp" class="mt-2 break-all font-mono text-xs">{{ eventResult.transmission.receipt_stamp }}</p>
-          </div>
         </div>
       </UiCard>
 
