@@ -275,8 +275,8 @@ function toggleUserMenu(): void {
 
               <div v-if="responseOptions.length" class="relative">
                 <button
-                  class="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400 transition hover:bg-white/5 hover:text-white"
-                  :class="responsesMenuActive ? 'bg-slate-950/50 text-slate-100' : ''"
+                  class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
+                  :class="responsesMenuActive ? 'bg-slate-950/70 text-white' : ''"
                   type="button"
                   @click="toggleResponsesMenu"
                 >
@@ -408,15 +408,15 @@ function toggleUserMenu(): void {
             </div>
           </div>
 
-          <div v-if="responseOptions.length" class="rounded-md px-3 py-2">
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Respuestas MH</p>
+          <div v-if="responseOptions.length" class="rounded-md bg-white/5 px-3 py-2">
+            <p class="text-base font-semibold text-white">Respuestas MH</p>
             <div class="mt-1 space-y-1">
               <RouterLink
                 v-for="option in responseOptions"
                 :key="option.to"
                 :to="option.to"
-                class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/5 hover:text-white"
-                active-class="bg-slate-950/70 text-white"
+                class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
+                active-class="bg-sky-500 text-white shadow-sm"
               >
                 {{ option.label }}
               </RouterLink>
