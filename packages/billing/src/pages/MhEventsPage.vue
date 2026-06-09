@@ -8,6 +8,7 @@ import {
 import { currency } from '@stelfaro/shared';
 import { UiButton, UiCard, UiSearchInput, UiLoadingMark, UiTextarea } from '@stelfaro/ui';
 import BillingProcessModal from '../components/BillingProcessModal.vue';
+import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -234,6 +235,51 @@ const eventAccepted = computed(() => {
   return status.includes('ACCEPTED') || eventResult.value?.estado === 'accepted';
 });
 const eventStopped = computed(() => Boolean(error.value && !processing.value && !eventAccepted.value && !eventRejected.value));
+const contingencyRetransmissionFailed = computed(() => contingencyRetransmissionResults.value.some((result) => ['error', 'rejected'].includes(String(result.status).toLowerCase())));
+const contingencyRetransmissionComplete = computed(() => Boolean(
+  isContingencia.value
+  && eventAccepted.value
+  && contingencyRetransmissionResults.value.length > 0
+  && !contingencyRetransmissionLoading.value
+  && !contingencyRetransmissionFailed.value
+));
+const eventDiagnosticModalOpen = computed(() => Boolean(eventModalOpen.value && (eventRejected.value || eventStopped.value)));
+const contingencyMomentModalOpen = computed(() => Boolean(
+  eventModalOpen.value
+  && isContingencia.value
+  && eventAccepted.value
+  && reportedContingencyDocuments.value.length > 0
+  && !contingencyRetransmissionLoading.value
+  && !contingencyRetransmissionComplete.value
+));
+const eventOverlayOpen = computed(() => Boolean(
+  eventModalOpen.value
+  && (
+    processing.value
+    || contingencyRetransmissionLoading.value
+    || contingencyRetransmissionComplete.value
+    || (eventAccepted.value && !isContingencia.value)
+    || (eventAccepted.value && isContingencia.value && reportedContingencyDocuments.value.length === 0)
+  )
+));
+const eventOverlayVariant = computed<'loading' | 'success' | 'warning'>(() => {
+  if (processing.value || contingencyRetransmissionLoading.value) return 'loading';
+  if (contingencyRetransmissionFailed.value) return 'warning';
+  return 'success';
+});
+const eventOverlayTitle = computed(() => {
+  if (contingencyRetransmissionLoading.value) return 'Retransmitiendo DTE';
+  if (processing.value) return isContingencia.value ? 'Declarando contingencia' : 'Procesando evento';
+  if (contingencyRetransmissionComplete.value) return 'Contingencia finalizada';
+  if (isContingencia.value) return 'Evento declarado';
+  return 'Evento aceptado';
+});
+const eventOverlayMessage = computed(() => {
+  if (contingencyRetransmissionLoading.value) return 'Enviando los DTE reportados a Hacienda.';
+  if (processing.value) return eventPhases.value[eventPhaseIndex.value]?.detail ?? 'Procesando evento.';
+  if (contingencyRetransmissionComplete.value) return 'El evento y los DTE reportados fueron procesados.';
+  return eventResult.value?.codigoGeneracion ?? eventStatusDetail.value;
+});
 const eventStatusDetail = computed(() => {
   if (processing.value) return eventPhases.value[eventPhaseIndex.value].detail;
   if (eventStopped.value) return error.value;
@@ -1013,6 +1059,91 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
   <section class="space-y-6">
     <p v-if="error" class="whitespace-pre-wrap rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ error }}</p>
 
+    <BillingProcessToastOverlay
+      :open="eventOverlayOpen"
+      :variant="eventOverlayVariant"
+      :title="eventOverlayTitle"
+      :message="eventOverlayMessage"
+      @close="closeEventModal"
+    />
+
+    <Teleport to="body">
+      <div
+        v-if="contingencyMomentModalOpen"
+        class="fixed inset-0 z-[9999] grid place-items-center bg-slate-950/35 px-4 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+      >
+        <section class="w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-2xl shadow-slate-950/25">
+          <div class="border-b border-slate-200 px-5 py-4">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Momento 3</p>
+                <h2 class="mt-1 text-xl font-bold text-slate-950">Transmitir DTE reportados</h2>
+                <p class="mt-1 text-sm text-slate-500">
+                  Evento aceptado por MH. Continua con los DTE incluidos en la contingencia.
+                </p>
+              </div>
+              <button
+                class="rounded-md px-3 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                type="button"
+                @click="closeEventModal"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+
+          <div class="px-5 py-4">
+            <p v-if="contingencyRetransmissionError" class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              {{ contingencyRetransmissionError }}
+            </p>
+
+            <div class="divide-y divide-slate-100 overflow-hidden rounded-md border border-slate-200 bg-white">
+              <div
+                v-for="document in reportedContingencyDocuments"
+                :key="document.id"
+                class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
+              >
+                <span class="min-w-0">
+                  <span class="block truncate font-semibold text-slate-950">{{ document.numeroControl }}</span>
+                  <span class="block truncate font-mono text-xs text-slate-500">{{ document.codigoGeneracion }}</span>
+                </span>
+                <span class="rounded px-2 py-1 text-xs font-semibold" :class="document.estado === 'accepted' ? 'bg-emerald-100 text-emerald-700' : document.estado === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'">
+                  {{ document.estado }}
+                </span>
+              </div>
+            </div>
+
+            <div v-if="contingencyRetransmissionResults.length" class="mt-3 space-y-2">
+              <p
+                v-for="result in contingencyRetransmissionResults"
+                :key="result.id"
+                class="rounded-md px-3 py-2 text-xs"
+                :class="String(result.status).toLowerCase() === 'accepted' ? 'bg-emerald-100 text-emerald-800' : ['error', 'rejected'].includes(String(result.status).toLowerCase()) ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-700'"
+              >
+                <span class="font-semibold">{{ result.numeroControl }} · {{ result.status }}</span>
+                <span v-if="result.message" class="ml-1">{{ result.message }}</span>
+              </p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4">
+            <p class="text-sm text-slate-600">
+              Confirma que el simulador MH este inactivo antes de retransmitir.
+            </p>
+            <UiButton
+              type="button"
+              :disabled="!canRetransmitContingencyDocuments"
+              @click="retransmitContingencyDocuments"
+            >
+              {{ contingencyRetransmissionLoading ? 'Transmitiendo...' : 'Retransmitir DTE' }}
+            </UiButton>
+          </div>
+        </section>
+      </div>
+    </Teleport>
+
     <UiCard v-if="!isInvalidacion && !isContingencia">
       <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <div>
@@ -1029,7 +1160,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
     <div v-else-if="isContingencia" class="grid gap-6 pb-24">
       <BillingProcessModal
-        :open="eventModalOpen"
+        :open="eventDiagnosticModalOpen"
         eyebrow="Evento MH"
         :title="processing ? 'Reportando contingencia' : eventRejected ? 'Evento rechazado por MH' : eventAccepted ? 'Evento procesado' : 'Contingencia detenida'"
         :subtitle="`Ambiente ${contingencyModalDocument?.ambiente ?? '00'} · ${selectedContingencyCompany?.nombre_comercial ?? selectedContingencyCompany?.razon_social ?? 'Empresa emisora'}`"
@@ -1379,7 +1510,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
     <div v-else class="grid gap-6 pb-24">
       <BillingProcessModal
-        :open="eventModalOpen"
+        :open="eventDiagnosticModalOpen"
         eyebrow="Evento MH"
         :title="processing ? 'Invalidando DTE' : eventRejected ? 'Evento rechazado por MH' : eventAccepted ? 'Evento procesado' : 'Invalidacion detenida'"
         :subtitle="`Ambiente ${selected?.ambiente ?? '00'} · ${selected?.empresa?.nombre_comercial ?? selected?.empresa?.razon_social ?? 'Empresa emisora'}`"
