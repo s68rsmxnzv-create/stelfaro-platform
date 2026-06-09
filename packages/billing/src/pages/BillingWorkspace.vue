@@ -283,6 +283,11 @@ const issuePhases = computed(() => [
   { label: 'Esperando respuesta', detail: 'Registrando el resultado de Hacienda.' }
 ]);
 const issueRejected = computed(() => issueResult.value?.document.transmission?.status === 'REJECTED' || issueResult.value?.document.estado === 'rejected');
+const issueInContingency = computed(() => Boolean(
+  issueResult.value
+  && !issueRejected.value
+  && (issueResult.value.document.estado === 'contingency' || issueResult.value.document.contingencia)
+));
 const issueTransmissionAttempts = computed(() => issueResult.value?.document.transmission_attempts ?? []);
 const issueAttemptCount = computed(() => Math.max(
   issueResult.value?.attempts.length ?? 0,
@@ -1449,13 +1454,14 @@ function removeLine(id: number): void {
     <BillingProcessModal
       :open="issueModalOpen"
       eyebrow="Emision DTE"
-      :title="issuing ? 'Emitiendo documento' : issueRejected ? 'Documento rechazado por MH' : issueResult ? 'Emision procesada' : 'Emision detenida'"
+      :title="issuing ? 'Emitiendo documento' : issueRejected ? 'Documento rechazado por MH' : issueInContingency ? 'Emision en contingencia' : issueResult ? 'Emision procesada' : 'Emision detenida'"
       :subtitle="`Ambiente ${selectedEmpresa?.ambiente ?? '00'} · ${selectedEmpresa?.nombre_comercial ?? 'Empresa emisora'}`"
       :processing="issuing"
-      :accepted="Boolean(issueResult && !issueRejected)"
+      :accepted="Boolean(issueResult && !issueRejected && !issueInContingency)"
+      :warning="issueInContingency"
       :rejected="issueRejected || Boolean(error && !issuing && !issueResult)"
-      :status-label="issuing ? issuePhases[issuePhaseIndex].label : issueRejected ? 'MH rechazo el documento' : issueResult ? 'Documento transmitido' : 'No fue posible emitir'"
-      :status-detail="issuing ? issuePhases[issuePhaseIndex].detail : issueRejected ? issueResult?.document.transmission?.descripcion_msg : issueResult ? issueResult.document.numeroControl : error"
+      :status-label="issuing ? issuePhases[issuePhaseIndex].label : issueRejected ? 'MH rechazo el documento' : issueInContingency ? 'Documento enviado a contingencia' : issueResult ? 'Documento transmitido' : 'No fue posible emitir'"
+      :status-detail="issuing ? issuePhases[issuePhaseIndex].detail : issueRejected ? issueResult?.document.transmission?.descripcion_msg : issueInContingency ? `${issueResult?.document.numeroControl} quedo pendiente de reporte en contingencia.` : issueResult ? issueResult.document.numeroControl : error"
       :progress="issueProgress"
       progress-label="Emision"
       :logs="issueLog"
@@ -1470,33 +1476,27 @@ function removeLine(id: number): void {
         </span>
       </template>
 
-      <div v-if="issueResult" class="mt-5 rounded-md border p-3" :class="issueRejected ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'">
+      <div v-if="issueResult && issueRejected" class="mt-5 rounded-md border border-red-200 bg-red-50 p-3">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div class="min-w-0">
-                <p class="text-sm font-semibold" :class="issueRejected ? 'text-red-900' : 'text-emerald-900'">
-                  {{ issueRejected ? 'Documento rechazado' : 'Documento aceptado' }}
+                <p class="text-sm font-semibold text-red-900">
+                  Documento rechazado
                 </p>
-                <p class="mt-1 truncate font-mono text-xs" :class="issueRejected ? 'text-red-950' : 'text-emerald-950'">{{ issueResult.document.numeroControl }}</p>
+                <p class="mt-1 truncate font-mono text-xs text-red-950">{{ issueResult.document.numeroControl }}</p>
               </div>
-              <div class="flex flex-wrap items-center gap-2 text-xs font-semibold" :class="issueRejected ? 'text-red-800' : 'text-emerald-800'">
+              <div class="flex flex-wrap items-center gap-2 text-xs font-semibold text-red-800">
                 <span class="rounded bg-white/75 px-2 py-1">HTTP {{ issueResult.document.transmission?.http_status ?? 'N/D' }}</span>
                 <span class="rounded bg-white/75 px-2 py-1">MH {{ issueResult.document.transmission?.mh_estado ?? issueResult.document.transmission?.status ?? 'sin estado' }}</span>
               </div>
             </div>
-            <p v-if="issueRejected && issueResult.document.transmission?.descripcion_msg" class="mt-2 text-sm text-red-800">
+            <p v-if="issueResult.document.transmission?.descripcion_msg" class="mt-2 text-sm text-red-800">
               {{ issueResult.document.transmission.descripcion_msg }}
             </p>
-            <ul v-if="issueRejected && issueResult.document.transmission?.observaciones?.length" class="mt-2 list-disc pl-5 text-sm text-red-800">
+            <ul v-if="issueResult.document.transmission?.observaciones?.length" class="mt-2 list-disc pl-5 text-sm text-red-800">
               <li v-for="observation in issueResult.document.transmission.observaciones" :key="observation">{{ observation }}</li>
             </ul>
-            <div v-if="issueResult.attempts.length > 1" class="mt-2 rounded-md bg-white/70 px-3 py-2 text-xs" :class="issueRejected ? 'text-red-900' : 'text-emerald-900'">
+            <div v-if="issueResult.attempts.length > 1" class="mt-2 rounded-md bg-white/70 px-3 py-2 text-xs text-red-900">
               Se resolvio con {{ issueResult.attempts.length }} intentos de correlativo.
-            </div>
-            <div v-if="!issueRejected" class="mt-3 flex flex-wrap items-center gap-2 border-t border-emerald-200/80 pt-3">
-              <button class="rounded-md bg-white/80 px-3 py-1.5 text-xs font-semibold text-emerald-900 shadow-sm opacity-75" disabled type="button">Imprimir</button>
-              <button class="rounded-md bg-white/80 px-3 py-1.5 text-xs font-semibold text-emerald-900 shadow-sm opacity-75" disabled type="button">Enviar correo</button>
-              <button class="rounded-md bg-white/80 px-3 py-1.5 text-xs font-semibold text-emerald-900 shadow-sm opacity-75" disabled type="button">Descargar PDF</button>
-              <span class="text-xs text-emerald-700">Acciones proximas</span>
             </div>
           </div>
 

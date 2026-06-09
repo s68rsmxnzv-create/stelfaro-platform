@@ -14,6 +14,7 @@ const props = withDefaults(defineProps<{
   subtitle?: string;
   processing?: boolean;
   accepted?: boolean;
+  warning?: boolean;
   rejected?: boolean;
   statusLabel: string;
   statusDetail?: string | null;
@@ -25,6 +26,7 @@ const props = withDefaults(defineProps<{
   subtitle: '',
   processing: false,
   accepted: false,
+  warning: false,
   rejected: false,
   statusDetail: '',
   logs: () => [],
@@ -37,6 +39,7 @@ const emit = defineEmits<{
 
 const statusPanelClass = computed(() => {
   if (props.accepted) return 'border-emerald-100 bg-emerald-50';
+  if (props.warning) return 'border-amber-100 bg-amber-50';
   if (props.rejected) return 'border-rose-100 bg-rose-50';
   return 'border-sky-100 bg-sky-50';
 });
@@ -44,10 +47,11 @@ const statusPanelClass = computed(() => {
 const statusDotClass = computed(() => {
   if (props.processing) return 'animate-ping bg-sky-500';
   if (props.accepted) return 'bg-emerald-500';
+  if (props.warning) return 'bg-amber-500';
   return 'bg-red-500';
 });
 
-type TimelineState = 'ok' | 'error' | 'processing' | 'pending';
+type TimelineState = 'ok' | 'error' | 'processing' | 'warning' | 'pending';
 
 const timelineItems = computed<Array<{
   key: string;
@@ -79,7 +83,7 @@ const timelineItems = computed<Array<{
       key: `status-${props.statusLabel}`,
       title: props.statusLabel,
       detail: props.statusDetail || props.progressLabel,
-      state: props.rejected ? 'error' : props.accepted ? 'ok' : 'pending'
+      state: props.rejected ? 'error' : props.accepted ? 'ok' : props.warning ? 'warning' : 'pending'
     });
   }
 
@@ -90,6 +94,7 @@ function timelineDotClass(state: string): string {
   if (state === 'error') return 'bg-red-500 ring-red-100';
   if (state === 'processing') return 'animate-pulse bg-sky-600 ring-sky-100';
   if (state === 'ok') return 'bg-emerald-500 ring-emerald-100';
+  if (state === 'warning') return 'bg-amber-500 ring-amber-100';
   return 'bg-slate-300 ring-slate-100';
 }
 
