@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import {
   CoreDteClient,
   type DteDraftSummary,
@@ -27,57 +27,66 @@ const eventProgress = ref(0);
 const eventPhaseIndex = ref(0);
 const error = ref<string | null>(null);
 const query = ref('');
+const replacementQuery = ref('');
 const searchLocked = ref(false);
 const searched = ref(false);
+const replacementSearched = ref(false);
 const documents = ref<DteDraftSummary[]>([]);
+const contingencyCandidates = ref<DteDraftSummary[]>([]);
+const contingencyCandidatesLoading = ref(false);
+const contingencyCandidatesLoaded = ref(false);
+const replacementDocuments = ref<DteDraftSummary[]>([]);
 const selected = ref<DteDraftSummary | null>(null);
+const selectedReplacement = ref<DteDraftSummary | null>(null);
+const selectedContingencyDocuments = ref<DteDraftSummary[]>([]);
 const eventResult = ref<MhFiscalEventSummary | null>(null);
 const eventLog = ref<Array<{ label: string; status: 'ok' | 'error' }>>([]);
+const motivoModalOpen = ref(false);
+const motivoDraft = ref('');
+const motivoModalMode = ref<'invalidacion' | 'contingencia'>('invalidacion');
 let searchTimer: ReturnType<typeof window.setTimeout> | null = null;
+let replacementSearchTimer: ReturnType<typeof window.setTimeout> | null = null;
 
 const eventTypes = [
   {
     key: 'invalidacion',
     label: 'Invalidacion',
     title: 'Invalidacion de DTE',
-    description: 'Genera, valida, firma y transmite eventos de invalidacion usando el schema v3 de la normativa vigente.',
+    description: 'Prepara y envia solicitudes de invalidacion segun las reglas vigentes.',
     ready: true,
   },
   {
     key: 'contingencia',
     label: 'Contingencia',
     title: 'Evento de Contingencia',
-    description: 'Base para reportar documentos emitidos bajo contingencia con schema v4.',
-    ready: false,
+    description: 'Reporta documentos emitidos bajo contingencia.',
+    ready: true,
   },
   {
     key: 'retorno',
     label: 'Retorno',
     title: 'Evento de Retorno',
-    description: 'Base para retorno de documentos relacionados a operaciones especiales.',
+    description: 'Registra retornos vinculados a operaciones especiales.',
     ready: false,
   },
   {
     key: 'operaciones_especiales',
     label: 'Operaciones especiales',
     title: 'Evento de Operaciones Especiales',
-    description: 'Base para operaciones especiales segun catalogos y schema v1.',
+    description: 'Registra operaciones especiales cuando corresponda.',
     ready: false,
   },
 ];
 const selectedEvent = computed(() => eventTypes.find((event) => event.key === props.initialEventType) ?? eventTypes[0]);
 const isInvalidacion = computed(() => selectedEvent.value.key === 'invalidacion');
-const showSearchResults = computed(() => query.value.trim().length >= 2 && !selected.value);
+const isContingencia = computed(() => selectedEvent.value.key === 'contingencia');
+const showSearchResults = computed(() => query.value.trim().length >= 2 && isInvalidacion.value && !selected.value);
 
 const form = reactive({
   tipoAnulacion: 2,
   motivoAnulacion: '',
-  nombreResponsable: '',
-  tipDocResponsable: '36',
-  numDocResponsable: '',
-  nombreSolicita: '',
-  tipDocSolicita: '13',
-  numDocSolicita: ''
+  tipoContingencia: 1,
+  motivoContingencia: ''
 });
 
 const invalidacionTipos = [
@@ -85,15 +94,72 @@ const invalidacionTipos = [
   { value: 2, label: 'Rescindir la operacion realizada' },
   { value: 3, label: 'Otro motivo' },
 ];
+const contingenciaTipos = [
+  { value: 1, label: 'Falla del proveedor de Internet' },
+  { value: 2, label: 'Falla del proveedor de energia electrica' },
+  { value: 3, label: 'Falla del sistema informatico del emisor' },
+  { value: 4, label: 'Falla del sistema informatico de MH' },
+  { value: 5, label: 'Otro motivo' },
+];
+const contingencyAllowedTypes = new Set(['01', '03', '04', '05', '06', '07', '11', '14']);
+const replacementRequiredTypes = new Set(['01', '03', '04', '06', '07', '09', '11', '14', '15']);
+const replacementExemptTypes = new Set(['05', '08', '17', '18']);
 const requiresMotivoAnulacion = computed(() => [1, 3].includes(Number(form.tipoAnulacion)));
+const requiresReplacementDte = computed(() => Boolean(
+  selected.value
+  && [1, 3].includes(Number(form.tipoAnulacion))
+  && replacementRequiredTypes.has(selected.value.tipoDte)
+  && !replacementExemptTypes.has(selected.value.tipoDte)
+));
+const selectedIsGenericReceptor = computed(() => isGenericReceptor(selected.value));
+const selectedReplacementIsGenericReceptor = computed(() => isGenericReceptor(selectedReplacement.value));
+const replacementIdentificationError = computed(() => {
+  if (!requiresReplacementDte.value || !selectedIsGenericReceptor.value || !selectedReplacement.value || !selectedReplacementIsGenericReceptor.value) {
+    return null;
+  }
+
+  return 'El DTE original no tiene receptor identificado; selecciona un sustituto con documento de receptor.';
+});
 const canInvalidate = computed(() => Boolean(
   selected.value
+  && selected.value.invalidacion?.eligible !== false
   && form.tipoAnulacion
   && (!requiresMotivoAnulacion.value || form.motivoAnulacion.trim())
-  && form.nombreResponsable.trim()
-  && form.numDocResponsable.trim()
-  && form.nombreSolicita.trim()
-  && form.numDocSolicita.trim()
+  && (!requiresReplacementDte.value || selectedReplacement.value)
+  && !replacementIdentificationError.value
+));
+const selectedContingencyCompany = computed(() => selectedContingencyDocuments.value[0]?.empresa ?? null);
+const selectedContingencyPayload = computed(() => selectedContingencyDocuments.value[0]?.payload ?? selectedContingencyDocuments.value[0]?.dte_json ?? {});
+const selectedContingencyIdentificacion = computed(() => recordValue(selectedContingencyPayload.value.identificacion));
+const filteredContingencyCandidates = computed(() => {
+  const search = query.value.trim().toLowerCase();
+
+  return contingencyCandidates.value
+    .filter((document) => canAddContingencyDocument(document))
+    .filter((document) => {
+      if (!search) return true;
+
+      const payload = document.payload ?? document.dte_json ?? {};
+      const receptor = recordValue(payload.receptor);
+      const haystack = [
+        document.tipoDte,
+        document.numeroControl,
+        document.codigoGeneracion,
+        document.empresa?.razon_social,
+        document.empresa?.nombre_comercial,
+        receptor.nombre,
+        receptor.numDocumento,
+        receptor.nit,
+      ].map((value) => String(value ?? '').toLowerCase()).join(' ');
+
+      return haystack.includes(search);
+    });
+});
+const canReportContingency = computed(() => Boolean(
+  selectedContingencyDocuments.value.length > 0
+  && form.tipoContingencia
+  && form.motivoContingencia.trim()
+  && selectedContingencyDocuments.value.every(isContingencyDocument)
 ));
 const selectedPayload = computed(() => selected.value?.payload ?? selected.value?.dte_json ?? {});
 const selectedReceptor = computed(() => recordValue(selectedPayload.value.receptor));
@@ -104,13 +170,19 @@ const resultStatusClass = computed(() => {
   if (status.includes('REJECTED') || eventResult.value?.estado === 'rejected') return 'border-rose-200 bg-rose-50 text-rose-900';
   return 'border-sky-200 bg-sky-50 text-sky-900';
 });
-const eventPhases = [
-  { label: 'Preparando evento', detail: 'Tomando el DTE origen, responsable, solicitante y motivo.' },
-  { label: 'Validando schema', detail: 'Revisando el JSON contra invalidacion v3 de MH.' },
-  { label: 'Firmando evento', detail: 'Enviando el evento al firmador configurado.' },
-  { label: 'Transmitiendo a MH', detail: 'Usando bearer activo y recepcion de eventos del ambiente.' },
-  { label: 'Registrando respuesta', detail: 'Guardando sello, estado y resultado final del evento.' }
-];
+const eventPhases = computed(() => isContingencia.value ? [
+  { label: 'Preparando contingencia', detail: 'Revisando DTE emitidos en contingencia y motivo.' },
+  { label: 'Validando datos', detail: 'Comprobando estructura del evento y documentos relacionados.' },
+  { label: 'Firmando evento', detail: 'Aplicando la firma electronica.' },
+  { label: 'Enviando a Hacienda', detail: 'Transmitiendo el evento de contingencia.' },
+  { label: 'Registrando respuesta', detail: 'Guardando sello y ventana de transmision de DTE.' }
+] : [
+  { label: 'Preparando invalidacion', detail: 'Revisando el documento, motivo y sustituto cuando aplica.' },
+  { label: 'Validando datos', detail: 'Comprobando que la solicitud este completa.' },
+  { label: 'Firmando solicitud', detail: 'Aplicando la firma electronica.' },
+  { label: 'Enviando a Hacienda', detail: 'Transmitiendo la solicitud de invalidacion.' },
+  { label: 'Registrando respuesta', detail: 'Guardando el resultado de Hacienda.' }
+]);
 const eventRejected = computed(() => {
   const status = String(eventResult.value?.transmission?.status ?? eventResult.value?.estado ?? '').toUpperCase();
   return status.includes('REJECTED') || eventResult.value?.estado === 'rejected';
@@ -121,7 +193,7 @@ const eventAccepted = computed(() => {
 });
 const eventStopped = computed(() => Boolean(error.value && !processing.value && !eventAccepted.value && !eventRejected.value));
 const eventStatusDetail = computed(() => {
-  if (processing.value) return eventPhases[eventPhaseIndex.value].detail;
+  if (processing.value) return eventPhases.value[eventPhaseIndex.value].detail;
   if (eventStopped.value) return error.value;
   return eventResult.value?.transmission?.descripcion_msg
     ?? eventResult.value?.transmission?.mh_estado
@@ -138,9 +210,35 @@ const eventResultLabel = computed(() => {
   if (eventRejected.value) return 'Evento rechazado';
   return 'Evento detenido';
 });
+const eventMhResponse = computed(() => eventResult.value?.mh_response
+  ?? eventResult.value?.transmission?.raw_response
+  ?? {});
+const eventMhCodigoMsg = computed(() => String(
+  eventResult.value?.transmission?.codigo_msg
+  ?? recordValue(eventMhResponse.value).codigoMsg
+  ?? 'Sin codigo'
+));
+const eventMhProcessedAt = computed(() => String(
+  recordValue(eventMhResponse.value).fhProcesamiento
+  ?? recordValue(eventMhResponse.value).fecProcesamiento
+  ?? eventResult.value?.processed_at
+  ?? eventResult.value?.transmitted_at
+  ?? ''
+));
+const eventMhResponseJson = computed(() => JSON.stringify(eventMhResponse.value, null, 2));
+const actionStatusLabel = computed(() => {
+  if (isContingencia.value) {
+    if (selectedContingencyDocuments.value.length === 0) return 'Pendiente';
+    if (!form.motivoContingencia.trim()) return 'Falta motivo';
+    if (!selectedContingencyDocuments.value.every(isContingencyDocument)) return 'DTE no valido';
+    return `${selectedContingencyDocuments.value.length} DTE listos`;
+  }
 
-onMounted(() => {
-  hydratePeopleFromSelected();
+  if (!selected.value) return 'Pendiente';
+  if (requiresMotivoAnulacion.value && !form.motivoAnulacion.trim()) return 'Falta motivo';
+  if (requiresReplacementDte.value && !selectedReplacement.value) return 'Falta sustituto';
+  if (replacementIdentificationError.value) return 'Sustituto generico';
+  return invalidacionLabel(selected.value);
 });
 
 watch(query, () => {
@@ -153,21 +251,71 @@ watch(query, () => {
   searchTimer = window.setTimeout(() => void loadDocuments(), 250);
 });
 
+watch(replacementQuery, () => {
+  if (!requiresReplacementDte.value || selectedReplacement.value) return;
+  if (replacementSearchTimer) window.clearTimeout(replacementSearchTimer);
+  replacementSearchTimer = window.setTimeout(() => void loadReplacementDocuments(), 250);
+});
+
+watch(() => form.tipoAnulacion, () => {
+  clearReplacementDocument();
+
+  if (requiresMotivoAnulacion.value) {
+    openMotivoModal('invalidacion');
+  } else {
+    form.motivoAnulacion = '';
+    motivoDraft.value = '';
+    motivoModalOpen.value = false;
+  }
+});
+
+watch(() => form.tipoContingencia, () => {
+  selectedContingencyDocuments.value = [];
+  documents.value = [];
+  contingencyCandidates.value = [];
+  contingencyCandidatesLoaded.value = false;
+  eventResult.value = null;
+  eventLog.value = [];
+
+  if (isContingencia.value) {
+    void loadContingencyCandidates();
+  }
+});
+
 watch(() => props.initialEventType, () => {
   error.value = null;
   eventResult.value = null;
   eventLog.value = [];
   selected.value = null;
+  selectedContingencyDocuments.value = [];
+  clearReplacementDocument();
   documents.value = [];
+  contingencyCandidates.value = [];
+  contingencyCandidatesLoaded.value = false;
   query.value = '';
   searched.value = false;
+
+  if (isContingencia.value) {
+    void loadContingencyCandidates();
+  }
 });
 
-async function loadDocuments(): Promise<void> {
+watch(isContingencia, (active) => {
+  if (active && !contingencyCandidatesLoaded.value) {
+    void loadContingencyCandidates();
+  }
+}, { immediate: true });
+
+async function loadDocuments(options: { preserveEventResult?: boolean } = {}): Promise<void> {
   const search = query.value.trim();
-  selected.value = null;
-  eventResult.value = null;
-  eventLog.value = [];
+  if (isInvalidacion.value) {
+    selected.value = null;
+  }
+
+  if (!options.preserveEventResult) {
+    eventResult.value = null;
+    eventLog.value = [];
+  }
 
   if (search.length < 2) {
     documents.value = [];
@@ -183,28 +331,79 @@ async function loadDocuments(): Promise<void> {
   try {
     const response = await client.value.documents({
       q: search,
-      estado: 'accepted',
+      estado: isContingencia.value ? 'signed' : 'accepted',
       limit: 12,
       include_payload: true
     });
-    documents.value = response.data.filter((document) => document.selloRecibido);
+    documents.value = response.data.filter((document) => {
+      if (isContingencia.value) return isContingencyDocument(document) && canAddContingencyDocument(document);
+
+      return document.selloRecibido;
+    });
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'No fue posible cargar documentos aceptados.';
+    error.value = caught instanceof Error ? caught.message : 'No fue posible cargar documentos.';
   } finally {
     loading.value = false;
   }
 }
 
+async function loadContingencyCandidates(): Promise<void> {
+  if (!isContingencia.value) return;
+
+  contingencyCandidatesLoading.value = true;
+  contingencyCandidatesLoaded.value = true;
+  error.value = null;
+
+  try {
+    const response = await client.value.documents({
+      estado: 'signed',
+      limit: 75,
+      include_payload: true
+    });
+    contingencyCandidates.value = response.data.filter(isContingencyDocument);
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible cargar los candidatos de contingencia.';
+  } finally {
+    contingencyCandidatesLoading.value = false;
+  }
+}
+
 function selectDocument(document: DteDraftSummary): void {
   selected.value = document;
+  clearReplacementDocument();
   eventResult.value = null;
   eventLog.value = [];
   documents.value = [];
   searched.value = false;
   searchLocked.value = true;
   query.value = `${document.numeroControl} · ${String(recordValue((document.payload ?? document.dte_json ?? {}).receptor).nombre ?? 'DTE aceptado')}`;
+}
 
-  hydratePeopleFromSelected();
+function selectContingencyDocument(document: DteDraftSummary): void {
+  if (!canAddContingencyDocument(document)) return;
+
+  selectedContingencyDocuments.value.push(document);
+  eventResult.value = null;
+  eventLog.value = [];
+  documents.value = [];
+  searched.value = false;
+}
+
+function addVisibleContingencyCandidates(): void {
+  for (const document of filteredContingencyCandidates.value) {
+    if (canAddContingencyDocument(document)) {
+      selectedContingencyDocuments.value.push(document);
+    }
+  }
+
+  eventResult.value = null;
+  eventLog.value = [];
+}
+
+function removeContingencyDocument(documentId: number): void {
+  selectedContingencyDocuments.value = selectedContingencyDocuments.value.filter((document) => document.id !== documentId);
+  eventResult.value = null;
+  eventLog.value = [];
 }
 
 function clearSelectedDocument(): void {
@@ -214,15 +413,76 @@ function clearSelectedDocument(): void {
   query.value = '';
   documents.value = [];
   searched.value = false;
-  form.nombreResponsable = '';
-  form.numDocResponsable = '';
-  form.nombreSolicita = '';
-  form.numDocSolicita = '';
+  clearReplacementDocument();
+}
+
+async function loadReplacementDocuments(): Promise<void> {
+  if (!selected.value || !requiresReplacementDte.value) return;
+
+  const search = replacementQuery.value.trim();
+
+  if (search.length < 2) {
+    replacementDocuments.value = [];
+    replacementSearched.value = false;
+    return;
+  }
+
+  replacementSearched.value = true;
+
+  try {
+    const response = await client.value.documents({
+      q: search,
+      estado: 'accepted',
+      tipo_dte: selected.value.tipoDte,
+      empresa_id: selected.value.empresa?.id,
+      limit: 12,
+      include_payload: true
+    });
+
+    replacementDocuments.value = response.data.filter((document) => document.id !== selected.value?.id && document.selloRecibido);
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible cargar DTE sustitutos.';
+  }
+}
+
+function selectReplacementDocument(document: DteDraftSummary): void {
+  selectedReplacement.value = document;
+  replacementDocuments.value = [];
+  replacementSearched.value = false;
+  replacementQuery.value = `${document.numeroControl} · ${document.codigoGeneracion}`;
+}
+
+function clearReplacementDocument(): void {
+  selectedReplacement.value = null;
+  replacementDocuments.value = [];
+  replacementQuery.value = '';
+  replacementSearched.value = false;
+}
+
+function openMotivoModal(mode: 'invalidacion' | 'contingencia' = 'invalidacion'): void {
+  motivoModalMode.value = mode;
+  motivoDraft.value = mode === 'contingencia' ? form.motivoContingencia : form.motivoAnulacion;
+  motivoModalOpen.value = true;
+}
+
+function closeMotivoModal(): void {
+  motivoModalOpen.value = false;
+}
+
+function saveMotivoModal(): void {
+  if (motivoModalMode.value === 'contingencia') {
+    form.motivoContingencia = motivoDraft.value.trim();
+  } else {
+    form.motivoAnulacion = motivoDraft.value.trim();
+  }
+
+  motivoModalOpen.value = false;
 }
 
 async function invalidateSelected(): Promise<void> {
   if (!selected.value || !canInvalidate.value) return;
 
+  let eventIdForRecovery: number | null = null;
   processing.value = true;
   eventModalOpen.value = true;
   eventProgress.value = 5;
@@ -237,15 +497,12 @@ async function invalidateSelected(): Promise<void> {
       empresa_id: Number(selected.value.empresa?.id),
       ambiente: selected.value.ambiente as '00' | '01',
       payload: {
+        documento: {
+          codigoGeneracionR: selectedReplacement.value?.codigoGeneracion ?? null,
+        },
         motivo: {
           tipoAnulacion: Number(form.tipoAnulacion),
-          motivoAnulacion: requiresMotivoAnulacion.value ? form.motivoAnulacion.trim() : null,
-          nombreResponsable: form.nombreResponsable.trim(),
-          tipDocResponsable: form.tipDocResponsable,
-          numDocResponsable: cleanDocument(form.numDocResponsable),
-          nombreSolicita: form.nombreSolicita.trim(),
-          tipDocSolicita: form.tipDocSolicita,
-          numDocSolicita: cleanDocument(form.numDocSolicita)
+          motivoAnulacion: requiresMotivoAnulacion.value ? form.motivoAnulacion.trim() : null
         }
       },
       relations: [{
@@ -253,8 +510,9 @@ async function invalidateSelected(): Promise<void> {
         dte_document_id: selected.value.id
       }]
     });
+    eventIdForRecovery = draft.id;
 
-    pushLog('Validando contra schema MH v3');
+    pushLog('Validando datos de la solicitud');
     eventPhaseIndex.value = 1;
     eventProgress.value = 30;
     const validation = await client.value.validateMhEvent(draft.id);
@@ -267,6 +525,7 @@ async function invalidateSelected(): Promise<void> {
     eventPhaseIndex.value = 2;
     eventProgress.value = 55;
     const signed = await client.value.signMhEvent(draft.id);
+    eventIdForRecovery = signed.id;
 
     pushLog('Transmitiendo evento a MH');
     eventPhaseIndex.value = 3;
@@ -275,14 +534,121 @@ async function invalidateSelected(): Promise<void> {
     eventPhaseIndex.value = 4;
     eventProgress.value = 100;
     pushLog('Evento procesado por MH');
-    await loadDocuments();
+    await loadDocuments({ preserveEventResult: true });
   } catch (caught) {
-    eventLog.value.push({ label: 'Proceso detenido', status: 'error' });
-    error.value = caught instanceof Error ? caught.message : 'No fue posible invalidar el documento.';
+    const recovered = await recoverEventResult(eventIdForRecovery);
+
+    if (recovered && (eventAccepted.value || eventRejected.value)) {
+      eventLog.value.push({ label: 'Respuesta MH recuperada', status: 'ok' });
+      error.value = null;
+      await loadDocuments({ preserveEventResult: true });
+    } else {
+      eventLog.value.push({ label: 'Proceso detenido', status: 'error' });
+      error.value = caught instanceof Error ? caught.message : 'No fue posible invalidar el documento.';
+    }
+
     eventProgress.value = Math.max(eventProgress.value, 100);
   } finally {
     processing.value = false;
   }
+}
+
+async function reportContingency(): Promise<void> {
+  if (!canReportContingency.value) return;
+
+  const company = selectedContingencyCompany.value;
+  const ambiente = selectedContingencyDocuments.value[0]?.ambiente as '00' | '01' | undefined;
+  if (!company?.id || !ambiente) return;
+
+  let eventIdForRecovery: number | null = null;
+  processing.value = true;
+  eventModalOpen.value = true;
+  eventProgress.value = 5;
+  eventPhaseIndex.value = 0;
+  error.value = null;
+  eventResult.value = null;
+  eventLog.value = [];
+
+  try {
+    pushLog('Creando evento de contingencia');
+    const draft = await client.value.createMhEvent('contingencia', {
+      empresa_id: Number(company.id),
+      ambiente,
+      payload: {
+        motivo: {
+          tipoContingencia: Number(form.tipoContingencia),
+          motivoContingencia: form.motivoContingencia.trim()
+        }
+      },
+      relations: selectedContingencyDocuments.value.map((document) => ({
+        relation_type: 'contains',
+        dte_document_id: document.id
+      }))
+    });
+    eventIdForRecovery = draft.id;
+
+    pushLog('Validando datos del evento');
+    eventPhaseIndex.value = 1;
+    eventProgress.value = 30;
+    const validation = await client.value.validateMhEvent(draft.id);
+    if (!validation.validation.valid) {
+      eventResult.value = draft;
+      throw new Error(formatValidationErrors(validation.validation.errors));
+    }
+
+    pushLog('Firmando evento');
+    eventPhaseIndex.value = 2;
+    eventProgress.value = 55;
+    const signed = await client.value.signMhEvent(draft.id);
+    eventIdForRecovery = signed.id;
+
+    pushLog('Transmitiendo evento a MH');
+    eventPhaseIndex.value = 3;
+    eventProgress.value = 78;
+    eventResult.value = await client.value.transmitMhEvent(signed.id);
+    eventPhaseIndex.value = 4;
+    eventProgress.value = 100;
+    pushLog('Evento procesado por MH');
+  } catch (caught) {
+    const recovered = await recoverEventResult(eventIdForRecovery);
+
+    if (recovered && (eventAccepted.value || eventRejected.value)) {
+      eventLog.value.push({ label: 'Respuesta MH recuperada', status: 'ok' });
+      error.value = null;
+    } else {
+      eventLog.value.push({ label: 'Proceso detenido', status: 'error' });
+      error.value = caught instanceof Error ? caught.message : 'No fue posible reportar la contingencia.';
+    }
+
+    eventProgress.value = Math.max(eventProgress.value, 100);
+  } finally {
+    processing.value = false;
+  }
+}
+
+async function recoverEventResult(eventId: number | null): Promise<boolean> {
+  if (!eventId) return false;
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    try {
+      const event = await client.value.mhEvent(eventId);
+      eventResult.value = event;
+
+      if (event.transmission || event.mh_response) {
+        return true;
+      }
+    } catch {
+      // Keep polling: the transmit request may still be finishing server-side.
+    }
+
+    await wait(1500);
+  }
+
+  return false;
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
 function closeEventModal(): void {
@@ -301,7 +667,11 @@ function formatValidationErrors(errors: Array<{ field: string; message: string }
     'emisor.telefono': 'Telefono del emisor',
     'emisor.correo': 'Correo del emisor',
     'documento.selloRecibido': 'Sello recibido del DTE',
-    'motivo.motivoAnulacion': 'Motivo de invalidacion'
+    'motivo.motivoAnulacion': 'Motivo de invalidacion',
+    'motivo.motivoContingencia': 'Motivo de contingencia',
+    'motivo.tipoContingencia': 'Tipo de contingencia',
+    'detalleDTE': 'DTE en contingencia',
+    'relations': 'Documentos relacionados'
   };
   const readable = errors
     .filter((item) => item.field && !item.message.includes('Additional object properties'))
@@ -309,34 +679,45 @@ function formatValidationErrors(errors: Array<{ field: string; message: string }
     .map((item) => `${fieldLabels[item.field] ?? item.field}: ${item.message}`);
 
   if (readable.length === 0) {
-    return 'El evento no cumple el schema MH v3. Revisa que el DTE origen tenga sello MH, emisor, receptor y codigos de establecimiento/punto de venta completos.';
+    return isContingencia.value
+      ? 'El evento de contingencia esta incompleto. Revisa que los DTE esten firmados, sin sello MH y generados con modelo diferido.'
+      : 'La solicitud de invalidacion esta incompleta. Revisa que el DTE origen tenga sello de recepcion y datos fiscales completos.';
   }
 
-  return `El evento no cumple el schema MH v3:\n${readable.join('\n')}`;
-}
-
-function hydratePeopleFromSelected(): void {
-  if (!selected.value) return;
-
-  const payload = selected.value.payload ?? selected.value.dte_json ?? {};
-  const emisor = recordValue(payload.emisor);
-  const receptor = recordValue(payload.receptor);
-
-  form.nombreResponsable = String(emisor.nombre ?? selected.value.empresa?.razon_social ?? selected.value.empresa?.nombre_comercial ?? '');
-  form.tipDocResponsable = '36';
-  form.numDocResponsable = String(emisor.nit ?? selected.value.empresa?.nit ?? '');
-  form.nombreSolicita = String(receptor.nombre ?? '');
-  form.tipDocSolicita = String(receptor.tipoDocumento ?? (receptor.nit ? '36' : '13'));
-  form.numDocSolicita = String(receptor.numDocumento ?? receptor.nit ?? '');
-}
-
-function cleanDocument(value: string): string {
-  const digits = value.replace(/\D+/g, '');
-  return digits || value.trim();
+  return `${isContingencia.value ? 'El evento de contingencia' : 'La solicitud de invalidacion'} necesita correcciones:\n${readable.join('\n')}`;
 }
 
 function recordValue(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function isGenericReceptor(document: DteDraftSummary | null): boolean {
+  if (!document) return false;
+
+  const receptor = recordValue((document.payload ?? document.dte_json ?? {}).receptor);
+
+  return !String(receptor.tipoDocumento ?? '').trim()
+    && !String(receptor.numDocumento ?? '').trim()
+    && !String(receptor.nit ?? '').trim();
+}
+
+function isContingencyDocument(document: DteDraftSummary): boolean {
+  const identificacion = recordValue((document.payload ?? document.dte_json ?? {}).identificacion);
+
+  return contingencyAllowedTypes.has(document.tipoDte)
+    && document.estado === 'signed'
+    && !document.selloRecibido
+    && Number(identificacion.tipoModelo) === 2
+    && Number(identificacion.tipoOperacion) === 2
+    && Number(identificacion.tipoContingencia) === Number(form.tipoContingencia);
+}
+
+function canAddContingencyDocument(document: DteDraftSummary): boolean {
+  if (selectedContingencyDocuments.value.some((selectedDocument) => selectedDocument.id === document.id)) return false;
+  if (!selectedContingencyCompany.value) return true;
+
+  return selectedContingencyCompany.value.id === document.empresa?.id
+    && selectedContingencyDocuments.value[0]?.ambiente === document.ambiente;
 }
 
 function formatDate(value?: string | null): string {
@@ -350,28 +731,40 @@ function formatDate(value?: string | null): string {
 function statusLabel(document: DteDraftSummary): string {
   return String(document.transmission?.status ?? document.estado).toUpperCase();
 }
+
+function invalidacionLabel(document: DteDraftSummary | null): string {
+  if (!document?.invalidacion) return 'Sin evaluar';
+  if (document.invalidacion.eligible) return 'Habil para invalidar';
+
+  const labels: Record<string, string> = {
+    expired: 'Plazo vencido',
+    invalidated: 'Ya invalidado',
+    not_transmitted: 'No transmitido',
+    missing_receipt_stamp: 'Sin sello MH',
+    missing_transmission_date: 'Sin fecha MH',
+  };
+
+  return labels[document.invalidacion.status] ?? document.invalidacion.reason ?? 'No habil';
+}
+
+function invalidacionClass(document: DteDraftSummary | null): string {
+  if (document?.invalidacion?.eligible) return 'bg-emerald-50 text-emerald-700';
+  if (document?.invalidacion?.status === 'expired') return 'bg-rose-50 text-rose-700';
+  return 'bg-amber-50 text-amber-700';
+}
+
+function invalidacionDeadline(document: DteDraftSummary | null): string {
+  if (!document?.invalidacion?.deadline) return 'Sin fecha limite';
+
+  return formatDate(document.invalidacion.deadline);
+}
 </script>
 
 <template>
   <section class="space-y-6">
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div>
-        <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Eventos MH</p>
-        <h2 class="mt-1 text-2xl font-bold text-slate-950">{{ selectedEvent.title }}</h2>
-        <p class="mt-2 text-sm text-slate-600">
-          {{ selectedEvent.description }}
-        </p>
-      </div>
-
-      <div class="rounded-md border border-sky-100 bg-white px-4 py-3 text-sm shadow-sm">
-        <p class="text-xs font-semibold uppercase text-slate-500">Schema activo</p>
-        <p class="mt-1 font-bold text-slate-950">{{ selectedEvent.key === 'invalidacion' ? 'Invalidacion v3' : 'Pendiente de aterrizar' }}</p>
-      </div>
-    </div>
-
     <p v-if="error" class="whitespace-pre-wrap rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ error }}</p>
 
-    <UiCard v-if="!isInvalidacion">
+    <UiCard v-if="!isInvalidacion && !isContingencia">
       <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <div>
           <p class="text-base font-semibold text-slate-950">{{ selectedEvent.label }}</p>
@@ -385,6 +778,251 @@ function statusLabel(document: DteDraftSummary): string {
       </div>
     </UiCard>
 
+    <div v-else-if="isContingencia" class="grid gap-6 pb-24">
+      <BillingProcessModal
+        :open="eventModalOpen"
+        eyebrow="Evento MH"
+        :title="processing ? 'Reportando contingencia' : eventRejected ? 'Evento rechazado por MH' : eventAccepted ? 'Evento procesado' : 'Contingencia detenida'"
+        :subtitle="`Ambiente ${selectedContingencyDocuments[0]?.ambiente ?? '00'} · ${selectedContingencyCompany?.nombre_comercial ?? selectedContingencyCompany?.razon_social ?? 'Empresa emisora'}`"
+        :processing="processing"
+        :accepted="eventAccepted"
+        :rejected="eventRejected || eventStopped"
+        :status-label="processing ? eventPhases[eventPhaseIndex].label : eventRejected ? 'MH rechazo el evento' : eventAccepted ? 'Evento aceptado por MH' : 'No fue posible reportar'"
+        :status-detail="eventStatusDetail"
+        :progress="eventProgress"
+        progress-label="Contingencia"
+        :logs="eventLog"
+        @close="closeEventModal"
+      >
+        <div v-if="eventResult" class="mt-5 rounded-md border p-4" :class="eventResultCardClass">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-semibold">{{ eventResultLabel }}</p>
+              <p class="mt-1 break-all font-mono text-sm">{{ eventResult.codigoGeneracion }}</p>
+            </div>
+            <span class="rounded bg-white/75 px-2 py-1 text-xs font-semibold">
+              HTTP {{ eventResult.transmission?.http_status ?? 'N/D' }}
+            </span>
+          </div>
+          <p class="mt-2 text-sm">
+            MH {{ eventResult.transmission?.mh_estado ?? eventResult.transmission?.status ?? 'sin estado' }}
+          </p>
+          <p v-if="eventResult.transmission?.descripcion_msg" class="mt-2 text-sm">
+            {{ eventResult.transmission.descripcion_msg }}
+          </p>
+          <p v-if="eventResult.transmission?.receipt_stamp" class="mt-3 break-all font-mono text-xs">
+            {{ eventResult.transmission.receipt_stamp }}
+          </p>
+          <details v-if="Object.keys(eventMhResponse).length" class="mt-3">
+            <summary class="cursor-pointer text-xs font-semibold">Ver detalle de respuesta</summary>
+            <pre class="mt-2 max-h-56 overflow-auto rounded bg-slate-950 p-3 text-xs text-slate-50">{{ eventMhResponseJson }}</pre>
+          </details>
+        </div>
+
+        <div v-else-if="error && !processing" class="mt-5 whitespace-pre-wrap rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {{ error }}
+        </div>
+      </BillingProcessModal>
+
+      <div
+        v-if="motivoModalOpen"
+        class="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/50 px-4"
+        role="dialog"
+        aria-modal="true"
+      >
+        <section class="w-full max-w-xl rounded-lg bg-white shadow-2xl shadow-slate-950/30">
+          <div class="border-b border-slate-200 px-5 py-4">
+            <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Motivo de contingencia</p>
+            <h3 class="mt-1 text-xl font-bold text-slate-950">
+              {{ contingenciaTipos.find((tipo) => tipo.value === Number(form.tipoContingencia))?.label ?? 'Motivo' }}
+            </h3>
+          </div>
+          <div class="px-5 py-4">
+            <UiTextarea
+              v-model="motivoDraft"
+              label="Detalle del motivo"
+              :rows="5"
+            />
+            <p class="mt-2 text-xs text-slate-500">Este detalle se enviara junto con el evento de contingencia.</p>
+          </div>
+          <div class="flex flex-wrap justify-end gap-3 border-t border-slate-200 px-5 py-4">
+            <UiButton type="button" variant="secondary" @click="closeMotivoModal">Cerrar</UiButton>
+            <UiButton type="button" :disabled="!motivoDraft.trim()" @click="saveMotivoModal">Guardar motivo</UiButton>
+          </div>
+        </section>
+      </div>
+
+      <UiCard>
+        <div class="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+          <div class="min-w-0 rounded-md border border-slate-200 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p class="text-base font-semibold text-slate-950">DTE en contingencia</p>
+                <p class="mt-1 text-sm text-slate-600">Selecciona documentos firmados con modelo diferido y transmision por contingencia.</p>
+              </div>
+              <span class="rounded bg-sky-50 px-3 py-2 text-sm font-bold text-sky-700">
+                {{ selectedContingencyDocuments.length }} seleccionados
+              </span>
+            </div>
+
+            <div class="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end">
+              <UiSearchInput
+                v-model="query"
+                label="Filtrar candidatos"
+                placeholder="Numero de control, codigo, receptor o empresa"
+              />
+              <UiButton type="button" variant="secondary" :disabled="contingencyCandidatesLoading" @click="loadContingencyCandidates">
+                Actualizar
+              </UiButton>
+              <UiButton
+                type="button"
+                :disabled="filteredContingencyCandidates.length === 0"
+                @click="addVisibleContingencyCandidates"
+              >
+                Agregar visibles
+              </UiButton>
+            </div>
+
+            <UiLoadingMark v-if="contingencyCandidatesLoading" class="mt-4" label="Cargando candidatos de contingencia" />
+
+            <div v-else class="mt-4 overflow-hidden rounded-md border border-slate-200">
+              <div class="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3">
+                <p class="text-sm font-semibold text-slate-950">Candidatos disponibles</p>
+                <span class="rounded bg-white px-2 py-1 text-xs font-semibold text-slate-600">
+                  {{ filteredContingencyCandidates.length }}
+                </span>
+              </div>
+
+              <button
+                v-for="document in filteredContingencyCandidates"
+                :key="document.id"
+                class="block w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition last:border-b-0 hover:bg-sky-50"
+                type="button"
+                @click="selectContingencyDocument(document)"
+              >
+                <span class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                  <span class="min-w-0">
+                    <span class="block font-semibold text-slate-950">{{ document.tipoDte }} · {{ document.numeroControl }}</span>
+                    <span class="mt-1 block truncate font-mono text-xs text-slate-500">{{ document.codigoGeneracion }}</span>
+                    <span class="mt-2 block text-xs text-slate-600">{{ document.empresa?.razon_social ?? document.empresa?.nombre_comercial }}</span>
+                  </span>
+                  <span class="shrink-0 text-left md:text-right">
+                    <span class="block text-sm font-bold text-slate-950">{{ currency(document.totalPagar ?? 0) }}</span>
+                    <span class="mt-1 inline-flex rounded bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700">Agregar</span>
+                  </span>
+                </span>
+              </button>
+
+              <p v-if="contingencyCandidatesLoaded && filteredContingencyCandidates.length === 0" class="px-4 py-5 text-sm text-slate-500">
+                No hay DTE firmados en contingencia para el tipo seleccionado.
+              </p>
+            </div>
+
+            <div v-if="selectedContingencyDocuments.length" class="mt-4 overflow-hidden rounded-md border border-slate-200">
+              <div class="flex items-center justify-between gap-3 border-b border-slate-100 bg-emerald-50 px-4 py-3">
+                <p class="text-sm font-semibold text-emerald-950">Lote a reportar</p>
+                <span class="rounded bg-white px-2 py-1 text-xs font-semibold text-emerald-700">
+                  {{ selectedContingencyDocuments.length }}
+                </span>
+              </div>
+              <div
+                v-for="document in selectedContingencyDocuments"
+                :key="document.id"
+                class="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 md:flex-row md:items-start md:justify-between"
+              >
+                <div class="min-w-0">
+                  <p class="font-semibold text-slate-950">{{ document.tipoDte }} · {{ document.numeroControl }}</p>
+                  <p class="mt-1 break-all font-mono text-xs text-slate-500">{{ document.codigoGeneracion }}</p>
+                  <p class="mt-2 text-xs text-slate-600">{{ document.empresa?.razon_social ?? document.empresa?.nombre_comercial }}</p>
+                </div>
+                <div class="flex shrink-0 items-center gap-2">
+                  <span class="rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+                    {{ currency(document.totalPagar ?? 0) }}
+                  </span>
+                  <button
+                    type="button"
+                    class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                    @click="removeContingencyDocument(document.id)"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="min-w-0 rounded-md border border-slate-200 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <p class="text-base font-semibold text-slate-950">Motivo de contingencia</p>
+              <UiButton type="button" variant="secondary" @click="openMotivoModal('contingencia')">
+                {{ form.motivoContingencia.trim() ? 'Editar motivo' : 'Escribir motivo' }}
+              </UiButton>
+            </div>
+
+            <label class="mt-4 block">
+              <span class="text-sm font-semibold text-slate-900">Tipo de contingencia</span>
+              <select
+                v-model.number="form.tipoContingencia"
+                class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              >
+                <option v-for="tipo in contingenciaTipos" :key="tipo.value" :value="tipo.value">{{ tipo.label }}</option>
+              </select>
+            </label>
+
+            <dl v-if="selectedContingencyDocuments.length" class="mt-4 grid gap-3 rounded-md border border-sky-100 bg-sky-50 p-3 text-sm">
+              <div>
+                <dt class="text-xs font-semibold uppercase text-slate-500">Empresa</dt>
+                <dd class="mt-1 font-semibold text-slate-950">{{ selectedContingencyCompany?.razon_social ?? selectedContingencyCompany?.nombre_comercial }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs font-semibold uppercase text-slate-500">Inicio segun primer DTE</dt>
+                <dd class="mt-1 font-semibold text-slate-950">{{ selectedContingencyIdentificacion.fecEmi ?? 'Se completara al crear el evento' }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs font-semibold uppercase text-slate-500">Ventana posterior</dt>
+                <dd class="mt-1 font-semibold text-slate-950">72 horas despues del sello del evento</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div v-if="eventResult" class="rounded-md border p-4 lg:col-span-2" :class="resultStatusClass">
+            <p class="text-sm font-semibold">Evento {{ eventResult.estado }}</p>
+            <p class="mt-1 break-all font-mono text-xs">{{ eventResult.codigoGeneracion }}</p>
+            <p class="mt-3 text-sm">{{ eventResult.transmission?.descripcion_msg ?? eventResult.transmission?.mh_estado ?? 'Evento creado.' }}</p>
+            <p v-if="eventResult.transmission?.receipt_stamp" class="mt-2 break-all font-mono text-xs">{{ eventResult.transmission.receipt_stamp }}</p>
+          </div>
+        </div>
+      </UiCard>
+
+      <div class="pointer-events-none fixed inset-x-0 bottom-4 z-30 px-4">
+        <section class="pointer-events-auto mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-700/70 bg-slate-950/95 px-3 py-2 text-white shadow-xl shadow-slate-950/25 backdrop-blur">
+          <div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <p class="min-w-0 max-w-[260px] truncate">
+              <span class="text-slate-400">DTE</span>
+              <span class="ml-2 font-bold text-white">{{ selectedContingencyDocuments.length }} seleccionados</span>
+            </p>
+            <p class="min-w-0 max-w-[340px] truncate">
+              <span class="text-slate-400">Motivo</span>
+              <span class="ml-2 font-semibold text-white">{{ contingenciaTipos.find((tipo) => tipo.value === Number(form.tipoContingencia))?.label ?? 'Sin motivo' }}</span>
+              <span v-if="form.motivoContingencia.trim()" class="ml-2 text-xs text-slate-300">{{ form.motivoContingencia }}</span>
+            </p>
+          </div>
+          <div class="flex shrink-0 items-center justify-end gap-2">
+            <span class="rounded-md bg-sky-600 px-3 py-2 text-sm font-bold text-white shadow-sm shadow-sky-950/30">
+              {{ actionStatusLabel }}
+            </span>
+            <UiButton
+              class="min-w-[160px]"
+              :disabled="!canReportContingency || processing"
+              @click="reportContingency"
+            >
+              {{ processing ? 'Procesando...' : 'Reportar contingencia' }}
+            </UiButton>
+          </div>
+        </section>
+      </div>
+    </div>
+
     <div v-else class="grid gap-6 pb-24">
       <BillingProcessModal
         :open="eventModalOpen"
@@ -397,7 +1035,7 @@ function statusLabel(document: DteDraftSummary): string {
         :status-label="processing ? eventPhases[eventPhaseIndex].label : eventRejected ? 'MH rechazo el evento' : eventAccepted ? 'Evento aceptado por MH' : 'No fue posible invalidar'"
         :status-detail="eventStatusDetail"
         :progress="eventProgress"
-        progress-label="Recepcion de eventos MH"
+        progress-label="Invalidacion"
         :logs="eventLog"
         @close="closeEventModal"
       >
@@ -414,6 +1052,16 @@ function statusLabel(document: DteDraftSummary): string {
               <p class="mt-2 text-sm">
                 MH {{ eventResult.transmission?.mh_estado ?? eventResult.transmission?.status ?? 'sin estado' }}
               </p>
+              <div class="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                <div class="rounded bg-white/70 px-3 py-2">
+                  <p class="font-semibold uppercase opacity-70">Codigo mensaje</p>
+                  <p class="mt-1 break-all font-mono">{{ eventMhCodigoMsg }}</p>
+                </div>
+                <div class="rounded bg-white/70 px-3 py-2">
+                  <p class="font-semibold uppercase opacity-70">Procesado MH</p>
+                  <p class="mt-1">{{ formatDate(eventMhProcessedAt) }}</p>
+                </div>
+              </div>
               <p v-if="eventStopped && error" class="mt-2 whitespace-pre-wrap text-sm">
                 {{ error }}
               </p>
@@ -426,6 +1074,10 @@ function statusLabel(document: DteDraftSummary): string {
               <p v-if="eventResult.transmission?.receipt_stamp" class="mt-3 break-all font-mono text-xs">
                 {{ eventResult.transmission.receipt_stamp }}
               </p>
+              <details v-if="Object.keys(eventMhResponse).length" class="mt-3">
+                <summary class="cursor-pointer text-xs font-semibold">Ver detalle de respuesta</summary>
+                <pre class="mt-2 max-h-56 overflow-auto rounded bg-slate-950 p-3 text-xs text-slate-50">{{ eventMhResponseJson }}</pre>
+              </details>
             </div>
 
             <div v-else-if="error && !processing" class="mt-5 whitespace-pre-wrap rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -433,21 +1085,53 @@ function statusLabel(document: DteDraftSummary): string {
             </div>
       </BillingProcessModal>
 
+      <div
+        v-if="motivoModalOpen"
+        class="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/50 px-4"
+        role="dialog"
+        aria-modal="true"
+      >
+        <section class="w-full max-w-xl rounded-lg bg-white shadow-2xl shadow-slate-950/30">
+          <div class="border-b border-slate-200 px-5 py-4">
+            <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Motivo de invalidacion</p>
+            <h3 class="mt-1 text-xl font-bold text-slate-950">
+              {{ invalidacionTipos.find((tipo) => tipo.value === Number(form.tipoAnulacion))?.label ?? 'Motivo' }}
+            </h3>
+          </div>
+          <div class="px-5 py-4">
+            <UiTextarea
+              v-model="motivoDraft"
+              label="Detalle del motivo"
+              :rows="5"
+            />
+            <p class="mt-2 text-xs text-slate-500">Este detalle se enviara junto con la solicitud.</p>
+          </div>
+          <div class="flex flex-wrap justify-end gap-3 border-t border-slate-200 px-5 py-4">
+            <UiButton type="button" variant="secondary" @click="closeMotivoModal">Cerrar</UiButton>
+            <UiButton type="button" :disabled="!motivoDraft.trim()" @click="saveMotivoModal">Guardar motivo</UiButton>
+          </div>
+        </section>
+      </div>
+
       <UiCard>
-        <div class="flex flex-col gap-4">
-          <div>
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="text-base font-semibold text-slate-950">Buscar documento a invalidar</p>
-                <p class="mt-1 text-sm text-slate-500">Busca por numero de control, codigo de generacion, sello, receptor o empresa.</p>
-              </div>
-              <span class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">DTE aceptados</span>
+        <div class="grid gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)]">
+          <div class="min-w-0 rounded-md border border-slate-200 p-4">
+            <div class="flex items-center justify-between gap-3">
+              <p class="text-base font-semibold text-slate-950">DTE a invalidar</p>
+              <button
+                v-if="selected"
+                class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200"
+                type="button"
+                @click="clearSelectedDocument"
+              >
+                Cambiar DTE
+              </button>
             </div>
 
             <div class="relative mt-4">
               <UiSearchInput
                 v-model="query"
-                label="DTE a invalidar"
+                label="Buscar documento"
                 placeholder="Numero de control, codigo, sello, receptor o empresa"
                 @search="loadDocuments"
               />
@@ -475,6 +1159,9 @@ function statusLabel(document: DteDraftSummary): string {
                     <span class="shrink-0 text-left md:text-right">
                       <span class="block text-sm font-bold text-slate-950">{{ currency(document.totalPagar ?? 0) }}</span>
                       <span class="mt-1 inline-flex rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">{{ statusLabel(document) }}</span>
+                      <span class="mt-1 inline-flex rounded px-2 py-1 text-xs font-semibold" :class="invalidacionClass(document)">
+                        {{ invalidacionLabel(document) }}
+                      </span>
                     </span>
                   </span>
                 </button>
@@ -484,35 +1171,16 @@ function statusLabel(document: DteDraftSummary): string {
                 </p>
               </div>
             </div>
-          </div>
 
-          <div class="rounded-md border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-slate-700">
-            Solo se puede invalidar un DTE aceptado con sello de recepcion MH. Al aceptarse el evento, el documento cambia a invalidado.
-          </div>
-        </div>
-      </UiCard>
-
-      <UiCard>
-        <div class="flex flex-col gap-5">
-          <div>
-            <div class="flex items-center justify-between gap-3">
-              <p class="text-base font-semibold text-slate-950">Documento a invalidar</p>
-              <button
-                v-if="selected"
-                class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200"
-                type="button"
-                @click="clearSelectedDocument"
-              >
-                Cambiar DTE
-              </button>
-            </div>
             <div v-if="selected" class="mt-3 rounded-md border border-sky-100 bg-sky-50 p-4 text-sm">
               <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div class="min-w-0">
                   <p class="font-semibold text-slate-950">{{ selected.tipoDte }} · {{ selected.numeroControl }}</p>
                   <p class="mt-1 break-all font-mono text-xs text-slate-600">{{ selected.codigoGeneracion }}</p>
                 </div>
-                <span class="shrink-0 rounded bg-white px-2 py-1 text-xs font-semibold text-sky-700">Evento 15</span>
+                <span class="shrink-0 rounded px-2 py-1 text-xs font-semibold" :class="invalidacionClass(selected)">
+                  {{ invalidacionLabel(selected) }}
+                </span>
               </div>
               <dl class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <div>
@@ -535,50 +1203,116 @@ function statusLabel(document: DteDraftSummary): string {
                   <dt class="text-xs font-semibold uppercase text-slate-500">Procesado</dt>
                   <dd class="mt-1 font-semibold text-slate-950">{{ formatDate(selected.processed_at ?? selected.created_at) }}</dd>
                 </div>
+                <div>
+                  <dt class="text-xs font-semibold uppercase text-slate-500">Limite invalidacion</dt>
+                  <dd class="mt-1 font-semibold text-slate-950">{{ invalidacionDeadline(selected) }}</dd>
+                </div>
               </dl>
+              <p
+                v-if="selected.invalidacion?.eligible === false"
+                class="mt-4 rounded-md border border-rose-200 bg-white px-3 py-2 text-sm font-semibold text-rose-700"
+              >
+                {{ selected.invalidacion.reason }}
+              </p>
             </div>
-            <p v-else class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Busca y selecciona un DTE aceptado para preparar la invalidacion.</p>
           </div>
 
-          <div class="rounded-md border border-slate-200 p-4">
-            <p class="text-sm font-semibold text-slate-950">Motivo de invalidacion</p>
+          <div class="min-w-0 rounded-md border border-slate-200 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <p class="text-base font-semibold text-slate-950">Motivo de invalidacion</p>
+              <UiButton
+                v-if="requiresMotivoAnulacion"
+                type="button"
+                variant="secondary"
+                @click="openMotivoModal"
+              >
+                {{ form.motivoAnulacion.trim() ? 'Editar motivo' : 'Escribir motivo' }}
+              </UiButton>
+            </div>
             <div class="mt-4 grid gap-4 sm:grid-cols-2">
               <label class="block sm:col-span-2">
                 <span class="text-sm font-semibold text-slate-900">Tipo de invalidacion</span>
-              <select
-                v-model.number="form.tipoAnulacion"
-                class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              >
+                <select
+                  v-model.number="form.tipoAnulacion"
+                  class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                >
                   <option v-for="tipo in invalidacionTipos" :key="tipo.value" :value="tipo.value">{{ tipo.label }}</option>
-              </select>
-            </label>
+                </select>
+              </label>
+            </div>
+
+            <div
+              v-if="requiresMotivoAnulacion"
+              class="mt-4 rounded-md border px-3 py-3 text-sm"
+              :class="form.motivoAnulacion.trim() ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-800'"
+            >
+              <p class="font-semibold">{{ form.motivoAnulacion.trim() ? 'Motivo registrado' : 'Motivo pendiente' }}</p>
+              <p v-if="form.motivoAnulacion.trim()" class="mt-2 whitespace-pre-wrap text-slate-700">{{ form.motivoAnulacion }}</p>
+              <p v-else class="mt-1">Escribe el detalle del motivo para continuar.</p>
+            </div>
+
+            <div v-if="requiresReplacementDte" class="mt-4 border-t border-slate-200 pt-4">
+              <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p class="text-sm font-semibold text-slate-950">DTE sustituto</p>
+                  <p class="mt-1 text-sm text-slate-600">
+                    Selecciona el documento de reemplazo transmitido.
+                  </p>
+                </div>
+                <button
+                  v-if="selectedReplacement"
+                  type="button"
+                  class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                  @click="clearReplacementDocument"
+                >
+                  Cambiar sustituto
+                </button>
+              </div>
+
+              <div v-if="selectedReplacement" class="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm">
+                <p class="font-semibold text-emerald-950">{{ selectedReplacement.tipoDte }} · {{ selectedReplacement.numeroControl }}</p>
+                <p class="mt-1 break-all font-mono text-xs text-emerald-800">{{ selectedReplacement.codigoGeneracion }}</p>
+                <p class="mt-1 text-xs text-emerald-700">Sello: {{ selectedReplacement.selloRecibido }}</p>
+              </div>
+              <p
+                v-if="replacementIdentificationError"
+                class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800"
+              >
+                {{ replacementIdentificationError }}
+              </p>
+
+              <div v-if="!selectedReplacement" class="mt-4">
+                <UiSearchInput
+                  v-model="replacementQuery"
+                  label="Buscar DTE sustituto"
+                  placeholder="Numero, codigo, sello o receptor"
+                  @search="loadReplacementDocuments"
+                />
+
+                <div v-if="replacementDocuments.length" class="mt-2 max-h-72 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-sm">
+                  <button
+                    v-for="document in replacementDocuments"
+                    :key="document.id"
+                    type="button"
+                    class="block w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition last:border-b-0 hover:bg-sky-50"
+                    @click="selectReplacementDocument(document)"
+                  >
+                    <span class="flex flex-col gap-1">
+                      <span class="font-semibold text-slate-950">{{ document.tipoDte }} · {{ document.numeroControl }}</span>
+                      <span class="break-all font-mono text-xs text-slate-500">{{ document.codigoGeneracion }}</span>
+                      <span class="text-xs text-slate-600">{{ recordValue((document.payload ?? document.dte_json ?? {}).receptor).nombre ?? 'Sin receptor' }}</span>
+                    </span>
+                  </button>
+                </div>
+
+                <p v-else-if="replacementSearched" class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  No hay DTE sustitutos aceptados con sello MH para esa busqueda.
+                </p>
+              </div>
             </div>
           </div>
 
-          <UiTextarea
-            v-if="requiresMotivoAnulacion"
-            v-model="form.motivoAnulacion"
-            label="Detalle del motivo"
-            :rows="3"
-          />
-
-          <div class="rounded-md border border-slate-200 p-4">
-            <p class="text-sm font-semibold text-slate-950">Responsable y solicitante</p>
-            <div class="mt-4 grid gap-3 md:grid-cols-2">
-              <div class="rounded-md bg-slate-50 p-3">
-                <p class="text-xs font-semibold uppercase text-slate-500">Responsable</p>
-                <p class="mt-2 font-semibold text-slate-950">{{ form.nombreResponsable || 'Se tomara del emisor' }}</p>
-                <p class="mt-1 font-mono text-xs text-slate-600">{{ form.tipDocResponsable }} · {{ form.numDocResponsable || 'Sin documento' }}</p>
-              </div>
-              <div class="rounded-md bg-slate-50 p-3">
-                <p class="text-xs font-semibold uppercase text-slate-500">Solicitante</p>
-                <p class="mt-2 font-semibold text-slate-950">{{ form.nombreSolicita || 'Se tomara del receptor' }}</p>
-                <p class="mt-1 font-mono text-xs text-slate-600">{{ form.tipDocSolicita }} · {{ form.numDocSolicita || 'Sin documento' }}</p>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="eventResult" class="rounded-md border p-4" :class="resultStatusClass">
+          <div v-if="eventResult" class="rounded-md border p-4 lg:col-span-2" :class="resultStatusClass">
             <p class="text-sm font-semibold">Evento {{ eventResult.estado }}</p>
             <p class="mt-1 break-all font-mono text-xs">{{ eventResult.codigoGeneracion }}</p>
             <p class="mt-3 text-sm">{{ eventResult.transmission?.descripcion_msg ?? eventResult.transmission?.mh_estado ?? 'Evento creado.' }}</p>
@@ -588,32 +1322,28 @@ function statusLabel(document: DteDraftSummary): string {
       </UiCard>
 
       <div class="pointer-events-none fixed inset-x-0 bottom-4 z-30 px-4">
-        <section class="pointer-events-auto mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-700/70 bg-slate-950/95 px-4 py-3 text-white shadow-xl shadow-slate-950/25 backdrop-blur">
-          <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-            <div>
-              <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Evento</p>
-              <p class="font-bold text-white">Invalidacion</p>
-            </div>
-            <div>
-              <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Schema</p>
-              <p class="font-bold text-white">v3</p>
-            </div>
-            <div>
-              <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">DTE</p>
-              <p class="max-w-[260px] truncate font-mono text-xs font-bold text-white">{{ selected?.numeroControl ?? 'Sin seleccionar' }}</p>
-            </div>
-            <div>
-              <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Motivo</p>
-              <p class="font-bold text-white">{{ invalidacionTipos.find((tipo) => tipo.value === Number(form.tipoAnulacion))?.label ?? 'Sin motivo' }}</p>
-            </div>
+        <section class="pointer-events-auto mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-700/70 bg-slate-950/95 px-3 py-2 text-white shadow-xl shadow-slate-950/25 backdrop-blur">
+          <div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <p class="min-w-0 max-w-[300px] truncate">
+              <span class="text-slate-400">DTE</span>
+              <span class="ml-2 font-mono text-xs font-bold text-white">{{ selected?.numeroControl ?? 'Sin seleccionar' }}</span>
+            </p>
+            <p class="min-w-0 max-w-[340px] truncate">
+              <span class="text-slate-400">Motivo</span>
+              <span class="ml-2 font-semibold text-white">{{ invalidacionTipos.find((tipo) => tipo.value === Number(form.tipoAnulacion))?.label ?? 'Sin motivo' }}</span>
+              <span v-if="form.motivoAnulacion.trim()" class="ml-2 text-xs text-slate-300">{{ form.motivoAnulacion }}</span>
+            </p>
+            <p v-if="requiresReplacementDte" class="min-w-0 max-w-[260px] truncate">
+              <span class="text-slate-400">Sustituto</span>
+              <span class="ml-2 font-mono text-xs font-bold text-white">{{ selectedReplacement?.numeroControl ?? 'Sin seleccionar' }}</span>
+            </p>
           </div>
-          <div class="flex flex-wrap items-center justify-end gap-3">
-            <div class="min-w-[150px] rounded-md bg-sky-600 px-4 py-2 text-right text-white shadow-sm shadow-sky-950/30">
-              <p class="text-[11px] font-semibold uppercase tracking-wide text-sky-100">Estado</p>
-              <p class="text-lg font-bold">{{ selected ? 'Listo' : 'Pendiente' }}</p>
-            </div>
+          <div class="flex shrink-0 items-center justify-end gap-2">
+            <span class="rounded-md bg-sky-600 px-3 py-2 text-sm font-bold text-white shadow-sm shadow-sky-950/30">
+              {{ actionStatusLabel }}
+            </span>
             <UiButton
-              class="min-w-[150px]"
+              class="min-w-[140px]"
               :disabled="!canInvalidate || processing"
               @click="invalidateSelected"
             >
