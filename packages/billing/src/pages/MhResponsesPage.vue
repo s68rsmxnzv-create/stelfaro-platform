@@ -178,7 +178,7 @@ function formatDate(value?: string | null): string {
 }
 
 function attemptsCount(document: DteDraftSummary): number {
-  return document.transmission_attempts?.length ?? 0;
+  return document.transmission_attempts_count ?? document.transmission_attempts?.length ?? 0;
 }
 
 function mhValue(keys: string[]): unknown {

@@ -1161,7 +1161,6 @@ async function loadSourceDocuments(): Promise<void> {
       tipo_dte: '03',
       estado: 'accepted',
       q: sourceDocumentSearch.value.trim(),
-      include_payload: true,
       limit: 10,
     });
     sourceDocuments.value = response.data;
@@ -1170,16 +1169,26 @@ async function loadSourceDocuments(): Promise<void> {
   }
 }
 
-function selectSourceDocument(document: DteDraftSummary): void {
+async function selectSourceDocument(document: DteDraftSummary): Promise<void> {
   if (document.is_related_by_adjustment) {
     error.value = `Ese documento ya esta relacionado con ${document.related_by_adjustment?.numeroControl ?? 'otra nota de ajuste'}.`;
     return;
   }
 
-  selectedSourceDocument.value = document;
-  sourceDocumentSearch.value = `${document.numeroControl} · ${sourceReceptorName(document)}`;
-  sourceDocuments.value = [];
-  applyNotaCreditoSource(document);
+  loading.value = true;
+  error.value = null;
+
+  try {
+    const detail = await client.value.document(document.id);
+    selectedSourceDocument.value = detail;
+    sourceDocumentSearch.value = `${detail.numeroControl} · ${sourceReceptorName(detail)}`;
+    sourceDocuments.value = [];
+    applyNotaCreditoSource(detail);
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible cargar el documento origen.';
+  } finally {
+    loading.value = false;
+  }
 }
 
 function clearSourceDocument(): void {

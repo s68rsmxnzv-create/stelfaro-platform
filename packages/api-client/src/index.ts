@@ -118,6 +118,7 @@ export type DteDraftSummary = {
     duration_ms: number | null;
     attempted_at: string | null;
   }>;
+  transmission_attempts_count?: number;
   correlativo_retry?: Record<string, unknown> | null;
   invalidacion?: {
     eligible: boolean;
