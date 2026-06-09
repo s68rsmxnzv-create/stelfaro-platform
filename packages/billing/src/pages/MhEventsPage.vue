@@ -1079,7 +1079,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               </button>
 
               <p v-if="contingencyCandidatesLoaded && filteredContingencyCandidates.length === 0" class="px-4 py-5 text-sm text-slate-500">
-                No hay DTE firmados en contingencia para el tipo seleccionado.
+                No hay DTE nuevos firmados con modelo diferido para este tipo. Activa el simulador, emite una factura nueva y vuelve a actualizar.
               </p>
             </div>
 
