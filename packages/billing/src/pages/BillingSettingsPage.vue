@@ -772,7 +772,21 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 </div>
                 <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-800">
                   <span>{{ form.simulate_unavailable ? 'Activo' : 'Inactivo' }}</span>
-                  <input v-model="form.simulate_unavailable" class="h-5 w-5 rounded border-slate-300 text-amber-600 focus:ring-amber-500" type="checkbox" :disabled="loading || isInactive">
+                  <span
+                    class="relative block h-8 w-14 rounded-full bg-slate-300 transition-colors [-webkit-tap-highlight-color:transparent]"
+                    :class="[
+                      form.simulate_unavailable ? 'bg-amber-500' : 'bg-slate-300',
+                      loading || isInactive ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                    ]"
+                  >
+                    <input
+                      v-model="form.simulate_unavailable"
+                      class="peer sr-only"
+                      type="checkbox"
+                      :disabled="loading || isInactive"
+                    >
+                    <span class="absolute inset-y-0 start-0 m-1 size-6 rounded-full bg-white shadow-sm transition-[inset-inline-start] peer-checked:start-6"></span>
+                  </span>
                 </label>
               </div>
               <p v-if="form.simulate_unavailable" class="mt-3 rounded-md border border-amber-200 bg-white px-3 py-2 text-xs font-medium text-amber-800">
