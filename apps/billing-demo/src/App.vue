@@ -177,8 +177,13 @@ function toggleUserMenu(): void {
 <template>
   <RouterView v-if="isPublicLayout" />
 
-  <div v-else class="min-h-screen bg-slate-50 text-slate-950">
-    <nav ref="appNav" class="bg-slate-900 shadow-sm">
+  <div v-else class="relative min-h-screen overflow-hidden bg-white text-slate-950">
+    <div
+      class="pointer-events-none absolute inset-0 z-0"
+      style="background: radial-gradient(circle at top center, rgba(147, 197, 253, 0.22), transparent 42%);"
+    ></div>
+
+    <nav ref="appNav" class="relative z-10 bg-slate-900 shadow-sm">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
           <div class="flex items-center">
@@ -440,13 +445,13 @@ function toggleUserMenu(): void {
       </div>
     </nav>
 
-    <header class="relative bg-white shadow-sm">
+    <header class="relative z-10 bg-white shadow-sm">
       <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <h1 class="text-3xl font-bold tracking-tight text-slate-950">{{ pageTitle }}</h1>
       </div>
     </header>
 
-    <main>
+    <main class="relative z-10">
       <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <RouterView />
       </div>
