@@ -18,7 +18,7 @@ export const router = createRouter({
     { path: '/login', name: 'login', component: LoginPage, meta: { public: true } },
     { path: '/', name: 'dashboard', component: DashboardPage, meta: { requiresAuth: true } },
     { path: '/onboarding', name: 'onboarding', component: OnboardingPage, meta: { requiresAuth: true, requiresBackoffice: true } },
-    { path: '/companies', name: 'companies', component: SettingsPage, meta: { requiresAuth: true, requiresBackoffice: true } },
+    { path: '/companies', name: 'companies', component: SettingsPage, meta: { requiresAuth: true, requiresFiscalSettings: true } },
     { path: '/billing', redirect: '/billing/fe' },
     { path: '/billing/:documentSlug', name: 'billing', component: BillingPage, meta: { requiresAuth: true, requiresBilling: true } },
     { path: '/mh-events', redirect: '/mh-events/invalidacion' },
@@ -43,6 +43,10 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.requiresBackoffice && !auth.isBackoffice) {
+    return { path: '/billing/fe' };
+  }
+
+  if (to.meta.requiresFiscalSettings && !auth.canManageFiscalSettings) {
     return { path: '/billing/fe' };
   }
 

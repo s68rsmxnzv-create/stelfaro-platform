@@ -18,7 +18,7 @@ const isPublicLayout = computed(() => Boolean(route.meta.public));
 const nav = computed(() => [
   { label: 'Dashboard', to: '/', show: true },
   { label: 'Onboarding fiscal', to: '/onboarding', show: auth.isBackoffice },
-  { label: 'Empresas', to: '/companies', show: auth.isBackoffice }
+  { label: auth.isBackoffice ? 'Empresas y configuracion fiscal' : 'Configuracion fiscal', to: '/companies', show: auth.canManageFiscalSettings }
 ].filter((item) => item.show));
 const fallbackBillingTypes: BillingDocumentType[] = [
   { code: '01', label: 'Consumidor final', version: 2, implemented: true },

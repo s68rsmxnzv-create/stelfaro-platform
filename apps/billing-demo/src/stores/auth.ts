@@ -52,6 +52,7 @@ export const useAuthStore = defineStore('auth', () => {
   }));
   const isAuthenticated = computed(() => Boolean(token.value && user.value));
   const isBackoffice = computed(() => Boolean(user.value?.is_backoffice));
+  const canManageFiscalSettings = computed(() => ['super_admin', 'admin_fiscal', 'company_admin'].includes(String(user.value?.role ?? '')));
 
   async function initialize(): Promise<void> {
     if (initialized.value) {
@@ -192,6 +193,7 @@ export const useAuthStore = defineStore('auth', () => {
     initialized,
     isAuthenticated,
     isBackoffice,
+    canManageFiscalSettings,
     initialize,
     login,
     logout,
