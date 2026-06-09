@@ -119,6 +119,15 @@ export type DteDraftSummary = {
     attempted_at: string | null;
   }>;
   correlativo_retry?: Record<string, unknown> | null;
+  invalidacion?: {
+    eligible: boolean;
+    status: 'eligible' | 'expired' | 'invalidated' | 'not_transmitted' | 'missing_receipt_stamp' | 'missing_transmission_date' | string;
+    reason: string;
+    deadline: string | null;
+    baseDate: string | null;
+    rule: 'three_months' | 'tenth_business_day_next_month' | 'unknown' | string;
+  };
+  contingencia?: Record<string, unknown> | null;
   is_related_by_adjustment?: boolean;
   related_by_adjustment?: {
     id: number;
@@ -153,6 +162,16 @@ export type MhFiscalEventSummary = {
   ambiente: string;
   numeroControl: string | null;
   codigoGeneracion: string | null;
+  selloRecibido?: string | null;
+  mh_response?: Record<string, unknown> | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  empresa?: {
+    id: number;
+    nombre_comercial: string;
+    razon_social: string;
+    nit: string;
+  } | null;
   payload: Record<string, unknown>;
   relations: Array<{
     id: number;
@@ -177,8 +196,29 @@ export type MhFiscalEventSummary = {
     http_status?: number | null;
     raw_response?: Record<string, unknown> | null;
   } | null;
+  transmission_attempts?: Array<{
+    id: number;
+    attempt_number: number;
+    provider: string;
+    ambiente: string;
+    endpoint: string | null;
+    http_status: number | null;
+    result_status: string | null;
+    response_payload: Record<string, unknown> | null;
+    error_code: string | null;
+    error_message: string | null;
+    duration_ms: number | null;
+    attempted_at: string | null;
+  }>;
+  signed_at?: string | null;
+  transmitted_at?: string | null;
+  processed_at?: string | null;
   created_at: string | null;
   updated_at: string | null;
+};
+
+export type MhFiscalEventListResponse = {
+  data: MhFiscalEventSummary[];
 };
 
 export type MhFiscalEventValidation = {
@@ -817,6 +857,14 @@ export class CoreDteClient {
     return this.http.get(`dte/drafts/${id}/history`).json();
   }
 
+  mhEvents(params: { q?: string; estado?: string; event_type?: string; empresa_id?: number; limit?: number } = {}): Promise<MhFiscalEventListResponse> {
+    return this.http.get('mh/events', { searchParams: compactParams(params) }).json();
+  }
+
+  mhEvent(id: number): Promise<MhFiscalEventSummary> {
+    return this.http.get(`mh/events/${id}`).json();
+  }
+
   createMhEvent(eventType: string, payload: MhFiscalEventDraftRequest): Promise<MhFiscalEventSummary> {
     return this.http.post(`mh/events/${eventType}/drafts`, { json: payload }).json();
   }
@@ -830,7 +878,7 @@ export class CoreDteClient {
   }
 
   transmitMhEvent(id: number): Promise<MhFiscalEventSummary> {
-    return this.http.post(`mh/events/${id}/transmit`).json();
+    return this.http.post(`mh/events/${id}/transmit`, { timeout: 60000 }).json();
   }
 }
 

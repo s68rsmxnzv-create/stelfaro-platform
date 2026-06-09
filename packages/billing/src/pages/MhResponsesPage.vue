@@ -6,7 +6,7 @@ import {
   type DteHistoryEntry
 } from '@stelfaro/api-client';
 import { currency } from '@stelfaro/shared';
-import { UiButton, UiCard, UiSearchInput } from '@stelfaro/ui';
+import { UiButton, UiCard, UiLoadingMark, UiSearchInput } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -142,6 +142,33 @@ function statusClass(document: DteDraftSummary | null): string {
   return 'bg-slate-100 text-slate-700';
 }
 
+function invalidacionLabel(document: DteDraftSummary | null): string {
+  if (!document?.invalidacion) return 'Sin evaluar';
+  if (document.invalidacion.eligible) return 'Habil';
+
+  const labels: Record<string, string> = {
+    expired: 'Plazo vencido',
+    invalidated: 'Invalidado',
+    not_transmitted: 'No transmitido',
+    missing_receipt_stamp: 'Sin sello',
+    missing_transmission_date: 'Sin fecha',
+  };
+
+  return labels[document.invalidacion.status] ?? 'No habil';
+}
+
+function invalidacionClass(document: DteDraftSummary | null): string {
+  if (document?.invalidacion?.eligible) return 'bg-emerald-50 text-emerald-700';
+  if (document?.invalidacion?.status === 'expired') return 'bg-rose-50 text-rose-700';
+  return 'bg-amber-50 text-amber-700';
+}
+
+function invalidacionDeadline(document: DteDraftSummary | null): string {
+  if (!document?.invalidacion?.deadline) return 'Sin limite';
+
+  return formatDate(document.invalidacion.deadline);
+}
+
 function formatDate(value?: string | null): string {
   if (!value) return 'Sin fecha';
   return new Intl.DateTimeFormat('es-SV', {
@@ -190,7 +217,7 @@ function copyText(value: string): void {
         <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Respuestas MH</p>
         <h2 class="mt-1 text-2xl font-bold text-slate-950">Documentos transmitidos</h2>
         <p class="mt-2 text-sm text-slate-600">
-          Consulta sello, estado, intentos de transmision y respuesta cruda de Hacienda.
+          Consulta sello, estado, intentos de transmision y respuesta de Hacienda.
         </p>
       </div>
 
@@ -242,6 +269,7 @@ function copyText(value: string): void {
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Empresa</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Documento</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Estado MH</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Invalidacion</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Sello</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Mensaje</th>
                 <th class="px-4 py-3 text-center text-xs font-semibold uppercase text-slate-500">Intentos</th>
@@ -272,6 +300,12 @@ function copyText(value: string): void {
                     </span>
                   </td>
                   <td class="px-4 py-4">
+                    <span class="inline-flex rounded px-2 py-1 text-xs font-semibold" :class="invalidacionClass(document)">
+                      {{ invalidacionLabel(document) }}
+                    </span>
+                    <p class="mt-1 text-xs text-slate-500">{{ invalidacionDeadline(document) }}</p>
+                  </td>
+                  <td class="px-4 py-4">
                     <p class="max-w-[220px] truncate text-xs font-medium text-slate-700">{{ document.selloRecibido ?? 'Sin sello' }}</p>
                   </td>
                   <td class="px-4 py-4">
@@ -291,7 +325,7 @@ function copyText(value: string): void {
                 </tr>
 
                 <tr v-if="selected?.id === document.id">
-                  <td colspan="8" class="bg-slate-50 px-4 py-5">
+                  <td colspan="9" class="bg-slate-50 px-4 py-5">
                     <div class="space-y-5">
                       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div class="min-w-0">
@@ -309,7 +343,7 @@ function copyText(value: string): void {
                         </UiButton>
                       </div>
 
-                      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
                         <div class="rounded-md border border-slate-200 bg-white p-3">
                           <p class="text-[11px] font-semibold uppercase text-slate-500">Estado MH</p>
                           <p class="mt-2 break-all text-sm font-bold text-slate-950">{{ selectedMhSummary.estado }}</p>
@@ -329,6 +363,11 @@ function copyText(value: string): void {
                         <div class="rounded-md border border-slate-200 bg-white p-3">
                           <p class="text-[11px] font-semibold uppercase text-slate-500">Total</p>
                           <p class="mt-2 text-sm font-bold text-slate-950">{{ currency(selected.totalPagar ?? 0) }}</p>
+                        </div>
+                        <div class="rounded-md border border-slate-200 bg-white p-3">
+                          <p class="text-[11px] font-semibold uppercase text-slate-500">Invalidacion</p>
+                          <p class="mt-2 text-sm font-bold text-slate-950">{{ invalidacionLabel(selected) }}</p>
+                          <p class="mt-1 text-xs text-slate-500">{{ invalidacionDeadline(selected) }}</p>
                         </div>
                       </div>
 
@@ -372,14 +411,14 @@ function copyText(value: string): void {
                       <div class="grid gap-4 xl:grid-cols-3">
                         <div>
                           <div class="mb-2 flex items-center justify-between gap-2">
-                            <h4 class="text-sm font-semibold text-slate-950">JSON antes de firmar</h4>
+                            <h4 class="text-sm font-semibold text-slate-950">Documento enviado</h4>
                             <button class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200" type="button" @click="copyText(selectedPayloadJson)">Copiar</button>
                           </div>
                           <pre class="max-h-96 overflow-auto rounded-md bg-slate-950 p-4 text-xs text-slate-50">{{ selectedPayloadJson }}</pre>
                         </div>
                         <div>
                           <div class="mb-2 flex items-center justify-between gap-2">
-                            <h4 class="text-sm font-semibold text-slate-950">JSON + firma + sello</h4>
+                            <h4 class="text-sm font-semibold text-slate-950">Documento procesado</h4>
                             <button class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200" type="button" @click="copyText(selectedSignedBundleJson)">Copiar</button>
                           </div>
                           <pre class="max-h-96 overflow-auto rounded-md bg-slate-950 p-4 text-xs text-slate-50">{{ selectedSignedBundleJson }}</pre>
@@ -413,7 +452,9 @@ function copyText(value: string): void {
           </table>
         </div>
 
-        <p v-if="loading" class="border-t border-slate-100 bg-slate-50 px-4 py-5 text-sm text-slate-500">Cargando documentos...</p>
+        <div v-if="loading" class="border-t border-slate-100 bg-slate-50">
+          <UiLoadingMark label="Cargando respuesta de los DTE emitidos" />
+        </div>
         <p v-if="emptyState" class="border-t border-slate-100 bg-slate-50 px-4 py-5 text-sm text-slate-500">No hay DTE para los filtros actuales.</p>
       </div>
     </UiCard>

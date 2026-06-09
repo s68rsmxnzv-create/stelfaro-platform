@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { CoreDteClient, type BillingDocumentType } from '@stelfaro/api-client';
 import { useAuthStore } from './stores/auth';
@@ -11,6 +11,8 @@ const mobileOpen = ref(false);
 const userMenuOpen = ref(false);
 const billingMenuOpen = ref(false);
 const eventMenuOpen = ref(false);
+const responsesMenuOpen = ref(false);
+const appNav = ref<HTMLElement | null>(null);
 const documentTypes = ref<BillingDocumentType[]>([]);
 const isPublicLayout = computed(() => Boolean(route.meta.public));
 const nav = computed(() => [
@@ -42,9 +44,11 @@ const billingOptions = computed(() => {
       enabled: Boolean(type.implemented),
     }));
 });
-const operationsNav = computed(() => [
-  { label: 'Respuestas MH', to: '/mh-responses', show: !auth.isBackoffice },
+const responseOptions = computed(() => [
+  { label: 'DTE', to: '/mh-responses', show: !auth.isBackoffice },
+  { label: 'Eventos', to: '/mh-event-responses', show: !auth.isBackoffice },
 ].filter((item) => item.show));
+const responsesMenuActive = computed(() => responseOptions.value.some((item) => item.to === route.path));
 const eventOptions = computed(() => [
   { label: 'Invalidacion', to: '/mh-events/invalidacion', enabled: true },
   { label: 'Contingencia', to: '/mh-events/contingencia', enabled: true },
@@ -66,6 +70,10 @@ const pageTitle = computed(() => {
     return 'Respuestas MH';
   }
 
+  if (route.path === '/mh-event-responses') {
+    return 'Respuestas MH - Eventos';
+  }
+
   const current = nav.value.find((item) => item.to === route.path);
   return current?.label ?? 'Billing';
 });
@@ -85,6 +93,7 @@ watch(() => route.fullPath, () => {
   userMenuOpen.value = false;
   billingMenuOpen.value = false;
   eventMenuOpen.value = false;
+  responsesMenuOpen.value = false;
 });
 
 watch(() => auth.token, async () => {
@@ -105,9 +114,60 @@ watch(() => auth.token, async () => {
   }
 }, { immediate: true });
 
+onMounted(() => {
+  document.addEventListener('click', closeMenusOnOutsideClick);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', closeMenusOnOutsideClick);
+});
+
 async function logout(): Promise<void> {
   await auth.logout();
   await router.push('/login');
+}
+
+function closeOpenMenus(): void {
+  userMenuOpen.value = false;
+  billingMenuOpen.value = false;
+  eventMenuOpen.value = false;
+  responsesMenuOpen.value = false;
+}
+
+function closeMenusOnOutsideClick(event: MouseEvent): void {
+  const target = event.target;
+  if (!(target instanceof Node)) return;
+  if (appNav.value?.contains(target)) return;
+
+  closeOpenMenus();
+}
+
+function toggleBillingMenu(): void {
+  const next = !billingMenuOpen.value;
+  billingMenuOpen.value = next;
+  eventMenuOpen.value = false;
+  responsesMenuOpen.value = false;
+}
+
+function toggleEventMenu(): void {
+  const next = !eventMenuOpen.value;
+  eventMenuOpen.value = next;
+  billingMenuOpen.value = false;
+  responsesMenuOpen.value = false;
+}
+
+function toggleResponsesMenu(): void {
+  const next = !responsesMenuOpen.value;
+  responsesMenuOpen.value = next;
+  billingMenuOpen.value = false;
+  eventMenuOpen.value = false;
+}
+
+function toggleUserMenu(): void {
+  userMenuOpen.value = !userMenuOpen.value;
+  billingMenuOpen.value = false;
+  eventMenuOpen.value = false;
+  responsesMenuOpen.value = false;
 }
 </script>
 
@@ -115,7 +175,7 @@ async function logout(): Promise<void> {
   <RouterView v-if="isPublicLayout" />
 
   <div v-else class="min-h-screen bg-[#eaf7ff] text-slate-950">
-    <nav class="bg-slate-900 shadow-sm">
+    <nav ref="appNav" class="bg-slate-900 shadow-sm">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
           <div class="flex items-center">
@@ -140,7 +200,7 @@ async function logout(): Promise<void> {
                   class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
                   :class="route.path.startsWith('/billing') ? 'bg-slate-950/70 text-white' : ''"
                   type="button"
-                  @click="billingMenuOpen = !billingMenuOpen"
+                  @click="toggleBillingMenu"
                 >
                   Facturacion
                   <span
@@ -175,7 +235,7 @@ async function logout(): Promise<void> {
                   class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
                   :class="route.path.startsWith('/mh-events') ? 'bg-slate-950/70 text-white' : ''"
                   type="button"
-                  @click="eventMenuOpen = !eventMenuOpen"
+                  @click="toggleEventMenu"
                 >
                   Eventos MH
                   <span
@@ -205,15 +265,36 @@ async function logout(): Promise<void> {
                 </div>
               </div>
 
-              <RouterLink
-                v-for="item in operationsNav"
-                :key="item.to"
-                :to="item.to"
-                class="rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
-                active-class="bg-slate-950/70 text-white"
-              >
-                {{ item.label }}
-              </RouterLink>
+              <div v-if="responseOptions.length" class="relative">
+                <button
+                  class="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400 transition hover:bg-white/5 hover:text-white"
+                  :class="responsesMenuActive ? 'bg-slate-950/50 text-slate-100' : ''"
+                  type="button"
+                  @click="toggleResponsesMenu"
+                >
+                  Respuestas MH
+                  <span
+                    class="h-1.5 w-1.5 rotate-45 border-b-2 border-r-2 border-current text-slate-500 transition"
+                    :class="responsesMenuOpen ? 'rotate-[225deg] text-slate-200' : ''"
+                    aria-hidden="true"
+                  ></span>
+                </button>
+
+                <div
+                  v-if="responsesMenuOpen"
+                  class="absolute left-0 z-30 mt-2 w-44 rounded-lg border border-white/10 bg-slate-900 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+                >
+                  <RouterLink
+                    v-for="option in responseOptions"
+                    :key="option.to"
+                    :to="option.to"
+                    class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
+                    active-class="bg-sky-500 text-white shadow-sm shadow-sky-950/20"
+                  >
+                    {{ option.label }}
+                  </RouterLink>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -226,7 +307,7 @@ async function logout(): Promise<void> {
               <button
                 class="flex max-w-xs items-center gap-3 rounded-full text-sm focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
                 type="button"
-                @click="userMenuOpen = !userMenuOpen"
+                @click="toggleUserMenu"
               >
                 <span class="sr-only">Abrir menu de usuario</span>
                 <span class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-white outline outline-1 -outline-offset-1 outline-white/10">
@@ -311,15 +392,20 @@ async function logout(): Promise<void> {
             </div>
           </div>
 
-          <RouterLink
-            v-for="item in operationsNav"
-            :key="item.to"
-            :to="item.to"
-            class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white"
-            active-class="bg-slate-950/70 text-white"
-          >
-            {{ item.label }}
-          </RouterLink>
+          <div v-if="responseOptions.length" class="rounded-md px-3 py-2">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Respuestas MH</p>
+            <div class="mt-1 space-y-1">
+              <RouterLink
+                v-for="option in responseOptions"
+                :key="option.to"
+                :to="option.to"
+                class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/5 hover:text-white"
+                active-class="bg-slate-950/70 text-white"
+              >
+                {{ option.label }}
+              </RouterLink>
+            </div>
+          </div>
         </div>
         <div class="border-t border-white/10 pb-3 pt-4">
           <div class="flex items-center px-5">

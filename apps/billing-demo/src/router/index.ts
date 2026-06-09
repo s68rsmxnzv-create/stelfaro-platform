@@ -3,6 +3,7 @@ import DashboardPage from '../pages/DashboardPage.vue';
 import BillingPage from '../pages/BillingPage.vue';
 import MhEventsPage from '../pages/MhEventsPage.vue';
 import MhResponsesPage from '../pages/MhResponsesPage.vue';
+import MhEventResponsesPage from '../pages/MhEventResponsesPage.vue';
 import SettingsPage from '../pages/SettingsPage.vue';
 import OnboardingPage from '../pages/OnboardingPage.vue';
 import LoginPage from '../pages/LoginPage.vue';
@@ -23,6 +24,7 @@ export const router = createRouter({
     { path: '/mh-events', redirect: '/mh-events/invalidacion' },
     { path: '/mh-events/:eventSlug', name: 'mh-events', component: MhEventsPage, meta: { requiresAuth: true, requiresBilling: true } },
     { path: '/mh-responses', name: 'mh-responses', component: MhResponsesPage, meta: { requiresAuth: true, requiresBilling: true } },
+    { path: '/mh-event-responses', name: 'mh-event-responses', component: MhEventResponsesPage, meta: { requiresAuth: true, requiresBilling: true } },
     { path: '/settings', redirect: '/companies' }
   ]
 });
