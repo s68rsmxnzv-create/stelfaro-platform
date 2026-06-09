@@ -1757,9 +1757,6 @@ function removeLine(id: number): void {
           <p v-if="requiresCustomerIdentificationByAmount && !hasRequiredCustomerIdentification" class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
             {{ customerIdentificationByAmountMessage }}
           </p>
-          <p v-if="isCreditoFiscal && !selectedCustomer" class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-            CCF requiere un cliente fiscal guardado con NIT/DUI homologado, NRC, actividad, direccion, telefono y correo.
-          </p>
           <p v-if="isSujetoExcluido && !selectedCustomer" class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
             Sujeto excluido requiere receptor guardado con documento y direccion completa.
           </p>
