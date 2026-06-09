@@ -2,7 +2,7 @@
 withDefaults(defineProps<{
   label?: string;
 }>(), {
-  label: 'Estamos verificando conexiones'
+  label: 'Cargando la informacion necesaria'
 });
 </script>
 

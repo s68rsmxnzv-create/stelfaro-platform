@@ -415,7 +415,7 @@ async function requestBearer(): Promise<void> {
     });
     bearerStatus.value = response.auth;
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'No fue posible obtener bearer.';
+    error.value = caught instanceof Error ? caught.message : 'No fue posible verificar la autorizacion MH.';
   } finally {
     loading.value = false;
   }
@@ -542,7 +542,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
         <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Empresas</p>
         <h1 class="mt-1 text-2xl font-bold text-slate-950">Gestion de empresas</h1>
         <p class="mt-2 max-w-3xl text-sm text-slate-500">
-          Busca contribuyentes, revisa su estado fiscal y valida firma o bearer con la configuracion guardada.
+          Busca contribuyentes, revisa su estado fiscal y valida firma o autorizacion con Hacienda.
         </p>
       </div>
       <RouterLink to="/onboarding" class="inline-flex items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
@@ -757,7 +757,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 {{ editingCompany ? 'Guardar datos de empresa' : 'Guardar configuracion fiscal' }}
               </UiButton>
               <UiButton variant="secondary" :disabled="loading || !form.empresa_id || isInactive" @click="verifySigner">Verificar firma</UiButton>
-              <UiButton variant="secondary" :disabled="loading || !form.empresa_id || isInactive" @click="requestBearer">Obtener bearer</UiButton>
+              <UiButton variant="secondary" :disabled="loading || !form.empresa_id || isInactive" @click="requestBearer">Verificar autorizacion MH</UiButton>
               <p v-if="saved" class="text-sm text-emerald-700">{{ saved }}</p>
             </div>
           </div>
@@ -770,9 +770,9 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </div>
 
           <div v-if="bearerStatus" class="rounded-md border p-3 text-sm" :class="bearerStatus.available ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'">
-            <p class="font-semibold">Bearer {{ bearerStatus.available ? 'obtenido' : 'no disponible' }}</p>
+            <p class="font-semibold">Autorizacion MH {{ bearerStatus.available ? 'verificada' : 'no disponible' }}</p>
             <p v-if="bearerStatus.http_status" class="mt-1">HTTP {{ bearerStatus.http_status }}</p>
-            <p v-if="bearerStatus.auth_url">Auth URL: {{ bearerStatus.auth_url }}</p>
+            <p v-if="bearerStatus.auth_url">Servicio: {{ bearerStatus.auth_url }}</p>
             <p v-if="bearerStatus.token_preview">Token: {{ bearerStatus.token_preview }}</p>
             <p v-if="bearerStatus.cache_status">Origen: {{ bearerStatus.cache_status === 'cached' ? 'cache vigente' : 'renovado en MH' }}</p>
             <p v-if="bearerStatus.expires_at">Expira: {{ bearerStatus.expires_at }}</p>
@@ -785,7 +785,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           <div>
             <p class="text-base font-semibold text-slate-900">Selecciona una empresa</p>
             <p class="mt-2 max-w-md text-sm text-slate-500">
-              Busca por documento o nombre y elige un resultado para cargar su informacion fiscal, certificado, firma y bearer.
+              Busca por documento o nombre y elige un resultado para cargar su informacion fiscal, certificado, firma y autorizacion MH.
             </p>
           </div>
         </section>

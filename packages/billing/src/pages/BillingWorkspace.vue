@@ -276,11 +276,11 @@ const canBuildSujetoExcluido = computed(() => Boolean(
 ));
 const issuePhases = computed(() => [
   { label: 'Preparando emision', detail: 'Validando datos fiscales, receptor y detalle.' },
-  { label: 'Reservando correlativo', detail: 'Core DTE esta tomando el siguiente numero disponible.' },
-  { label: 'Generando DTE', detail: 'Armando JSON normativo con identificacion final.' },
-  { label: 'Firmando documento', detail: 'Enviando el DTE al firmador configurado.' },
-  { label: 'Transmitiendo a MH', detail: 'Usando bearer activo y recepcion del ambiente seleccionado.' },
-  { label: 'Esperando respuesta', detail: 'Registrando resultado y posibles saltos de correlativo.' }
+  { label: 'Asignando numero', detail: 'Reservando el correlativo del documento.' },
+  { label: 'Preparando documento', detail: 'Completando la informacion fiscal.' },
+  { label: 'Firmando documento', detail: 'Aplicando la firma electronica.' },
+  { label: 'Enviando a Hacienda', detail: 'Transmitiendo el documento para su recepcion.' },
+  { label: 'Esperando respuesta', detail: 'Registrando el resultado de Hacienda.' }
 ]);
 const issueRejected = computed(() => issueResult.value?.document.transmission?.status === 'REJECTED' || issueResult.value?.document.estado === 'rejected');
 const issueTransmissionAttempts = computed(() => issueResult.value?.document.transmission_attempts ?? []);
@@ -591,7 +591,7 @@ async function loadContext(): Promise<void> {
     lines.value = [];
     await Promise.all([loadCustomers(), loadItemTemplates()]);
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'No fue posible cargar el contexto real de facturacion.';
+    error.value = caught instanceof Error ? caught.message : 'No fue posible cargar la configuracion de facturacion.';
   } finally {
     contextLoading.value = false;
   }
@@ -1449,7 +1449,7 @@ function removeLine(id: number): void {
     <BillingProcessModal
       :open="issueModalOpen"
       eyebrow="Emision DTE"
-      :title="issuing ? 'Emitiendo factura real' : issueRejected ? 'Documento rechazado por MH' : issueResult ? 'Emision procesada' : 'Emision detenida'"
+      :title="issuing ? 'Emitiendo documento' : issueRejected ? 'Documento rechazado por MH' : issueResult ? 'Emision procesada' : 'Emision detenida'"
       :subtitle="`Ambiente ${selectedEmpresa?.ambiente ?? '00'} · ${selectedEmpresa?.nombre_comercial ?? 'Empresa emisora'}`"
       :processing="issuing"
       :accepted="Boolean(issueResult && !issueRejected)"
@@ -1457,7 +1457,7 @@ function removeLine(id: number): void {
       :status-label="issuing ? issuePhases[issuePhaseIndex].label : issueRejected ? 'MH rechazo el documento' : issueResult ? 'Documento transmitido' : 'No fue posible emitir'"
       :status-detail="issuing ? issuePhases[issuePhaseIndex].detail : issueRejected ? issueResult?.document.transmission?.descripcion_msg : issueResult ? issueResult.document.numeroControl : error"
       :progress="issueProgress"
-      progress-label="Sistema en produccion"
+      progress-label="Emision"
       :logs="issueLog"
       @close="closeIssueModal"
     >
@@ -1526,9 +1526,9 @@ function removeLine(id: number): void {
     </BillingProcessModal>
 
     <UiCard>
-      <UiLoadingMark v-if="contextLoading" label="Estamos verificando conexiones" />
+      <UiLoadingMark v-if="contextLoading" label="Cargando datos para facturar" />
       <div v-else-if="empresas.length === 0" class="rounded-md bg-amber-50 p-4 text-sm text-amber-800">
-        No hay empresas configuradas en Core DTE. Billing real necesita empresa, sucursal, punto de venta y correlativos activos.
+        No hay empresas configuradas. Debes registrar empresa, sucursal, punto de venta y correlativos activos.
       </div>
 
       <div v-else class="grid gap-6">
@@ -1960,12 +1960,10 @@ function removeLine(id: number): void {
           <UiButton variant="secondary" :disabled="loading" @click="transition('ready')">Preparar</UiButton>
           <UiButton variant="secondary" :disabled="loading" @click="transition('sign')">Firmar</UiButton>
           <UiButton variant="secondary" :disabled="loading" @click="transition('send')">Transmitir</UiButton>
-          <UiButton variant="secondary" :disabled="loading" @click="transition('receive')">Aceptar sandbox</UiButton>
+          <UiButton variant="secondary" :disabled="loading" @click="transition('receive')">Registrar recepcion</UiButton>
           <UiButton variant="ghost" :disabled="loading" @click="loadHistory">Historial</UiButton>
         </div>
-        <p class="mt-3 text-xs text-slate-500">
-          Si Core DTE esta en provider <strong>mh</strong>, transmitir usa MH real. Si esta en <strong>stub</strong>, solo simula salida.
-        </p>
+        <p class="mt-3 text-xs text-slate-500">Acciones disponibles para el documento preparado.</p>
       </div>
 
       <p v-if="error" class="mt-4 whitespace-pre-wrap rounded-md bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>

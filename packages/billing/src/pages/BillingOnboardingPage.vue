@@ -388,7 +388,7 @@ function setLogo(event: Event): void {
         <div class="flex flex-wrap items-center gap-3">
           <UiButton :disabled="loading || !canConfigureFiscal" @click="saveFiscalSettings">Guardar configuracion</UiButton>
           <UiButton variant="secondary" :disabled="loading || !empresaId" @click="verifySigner">Verificar firma</UiButton>
-          <UiButton variant="secondary" :disabled="loading || !empresaId" @click="requestBearer">Obtener bearer</UiButton>
+          <UiButton variant="secondary" :disabled="loading || !empresaId" @click="requestBearer">Verificar autorizacion MH</UiButton>
         </div>
         <div v-if="signer" class="rounded-md border p-3 text-sm" :class="signer.available ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'">
           <p class="font-semibold">{{ signer.available ? 'Firma verificada' : 'Firma no verificada' }}</p>
@@ -396,9 +396,9 @@ function setLogo(event: Event): void {
           <p v-if="signer.message">Detalle: {{ signer.message }}</p>
         </div>
         <div v-if="bearer" class="rounded-md border p-3 text-sm" :class="bearer.status === 'ok' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'">
-          <p class="font-semibold">Bearer {{ bearer.status }}</p>
+          <p class="font-semibold">Autorizacion MH {{ bearer.status === 'ok' ? 'verificada' : 'no disponible' }}</p>
           <p v-if="bearer.http_status" class="mt-1">HTTP {{ bearer.http_status }}</p>
-          <p v-if="bearer.auth_url">Auth URL: {{ bearer.auth_url }}</p>
+          <p v-if="bearer.auth_url">Servicio: {{ bearer.auth_url }}</p>
           <p v-if="bearer.bearer_token" class="mt-2 break-all font-mono text-xs">{{ bearer.bearer_token }}</p>
           <p v-else-if="bearer.token_preview" class="mt-2 font-mono text-xs">{{ bearer.token_preview }}</p>
           <p v-if="bearer.message" class="mt-1">{{ bearer.message }}</p>

@@ -40,7 +40,7 @@ const displayNumeroControl = computed(() => props.draft?.numeroControl ?? props.
 const ambienteLabel = computed(() => props.empresa?.ambiente === '01' ? 'Produccion' : 'Pruebas');
 const previewStatus = computed(() => {
   if (!props.preview) return null;
-  return props.preview.valid ? 'Schema valido' : 'Schema invalido';
+  return props.preview.valid ? 'Documento valido' : 'Documento incompleto';
 });
 
 const subtotal = computed(() => props.items.reduce((sum, item) => sum + lineGrossTotal(item), 0));

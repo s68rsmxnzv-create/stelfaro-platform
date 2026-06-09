@@ -30,7 +30,7 @@ onMounted(async () => {
   <div class="grid gap-6">
     <UiCard>
       <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Dashboard</p>
-      <h2 class="mt-1 text-2xl font-bold">Estado del Core DTE</h2>
+      <h2 class="mt-1 text-2xl font-bold">Estado del servicio</h2>
       <p class="mt-2 text-sm text-slate-500">{{ coreUrl }}</p>
 
       <div v-if="error" class="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{{ error }}</div>
@@ -56,7 +56,7 @@ onMounted(async () => {
     </UiCard>
 
     <UiCard>
-      <h2 class="font-semibold">Schemas activos</h2>
+      <h2 class="font-semibold">Documentos disponibles</h2>
       <div class="mt-4 overflow-hidden rounded-md border border-slate-200">
         <table class="w-full text-left text-sm">
           <thead class="bg-slate-50 text-xs uppercase text-slate-500">
