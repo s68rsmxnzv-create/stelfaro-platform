@@ -25,6 +25,7 @@ import BillingFiscalOptions from '../components/BillingFiscalOptions.vue';
 import BillingCustomerSearchModal from '../components/BillingCustomerSearchModal.vue';
 import BillingInvoiceSummaryBar from '../components/BillingInvoiceSummaryBar.vue';
 import BillingProcessModal from '../components/BillingProcessModal.vue';
+import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -288,6 +289,23 @@ const issueInContingency = computed(() => Boolean(
   && !issueRejected.value
   && (issueResult.value.document.estado === 'contingency' || issueResult.value.document.contingencia)
 ));
+const issueOverlayOpen = computed(() => Boolean(issuing.value || (issueResult.value && !issueRejected.value)));
+const issueDiagnosticModalOpen = computed(() => Boolean(issueModalOpen.value && (issueRejected.value || (error.value && !issuing.value && !issueResult.value))));
+const issueOverlayVariant = computed<'loading' | 'success' | 'warning'>(() => {
+  if (issuing.value) return 'loading';
+  if (issueInContingency.value) return 'warning';
+  return 'success';
+});
+const issueOverlayTitle = computed(() => {
+  if (issuing.value) return 'Transmitiendo DTE';
+  if (issueInContingency.value) return 'Documento en contingencia';
+  return 'Documento transmitido';
+});
+const issueOverlayMessage = computed(() => {
+  if (issuing.value) return issuePhases.value[issuePhaseIndex.value]?.detail ?? 'Procesando documento.';
+  if (issueInContingency.value) return `${issueResult.value?.document.numeroControl ?? 'DTE'} quedo pendiente para reportar contingencia.`;
+  return issueResult.value?.document.numeroControl ?? null;
+});
 const issueTransmissionAttempts = computed(() => issueResult.value?.document.transmission_attempts ?? []);
 const issueAttemptCount = computed(() => Math.max(
   issueResult.value?.attempts.length ?? 0,
@@ -1451,8 +1469,16 @@ function removeLine(id: number): void {
       @update:search="updateCustomerSearch"
     />
 
+    <BillingProcessToastOverlay
+      :open="issueOverlayOpen"
+      :variant="issueOverlayVariant"
+      :title="issueOverlayTitle"
+      :message="issueOverlayMessage"
+      @close="closeIssueModal"
+    />
+
     <BillingProcessModal
-      :open="issueModalOpen"
+      :open="issueDiagnosticModalOpen"
       eyebrow="Emision DTE"
       :title="issuing ? 'Emitiendo documento' : issueRejected ? 'Documento rechazado por MH' : issueInContingency ? 'Emision en contingencia' : issueResult ? 'Emision procesada' : 'Emision detenida'"
       :subtitle="`Ambiente ${selectedEmpresa?.ambiente ?? '00'} · ${selectedEmpresa?.nombre_comercial ?? 'Empresa emisora'}`"
