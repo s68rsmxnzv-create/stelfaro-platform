@@ -177,7 +177,7 @@ function toggleUserMenu(): void {
 <template>
   <RouterView v-if="isPublicLayout" />
 
-  <div v-else class="min-h-screen bg-[#eaf7ff] text-slate-950">
+  <div v-else class="min-h-screen bg-slate-50 text-slate-950">
     <nav ref="appNav" class="bg-slate-900 shadow-sm">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
