@@ -678,6 +678,10 @@ async function reportContingency(): Promise<void> {
     eventPhaseIndex.value = 4;
     eventProgress.value = 100;
     pushLog('Evento procesado por MH');
+    if (eventAccepted.value) {
+      selectedContingencyDocuments.value = [];
+      await loadContingencyCandidates();
+    }
   } catch (caught) {
     const recovered = await recoverEventResult(eventIdForRecovery);
 
@@ -866,14 +870,17 @@ function isGenericReceptor(document: DteDraftSummary | null): boolean {
 
 function isContingencyDocument(document: DteDraftSummary): boolean {
   const identificacion = recordValue((document.payload ?? document.dte_json ?? {}).identificacion);
+  const contingencia = recordValue(document.contingencia);
   const validState = document.estado === 'signed' || document.estado === 'contingency';
   const validContingencyShape = Number(identificacion.tipoModelo) === 2
     && Number(identificacion.tipoOperacion) === 2
     && Number(identificacion.tipoContingencia) === Number(form.tipoContingencia);
+  const alreadyReported = Boolean(contingencia.mh_fiscal_event_id || contingencia.sello_recibido);
 
   return contingencyAllowedTypes.has(document.tipoDte)
     && validState
     && !document.selloRecibido
+    && !alreadyReported
     && validContingencyShape;
 }
 
