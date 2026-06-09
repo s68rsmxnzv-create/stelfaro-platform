@@ -86,7 +86,11 @@ const form = reactive({
   tipoAnulacion: 2,
   motivoAnulacion: '',
   tipoContingencia: 1,
-  motivoContingencia: ''
+  motivoContingencia: '',
+  contingenciaFInicio: currentLocalDate(),
+  contingenciaHInicio: currentLocalTime(),
+  contingenciaFFin: currentLocalDate(),
+  contingenciaHFin: currentLocalTime()
 });
 
 const invalidacionTipos = [
@@ -159,8 +163,20 @@ const canReportContingency = computed(() => Boolean(
   selectedContingencyDocuments.value.length > 0
   && form.tipoContingencia
   && form.motivoContingencia.trim()
+  && contingencyWindowComplete.value
   && selectedContingencyDocuments.value.every(isContingencyDocument)
 ));
+const contingencyWindowComplete = computed(() => Boolean(
+  form.contingenciaFInicio
+  && form.contingenciaHInicio
+  && form.contingenciaFFin
+  && form.contingenciaHFin
+));
+const contingencyWindowLabel = computed(() => {
+  if (!contingencyWindowComplete.value) return 'Ventana incompleta';
+
+  return `${form.contingenciaFInicio} ${form.contingenciaHInicio} - ${form.contingenciaFFin} ${form.contingenciaHFin}`;
+});
 const selectedPayload = computed(() => selected.value?.payload ?? selected.value?.dte_json ?? {});
 const selectedReceptor = computed(() => recordValue(selectedPayload.value.receptor));
 const selectedIdentificacion = computed(() => recordValue(selectedPayload.value.identificacion));
@@ -230,6 +246,7 @@ const actionStatusLabel = computed(() => {
   if (isContingencia.value) {
     if (selectedContingencyDocuments.value.length === 0) return 'Pendiente';
     if (!form.motivoContingencia.trim()) return 'Falta motivo';
+    if (!contingencyWindowComplete.value) return 'Falta ventana';
     if (!selectedContingencyDocuments.value.every(isContingencyDocument)) return 'DTE no valido';
     return `${selectedContingencyDocuments.value.length} DTE listos`;
   }
@@ -305,6 +322,10 @@ watch(isContingencia, (active) => {
     void loadContingencyCandidates();
   }
 }, { immediate: true });
+
+watch(selectedContingencyDocuments, () => {
+  syncContingencyWindowFromSelection();
+}, { deep: true });
 
 async function loadDocuments(options: { preserveEventResult?: boolean } = {}): Promise<void> {
   const search = query.value.trim();
@@ -587,6 +608,10 @@ async function reportContingency(): Promise<void> {
       ambiente,
       payload: {
         motivo: {
+          fInicio: form.contingenciaFInicio,
+          fFin: form.contingenciaFFin,
+          hInicio: normalizeTime(form.contingenciaHInicio),
+          hFin: normalizeTime(form.contingenciaHFin),
           tipoContingencia: Number(form.tipoContingencia),
           motivoContingencia: form.motivoContingencia.trim()
         }
@@ -681,6 +706,10 @@ function formatValidationErrors(errors: Array<{ field: string; message: string }
     'motivo.motivoAnulacion': 'Motivo de invalidacion',
     'motivo.motivoContingencia': 'Motivo de contingencia',
     'motivo.tipoContingencia': 'Tipo de contingencia',
+    'motivo.fInicio': 'Fecha inicio de contingencia',
+    'motivo.fFin': 'Fecha fin de contingencia',
+    'motivo.hInicio': 'Hora inicio de contingencia',
+    'motivo.hFin': 'Hora fin de contingencia',
     'detalleDTE': 'DTE en contingencia',
     'relations': 'Documentos relacionados'
   };
@@ -700,6 +729,32 @@ function formatValidationErrors(errors: Array<{ field: string; message: string }
 
 function recordValue(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function currentLocalDate(): string {
+  return new Date().toLocaleDateString('sv-SE');
+}
+
+function currentLocalTime(): string {
+  return new Date().toTimeString().slice(0, 5);
+}
+
+function normalizeTime(value: string): string {
+  if (/^\d{2}:\d{2}:\d{2}$/.test(value)) return value;
+  if (/^\d{2}:\d{2}$/.test(value)) return `${value}:00`;
+
+  return value;
+}
+
+function syncContingencyWindowFromSelection(): void {
+  const identificacion = selectedContingencyIdentificacion.value;
+  const fecEmi = String(identificacion.fecEmi ?? '').trim();
+  const horEmi = String(identificacion.horEmi ?? '').trim();
+
+  if (fecEmi) form.contingenciaFInicio = fecEmi;
+  if (horEmi) form.contingenciaHInicio = horEmi.slice(0, 5);
+  if (!form.contingenciaFFin) form.contingenciaFFin = currentLocalDate();
+  if (!form.contingenciaHFin) form.contingenciaHFin = currentLocalTime();
 }
 
 function isGenericReceptor(document: DteDraftSummary | null): boolean {
@@ -986,14 +1041,51 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               </select>
             </label>
 
+            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+              <label class="block">
+                <span class="text-sm font-semibold text-slate-900">Fecha inicio</span>
+                <input
+                  v-model="form.contingenciaFInicio"
+                  type="date"
+                  class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                >
+              </label>
+              <label class="block">
+                <span class="text-sm font-semibold text-slate-900">Hora inicio</span>
+                <input
+                  v-model="form.contingenciaHInicio"
+                  type="time"
+                  step="1"
+                  class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                >
+              </label>
+              <label class="block">
+                <span class="text-sm font-semibold text-slate-900">Fecha fin</span>
+                <input
+                  v-model="form.contingenciaFFin"
+                  type="date"
+                  class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                >
+              </label>
+              <label class="block">
+                <span class="text-sm font-semibold text-slate-900">Hora fin</span>
+                <input
+                  v-model="form.contingenciaHFin"
+                  type="time"
+                  step="1"
+                  class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                >
+              </label>
+            </div>
+
             <dl v-if="selectedContingencyDocuments.length" class="mt-4 grid gap-3 rounded-md border border-sky-100 bg-sky-50 p-3 text-sm">
               <div>
                 <dt class="text-xs font-semibold uppercase text-slate-500">Empresa</dt>
                 <dd class="mt-1 font-semibold text-slate-950">{{ selectedContingencyCompany?.razon_social ?? selectedContingencyCompany?.nombre_comercial }}</dd>
               </div>
               <div>
-                <dt class="text-xs font-semibold uppercase text-slate-500">Inicio segun primer DTE</dt>
-                <dd class="mt-1 font-semibold text-slate-950">{{ selectedContingencyIdentificacion.fecEmi ?? 'Se completara al crear el evento' }}</dd>
+                <dt class="text-xs font-semibold uppercase text-slate-500">Periodo reportado</dt>
+                <dd class="mt-1 font-semibold text-slate-950">{{ contingencyWindowLabel }}</dd>
               </div>
               <div>
                 <dt class="text-xs font-semibold uppercase text-slate-500">Ventana posterior</dt>
@@ -1022,6 +1114,10 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               <span class="text-slate-400">Motivo</span>
               <span class="ml-2 font-semibold text-white">{{ contingenciaTipos.find((tipo) => tipo.value === Number(form.tipoContingencia))?.label ?? 'Sin motivo' }}</span>
               <span v-if="form.motivoContingencia.trim()" class="ml-2 text-xs text-slate-300">{{ form.motivoContingencia }}</span>
+            </p>
+            <p class="min-w-0 max-w-[340px] truncate">
+              <span class="text-slate-400">Periodo</span>
+              <span class="ml-2 font-semibold text-white">{{ contingencyWindowLabel }}</span>
             </p>
           </div>
           <div class="flex shrink-0 items-center justify-end gap-2">
