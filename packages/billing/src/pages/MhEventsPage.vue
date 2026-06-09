@@ -355,12 +355,23 @@ async function loadContingencyCandidates(): Promise<void> {
   error.value = null;
 
   try {
-    const response = await client.value.documents({
-      estado: 'signed',
-      limit: 75,
-      include_payload: true
+    const responses = await Promise.all([
+      client.value.documents({
+        estado: 'signed',
+        limit: 75,
+        include_payload: true
+      }),
+      client.value.documents({
+        estado: 'contingency',
+        limit: 75,
+        include_payload: true
+      })
+    ]);
+    const documentsById = new Map<number, DteDraftSummary>();
+    responses.flatMap((response) => response.data).forEach((document) => {
+      documentsById.set(document.id, document);
     });
-    contingencyCandidates.value = response.data.filter(isContingencyDocument);
+    contingencyCandidates.value = Array.from(documentsById.values()).filter(isContingencyDocument);
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar los candidatos de contingencia.';
   } finally {
@@ -703,13 +714,19 @@ function isGenericReceptor(document: DteDraftSummary | null): boolean {
 
 function isContingencyDocument(document: DteDraftSummary): boolean {
   const identificacion = recordValue((document.payload ?? document.dte_json ?? {}).identificacion);
-
-  return contingencyAllowedTypes.has(document.tipoDte)
-    && document.estado === 'signed'
-    && !document.selloRecibido
-    && Number(identificacion.tipoModelo) === 2
+  const contingencia = recordValue(document.contingencia);
+  const validState = document.estado === 'signed' || document.estado === 'contingency';
+  const validContingencyShape = Number(identificacion.tipoModelo) === 2
     && Number(identificacion.tipoOperacion) === 2
     && Number(identificacion.tipoContingencia) === Number(form.tipoContingencia);
+  const retryPolicyCandidate = document.estado === 'contingency'
+    && Boolean(contingencia.eligible)
+    && Number(identificacion.tipoContingencia || form.tipoContingencia) === Number(form.tipoContingencia);
+
+  return contingencyAllowedTypes.has(document.tipoDte)
+    && validState
+    && !document.selloRecibido
+    && (validContingencyShape || retryPolicyCandidate);
 }
 
 function canAddContingencyDocument(document: DteDraftSummary): boolean {
