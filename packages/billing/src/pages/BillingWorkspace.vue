@@ -1470,53 +1470,33 @@ function removeLine(id: number): void {
         </span>
       </template>
 
-      <div v-if="issueResult" class="mt-5 rounded-md border p-4" :class="issueRejected ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div>
+      <div v-if="issueResult" class="mt-5 rounded-md border p-3" :class="issueRejected ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="min-w-0">
                 <p class="text-sm font-semibold" :class="issueRejected ? 'text-red-900' : 'text-emerald-900'">
                   {{ issueRejected ? 'Documento rechazado' : 'Documento aceptado' }}
                 </p>
-                <p class="mt-1 font-mono text-sm" :class="issueRejected ? 'text-red-950' : 'text-emerald-950'">{{ issueResult.document.numeroControl }}</p>
+                <p class="mt-1 truncate font-mono text-xs" :class="issueRejected ? 'text-red-950' : 'text-emerald-950'">{{ issueResult.document.numeroControl }}</p>
               </div>
-              <span class="rounded bg-white/75 px-2 py-1 text-xs font-semibold" :class="issueRejected ? 'text-red-800' : 'text-emerald-800'">
-                HTTP {{ issueResult.document.transmission?.http_status ?? 'N/D' }}
-              </span>
+              <div class="flex flex-wrap items-center gap-2 text-xs font-semibold" :class="issueRejected ? 'text-red-800' : 'text-emerald-800'">
+                <span class="rounded bg-white/75 px-2 py-1">HTTP {{ issueResult.document.transmission?.http_status ?? 'N/D' }}</span>
+                <span class="rounded bg-white/75 px-2 py-1">MH {{ issueResult.document.transmission?.mh_estado ?? issueResult.document.transmission?.status ?? 'sin estado' }}</span>
+              </div>
             </div>
-            <p class="mt-2 text-sm" :class="issueRejected ? 'text-red-800' : 'text-emerald-800'">
-              MH {{ issueResult.document.transmission?.mh_estado ?? issueResult.document.transmission?.status ?? 'sin estado' }}
-            </p>
-            <p v-if="issueRejected" class="mt-2 text-sm text-red-800">
-              {{ issueResult.document.transmission?.descripcion_msg }}
+            <p v-if="issueRejected && issueResult.document.transmission?.descripcion_msg" class="mt-2 text-sm text-red-800">
+              {{ issueResult.document.transmission.descripcion_msg }}
             </p>
             <ul v-if="issueRejected && issueResult.document.transmission?.observaciones?.length" class="mt-2 list-disc pl-5 text-sm text-red-800">
               <li v-for="observation in issueResult.document.transmission.observaciones" :key="observation">{{ observation }}</li>
             </ul>
-            <div v-if="issueResult.attempts.length > 1" class="mt-3 rounded-md bg-white/70 p-3 text-xs" :class="issueRejected ? 'text-red-900' : 'text-emerald-900'">
+            <div v-if="issueResult.attempts.length > 1" class="mt-2 rounded-md bg-white/70 px-3 py-2 text-xs" :class="issueRejected ? 'text-red-900' : 'text-emerald-900'">
               Se resolvio con {{ issueResult.attempts.length }} intentos de correlativo.
             </div>
-            <div v-if="!issueRejected" class="mt-4 flex flex-wrap gap-2 border-t border-emerald-200/80 pt-3">
-              <button
-                class="rounded-lg bg-white/80 px-3 py-2 text-xs font-semibold text-emerald-900 shadow-sm opacity-75"
-                disabled
-                type="button"
-              >
-                Imprimir
-              </button>
-              <button
-                class="rounded-lg bg-white/80 px-3 py-2 text-xs font-semibold text-emerald-900 shadow-sm opacity-75"
-                disabled
-                type="button"
-              >
-                Enviar correo
-              </button>
-              <button
-                class="rounded-lg bg-white/80 px-3 py-2 text-xs font-semibold text-emerald-900 shadow-sm opacity-75"
-                disabled
-                type="button"
-              >
-                Descargar PDF
-              </button>
-              <span class="self-center text-xs text-emerald-700">Acciones proximas</span>
+            <div v-if="!issueRejected" class="mt-3 flex flex-wrap items-center gap-2 border-t border-emerald-200/80 pt-3">
+              <button class="rounded-md bg-white/80 px-3 py-1.5 text-xs font-semibold text-emerald-900 shadow-sm opacity-75" disabled type="button">Imprimir</button>
+              <button class="rounded-md bg-white/80 px-3 py-1.5 text-xs font-semibold text-emerald-900 shadow-sm opacity-75" disabled type="button">Enviar correo</button>
+              <button class="rounded-md bg-white/80 px-3 py-1.5 text-xs font-semibold text-emerald-900 shadow-sm opacity-75" disabled type="button">Descargar PDF</button>
+              <span class="text-xs text-emerald-700">Acciones proximas</span>
             </div>
           </div>
 
