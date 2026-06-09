@@ -164,10 +164,11 @@ const filteredContingencyCandidates = computed(() => {
 const canReportContingency = computed(() => Boolean(
   selectedContingencyDocuments.value.length > 0
   && form.tipoContingencia
-  && form.motivoContingencia.trim()
+  && (!requiresMotivoContingencia.value || form.motivoContingencia.trim())
   && contingencyWindowComplete.value
   && selectedContingencyDocuments.value.every(isContingencyDocument)
 ));
+const requiresMotivoContingencia = computed(() => Number(form.tipoContingencia) === 5);
 const contingencyWindowComplete = computed(() => Boolean(
   form.contingenciaFInicio
   && form.contingenciaHInicio
@@ -247,7 +248,7 @@ const eventMhResponseJson = computed(() => JSON.stringify(eventMhResponse.value,
 const actionStatusLabel = computed(() => {
   if (isContingencia.value) {
     if (selectedContingencyDocuments.value.length === 0) return 'Pendiente';
-    if (!form.motivoContingencia.trim()) return 'Falta motivo';
+    if (requiresMotivoContingencia.value && !form.motivoContingencia.trim()) return 'Falta motivo';
     if (!contingencyWindowComplete.value) return 'Falta ventana';
     if (!selectedContingencyDocuments.value.every(isContingencyDocument)) return 'DTE no valido';
     return `${selectedContingencyDocuments.value.length} DTE listos`;
@@ -296,6 +297,16 @@ watch(() => form.tipoContingencia, () => {
   eventResult.value = null;
   eventLog.value = [];
   resetContingencyWindowAutomation();
+
+  if (isContingencia.value && requiresMotivoContingencia.value) {
+    openMotivoModal('contingencia');
+  } else {
+    form.motivoContingencia = '';
+    if (motivoModalMode.value === 'contingencia') {
+      motivoDraft.value = '';
+      motivoModalOpen.value = false;
+    }
+  }
 
   if (isContingencia.value) {
     void loadContingencyCandidates();
@@ -621,7 +632,7 @@ async function reportContingency(): Promise<void> {
           hInicio: normalizeTime(form.contingenciaHInicio),
           hFin: normalizeTime(form.contingenciaHFin),
           tipoContingencia: Number(form.tipoContingencia),
-          motivoContingencia: form.motivoContingencia.trim()
+          motivoContingencia: requiresMotivoContingencia.value ? form.motivoContingencia.trim() : null
         }
       },
       relations: selectedContingencyDocuments.value.map((document) => ({
@@ -1070,7 +1081,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
           <div class="min-w-0 rounded-md border border-slate-200 p-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <p class="text-base font-semibold text-slate-950">Motivo de contingencia</p>
-              <UiButton type="button" variant="secondary" @click="openMotivoModal('contingencia')">
+              <UiButton v-if="requiresMotivoContingencia" type="button" variant="secondary" @click="openMotivoModal('contingencia')">
                 {{ form.motivoContingencia.trim() ? 'Editar motivo' : 'Escribir motivo' }}
               </UiButton>
             </div>
@@ -1084,6 +1095,12 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 <option v-for="tipo in contingenciaTipos" :key="tipo.value" :value="tipo.value">{{ tipo.label }}</option>
               </select>
             </label>
+            <p v-if="!requiresMotivoContingencia" class="mt-2 text-xs font-medium text-slate-500">
+              Este tipo no requiere detalle adicional.
+            </p>
+            <p v-else-if="form.motivoContingencia.trim()" class="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+              {{ form.motivoContingencia }}
+            </p>
 
             <div class="mt-4 grid gap-3 sm:grid-cols-2">
               <label class="block">
