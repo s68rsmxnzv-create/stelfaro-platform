@@ -1739,8 +1739,8 @@ function removeLine(id: number): void {
               :key="mode.key"
               class="rounded-lg px-4 py-2 text-sm font-semibold tracking-wide transition-colors duration-200 focus:outline-none focus:ring focus:ring-sky-300 focus:ring-opacity-70"
               :class="[
-                customerMode === mode.key ? 'bg-sky-600 text-white hover:bg-sky-500' : 'bg-white/80 text-slate-900 shadow-sm shadow-blue-950/5 hover:bg-blue-50',
-                mode.key === 'generic' && requiresCustomerIdentificationByAmount ? 'cursor-not-allowed opacity-50 hover:bg-white/80' : ''
+                customerMode === mode.key ? 'bg-sky-600 text-white hover:bg-sky-500' : 'border border-blue-100 bg-blue-50/45 text-slate-900 shadow-sm shadow-blue-950/5 hover:bg-blue-100/60',
+                mode.key === 'generic' && requiresCustomerIdentificationByAmount ? 'cursor-not-allowed opacity-50 hover:bg-blue-50/45' : ''
               ]"
               :disabled="mode.key === 'generic' && requiresCustomerIdentificationByAmount"
               type="button"
