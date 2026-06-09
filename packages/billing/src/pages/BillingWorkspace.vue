@@ -1525,7 +1525,7 @@ function removeLine(id: number): void {
           </div>
     </BillingProcessModal>
 
-    <UiCard>
+    <UiCard variant="bare">
       <UiLoadingMark v-if="contextLoading" label="Cargando datos para facturar" />
       <div v-else-if="empresas.length === 0" class="rounded-md bg-amber-50 p-4 text-sm text-amber-800">
         No hay empresas configuradas. Debes registrar empresa, sucursal, punto de venta y correlativos activos.
