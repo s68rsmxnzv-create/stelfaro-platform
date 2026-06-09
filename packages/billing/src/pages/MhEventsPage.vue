@@ -39,6 +39,15 @@ const replacementDocuments = ref<DteDraftSummary[]>([]);
 const selected = ref<DteDraftSummary | null>(null);
 const selectedReplacement = ref<DteDraftSummary | null>(null);
 const selectedContingencyDocuments = ref<DteDraftSummary[]>([]);
+const reportedContingencyDocuments = ref<DteDraftSummary[]>([]);
+const contingencyRetransmissionLoading = ref(false);
+const contingencyRetransmissionError = ref<string | null>(null);
+const contingencyRetransmissionResults = ref<Array<{
+  id: number;
+  numeroControl: string;
+  status: 'accepted' | 'sent' | 'rejected' | 'error' | string;
+  message?: string;
+}>>([]);
 const eventResult = ref<MhFiscalEventSummary | null>(null);
 const eventLog = ref<Array<{ label: string; status: 'ok' | 'error' }>>([]);
 const motivoModalOpen = ref(false);
@@ -134,7 +143,8 @@ const canInvalidate = computed(() => Boolean(
   && (!requiresReplacementDte.value || selectedReplacement.value)
   && !replacementIdentificationError.value
 ));
-const selectedContingencyCompany = computed(() => selectedContingencyDocuments.value[0]?.empresa ?? null);
+const contingencyModalDocument = computed(() => selectedContingencyDocuments.value[0] ?? reportedContingencyDocuments.value[0] ?? null);
+const selectedContingencyCompany = computed(() => contingencyModalDocument.value?.empresa ?? null);
 const selectedContingencyPayload = computed(() => selectedContingencyDocuments.value[0]?.payload ?? selectedContingencyDocuments.value[0]?.dte_json ?? {});
 const selectedContingencyIdentificacion = computed(() => recordValue(selectedContingencyPayload.value.identificacion));
 const filteredContingencyCandidates = computed(() => {
@@ -258,6 +268,9 @@ const eventMhProcessedAt = computed(() => String(
   ?? ''
 ));
 const eventMhResponseJson = computed(() => JSON.stringify(eventMhResponse.value, null, 2));
+const canRetransmitContingencyDocuments = computed(() => eventAccepted.value
+  && reportedContingencyDocuments.value.length > 0
+  && !contingencyRetransmissionLoading.value);
 const actionStatusLabel = computed(() => {
   if (isContingencia.value) {
     if (selectedContingencyDocuments.value.length === 0) return 'Pendiente';
@@ -305,6 +318,9 @@ watch(() => form.tipoAnulacion, () => {
 
 watch(() => form.tipoContingencia, () => {
   selectedContingencyDocuments.value = [];
+  reportedContingencyDocuments.value = [];
+  contingencyRetransmissionResults.value = [];
+  contingencyRetransmissionError.value = null;
   documents.value = [];
   contingencyCandidates.value = [];
   contingencyCandidatesLoaded.value = false;
@@ -333,6 +349,9 @@ watch(() => props.initialEventType, () => {
   eventLog.value = [];
   selected.value = null;
   selectedContingencyDocuments.value = [];
+  reportedContingencyDocuments.value = [];
+  contingencyRetransmissionResults.value = [];
+  contingencyRetransmissionError.value = null;
   clearReplacementDocument();
   documents.value = [];
   contingencyCandidates.value = [];
@@ -444,6 +463,9 @@ function selectContingencyDocument(document: DteDraftSummary): void {
   if (!canAddContingencyDocument(document)) return;
 
   selectedContingencyDocuments.value.push(document);
+  reportedContingencyDocuments.value = [];
+  contingencyRetransmissionResults.value = [];
+  contingencyRetransmissionError.value = null;
   eventResult.value = null;
   eventLog.value = [];
   documents.value = [];
@@ -459,12 +481,18 @@ function addVisibleContingencyCandidates(): void {
 
   eventResult.value = null;
   eventLog.value = [];
+  reportedContingencyDocuments.value = [];
+  contingencyRetransmissionResults.value = [];
+  contingencyRetransmissionError.value = null;
 }
 
 function removeContingencyDocument(documentId: number): void {
   selectedContingencyDocuments.value = selectedContingencyDocuments.value.filter((document) => document.id !== documentId);
   eventResult.value = null;
   eventLog.value = [];
+  reportedContingencyDocuments.value = [];
+  contingencyRetransmissionResults.value = [];
+  contingencyRetransmissionError.value = null;
 }
 
 function clearSelectedDocument(): void {
@@ -679,6 +707,9 @@ async function reportContingency(): Promise<void> {
     eventProgress.value = 100;
     pushLog('Evento procesado por MH');
     if (eventAccepted.value) {
+      reportedContingencyDocuments.value = [...selectedContingencyDocuments.value];
+      contingencyRetransmissionResults.value = [];
+      contingencyRetransmissionError.value = null;
       selectedContingencyDocuments.value = [];
       await loadContingencyCandidates();
     }
@@ -688,6 +719,13 @@ async function reportContingency(): Promise<void> {
     if (recovered && (eventAccepted.value || eventRejected.value)) {
       eventLog.value.push({ label: 'Respuesta MH recuperada', status: 'ok' });
       error.value = null;
+      if (eventAccepted.value) {
+        reportedContingencyDocuments.value = [...selectedContingencyDocuments.value];
+        contingencyRetransmissionResults.value = [];
+        contingencyRetransmissionError.value = null;
+        selectedContingencyDocuments.value = [];
+        await loadContingencyCandidates();
+      }
     } else {
       eventLog.value.push({ label: 'Proceso detenido', status: 'error' });
       error.value = caught instanceof Error ? caught.message : 'No fue posible reportar la contingencia.';
@@ -697,6 +735,45 @@ async function reportContingency(): Promise<void> {
   } finally {
     processing.value = false;
   }
+}
+
+async function retransmitContingencyDocuments(): Promise<void> {
+  if (!canRetransmitContingencyDocuments.value) return;
+
+  contingencyRetransmissionLoading.value = true;
+  contingencyRetransmissionError.value = null;
+  contingencyRetransmissionResults.value = [];
+
+  const updatedDocuments: DteDraftSummary[] = [];
+
+  for (const document of reportedContingencyDocuments.value) {
+    try {
+      const sent = await client.value.sendDraft(document.id);
+      updatedDocuments.push(sent);
+      contingencyRetransmissionResults.value.push({
+        id: document.id,
+        numeroControl: document.numeroControl,
+        status: sent.estado,
+        message: sent.selloRecibido ? `Sello ${sent.selloRecibido}` : sent.errorMessage ?? undefined
+      });
+    } catch (caught) {
+      updatedDocuments.push(document);
+      contingencyRetransmissionResults.value.push({
+        id: document.id,
+        numeroControl: document.numeroControl,
+        status: 'error',
+        message: caught instanceof Error ? caught.message : 'No fue posible transmitir el DTE.'
+      });
+    }
+  }
+
+  reportedContingencyDocuments.value = updatedDocuments;
+  contingencyRetransmissionLoading.value = false;
+  const failed = contingencyRetransmissionResults.value.filter((result) => ['error', 'rejected'].includes(String(result.status).toLowerCase()));
+  contingencyRetransmissionError.value = failed.length > 0
+    ? 'Algunos DTE no pudieron transmitirse. Revisa el detalle y confirma que el simulador MH este inactivo.'
+    : null;
+  await loadContingencyCandidates();
 }
 
 async function recoverEventResult(eventId: number | null): Promise<boolean> {
@@ -955,7 +1032,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
         :open="eventModalOpen"
         eyebrow="Evento MH"
         :title="processing ? 'Reportando contingencia' : eventRejected ? 'Evento rechazado por MH' : eventAccepted ? 'Evento procesado' : 'Contingencia detenida'"
-        :subtitle="`Ambiente ${selectedContingencyDocuments[0]?.ambiente ?? '00'} · ${selectedContingencyCompany?.nombre_comercial ?? selectedContingencyCompany?.razon_social ?? 'Empresa emisora'}`"
+        :subtitle="`Ambiente ${contingencyModalDocument?.ambiente ?? '00'} · ${selectedContingencyCompany?.nombre_comercial ?? selectedContingencyCompany?.razon_social ?? 'Empresa emisora'}`"
         :processing="processing"
         :accepted="eventAccepted"
         :rejected="eventRejected || eventStopped"
@@ -989,6 +1066,57 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
             <summary class="cursor-pointer text-xs font-semibold">Ver detalle de respuesta</summary>
             <pre class="mt-2 max-h-56 overflow-auto rounded bg-slate-950 p-3 text-xs text-slate-50">{{ eventMhResponseJson }}</pre>
           </details>
+        </div>
+
+        <div v-if="eventAccepted && reportedContingencyDocuments.length" class="mt-5 rounded-md border border-sky-200 bg-sky-50 p-4 text-slate-900">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Momento 3</p>
+              <h3 class="mt-1 text-base font-bold text-slate-950">Transmitir DTE reportados</h3>
+              <p class="mt-1 text-sm text-slate-600">
+                Desactiva el simulador MH antes de transmitir los documentos reportados en el evento.
+              </p>
+            </div>
+            <UiButton
+              type="button"
+              :disabled="!canRetransmitContingencyDocuments"
+              @click="retransmitContingencyDocuments"
+            >
+              {{ contingencyRetransmissionLoading ? 'Transmitiendo...' : 'Transmitir DTE' }}
+            </UiButton>
+          </div>
+
+          <p v-if="contingencyRetransmissionError" class="mt-3 rounded-md border border-amber-200 bg-white px-3 py-2 text-sm text-amber-800">
+            {{ contingencyRetransmissionError }}
+          </p>
+
+          <div class="mt-3 divide-y divide-slate-200 overflow-hidden rounded-md border border-slate-200 bg-white">
+            <div
+              v-for="document in reportedContingencyDocuments"
+              :key="document.id"
+              class="flex flex-wrap items-center justify-between gap-3 px-3 py-2 text-sm"
+            >
+              <span class="min-w-0">
+                <span class="block truncate font-semibold text-slate-950">{{ document.numeroControl }}</span>
+                <span class="block truncate font-mono text-xs text-slate-500">{{ document.codigoGeneracion }}</span>
+              </span>
+              <span class="rounded px-2 py-1 text-xs font-semibold" :class="document.estado === 'accepted' ? 'bg-emerald-100 text-emerald-700' : document.estado === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'">
+                {{ document.estado }}
+              </span>
+            </div>
+          </div>
+
+          <div v-if="contingencyRetransmissionResults.length" class="mt-3 space-y-2">
+            <p
+              v-for="result in contingencyRetransmissionResults"
+              :key="result.id"
+              class="rounded-md px-3 py-2 text-xs"
+              :class="String(result.status).toLowerCase() === 'accepted' ? 'bg-emerald-100 text-emerald-800' : ['error', 'rejected'].includes(String(result.status).toLowerCase()) ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-700'"
+            >
+              <span class="font-semibold">{{ result.numeroControl }} · {{ result.status }}</span>
+              <span v-if="result.message" class="ml-1">{{ result.message }}</span>
+            </p>
+          </div>
         </div>
 
         <div v-else-if="error && !processing" class="mt-5 whitespace-pre-wrap rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
