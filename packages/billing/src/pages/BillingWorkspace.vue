@@ -1970,7 +1970,7 @@ function removeLine(id: number): void {
     </UiCard>
 
     <BillingInvoiceSummaryBar
-      v-if="!contextLoading && empresas.length > 0"
+      v-if="!contextLoading && empresas.length > 0 && items.length > 0"
       :line-count="items.length"
       :unit-count="unitCount"
       :subtotal="subtotal"
