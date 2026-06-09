@@ -3,10 +3,12 @@ withDefaults(defineProps<{
   modelValue?: boolean;
   disabled?: boolean;
   variant?: 'default' | 'success' | 'warning';
+  offVariant?: 'default' | 'success' | 'warning' | 'neutral';
   ariaLabel?: string;
 }>(), {
   disabled: false,
   variant: 'default',
+  offVariant: 'neutral',
   ariaLabel: 'Cambiar estado'
 });
 
@@ -23,6 +25,10 @@ defineEmits<{
         Boolean(modelValue) && variant === 'success' ? 'bg-emerald-500' : '',
         Boolean(modelValue) && variant === 'warning' ? 'bg-amber-500' : '',
         Boolean(modelValue) && variant === 'default' ? 'bg-sky-500' : '',
+        !Boolean(modelValue) && offVariant === 'success' ? 'bg-emerald-500' : '',
+        !Boolean(modelValue) && offVariant === 'warning' ? 'bg-amber-500' : '',
+        !Boolean(modelValue) && offVariant === 'default' ? 'bg-sky-500' : '',
+        !Boolean(modelValue) && offVariant === 'neutral' ? 'bg-slate-300' : '',
         disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
       ]"
     >

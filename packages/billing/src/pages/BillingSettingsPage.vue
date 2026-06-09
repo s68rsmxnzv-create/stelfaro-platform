@@ -776,6 +776,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                     v-model="form.simulate_unavailable"
                     aria-label="Simular MH sin respuesta"
                     :disabled="loading || isInactive"
+                    off-variant="success"
                     variant="warning"
                   />
                 </label>
