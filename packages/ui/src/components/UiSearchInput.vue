@@ -4,9 +4,11 @@ withDefaults(defineProps<{
   modelValue: string | number | null | undefined;
   placeholder?: string;
   buttonLabel?: string;
+  showButton?: boolean;
 }>(), {
   placeholder: 'Buscar',
-  buttonLabel: 'Buscar'
+  buttonLabel: 'Buscar',
+  showButton: true
 });
 
 defineEmits<{
@@ -28,11 +30,13 @@ defineEmits<{
         type="search"
         :value="modelValue ?? ''"
         :placeholder="placeholder"
-        class="block w-full rounded-md border border-blue-100 bg-white/90 py-3 pl-9 pr-24 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100"
+        class="block w-full rounded-md border border-blue-100 bg-white/90 py-3 pl-9 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100"
+        :class="showButton ? 'pr-24' : 'pr-12'"
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
         @keydown.enter.prevent="$emit('search')"
       >
       <button
+        v-if="showButton"
         type="button"
         class="absolute bottom-1.5 right-1.5 rounded bg-sky-600 px-3 py-1.5 text-xs font-semibold leading-5 text-white shadow-sm transition hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
         @click="$emit('search')"

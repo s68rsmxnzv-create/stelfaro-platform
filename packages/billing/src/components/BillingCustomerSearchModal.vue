@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { BillingCustomer } from '@stelfaro/api-client';
-import { UiButton } from '@stelfaro/ui';
+import { UiButton, UiSearchInput } from '@stelfaro/ui';
 
 defineProps<{
   open: boolean;
@@ -56,28 +56,24 @@ function customerDocumentLabel(customer: BillingCustomer): string {
         </div>
 
         <div class="px-6 py-5">
-          <label class="block">
-            <span class="text-sm font-medium text-slate-700">Cliente</span>
-            <span class="relative mt-1 block">
-              <input
-                class="w-full rounded-md border border-slate-300 bg-white py-2 pl-3 pr-10 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                :value="search"
-                placeholder="Escribe al menos 2 caracteres"
-                type="text"
-                autofocus
-                @input="emit('update:search', ($event.target as HTMLInputElement).value)"
-              >
-              <button
-                v-if="search"
-                class="absolute inset-y-1 right-1 grid w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900"
-                type="button"
-                aria-label="Limpiar busqueda"
-                @click="emit('clear')"
-              >
-                x
-              </button>
-            </span>
-          </label>
+          <div class="relative">
+            <UiSearchInput
+              :model-value="search"
+              label="Cliente"
+              placeholder="Escribe al menos 2 caracteres"
+              :show-button="false"
+              @update:model-value="emit('update:search', $event)"
+            />
+            <button
+              v-if="search"
+              class="absolute bottom-1.5 right-1.5 grid size-9 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900"
+              type="button"
+              aria-label="Limpiar busqueda"
+              @click="emit('clear')"
+            >
+              x
+            </button>
+          </div>
 
           <div v-if="results.length" class="mt-4 max-h-80 divide-y divide-slate-200 overflow-y-auto rounded-md border border-slate-200 bg-white">
             <button
