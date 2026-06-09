@@ -177,10 +177,10 @@ function toggleUserMenu(): void {
 <template>
   <RouterView v-if="isPublicLayout" />
 
-  <div v-else class="relative min-h-screen overflow-hidden bg-[#f8fafc] text-slate-950">
+  <div v-else class="relative min-h-screen overflow-hidden bg-white text-slate-950">
     <div
       class="pointer-events-none absolute inset-0 z-0"
-      style="background-image: linear-gradient(135deg, rgba(248,250,252,1) 0%, rgba(219,234,254,0.7) 30%, rgba(165,180,252,0.5) 60%, rgba(129,140,248,0.6) 100%), radial-gradient(circle at 20% 30%, rgba(255,255,255,0.6) 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(199,210,254,0.4) 0%, transparent 50%), radial-gradient(circle at 40% 80%, rgba(224,231,255,0.3) 0%, transparent 60%);"
+      style="background: #ffffff; background-image: radial-gradient(circle at top center, rgba(59, 130, 246, 0.5), transparent 70%);"
     ></div>
 
     <nav ref="appNav" class="relative z-50 bg-slate-900 shadow-sm">
