@@ -306,6 +306,7 @@ export type BillingMhConfig = {
   event_reception_url: string | null;
   query_url: string | null;
   signer_url: string | null;
+  simulate_unavailable: boolean;
   credentials_configured: boolean;
   signer_credentials_configured: boolean;
   last_verified_at: string | null;
@@ -458,6 +459,7 @@ export type BillingSettingsPayload = {
   signer_nit?: string | null;
   signer_password_pri?: string | null;
   signer_activo?: boolean;
+  simulate_unavailable?: boolean;
 };
 
 export type BillingSettings = Omit<BillingSettingsPayload, 'mh_nit' | 'mh_user' | 'mh_password' | 'signer_nit' | 'signer_password_pri' | 'signer_activo'> & {

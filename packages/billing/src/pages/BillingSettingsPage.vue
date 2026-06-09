@@ -64,7 +64,8 @@ const form = reactive<BillingSettingsPayload>({
   auth_token_path: 'body.token',
   signer_nit: '',
   signer_password_pri: '',
-  signer_activo: true
+  signer_activo: true,
+  simulate_unavailable: false
 });
 
 const companyForm = reactive({
@@ -237,7 +238,8 @@ async function loadSettings(): Promise<void> {
       reception_url: response.config.reception_url ?? null,
       event_reception_url: response.config.event_reception_url ?? null,
       query_url: response.config.query_url ?? null,
-      signer_url: response.config.signer_url ?? null
+      signer_url: response.config.signer_url ?? null,
+      simulate_unavailable: response.config.simulate_unavailable ?? false
     });
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar la configuracion fiscal.';
@@ -263,7 +265,8 @@ function resetSettings(): void {
     auth_token_path: 'body.token',
     signer_nit: '',
     signer_password_pri: '',
-    signer_activo: true
+    signer_activo: true,
+    simulate_unavailable: false
   });
 }
 
@@ -759,6 +762,22 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               <UiButton variant="secondary" :disabled="loading || !form.empresa_id || isInactive" @click="verifySigner">Verificar firma</UiButton>
               <UiButton variant="secondary" :disabled="loading || !form.empresa_id || isInactive" @click="requestBearer">Verificar autorizacion MH</UiButton>
               <p v-if="saved" class="text-sm text-emerald-700">{{ saved }}</p>
+            </div>
+
+            <div class="mt-5 rounded-md border p-4" :class="form.simulate_unavailable ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-slate-50'">
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p class="text-sm font-semibold text-slate-950">Simular MH sin respuesta</p>
+                  <p class="mt-1 text-xs text-slate-600">Usalo solo para pruebas de contingencia en este ambiente.</p>
+                </div>
+                <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-800">
+                  <span>{{ form.simulate_unavailable ? 'Activo' : 'Inactivo' }}</span>
+                  <input v-model="form.simulate_unavailable" class="h-5 w-5 rounded border-slate-300 text-amber-600 focus:ring-amber-500" type="checkbox" :disabled="loading || isInactive">
+                </label>
+              </div>
+              <p v-if="form.simulate_unavailable" class="mt-3 rounded-md border border-amber-200 bg-white px-3 py-2 text-xs font-medium text-amber-800">
+                Recepcion y consulta de DTE fallaran localmente; los eventos MH siguen usando el servicio configurado.
+              </p>
             </div>
           </div>
 
