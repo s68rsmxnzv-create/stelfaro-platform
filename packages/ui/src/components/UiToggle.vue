@@ -20,7 +20,7 @@ defineEmits<{
 <template>
   <label class="inline-flex items-center">
     <span
-      class="relative block h-8 w-14 rounded-full bg-slate-300 transition-colors [-webkit-tap-highlight-color:transparent]"
+      class="relative block h-8 w-14 rounded-full transition-colors [-webkit-tap-highlight-color:transparent]"
       :class="[
         Boolean(modelValue) && variant === 'success' ? 'bg-emerald-500' : '',
         Boolean(modelValue) && variant === 'warning' ? 'bg-amber-500' : '',
