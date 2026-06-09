@@ -866,19 +866,15 @@ function isGenericReceptor(document: DteDraftSummary | null): boolean {
 
 function isContingencyDocument(document: DteDraftSummary): boolean {
   const identificacion = recordValue((document.payload ?? document.dte_json ?? {}).identificacion);
-  const contingencia = recordValue(document.contingencia);
   const validState = document.estado === 'signed' || document.estado === 'contingency';
   const validContingencyShape = Number(identificacion.tipoModelo) === 2
     && Number(identificacion.tipoOperacion) === 2
     && Number(identificacion.tipoContingencia) === Number(form.tipoContingencia);
-  const retryPolicyCandidate = document.estado === 'contingency'
-    && Boolean(contingencia.eligible)
-    && Number(identificacion.tipoContingencia || form.tipoContingencia) === Number(form.tipoContingencia);
 
   return contingencyAllowedTypes.has(document.tipoDte)
     && validState
     && !document.selloRecibido
-    && (validContingencyShape || retryPolicyCandidate);
+    && validContingencyShape;
 }
 
 function canAddContingencyDocument(document: DteDraftSummary): boolean {
