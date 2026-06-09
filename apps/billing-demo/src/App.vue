@@ -183,7 +183,7 @@ function toggleUserMenu(): void {
       style="background: radial-gradient(circle at top center, rgba(147, 197, 253, 0.22), transparent 42%);"
     ></div>
 
-    <nav ref="appNav" class="relative z-10 bg-slate-900 shadow-sm">
+    <nav ref="appNav" class="relative z-50 bg-slate-900 shadow-sm">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
           <div class="flex items-center">
