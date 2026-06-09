@@ -17,8 +17,7 @@ const documentTypes = ref<BillingDocumentType[]>([]);
 const isPublicLayout = computed(() => Boolean(route.meta.public));
 const nav = computed(() => [
   { label: 'Dashboard', to: '/', show: true },
-  { label: 'Onboarding fiscal', to: '/onboarding', show: auth.isBackoffice },
-  { label: auth.isBackoffice ? 'Empresas y configuracion fiscal' : 'Configuracion fiscal', to: '/companies', show: auth.canManageFiscalSettings }
+  { label: 'Onboarding fiscal', to: '/onboarding', show: auth.isBackoffice }
 ].filter((item) => item.show));
 const fallbackBillingTypes: BillingDocumentType[] = [
   { code: '01', label: 'Consumidor final', version: 2, implemented: true },
@@ -72,6 +71,10 @@ const pageTitle = computed(() => {
 
   if (route.path === '/mh-event-responses') {
     return 'Respuestas MH - Eventos';
+  }
+
+  if (route.path === '/companies') {
+    return auth.isBackoffice ? 'Empresas y configuracion fiscal' : 'Configuracion fiscal';
   }
 
   const current = nav.value.find((item) => item.to === route.path);
@@ -426,9 +429,6 @@ function toggleUserMenu(): void {
             </div>
           </div>
           <div class="mt-3 space-y-1 px-2">
-            <RouterLink v-if="auth.canManageFiscalSettings" to="/companies" class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white">
-              Configuracion fiscal
-            </RouterLink>
             <RouterLink v-if="!auth.isBackoffice" to="/billing/fe" class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white">
               Nueva factura
             </RouterLink>
