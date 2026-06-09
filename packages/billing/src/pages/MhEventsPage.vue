@@ -166,6 +166,7 @@ const canReportContingency = computed(() => Boolean(
   && form.tipoContingencia
   && (!requiresMotivoContingencia.value || form.motivoContingencia.trim())
   && contingencyWindowComplete.value
+  && contingencyWindowChronological.value
   && selectedContingencyDocuments.value.every(isContingencyDocument)
 ));
 const requiresMotivoContingencia = computed(() => Number(form.tipoContingencia) === 5);
@@ -175,6 +176,18 @@ const contingencyWindowComplete = computed(() => Boolean(
   && form.contingenciaFFin
   && form.contingenciaHFin
 ));
+const contingencyWindowChronological = computed(() => {
+  const start = localDateTimeValue(form.contingenciaFInicio, form.contingenciaHInicio);
+  const end = localDateTimeValue(form.contingenciaFFin, form.contingenciaHFin);
+
+  return start !== null && end !== null && end >= start;
+});
+const contingencyWindowError = computed(() => {
+  if (!contingencyWindowComplete.value) return null;
+  if (!contingencyWindowChronological.value) return 'La fecha y hora de fin no pueden ser anteriores al inicio.';
+
+  return null;
+});
 const contingencyWindowLabel = computed(() => {
   if (!contingencyWindowComplete.value) return 'Ventana incompleta';
 
@@ -250,6 +263,7 @@ const actionStatusLabel = computed(() => {
     if (selectedContingencyDocuments.value.length === 0) return 'Pendiente';
     if (requiresMotivoContingencia.value && !form.motivoContingencia.trim()) return 'Falta motivo';
     if (!contingencyWindowComplete.value) return 'Falta ventana';
+    if (!contingencyWindowChronological.value) return 'Ventana invalida';
     if (!selectedContingencyDocuments.value.every(isContingencyDocument)) return 'DTE no valido';
     return `${selectedContingencyDocuments.value.length} DTE listos`;
   }
@@ -761,6 +775,7 @@ function currentLocalTime(): string {
 function setContingencyEndToNow(): void {
   form.contingenciaFFin = currentLocalDate();
   form.contingenciaHFin = currentLocalTime();
+  clampAutomaticContingencyEnd();
 }
 
 function normalizeTime(value: string): string {
@@ -768,6 +783,33 @@ function normalizeTime(value: string): string {
   if (/^\d{2}:\d{2}$/.test(value)) return `${value}:00`;
 
   return value;
+}
+
+function localDateTimeValue(date: string, time: string): number | null {
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  const timeMatch = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(time);
+  if (!dateMatch || !timeMatch) return null;
+
+  const [, year, month, day] = dateMatch;
+  const [, hour, minute, second = '0'] = timeMatch;
+
+  return new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second)
+  ).getTime();
+}
+
+function clampAutomaticContingencyEnd(): void {
+  const start = localDateTimeValue(form.contingenciaFInicio, form.contingenciaHInicio);
+  const end = localDateTimeValue(form.contingenciaFFin, form.contingenciaHFin);
+  if (start === null || end === null || end >= start) return;
+
+  form.contingenciaFFin = form.contingenciaFInicio;
+  form.contingenciaHFin = form.contingenciaHInicio;
 }
 
 function syncContingencyWindowFromSelection(): void {
@@ -1142,6 +1184,9 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 >
               </label>
             </div>
+            <p v-if="contingencyWindowError" class="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800">
+              {{ contingencyWindowError }}
+            </p>
 
             <dl v-if="selectedContingencyDocuments.length" class="mt-4 grid gap-3 rounded-md border border-sky-100 bg-sky-50 p-3 text-sm">
               <div>
