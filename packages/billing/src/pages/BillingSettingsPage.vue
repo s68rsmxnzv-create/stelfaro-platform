@@ -85,6 +85,7 @@ const companyForm = reactive({
 });
 
 const empresas = computed(() => context.value?.empresas ?? []);
+const singleCompanyScope = computed(() => empresas.value.length === 1);
 const selectedEmpresa = computed(() => empresas.value.find((empresa) => empresa.id === form.empresa_id) ?? null);
 const selectedSucursal = computed(() => selectedEmpresa.value?.sucursales[0] ?? null);
 const selectedMhConfig = computed(() => selectedEmpresa.value?.mh_configs.find((config) => config.ambiente === form.ambiente) ?? null);
@@ -180,10 +181,7 @@ async function loadInitialData(): Promise<void> {
 
     context.value = contextResult;
     catalogs.value = catalogsResult;
-    if (!empresas.value.some((empresa) => empresa.id === form.empresa_id)) {
-      form.empresa_id = 0;
-      form.ambiente = '00';
-    }
+    ensureSelectedEmpresa();
     if (form.empresa_id) {
       await loadSettings();
     }
@@ -200,10 +198,7 @@ async function loadContext(): Promise<void> {
 
   try {
     context.value = await client.value.billingContext();
-    if (!empresas.value.some((empresa) => empresa.id === form.empresa_id)) {
-      form.empresa_id = 0;
-      form.ambiente = '00';
-    }
+    ensureSelectedEmpresa();
     if (form.empresa_id) {
       await loadSettings();
     }
@@ -212,6 +207,16 @@ async function loadContext(): Promise<void> {
   } finally {
     loading.value = false;
   }
+}
+
+function ensureSelectedEmpresa(): void {
+  if (empresas.value.some((empresa) => empresa.id === form.empresa_id)) {
+    return;
+  }
+
+  const defaultEmpresa = singleCompanyScope.value ? empresas.value[0] : null;
+  form.empresa_id = defaultEmpresa?.id ?? 0;
+  form.ambiente = defaultEmpresa?.ambiente ?? '00';
 }
 
 async function loadSettings(): Promise<void> {
@@ -543,12 +548,12 @@ function markLogoBroken(empresa: BillingEmpresa): void {
     <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
       <div>
         <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Empresas</p>
-        <h1 class="mt-1 text-2xl font-bold text-slate-950">Gestion de empresas</h1>
+        <h1 class="mt-1 text-2xl font-bold text-slate-950">{{ singleCompanyScope ? 'Configuracion fiscal' : 'Gestion de empresas' }}</h1>
         <p class="mt-2 max-w-3xl text-sm text-slate-500">
-          Busca contribuyentes, revisa su estado fiscal y valida firma o autorizacion con Hacienda.
+          {{ singleCompanyScope ? 'Revisa y actualiza la configuracion fiscal de tu empresa.' : 'Busca contribuyentes, revisa su estado fiscal y valida firma o autorizacion con Hacienda.' }}
         </p>
       </div>
-      <RouterLink to="/onboarding" class="inline-flex items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
+      <RouterLink v-if="!singleCompanyScope" to="/onboarding" class="inline-flex items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
         Registrar empresa
       </RouterLink>
     </div>
@@ -558,8 +563,8 @@ function markLogoBroken(empresa: BillingEmpresa): void {
         Aun no hay empresas registradas.
       </div>
 
-      <div v-else class="grid gap-8 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <aside class="space-y-5">
+      <div v-else class="grid gap-8" :class="singleCompanyScope ? '' : 'xl:grid-cols-[420px_minmax(0,1fr)]'">
+        <aside v-if="!singleCompanyScope" class="space-y-5">
           <UiSearchInput
             v-model="searchQuery"
             label="Buscar empresa"
@@ -635,9 +640,11 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 <UiButton variant="secondary" :disabled="loading" @click="editingCompany = !editingCompany">
                   {{ editingCompany ? 'Ocultar datos' : 'Editar datos' }}
                 </UiButton>
-                <UiButton v-if="isInactive" variant="secondary" :disabled="loading" @click="updateCompanyStatus('active')">Activar</UiButton>
-                <UiButton v-else variant="secondary" :disabled="loading" @click="updateCompanyStatus('inactive')">Desactivar</UiButton>
-                <UiButton variant="ghost" :disabled="loading" @click="deleteCompany">Borrar</UiButton>
+                <template v-if="!singleCompanyScope">
+                  <UiButton v-if="isInactive" variant="secondary" :disabled="loading" @click="updateCompanyStatus('active')">Activar</UiButton>
+                  <UiButton v-else variant="secondary" :disabled="loading" @click="updateCompanyStatus('inactive')">Desactivar</UiButton>
+                  <UiButton variant="ghost" :disabled="loading" @click="deleteCompany">Borrar</UiButton>
+                </template>
               </div>
             </div>
           </div>
