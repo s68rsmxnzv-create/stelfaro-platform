@@ -35,6 +35,10 @@ function isExpired(expiresAt: string | null): boolean {
   return Boolean(expiresAt && new Date(expiresAt).getTime() <= Date.now());
 }
 
+function normalizedRole(role: unknown): string {
+  return String(role ?? '').trim().toLowerCase();
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const storedSession = readStoredSession();
   const token = ref<string | null>(storedSession?.token ?? null);
@@ -52,7 +56,7 @@ export const useAuthStore = defineStore('auth', () => {
   }));
   const isAuthenticated = computed(() => Boolean(token.value && user.value));
   const isBackoffice = computed(() => Boolean(user.value?.is_backoffice));
-  const canManageFiscalSettings = computed(() => ['super_admin', 'admin_fiscal', 'company_admin'].includes(String(user.value?.role ?? '')));
+  const canManageFiscalSettings = computed(() => ['super_admin', 'admin_fiscal', 'company_admin'].includes(normalizedRole(user.value?.role)));
 
   async function initialize(): Promise<void> {
     if (initialized.value) {

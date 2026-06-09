@@ -324,6 +324,14 @@ function toggleUserMenu(): void {
                   <p class="truncate text-xs text-slate-500">{{ auth.user?.email }}</p>
                 </div>
                 <p class="px-4 py-2 text-xs font-semibold uppercase text-slate-400">{{ auth.user?.role }}</p>
+                <RouterLink
+                  v-if="auth.canManageFiscalSettings"
+                  to="/companies"
+                  class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  @click="userMenuOpen = false"
+                >
+                  Configuracion fiscal
+                </RouterLink>
                 <button class="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50" type="button" @click="logout">
                   Salir
                 </button>
@@ -418,6 +426,9 @@ function toggleUserMenu(): void {
             </div>
           </div>
           <div class="mt-3 space-y-1 px-2">
+            <RouterLink v-if="auth.canManageFiscalSettings" to="/companies" class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white">
+              Configuracion fiscal
+            </RouterLink>
             <RouterLink v-if="!auth.isBackoffice" to="/billing/fe" class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white">
               Nueva factura
             </RouterLink>
