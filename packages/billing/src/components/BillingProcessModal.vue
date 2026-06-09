@@ -35,8 +35,8 @@ defineEmits<{
 </script>
 
 <template>
-  <div v-if="open" class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 px-4 py-6">
-    <div class="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
+  <div v-if="open" class="fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-slate-950/45 px-4 py-8">
+    <div class="relative z-[81] flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
       <div class="border-b border-slate-200 px-6 py-5">
         <div class="flex items-start justify-between gap-4">
           <div>
