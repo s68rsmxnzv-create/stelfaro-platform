@@ -445,7 +445,7 @@ function toggleUserMenu(): void {
       </div>
     </nav>
 
-    <header class="relative z-10 bg-white shadow-sm">
+    <header class="relative z-10 border-b border-blue-100/70 bg-white/85 shadow-sm shadow-blue-950/5 backdrop-blur">
       <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <h1 class="text-3xl font-bold tracking-tight text-slate-950">{{ pageTitle }}</h1>
       </div>

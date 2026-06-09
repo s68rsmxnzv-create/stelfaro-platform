@@ -578,7 +578,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 :key="empresa.id"
                 type="button"
                 class="w-full rounded-md border p-4 text-left transition hover:border-sky-300 hover:bg-slate-50"
-                :class="empresa.id === form.empresa_id ? 'border-sky-500 bg-sky-50' : 'border-slate-200 bg-white'"
+                :class="empresa.id === form.empresa_id ? 'border-sky-500 bg-sky-50' : 'border-blue-100/80 bg-white/85'"
                 @click="selectEmpresa(empresa)"
               >
                 <div class="flex gap-3">
@@ -611,7 +611,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
         </aside>
 
         <section v-if="selectedEmpresa" class="min-w-0 space-y-5">
-          <div class="rounded-md border border-slate-200 bg-white p-5">
+          <div class="rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
             <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div class="flex min-w-0 gap-4">
                 <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
@@ -642,7 +642,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
             </div>
           </div>
 
-          <div v-if="editingCompany" class="rounded-md border border-slate-200 bg-white p-5">
+          <div v-if="editingCompany" class="rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p class="text-sm font-semibold text-slate-950">Datos de empresa</p>
@@ -688,19 +688,19 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </div>
 
           <div class="grid gap-4 lg:grid-cols-3">
-            <div class="rounded-md border border-slate-200 bg-white p-4 text-sm">
+            <div class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
               <p class="font-semibold text-slate-950">Casa matriz</p>
               <p class="mt-2 text-slate-600">{{ selectedSucursal?.direccion ?? 'Direccion pendiente' }}</p>
               <p class="mt-1 text-slate-600">{{ selectedSucursal?.departamento }} / {{ selectedSucursal?.municipio }} / {{ selectedSucursal?.distrito ?? 'Distrito pendiente' }}</p>
             </div>
-            <div class="rounded-md border border-slate-200 bg-white p-4 text-sm">
+            <div class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
               <p class="font-semibold text-slate-950">Credenciales MH</p>
               <p class="mt-2" :class="selectedMhConfig?.credentials_configured ? 'text-emerald-700' : 'text-slate-500'">
                 {{ selectedMhConfig?.credentials_configured ? 'Usuario API configurado' : 'Pendiente de configurar' }}
               </p>
               <p class="mt-1 text-slate-500">Ambiente {{ environmentLabel }}</p>
             </div>
-            <div class="rounded-md border border-slate-200 bg-white p-4 text-sm">
+            <div class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
               <p class="font-semibold text-slate-950">Firmador</p>
               <p class="mt-2" :class="selectedMhConfig?.signer_credentials_configured ? 'text-emerald-700' : 'text-slate-500'">
                 {{ selectedMhConfig?.signer_credentials_configured ? 'Password privado configurado' : 'Pendiente de configurar' }}
@@ -709,7 +709,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
             </div>
           </div>
 
-          <div class="rounded-md border border-slate-200 bg-white p-5">
+          <div class="rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
             <div class="grid gap-4 md:grid-cols-2">
               <label class="block">
                 <span class="text-sm font-medium text-slate-700">Ambiente</span>
@@ -764,7 +764,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               <p v-if="saved" class="text-sm text-emerald-700">{{ saved }}</p>
             </div>
 
-            <div class="mt-5 rounded-md border p-4" :class="form.simulate_unavailable ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-slate-50'">
+            <div class="mt-5 rounded-md border p-4" :class="form.simulate_unavailable ? 'border-amber-300 bg-amber-50' : 'border-blue-100/80 bg-slate-50/80'">
               <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p class="text-sm font-semibold text-slate-950">Simular MH sin respuesta</p>

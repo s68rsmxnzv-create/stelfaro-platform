@@ -54,14 +54,14 @@ function normalize(value: string): string {
       v-model="query"
       :disabled="disabled"
       :placeholder="placeholder"
-      class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50"
+      class="mt-1 w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 text-sm shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50"
       @focus="open = true"
       @input="open = true"
       @keydown.escape="open = false"
     >
     <div
       v-if="open && !disabled"
-      class="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg"
+      class="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-md border border-blue-100 bg-white py-1 text-sm shadow-xl shadow-blue-950/10"
     >
       <button
         v-for="option in filtered"

@@ -26,7 +26,7 @@ const canReveal = computed(() => props.type === 'password' && props.revealable);
         :type="inputType"
         :value="modelValue ?? ''"
         :placeholder="placeholder"
-        class="w-full rounded-md border border-slate-300 py-2 pl-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+        class="w-full rounded-md border border-blue-100 bg-white/90 py-2 pl-3 text-sm shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100"
         :class="canReveal ? 'pr-20' : 'pr-3'"
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
       >

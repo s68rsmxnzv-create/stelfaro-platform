@@ -1532,7 +1532,7 @@ function removeLine(id: number): void {
       </div>
 
       <div v-else class="grid gap-6">
-        <section v-if="isAdjustmentNote" class="rounded-md border border-slate-200 bg-white p-4">
+        <section v-if="isAdjustmentNote" class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 class="text-base font-semibold text-slate-950">Documento origen</h2>
@@ -1623,7 +1623,7 @@ function removeLine(id: number): void {
         </section>
 
         <div v-if="!isAdjustmentNote" class="grid gap-4 xl:grid-cols-3">
-          <section class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+          <section class="rounded-md border border-blue-100/80 bg-white/75 px-4 py-3 shadow-sm shadow-blue-950/5 backdrop-blur">
             <div class="flex h-full flex-col justify-between gap-4">
               <div class="min-w-0">
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Emisor activo</p>
@@ -1672,7 +1672,7 @@ function removeLine(id: number): void {
             </div>
           </section>
 
-          <section class="rounded-md border border-slate-200 bg-white p-4">
+          <section class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 class="text-base font-semibold text-slate-950">{{ isSujetoExcluido ? 'Sujeto excluido' : 'Receptor' }}</h2>
@@ -1739,8 +1739,8 @@ function removeLine(id: number): void {
               :key="mode.key"
               class="rounded-lg px-4 py-2 text-sm font-semibold tracking-wide transition-colors duration-200 focus:outline-none focus:ring focus:ring-sky-300 focus:ring-opacity-70"
               :class="[
-                customerMode === mode.key ? 'bg-sky-600 text-white hover:bg-sky-500' : 'bg-slate-100 text-slate-900 hover:bg-slate-200',
-                mode.key === 'generic' && requiresCustomerIdentificationByAmount ? 'cursor-not-allowed opacity-50 hover:bg-slate-100' : ''
+                customerMode === mode.key ? 'bg-sky-600 text-white hover:bg-sky-500' : 'bg-white/80 text-slate-900 shadow-sm shadow-blue-950/5 hover:bg-blue-50',
+                mode.key === 'generic' && requiresCustomerIdentificationByAmount ? 'cursor-not-allowed opacity-50 hover:bg-white/80' : ''
               ]"
               :disabled="mode.key === 'generic' && requiresCustomerIdentificationByAmount"
               type="button"
@@ -1750,7 +1750,7 @@ function removeLine(id: number): void {
             </button>
           </div>
 
-          <div v-if="!selectedCustomer && !isAdjustmentNote && (customerMode === 'generic' || customerMode === 'quick' || customerMode === 'new')" class="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+          <div v-if="!selectedCustomer && !isAdjustmentNote && (customerMode === 'generic' || customerMode === 'quick' || customerMode === 'new')" class="mt-4 rounded-md border border-blue-100/80 bg-slate-50/80 p-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p class="text-sm font-semibold text-slate-950">{{ form.customerName || 'Consumidor Final' }}</p>
@@ -1774,7 +1774,7 @@ function removeLine(id: number): void {
           </p>
           </section>
 
-          <section v-if="!isAdjustmentNote" class="rounded-md border border-slate-200 bg-white p-4">
+          <section v-if="!isAdjustmentNote" class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur">
             <div>
               <h2 class="text-base font-semibold text-slate-950">{{ isSujetoExcluido ? 'Compras frecuentes' : 'Productos rapidos' }}</h2>
               <p class="mt-1 text-xs text-slate-500">{{ isSujetoExcluido ? 'Agrega compras o servicios recibidos.' : 'Agrega servicios frecuentes al detalle.' }}</p>
@@ -1802,7 +1802,7 @@ function removeLine(id: number): void {
           </section>
         </div>
 
-        <section class="rounded-md border border-slate-200 bg-white p-4">
+        <section class="rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5 backdrop-blur">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 class="text-base font-semibold text-slate-950">{{ isSujetoExcluido ? 'Detalle de compra' : 'Detalle' }}</h2>
@@ -1816,7 +1816,7 @@ function removeLine(id: number): void {
           />
           <div class="mt-4 overflow-hidden rounded-md border border-slate-200">
             <table class="w-full min-w-[780px] text-left text-sm">
-              <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+              <thead class="bg-blue-50/70 text-xs uppercase text-slate-500">
                 <tr>
                   <th class="px-3 py-2">Descripcion</th>
                   <th class="w-28 px-3 py-2">Cantidad</th>
@@ -1827,18 +1827,18 @@ function removeLine(id: number): void {
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200">
-                <tr v-if="!isAdjustmentNote" class="bg-slate-50/70">
+                <tr v-if="!isAdjustmentNote" class="bg-blue-50/40">
                   <td class="px-3 py-2">
-                    <input v-model="draftLine.description" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" :placeholder="isSujetoExcluido ? 'Compra o servicio recibido' : 'Producto o servicio'">
+                    <input v-model="draftLine.description" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100" :placeholder="isSujetoExcluido ? 'Compra o servicio recibido' : 'Producto o servicio'">
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="draftLine.quantity" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0.01" step="0.01" type="number">
+                    <input v-model.number="draftLine.quantity" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100" min="0.01" step="0.01" type="number">
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="draftLine.unitPrice" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0" step="0.01" type="number">
+                    <input v-model.number="draftLine.unitPrice" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100" min="0" step="0.01" type="number">
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="draftLine.discountPercent" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" max="100" min="0" step="0.01" type="number">
+                    <input v-model.number="draftLine.discountPercent" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100" max="100" min="0" step="0.01" type="number">
                     <p v-if="lineDiscountAmount(draftLine) > 0" class="mt-1 text-[11px] text-slate-500">-{{ currency(lineDiscountAmount(draftLine)) }}</p>
                   </td>
                   <td class="px-3 py-2 text-right">
@@ -1860,7 +1860,7 @@ function removeLine(id: number): void {
                   <td class="px-3 py-2">
                     <template v-if="isAdjustmentNote">
                       <input
-                        class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                        class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100"
                         :max="isNotaCredito ? Number(line.originalQuantity ?? line.quantity ?? 0) : undefined"
                         :min="isNotaDebito && line.sourceLine !== false ? Number(line.originalQuantity ?? line.quantity ?? 0) : 0.01"
                         step="0.01"
@@ -1880,7 +1880,7 @@ function removeLine(id: number): void {
                   <td class="px-3 py-2">
                     <template v-if="isAdjustmentNote">
                       <input
-                        class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                        class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100"
                         :max="isNotaCredito ? Number(line.originalUnitPrice ?? line.unitPrice ?? 0) : undefined"
                         min="0"
                         step="0.01"
@@ -1921,14 +1921,14 @@ function removeLine(id: number): void {
                 </tr>
                 <tr v-if="isNotaDebito && selectedSourceDocument" class="border-t-2 border-slate-200 bg-slate-50/70">
                   <td class="px-3 py-2">
-                    <input v-model="draftLine.description" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" placeholder="Nueva linea a debitar">
+                    <input v-model="draftLine.description" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100" placeholder="Nueva linea a debitar">
                     <p class="mt-1 text-[11px] text-slate-500">Agregar linea nueva a la Nota de Debito</p>
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="draftLine.quantity" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0.01" step="0.01" type="number">
+                    <input v-model.number="draftLine.quantity" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100" min="0.01" step="0.01" type="number">
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="draftLine.unitPrice" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0.01" step="0.01" type="number">
+                    <input v-model.number="draftLine.unitPrice" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100" min="0.01" step="0.01" type="number">
                   </td>
                   <td class="px-3 py-2">
                     <span class="text-slate-400">No aplica</span>
