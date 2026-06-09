@@ -180,7 +180,7 @@ function toggleUserMenu(): void {
   <div v-else class="relative min-h-screen overflow-hidden bg-white text-slate-950">
     <div
       class="pointer-events-none absolute inset-0 z-0"
-      style="background: radial-gradient(circle at top center, rgba(196, 181, 253, 0.20), transparent 42%);"
+      style="background: radial-gradient(circle at 50% 12rem, rgba(168, 85, 247, 0.18), transparent 34rem);"
     ></div>
 
     <nav ref="appNav" class="relative z-50 bg-slate-900 shadow-sm">
