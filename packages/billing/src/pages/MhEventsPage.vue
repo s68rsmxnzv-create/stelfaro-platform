@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue';
 import {
   CoreDteClient,
+  type BillingEmpresa,
   type DteDraftSummary,
   type MhFiscalEventSummary
 } from '@stelfaro/api-client';
@@ -36,6 +37,8 @@ const documents = ref<DteDraftSummary[]>([]);
 const contingencyCandidates = ref<DteDraftSummary[]>([]);
 const contingencyCandidatesLoading = ref(false);
 const contingencyCandidatesLoaded = ref(false);
+const billingContextLoading = ref(false);
+const billingCompanies = ref<BillingEmpresa[]>([]);
 const replacementDocuments = ref<DteDraftSummary[]>([]);
 const selected = ref<DteDraftSummary | null>(null);
 const selectedReplacement = ref<DteDraftSummary | null>(null);
@@ -59,6 +62,25 @@ const contingencyStartTouched = ref(false);
 const contingencyEndTouched = ref(false);
 let searchTimer: ReturnType<typeof window.setTimeout> | null = null;
 let replacementSearchTimer: ReturnType<typeof window.setTimeout> | null = null;
+
+type SpecialOperationMode = 'range' | 'single';
+type SpecialOperationStatus = 'active' | 'annulled';
+type SpecialOperationLine = {
+  id: number;
+  codigoGeneracionRef: string;
+  tipoDocumento: '22' | '97';
+  numDocumento: string;
+  fechaEmision: string;
+  cantidad: number;
+  descripcion: string;
+  docDel: string;
+  docAl: string;
+  precioUni: number;
+  ventaNoSuj: number;
+  ventaExenta: number;
+  ventaGravada: number;
+};
+let specialLineSequence = 0;
 
 const eventTypes = [
   {
@@ -87,12 +109,13 @@ const eventTypes = [
     label: 'Operaciones especiales',
     title: 'Evento de Operaciones Especiales',
     description: 'Registra operaciones especiales cuando corresponda.',
-    ready: false,
+    ready: true,
   },
 ];
 const selectedEvent = computed(() => eventTypes.find((event) => event.key === props.initialEventType) ?? eventTypes[0]);
 const isInvalidacion = computed(() => selectedEvent.value.key === 'invalidacion');
 const isContingencia = computed(() => selectedEvent.value.key === 'contingencia');
+const isOperacionesEspeciales = computed(() => selectedEvent.value.key === 'operaciones_especiales');
 const showSearchResults = computed(() => query.value.trim().length >= 2 && isInvalidacion.value && !selected.value);
 
 const form = reactive({
@@ -103,7 +126,12 @@ const form = reactive({
   contingenciaFInicio: currentLocalDate(),
   contingenciaHInicio: currentLocalTime(),
   contingenciaFFin: currentLocalDate(),
-  contingenciaHFin: currentLocalTime()
+  contingenciaHFin: currentLocalTime(),
+  operacionesEmpresaId: null as number | null,
+  operacionesAmbiente: '00' as '00' | '01',
+  operacionesStatus: 'active' as SpecialOperationStatus,
+  operacionesMode: 'range' as SpecialOperationMode,
+  operacionesDocumentType: '22' as '22' | '97',
 });
 
 const invalidacionTipos = [
@@ -118,6 +146,13 @@ const contingenciaTipos = [
   { value: 4, label: 'Falla del sistema informatico de MH' },
   { value: 5, label: 'Otro motivo' },
 ];
+const operacionesDocumentoTipos = [
+  { value: '22', label: 'Factura simplificada' },
+  { value: '97', label: 'Comprobante control interno' },
+];
+const operacionesLineas = ref<SpecialOperationLine[]>([
+  createSpecialOperationLine()
+]);
 const contingencyAllowedTypes = new Set(['01', '03', '04', '05', '06', '07', '11', '14']);
 const replacementRequiredTypes = new Set(['01', '03', '04', '06', '07', '09', '11', '14', '15']);
 const replacementExemptTypes = new Set(['05', '08', '17', '18']);
@@ -181,6 +216,29 @@ const canReportContingency = computed(() => Boolean(
   && contingencyWindowChronological.value
   && selectedContingencyDocuments.value.every(isContingencyDocument)
 ));
+const selectedOperacionesEmpresa = computed(() => billingCompanies.value.find((empresa) => empresa.id === Number(form.operacionesEmpresaId)) ?? null);
+const operacionesTotals = computed(() => {
+  const totalNoSuj = roundMoney(operacionesLineas.value.reduce((sum, line) => sum + numberValue(line.ventaNoSuj), 0));
+  const totalExenta = roundMoney(operacionesLineas.value.reduce((sum, line) => sum + numberValue(line.ventaExenta), 0));
+  const totalGravada = roundMoney(operacionesLineas.value.reduce((sum, line) => sum + numberValue(line.ventaGravada), 0));
+  const subTotal = roundMoney(totalNoSuj + totalExenta + totalGravada);
+  const iva = roundMoney(totalGravada * 0.13);
+
+  return {
+    totalNoSuj,
+    totalExenta,
+    totalGravada,
+    subTotal,
+    iva,
+    total: roundMoney(subTotal + iva),
+  };
+});
+const canReportOperacionesEspeciales = computed(() => Boolean(
+  selectedOperacionesEmpresa.value
+  && operacionesLineas.value.length > 0
+  && operacionesLineas.value.length <= 500
+  && operacionesLineas.value.every(isValidSpecialOperationLine)
+));
 const requiresMotivoContingencia = computed(() => Number(form.tipoContingencia) === 5);
 const contingencyWindowComplete = computed(() => Boolean(
   form.contingenciaFInicio
@@ -208,19 +266,31 @@ const contingencyWindowLabel = computed(() => {
 const selectedPayload = computed(() => selected.value?.payload ?? selected.value?.dte_json ?? {});
 const selectedReceptor = computed(() => recordValue(selectedPayload.value.receptor));
 const selectedIdentificacion = computed(() => recordValue(selectedPayload.value.identificacion));
-const eventPhases = computed(() => isContingencia.value ? [
+const eventPhases = computed(() => {
+  if (isContingencia.value) return [
   { label: 'Preparando contingencia', detail: 'Revisando DTE emitidos en contingencia y motivo.' },
   { label: 'Validando datos', detail: 'Comprobando estructura del evento y documentos relacionados.' },
   { label: 'Firmando evento', detail: 'Aplicando la firma electronica.' },
   { label: 'Enviando a Hacienda', detail: 'Transmitiendo el evento de contingencia.' },
   { label: 'Registrando respuesta', detail: 'Guardando sello y ventana de transmision de DTE.' }
-] : [
+  ];
+
+  if (isOperacionesEspeciales.value) return [
+    { label: 'Preparando reporte', detail: 'Consolidando lineas y resumen de operaciones especiales.' },
+    { label: 'Validando datos', detail: 'Comprobando estructura, rangos, anulaciones y totales.' },
+    { label: 'Firmando evento', detail: 'Aplicando la firma electronica.' },
+    { label: 'Enviando a Hacienda', detail: 'Transmitiendo el evento de operaciones especiales.' },
+    { label: 'Registrando respuesta', detail: 'Guardando sello y respuesta de Hacienda.' }
+  ];
+
+  return [
   { label: 'Preparando invalidacion', detail: 'Revisando el documento, motivo y sustituto cuando aplica.' },
   { label: 'Validando datos', detail: 'Comprobando que la solicitud este completa.' },
   { label: 'Firmando solicitud', detail: 'Aplicando la firma electronica.' },
   { label: 'Enviando a Hacienda', detail: 'Transmitiendo la solicitud de invalidacion.' },
   { label: 'Registrando respuesta', detail: 'Guardando el resultado de Hacienda.' }
-]);
+  ];
+});
 const eventRejected = computed(() => {
   const status = String(eventResult.value?.transmission?.status ?? eventResult.value?.estado ?? '').toUpperCase();
   return status.includes('REJECTED') || eventResult.value?.estado === 'rejected';
@@ -264,9 +334,10 @@ const eventOverlayVariant = computed<'loading' | 'success' | 'warning'>(() => {
 });
 const eventOverlayTitle = computed(() => {
   if (contingencyRetransmissionLoading.value) return 'Retransmitiendo DTE';
-  if (processing.value) return isContingencia.value ? 'Declarando contingencia' : 'Procesando evento';
+  if (processing.value) return isContingencia.value ? 'Declarando contingencia' : isOperacionesEspeciales.value ? 'Reportando operaciones' : 'Procesando evento';
   if (contingencyRetransmissionComplete.value) return 'Contingencia finalizada';
   if (isContingencia.value) return 'Evento declarado';
+  if (isOperacionesEspeciales.value) return 'Operaciones reportadas';
   return 'Evento aceptado';
 });
 const eventOverlayMessage = computed(() => {
@@ -321,6 +392,14 @@ const actionStatusLabel = computed(() => {
     if (!contingencyWindowChronological.value) return 'Ventana invalida';
     if (!selectedContingencyDocuments.value.every(isContingencyDocument)) return 'DTE no valido';
     return `${selectedContingencyDocuments.value.length} DTE listos`;
+  }
+
+  if (isOperacionesEspeciales.value) {
+    if (!selectedOperacionesEmpresa.value) return 'Falta empresa';
+    if (operacionesLineas.value.length === 0) return 'Sin lineas';
+    if (operacionesLineas.value.length > 500) return 'Maximo 500';
+    if (!operacionesLineas.value.every(isValidSpecialOperationLine)) return 'Revisa lineas';
+    return `${operacionesLineas.value.length} linea${operacionesLineas.value.length === 1 ? '' : 's'} listas`;
   }
 
   if (!selected.value) return 'Pendiente';
@@ -405,6 +484,10 @@ watch(() => props.initialEventType, () => {
   if (isContingencia.value) {
     void loadContingencyCandidates();
   }
+
+  if (isOperacionesEspeciales.value) {
+    void loadBillingCompanies();
+  }
 });
 
 watch(isContingencia, (active) => {
@@ -412,6 +495,27 @@ watch(isContingencia, (active) => {
     void loadContingencyCandidates();
   }
 }, { immediate: true });
+
+watch(isOperacionesEspeciales, (active) => {
+  if (active && billingCompanies.value.length === 0) {
+    void loadBillingCompanies();
+  }
+}, { immediate: true });
+
+watch(() => form.operacionesDocumentType, () => {
+  operacionesLineas.value = [createSpecialOperationLine()];
+  clearEventResult();
+});
+
+watch(() => form.operacionesMode, () => {
+  operacionesLineas.value = [createSpecialOperationLine()];
+  clearEventResult();
+});
+
+watch(() => form.operacionesStatus, () => {
+  operacionesLineas.value = operacionesLineas.value.map((line) => ({ ...line, codigoGeneracionRef: '' }));
+  clearEventResult();
+});
 
 watch(selectedContingencyDocuments, () => {
   syncContingencyWindowFromSelection();
@@ -487,6 +591,26 @@ async function loadContingencyCandidates(): Promise<void> {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar los candidatos de contingencia.';
   } finally {
     contingencyCandidatesLoading.value = false;
+  }
+}
+
+async function loadBillingCompanies(): Promise<void> {
+  if (billingCompanies.value.length > 0 || billingContextLoading.value) return;
+
+  billingContextLoading.value = true;
+  error.value = null;
+
+  try {
+    const context = await client.value.billingContext();
+    billingCompanies.value = context.empresas.filter((empresa) => empresa.lifecycle_status === 'active');
+    if (!form.operacionesEmpresaId && billingCompanies.value.length === 1) {
+      form.operacionesEmpresaId = billingCompanies.value[0].id;
+      form.operacionesAmbiente = billingCompanies.value[0].ambiente;
+    }
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible cargar las empresas.';
+  } finally {
+    billingContextLoading.value = false;
   }
 }
 
@@ -784,6 +908,68 @@ async function reportContingency(): Promise<void> {
   }
 }
 
+async function reportSpecialOperations(): Promise<void> {
+  if (!canReportOperacionesEspeciales.value || !selectedOperacionesEmpresa.value) return;
+
+  let eventIdForRecovery: number | null = null;
+  processing.value = true;
+  eventModalOpen.value = true;
+  eventProgress.value = 5;
+  eventPhaseIndex.value = 0;
+  error.value = null;
+  eventResult.value = null;
+  eventLog.value = [];
+
+  try {
+    pushLog('Creando evento de operaciones especiales');
+    const draft = await client.value.createMhEvent('operaciones_especiales', {
+      empresa_id: Number(selectedOperacionesEmpresa.value.id),
+      ambiente: selectedOperacionesEmpresa.value.ambiente,
+      payload: {
+        cuerpoDocumento: operacionesLineas.value.map(specialOperationLinePayload)
+      },
+    });
+    eventIdForRecovery = draft.id;
+
+    pushLog('Validando datos del evento');
+    eventPhaseIndex.value = 1;
+    eventProgress.value = 30;
+    const validation = await client.value.validateMhEvent(draft.id);
+    if (!validation.validation.valid) {
+      eventResult.value = draft;
+      throw new Error(formatValidationErrors(validation.validation.errors));
+    }
+
+    pushLog('Firmando evento');
+    eventPhaseIndex.value = 2;
+    eventProgress.value = 55;
+    const signed = await client.value.signMhEvent(draft.id);
+    eventIdForRecovery = signed.id;
+
+    pushLog('Transmitiendo evento a MH');
+    eventPhaseIndex.value = 3;
+    eventProgress.value = 78;
+    eventResult.value = await client.value.transmitMhEvent(signed.id);
+    eventPhaseIndex.value = 4;
+    eventProgress.value = 100;
+    pushLog('Evento procesado por MH');
+  } catch (caught) {
+    const recovered = await recoverEventResult(eventIdForRecovery);
+
+    if (recovered && (eventAccepted.value || eventRejected.value)) {
+      eventLog.value.push({ label: 'Respuesta MH recuperada', status: 'ok' });
+      error.value = null;
+    } else {
+      eventLog.value.push({ label: 'Proceso detenido', status: 'error' });
+      error.value = caught instanceof Error ? caught.message : 'No fue posible reportar las operaciones especiales.';
+    }
+
+    eventProgress.value = Math.max(eventProgress.value, 100);
+  } finally {
+    processing.value = false;
+  }
+}
+
 async function retransmitContingencyDocuments(): Promise<void> {
   if (!canRetransmitContingencyDocuments.value) return;
 
@@ -879,6 +1065,10 @@ function resetEventWorkspaceAfterSuccess(): void {
     contingencyRetransmissionError.value = null;
     resetContingencyWindowAutomation();
     void loadContingencyCandidates();
+  } else if (isOperacionesEspeciales.value) {
+    operacionesLineas.value = [createSpecialOperationLine()];
+    form.operacionesStatus = 'active';
+    form.operacionesMode = 'range';
   } else {
     clearSelectedDocument();
     form.tipoAnulacion = 2;
@@ -886,6 +1076,14 @@ function resetEventWorkspaceAfterSuccess(): void {
     motivoDraft.value = '';
   }
 
+  error.value = null;
+  eventResult.value = null;
+  eventLog.value = [];
+  eventProgress.value = 0;
+  eventPhaseIndex.value = 0;
+}
+
+function clearEventResult(): void {
   error.value = null;
   eventResult.value = null;
   eventLog.value = [];
@@ -912,7 +1110,9 @@ function formatValidationErrors(errors: Array<{ field: string; message: string }
     'motivo.hInicio': 'Hora inicio de contingencia',
     'motivo.hFin': 'Hora fin de contingencia',
     'detalleDTE': 'DTE en contingencia',
-    'relations': 'Documentos relacionados'
+    'relations': 'Documentos relacionados',
+    'cuerpoDocumento': 'Detalle de operaciones',
+    'identificacion.tipoEvento': 'Tipo de evento',
   };
   const readable = errors
     .filter((item) => item.field && !item.message.includes('Additional object properties'))
@@ -920,12 +1120,13 @@ function formatValidationErrors(errors: Array<{ field: string; message: string }
     .map((item) => `${fieldLabels[item.field] ?? item.field}: ${item.message}`);
 
   if (readable.length === 0) {
-    return isContingencia.value
-      ? 'El evento de contingencia esta incompleto. Revisa que los DTE esten firmados, sin sello MH y generados con modelo diferido.'
-      : 'La solicitud de invalidacion esta incompleta. Revisa que el DTE origen tenga sello de recepcion y datos fiscales completos.';
+    if (isContingencia.value) return 'El evento de contingencia esta incompleto. Revisa que los DTE esten firmados, sin sello MH y generados con modelo diferido.';
+    if (isOperacionesEspeciales.value) return 'El evento de operaciones especiales esta incompleto. Revisa empresa, modalidad, lineas y montos.';
+
+    return 'La solicitud de invalidacion esta incompleta. Revisa que el DTE origen tenga sello de recepcion y datos fiscales completos.';
   }
 
-  return `${isContingencia.value ? 'El evento de contingencia' : 'La solicitud de invalidacion'} necesita correcciones:\n${readable.join('\n')}`;
+  return `${isContingencia.value ? 'El evento de contingencia' : isOperacionesEspeciales.value ? 'El evento de operaciones especiales' : 'La solicitud de invalidacion'} necesita correcciones:\n${readable.join('\n')}`;
 }
 
 function recordValue(value: unknown): Record<string, unknown> {
@@ -1096,6 +1297,99 @@ function contingencyRetransmissionResultClass(result: { status: string; source?:
   return 'bg-slate-100 text-slate-700';
 }
 
+function createSpecialOperationLine(): SpecialOperationLine {
+  specialLineSequence += 1;
+
+  return {
+    id: specialLineSequence,
+    codigoGeneracionRef: '',
+    tipoDocumento: form?.operacionesDocumentType ?? '22',
+    numDocumento: '',
+    fechaEmision: currentLocalDate(),
+    cantidad: form?.operacionesMode === 'single' ? 1 : 1,
+    descripcion: 'Operacion especial reportada',
+    docDel: '',
+    docAl: '',
+    precioUni: 0,
+    ventaNoSuj: 0,
+    ventaExenta: 0,
+    ventaGravada: 0,
+  };
+}
+
+function addSpecialOperationLine(): void {
+  operacionesLineas.value.push(createSpecialOperationLine());
+  clearEventResult();
+}
+
+function removeSpecialOperationLine(id: number): void {
+  operacionesLineas.value = operacionesLineas.value.filter((line) => line.id !== id);
+  if (operacionesLineas.value.length === 0) {
+    operacionesLineas.value = [createSpecialOperationLine()];
+  }
+  clearEventResult();
+}
+
+function isValidSpecialOperationLine(line: SpecialOperationLine): boolean {
+  if (!line.descripcion.trim()) return false;
+  if (!['22', '97'].includes(line.tipoDocumento)) return false;
+  if (numberValue(line.cantidad) < 1) return false;
+  if (specialOperationLineTotal(line) <= 0) return false;
+
+  if (form.operacionesMode === 'range') {
+    return Boolean(String(line.docDel).trim() && String(line.docAl).trim());
+  }
+
+  return Boolean(String(line.numDocumento).trim() && String(line.fechaEmision).trim() && Number(line.cantidad) === 1);
+}
+
+function specialOperationLinePayload(line: SpecialOperationLine): Record<string, unknown> {
+  const isRange = form.operacionesMode === 'range';
+
+  return {
+    codigoGeneracionRef: form.operacionesStatus === 'annulled' ? nullableString(line.codigoGeneracionRef) : null,
+    tipoDocumento: line.tipoDocumento,
+    numDocumento: isRange ? null : nullableString(line.numDocumento),
+    fechaEmision: isRange ? null : nullableString(line.fechaEmision),
+    cantidad: Math.max(1, Number(line.cantidad) || 1),
+    descripcion: line.descripcion.trim(),
+    docDel: isRange ? nullableString(line.docDel) : null,
+    docAl: isRange ? nullableString(line.docAl) : null,
+    precioUni: roundMoney(line.precioUni),
+    ventaNoSuj: roundMoney(line.ventaNoSuj),
+    ventaExenta: roundMoney(line.ventaExenta),
+    ventaGravada: roundMoney(line.ventaGravada),
+    tributos: numberValue(line.ventaGravada) > 0 ? ['20'] : null,
+  };
+}
+
+function syncSpecialOperationPrice(line: SpecialOperationLine): void {
+  const quantity = Math.max(1, Number(line.cantidad) || 1);
+  line.precioUni = roundMoney(specialOperationLineTotal(line) / quantity);
+}
+
+function specialOperationLineTotal(line: SpecialOperationLine): number {
+  return roundMoney(numberValue(line.ventaNoSuj) + numberValue(line.ventaExenta) + numberValue(line.ventaGravada));
+}
+
+function specialOperationTypeLabel(value: string): string {
+  return operacionesDocumentoTipos.find((tipo) => tipo.value === value)?.label ?? value;
+}
+
+function nullableString(value: unknown): string | null {
+  const string = String(value ?? '').trim();
+
+  return string === '' ? null : string;
+}
+
+function numberValue(value: unknown): number {
+  return Number.isFinite(Number(value)) ? Number(value) : 0;
+}
+
+function roundMoney(value: unknown): number {
+  return Math.round(Math.max(0, numberValue(value)) * 100) / 100;
+}
+
 function formatDate(value?: string | null): string {
   if (!value) return 'Sin fecha';
   return new Intl.DateTimeFormat('es-SV', {
@@ -1230,7 +1524,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
       </div>
     </Teleport>
 
-    <UiCard v-if="!isInvalidacion && !isContingencia">
+    <UiCard v-if="!isInvalidacion && !isContingencia && !isOperacionesEspeciales">
       <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <div>
           <p class="text-base font-semibold text-slate-950">{{ selectedEvent.label }}</p>
@@ -1243,6 +1537,314 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
         </div>
       </div>
     </UiCard>
+
+    <div v-else-if="isOperacionesEspeciales" class="grid gap-6 pb-24">
+      <BillingProcessModal
+        :open="eventDiagnosticModalOpen"
+        eyebrow="Evento MH"
+        :title="processing ? 'Reportando operaciones' : eventRejected ? 'Evento rechazado por MH' : eventAccepted ? 'Evento procesado' : 'Operaciones detenidas'"
+        :subtitle="`Ambiente ${selectedOperacionesEmpresa?.ambiente ?? '00'} · ${selectedOperacionesEmpresa?.nombre_comercial ?? selectedOperacionesEmpresa?.razon_social ?? 'Empresa emisora'}`"
+        :processing="processing"
+        :accepted="eventAccepted"
+        :rejected="eventRejected || eventStopped"
+        :status-label="processing ? eventPhases[eventPhaseIndex].label : eventRejected ? 'MH rechazo el evento' : eventAccepted ? 'Evento aceptado por MH' : 'No fue posible reportar'"
+        :status-detail="eventStatusDetail"
+        :progress="eventProgress"
+        progress-label="Operaciones especiales"
+        :logs="eventLog"
+        @close="closeEventModal"
+      >
+        <div v-if="eventResult" class="mt-5 rounded-md border p-4" :class="eventResultCardClass">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-semibold">{{ eventResultLabel }}</p>
+              <p class="mt-1 break-all font-mono text-sm">{{ eventResult.codigoGeneracion }}</p>
+            </div>
+            <span class="rounded bg-white/75 px-2 py-1 text-xs font-semibold">
+              HTTP {{ eventResult.transmission?.http_status ?? 'N/D' }}
+            </span>
+          </div>
+          <p class="mt-2 text-sm">
+            MH {{ eventResult.transmission?.mh_estado ?? eventResult.transmission?.status ?? 'sin estado' }}
+          </p>
+          <p v-if="eventResult.transmission?.descripcion_msg" class="mt-2 text-sm">
+            {{ eventResult.transmission.descripcion_msg }}
+          </p>
+          <ul v-if="eventResult.transmission?.observaciones?.length" class="mt-2 list-disc pl-5 text-sm">
+            <li v-for="observation in eventResult.transmission.observaciones" :key="observation">{{ observation }}</li>
+          </ul>
+          <p v-if="eventResult.transmission?.receipt_stamp" class="mt-3 break-all font-mono text-xs">
+            {{ eventResult.transmission.receipt_stamp }}
+          </p>
+          <details v-if="Object.keys(eventMhResponse).length" class="mt-3">
+            <summary class="cursor-pointer text-xs font-semibold">Ver detalle de respuesta</summary>
+            <pre class="mt-2 max-h-56 overflow-auto rounded bg-slate-950 p-3 text-xs text-slate-50">{{ eventMhResponseJson }}</pre>
+          </details>
+        </div>
+
+        <div v-else-if="error && !processing" class="mt-5 whitespace-pre-wrap rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {{ error }}
+        </div>
+      </BillingProcessModal>
+
+      <UiCard>
+        <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div class="min-w-0 space-y-5">
+            <div class="grid gap-4 rounded-md border border-slate-200 p-4 lg:grid-cols-3">
+              <label class="block">
+                <span class="text-sm font-semibold text-slate-900">Empresa</span>
+                <select
+                  v-model.number="form.operacionesEmpresaId"
+                  class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  @change="clearEventResult"
+                >
+                  <option :value="null">Selecciona empresa</option>
+                  <option v-for="empresa in billingCompanies" :key="empresa.id" :value="empresa.id">
+                    {{ empresa.razon_social || empresa.nombre_comercial }}
+                  </option>
+                </select>
+              </label>
+
+              <label class="block">
+                <span class="text-sm font-semibold text-slate-900">Documento</span>
+                <select
+                  v-model="form.operacionesDocumentType"
+                  class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                >
+                  <option v-for="tipo in operacionesDocumentoTipos" :key="tipo.value" :value="tipo.value">{{ tipo.label }}</option>
+                </select>
+              </label>
+
+              <label class="block">
+                <span class="text-sm font-semibold text-slate-900">Estado a reportar</span>
+                <select
+                  v-model="form.operacionesStatus"
+                  class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                >
+                  <option value="active">Documentos activos</option>
+                  <option value="annulled">Documentos anulados</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="rounded-md border border-slate-200 p-4">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p class="text-base font-semibold text-slate-950">Detalle de operaciones</p>
+                  <p class="mt-1 text-sm text-slate-600">{{ specialOperationTypeLabel(form.operacionesDocumentType) }} · {{ form.operacionesStatus === 'annulled' ? 'Anulados' : 'Activos' }}</p>
+                </div>
+                <div class="inline-flex rounded-md bg-slate-100 p-1">
+                  <button
+                    class="rounded px-3 py-2 text-sm font-semibold"
+                    :class="form.operacionesMode === 'range' ? 'bg-white text-sky-700 shadow-sm' : 'text-slate-600'"
+                    type="button"
+                    @click="form.operacionesMode = 'range'"
+                  >
+                    Por rangos
+                  </button>
+                  <button
+                    class="rounded px-3 py-2 text-sm font-semibold"
+                    :class="form.operacionesMode === 'single' ? 'bg-white text-sky-700 shadow-sm' : 'text-slate-600'"
+                    type="button"
+                    @click="form.operacionesMode = 'single'"
+                  >
+                    Uno a uno
+                  </button>
+                </div>
+              </div>
+
+              <UiLoadingMark v-if="billingContextLoading" class="mt-4" label="Cargando empresas" />
+
+              <div class="mt-4 space-y-3">
+                <div
+                  v-for="(line, index) in operacionesLineas"
+                  :key="line.id"
+                  class="rounded-md border border-slate-200 bg-white p-3"
+                >
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <p class="text-sm font-bold text-slate-950">Item {{ index + 1 }}</p>
+                    <button
+                      class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200"
+                      type="button"
+                      @click="removeSpecialOperationLine(line.id)"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+
+                  <div class="mt-3 grid gap-3 lg:grid-cols-6">
+                    <label v-if="form.operacionesStatus === 'annulled'" class="block lg:col-span-2">
+                      <span class="text-xs font-semibold uppercase text-slate-500">EOE referencia</span>
+                      <input
+                        v-model="line.codigoGeneracionRef"
+                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        placeholder="Codigo generacion"
+                        @input="clearEventResult"
+                      >
+                    </label>
+
+                    <label v-if="form.operacionesMode === 'single'" class="block lg:col-span-2">
+                      <span class="text-xs font-semibold uppercase text-slate-500">Documento origen</span>
+                      <input
+                        v-model="line.numDocumento"
+                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        placeholder="Numero documento"
+                        @input="clearEventResult"
+                      >
+                    </label>
+                    <label v-if="form.operacionesMode === 'single'" class="block">
+                      <span class="text-xs font-semibold uppercase text-slate-500">Fecha origen</span>
+                      <input
+                        v-model="line.fechaEmision"
+                        type="date"
+                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        @input="clearEventResult"
+                      >
+                    </label>
+
+                    <label v-if="form.operacionesMode === 'range'" class="block">
+                      <span class="text-xs font-semibold uppercase text-slate-500">Doc. Del</span>
+                      <input
+                        v-model="line.docDel"
+                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        placeholder="1"
+                        @input="clearEventResult"
+                      >
+                    </label>
+                    <label v-if="form.operacionesMode === 'range'" class="block">
+                      <span class="text-xs font-semibold uppercase text-slate-500">Doc. Al</span>
+                      <input
+                        v-model="line.docAl"
+                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        placeholder="25"
+                        @input="clearEventResult"
+                      >
+                    </label>
+
+                    <label class="block">
+                      <span class="text-xs font-semibold uppercase text-slate-500">Cantidad</span>
+                      <input
+                        v-model.number="line.cantidad"
+                        type="number"
+                        min="1"
+                        :readonly="form.operacionesMode === 'single'"
+                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
+                        @input="syncSpecialOperationPrice(line); clearEventResult()"
+                      >
+                    </label>
+                    <label class="block lg:col-span-2">
+                      <span class="text-xs font-semibold uppercase text-slate-500">Descripcion</span>
+                      <input
+                        v-model="line.descripcion"
+                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        @input="clearEventResult"
+                      >
+                    </label>
+                  </div>
+
+                  <div class="mt-3 grid gap-3 md:grid-cols-5">
+                    <label class="block">
+                      <span class="text-xs font-semibold uppercase text-slate-500">No sujetas</span>
+                      <input v-model.number="line.ventaNoSuj" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncSpecialOperationPrice(line); clearEventResult()">
+                    </label>
+                    <label class="block">
+                      <span class="text-xs font-semibold uppercase text-slate-500">Exentas</span>
+                      <input v-model.number="line.ventaExenta" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncSpecialOperationPrice(line); clearEventResult()">
+                    </label>
+                    <label class="block">
+                      <span class="text-xs font-semibold uppercase text-slate-500">Gravadas</span>
+                      <input v-model.number="line.ventaGravada" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncSpecialOperationPrice(line); clearEventResult()">
+                    </label>
+                    <label class="block">
+                      <span class="text-xs font-semibold uppercase text-slate-500">Precio unitario</span>
+                      <input v-model.number="line.precioUni" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="clearEventResult">
+                    </label>
+                    <div class="rounded-md bg-slate-50 px-3 py-2">
+                      <p class="text-xs font-semibold uppercase text-slate-500">Total linea</p>
+                      <p class="mt-1 text-sm font-bold text-slate-950">{{ currency(specialOperationLineTotal(line)) }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p class="text-sm text-slate-600">{{ operacionesLineas.length }} de 500 items permitidos.</p>
+                <UiButton type="button" variant="secondary" @click="addSpecialOperationLine">
+                  Agregar item
+                </UiButton>
+              </div>
+            </div>
+          </div>
+
+          <aside class="min-w-0 rounded-md border border-slate-200 p-4">
+            <p class="text-base font-semibold text-slate-950">Resumen</p>
+            <dl class="mt-4 space-y-3 text-sm">
+              <div class="flex items-center justify-between gap-3">
+                <dt class="text-slate-500">No sujetas</dt>
+                <dd class="font-semibold text-slate-950">{{ currency(operacionesTotals.totalNoSuj) }}</dd>
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <dt class="text-slate-500">Exentas</dt>
+                <dd class="font-semibold text-slate-950">{{ currency(operacionesTotals.totalExenta) }}</dd>
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <dt class="text-slate-500">Gravadas</dt>
+                <dd class="font-semibold text-slate-950">{{ currency(operacionesTotals.totalGravada) }}</dd>
+              </div>
+              <div class="border-t border-slate-200 pt-3 flex items-center justify-between gap-3">
+                <dt class="text-slate-500">Subtotal</dt>
+                <dd class="font-semibold text-slate-950">{{ currency(operacionesTotals.subTotal) }}</dd>
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <dt class="text-slate-500">IVA 13%</dt>
+                <dd class="font-semibold text-slate-950">{{ currency(operacionesTotals.iva) }}</dd>
+              </div>
+              <div class="rounded-md bg-sky-50 px-3 py-3 flex items-center justify-between gap-3">
+                <dt class="font-semibold text-sky-900">Total</dt>
+                <dd class="text-lg font-bold text-sky-950">{{ currency(operacionesTotals.total) }}</dd>
+              </div>
+            </dl>
+
+            <div class="mt-5 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+              <p class="font-semibold text-slate-900">Reglas aplicadas</p>
+              <p class="mt-2">Modelo previo, transmision normal, evento tipo 17 y precio sin IVA.</p>
+              <p class="mt-2">Activos y anulados se reportan en eventos separados.</p>
+            </div>
+          </aside>
+        </div>
+      </UiCard>
+
+      <div class="pointer-events-none fixed inset-x-0 bottom-4 z-30 px-4">
+        <section class="pointer-events-auto mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-700/70 bg-slate-950/95 px-3 py-2 text-white shadow-xl shadow-slate-950/25 backdrop-blur">
+          <div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <p class="min-w-0 max-w-[260px] truncate">
+              <span class="text-slate-400">Empresa</span>
+              <span class="ml-2 font-bold text-white">{{ selectedOperacionesEmpresa?.nombre_comercial ?? selectedOperacionesEmpresa?.razon_social ?? 'Pendiente' }}</span>
+            </p>
+            <p class="min-w-0 max-w-[260px] truncate">
+              <span class="text-slate-400">Detalle</span>
+              <span class="ml-2 font-semibold text-white">{{ operacionesLineas.length }} item{{ operacionesLineas.length === 1 ? '' : 's' }}</span>
+            </p>
+            <p class="min-w-0 max-w-[220px] truncate">
+              <span class="text-slate-400">Total</span>
+              <span class="ml-2 font-semibold text-white">{{ currency(operacionesTotals.total) }}</span>
+            </p>
+          </div>
+          <div class="flex shrink-0 items-center justify-end gap-2">
+            <span class="rounded-md bg-sky-600 px-3 py-2 text-sm font-bold text-white shadow-sm shadow-sky-950/30">
+              {{ actionStatusLabel }}
+            </span>
+            <UiButton
+              class="min-w-[170px]"
+              :disabled="!canReportOperacionesEspeciales || processing"
+              @click="reportSpecialOperations"
+            >
+              {{ processing ? 'Procesando...' : 'Reportar evento' }}
+            </UiButton>
+          </div>
+        </section>
+      </div>
+    </div>
 
     <div v-else-if="isContingencia" class="grid gap-6 pb-24">
       <BillingProcessModal
