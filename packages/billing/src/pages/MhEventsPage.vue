@@ -804,7 +804,7 @@ async function invalidateSelected(): Promise<void> {
       await loadDocuments({ preserveEventResult: true });
     } else {
       eventLog.value.push({ label: 'Proceso detenido', status: 'error' });
-      error.value = caught instanceof Error ? caught.message : 'No fue posible invalidar el documento.';
+      error.value = friendlyErrorMessage(caught, 'No fue posible invalidar el documento.');
     }
 
     eventProgress.value = Math.max(eventProgress.value, 100);
@@ -899,7 +899,7 @@ async function reportContingency(): Promise<void> {
       }
     } else {
       eventLog.value.push({ label: 'Proceso detenido', status: 'error' });
-      error.value = caught instanceof Error ? caught.message : 'No fue posible reportar la contingencia.';
+      error.value = friendlyErrorMessage(caught, 'No fue posible reportar la contingencia.');
     }
 
     eventProgress.value = Math.max(eventProgress.value, 100);
@@ -961,7 +961,7 @@ async function reportSpecialOperations(): Promise<void> {
       error.value = null;
     } else {
       eventLog.value.push({ label: 'Proceso detenido', status: 'error' });
-      error.value = caught instanceof Error ? caught.message : 'No fue posible reportar las operaciones especiales.';
+      error.value = friendlyErrorMessage(caught, 'No fue posible reportar las operaciones especiales.');
     }
 
     eventProgress.value = Math.max(eventProgress.value, 100);
@@ -1127,6 +1127,49 @@ function formatValidationErrors(errors: Array<{ field: string; message: string }
   }
 
   return `${isContingencia.value ? 'El evento de contingencia' : isOperacionesEspeciales.value ? 'El evento de operaciones especiales' : 'La solicitud de invalidacion'} necesita correcciones:\n${readable.join('\n')}`;
+}
+
+function friendlyErrorMessage(caught: unknown, fallback: string): string {
+  const raw = caught instanceof Error ? caught.message : String(caught ?? '');
+  const trimmed = raw.trim();
+  if (!trimmed) return fallback;
+
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      const message = errorMessageFromPayload(parsed);
+      if (message) return message;
+    } catch {
+      return trimmed;
+    }
+  }
+
+  return trimmed;
+}
+
+function errorMessageFromPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  if (Array.isArray(payload)) {
+    const messages = payload
+      .map((item) => typeof item === 'string' ? item : errorMessageFromPayload(item))
+      .filter((item): item is string => Boolean(item));
+
+    return messages.length ? messages.join('\n') : null;
+  }
+
+  const record = payload as Record<string, unknown>;
+  if (typeof record.message === 'string' && record.message.trim()) {
+    return record.message.trim();
+  }
+  if (Array.isArray(record.errors)) {
+    const messages = record.errors
+      .map((item) => typeof item === 'string' ? item : errorMessageFromPayload(item))
+      .filter((item): item is string => Boolean(item));
+
+    return messages.length ? messages.join('\n') : null;
+  }
+
+  return null;
 }
 
 function recordValue(value: unknown): Record<string, unknown> {
