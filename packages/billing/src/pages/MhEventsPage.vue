@@ -502,8 +502,16 @@ watch(isOperacionesEspeciales, (active) => {
   }
 }, { immediate: true });
 
-watch(() => form.operacionesDocumentType, () => {
-  operacionesLineas.value = [createSpecialOperationLine()];
+watch(() => form.operacionesDocumentType, (tipoDocumento) => {
+  operacionesLineas.value = operacionesLineas.value.map((line) => ({
+    ...line,
+    tipoDocumento: tipoDocumento === '97' ? '97' : '02',
+  }));
+
+  if (operacionesLineas.value.length === 0) {
+    operacionesLineas.value = [createSpecialOperationLine()];
+  }
+
   clearEventResult();
 });
 
@@ -1375,7 +1383,7 @@ function removeSpecialOperationLine(id: number): void {
 
 function isValidSpecialOperationLine(line: SpecialOperationLine): boolean {
   if (!line.descripcion.trim()) return false;
-  if (!['02', '97'].includes(line.tipoDocumento)) return false;
+  if (!['02', '97'].includes(form.operacionesDocumentType)) return false;
   if (numberValue(line.cantidad) < 1) return false;
   if (specialOperationLineTotal(line) <= 0) return false;
 
@@ -1391,7 +1399,7 @@ function specialOperationLinePayload(line: SpecialOperationLine): Record<string,
 
   return {
     codigoGeneracionRef: form.operacionesStatus === 'annulled' ? nullableString(line.codigoGeneracionRef) : null,
-    tipoDocumento: line.tipoDocumento,
+    tipoDocumento: form.operacionesDocumentType,
     numDocumento: isRange ? null : nullableString(line.numDocumento),
     fechaEmision: isRange ? null : nullableString(line.fechaEmision),
     cantidad: Math.max(1, Number(line.cantidad) || 1),
