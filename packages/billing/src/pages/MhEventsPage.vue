@@ -68,7 +68,7 @@ type SpecialOperationStatus = 'active' | 'annulled';
 type SpecialOperationLine = {
   id: number;
   codigoGeneracionRef: string;
-  tipoDocumento: '22' | '97';
+  tipoDocumento: '02' | '97';
   numDocumento: string;
   fechaEmision: string;
   cantidad: number;
@@ -131,7 +131,7 @@ const form = reactive({
   operacionesAmbiente: '00' as '00' | '01',
   operacionesStatus: 'active' as SpecialOperationStatus,
   operacionesMode: 'range' as SpecialOperationMode,
-  operacionesDocumentType: '22' as '22' | '97',
+  operacionesDocumentType: '02' as '02' | '97',
 });
 
 const invalidacionTipos = [
@@ -147,7 +147,7 @@ const contingenciaTipos = [
   { value: 5, label: 'Otro motivo' },
 ];
 const operacionesDocumentoTipos = [
-  { value: '22', label: 'Factura simplificada' },
+  { value: '02', label: 'Factura simplificada' },
   { value: '97', label: 'Comprobante control interno' },
 ];
 const operacionesLineas = ref<SpecialOperationLine[]>([
@@ -1346,7 +1346,7 @@ function createSpecialOperationLine(): SpecialOperationLine {
   return {
     id: specialLineSequence,
     codigoGeneracionRef: '',
-    tipoDocumento: form?.operacionesDocumentType ?? '22',
+    tipoDocumento: form?.operacionesDocumentType ?? '02',
     numDocumento: '',
     fechaEmision: currentLocalDate(),
     cantidad: form?.operacionesMode === 'single' ? 1 : 1,
@@ -1375,7 +1375,7 @@ function removeSpecialOperationLine(id: number): void {
 
 function isValidSpecialOperationLine(line: SpecialOperationLine): boolean {
   if (!line.descripcion.trim()) return false;
-  if (!['22', '97'].includes(line.tipoDocumento)) return false;
+  if (!['02', '97'].includes(line.tipoDocumento)) return false;
   if (numberValue(line.cantidad) < 1) return false;
   if (specialOperationLineTotal(line) <= 0) return false;
 
