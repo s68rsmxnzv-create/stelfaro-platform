@@ -12,7 +12,7 @@ const props = withDefaults(defineProps<{
   authToken: null
 });
 
-const supportedTypes = new Set(['01', '03']);
+const supportedTypes = new Set(['01', '03', '05', '06', '14']);
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const loading = ref(false);
 const openingId = ref<number | null>(null);
@@ -115,7 +115,10 @@ async function openPdf(document: DteDraftSummary): Promise<void> {
 function typeLabel(code: string): string {
   const labels: Record<string, string> = {
     '01': 'Factura electronica',
-    '03': 'Credito fiscal'
+    '03': 'Credito fiscal',
+    '05': 'Nota de credito',
+    '06': 'Nota de debito',
+    '14': 'Sujeto excluido'
   };
 
   return labels[code] ?? code;
@@ -168,6 +171,9 @@ function formatDate(value?: string | null): string {
             <option value="">Todos</option>
             <option value="01">Factura electronica</option>
             <option value="03">Credito fiscal</option>
+            <option value="05">Nota de credito</option>
+            <option value="06">Nota de debito</option>
+            <option value="14">Sujeto excluido</option>
           </select>
         </div>
 
