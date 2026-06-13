@@ -593,8 +593,29 @@ export class CoreDteClient {
         ],
         beforeError: [
           async (error) => {
+            const contentType = error.response.headers.get('content-type') ?? '';
             const body = await error.response.text().catch(() => '');
-            error.message = body || error.message;
+            const trimmedBody = body.trim();
+
+            if (contentType.includes('application/json') && trimmedBody !== '') {
+              try {
+                const payload = JSON.parse(trimmedBody) as { message?: unknown; errors?: unknown };
+                const message = typeof payload.message === 'string' ? payload.message : '';
+                const errors = Array.isArray(payload.errors) ? payload.errors.map((item) => String(item)).join(' ') : '';
+                error.message = message || errors || error.message;
+                return error;
+              } catch {
+                error.message = error.message;
+                return error;
+              }
+            }
+
+            if (trimmedBody.startsWith('<!DOCTYPE') || trimmedBody.includes('<html')) {
+              error.message = `HTTP ${error.response.status}: el servidor devolvio una pagina HTML de error.`;
+              return error;
+            }
+
+            error.message = trimmedBody || error.message;
             return error;
           }
         ],
