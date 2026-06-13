@@ -16,6 +16,7 @@ const supportedTypes = new Set(['01', '03']);
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const loading = ref(false);
 const openingId = ref<number | null>(null);
+const openingPdfId = ref<number | null>(null);
 const error = ref<string | null>(null);
 const query = ref('');
 const tipoDte = ref('');
@@ -81,6 +82,33 @@ async function openGraphic(document: DteDraftSummary): Promise<void> {
     error.value = caught instanceof Error ? caught.message : 'No fue posible abrir el comprobante.';
   } finally {
     openingId.value = null;
+  }
+}
+
+async function openPdf(document: DteDraftSummary): Promise<void> {
+  if (!supportedTypes.has(document.tipoDte)) return;
+
+  const target = window.open('about:blank', '_blank');
+  openingPdfId.value = document.id;
+  error.value = null;
+
+  try {
+    const pdf = await client.value.graphicRepresentationPdf(document.id);
+    const url = URL.createObjectURL(pdf);
+
+    if (target) {
+      target.location.href = url;
+      target.focus();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } else {
+      URL.revokeObjectURL(url);
+      error.value = 'El navegador bloqueo la nueva pestana del PDF.';
+    }
+  } catch (caught) {
+    if (target) target.close();
+    error.value = caught instanceof Error ? caught.message : 'No fue posible abrir el PDF.';
+  } finally {
+    openingPdfId.value = null;
   }
 }
 
@@ -152,7 +180,7 @@ function formatDate(value?: string | null): string {
 
     <UiCard>
       <div class="overflow-hidden rounded-md border border-slate-200">
-        <div class="hidden grid-cols-[minmax(0,1.5fr)_160px_160px_140px] gap-4 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase text-slate-500 md:grid">
+        <div class="hidden grid-cols-[minmax(0,1.5fr)_160px_160px_240px] gap-4 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase text-slate-500 md:grid">
           <span>Documento</span>
           <span>Fecha</span>
           <span>Total</span>
@@ -171,7 +199,7 @@ function formatDate(value?: string | null): string {
           <article
             v-for="document in documents"
             :key="document.id"
-            class="grid grid-cols-1 gap-3 px-4 py-4 md:grid-cols-[minmax(0,1.5fr)_160px_160px_140px] md:items-center"
+            class="grid grid-cols-1 gap-3 px-4 py-4 md:grid-cols-[minmax(0,1.5fr)_160px_160px_240px] md:items-center"
           >
             <div class="min-w-0">
               <p class="truncate font-semibold text-slate-950">{{ document.numeroControl }}</p>
@@ -182,12 +210,20 @@ function formatDate(value?: string | null): string {
             <p class="text-sm text-slate-600">{{ formatDate(document.processed_at ?? document.created_at) }}</p>
             <p class="text-sm font-semibold text-slate-900">{{ currency(document.totalPagar ?? 0) }}</p>
 
-            <div class="flex justify-start md:justify-end">
+            <div class="flex flex-wrap justify-start gap-2 md:justify-end">
+              <UiButton
+                variant="secondary"
+                :disabled="openingPdfId === document.id"
+                @click="openPdf(document)"
+              >
+                {{ openingPdfId === document.id ? 'Abriendo...' : 'PDF' }}
+              </UiButton>
+
               <UiButton
                 :disabled="openingId === document.id"
                 @click="openGraphic(document)"
               >
-                {{ openingId === document.id ? 'Abriendo...' : 'Ver comprobante' }}
+                {{ openingId === document.id ? 'Abriendo...' : 'HTML' }}
               </UiButton>
             </div>
           </article>

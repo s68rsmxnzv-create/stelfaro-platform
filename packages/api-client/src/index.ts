@@ -842,6 +842,12 @@ export class CoreDteClient {
     }).text();
   }
 
+  graphicRepresentationPdf(id: number): Promise<Blob> {
+    return this.http.get(`dte/drafts/${id}/artifacts/pdf`, {
+      headers: { Accept: 'application/pdf' }
+    }).blob();
+  }
+
   queryMh(id: number): Promise<DteQueryMhResponse> {
     return this.http.post(`dte/drafts/${id}/query-mh`).json();
   }
