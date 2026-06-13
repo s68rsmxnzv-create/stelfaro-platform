@@ -836,6 +836,12 @@ export class CoreDteClient {
     return this.http.get(`dte/drafts/${id}`).json();
   }
 
+  graphicRepresentationHtml(id: number): Promise<string> {
+    return this.http.get(`dte/drafts/${id}/artifacts/graphic`, {
+      headers: { Accept: 'text/html' }
+    }).text();
+  }
+
   queryMh(id: number): Promise<DteQueryMhResponse> {
     return this.http.post(`dte/drafts/${id}/query-mh`).json();
   }

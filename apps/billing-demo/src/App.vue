@@ -65,6 +65,10 @@ const pageTitle = computed(() => {
     return currentEvent?.label ?? 'Eventos MH';
   }
 
+  if (route.path === '/comprobantes') {
+    return 'Comprobantes';
+  }
+
   if (route.path === '/mh-responses') {
     return 'Respuestas MH';
   }
@@ -238,6 +242,15 @@ function toggleUserMenu(): void {
                 </div>
               </div>
 
+              <RouterLink
+                v-if="!auth.isBackoffice"
+                to="/comprobantes"
+                class="rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
+                active-class="bg-slate-950/70 text-white"
+              >
+                Comprobantes
+              </RouterLink>
+
               <div v-if="!auth.isBackoffice" class="relative">
                 <button
                   class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
@@ -388,6 +401,15 @@ function toggleUserMenu(): void {
               </template>
             </div>
           </div>
+
+          <RouterLink
+            v-if="!auth.isBackoffice"
+            to="/comprobantes"
+            class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white"
+            active-class="bg-slate-950/70 text-white"
+          >
+            Comprobantes
+          </RouterLink>
 
           <div v-if="!auth.isBackoffice" class="rounded-md bg-white/5 px-3 py-2">
             <p class="text-base font-semibold text-white">Eventos MH</p>
