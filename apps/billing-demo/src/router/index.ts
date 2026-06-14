@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import DashboardPage from '../pages/DashboardPage.vue';
 import BillingPage from '../pages/BillingPage.vue';
 import DteArtifactsPage from '../pages/DteArtifactsPage.vue';
+import DteArtifactPdfPage from '../pages/DteArtifactPdfPage.vue';
 import MhEventsPage from '../pages/MhEventsPage.vue';
 import MhResponsesPage from '../pages/MhResponsesPage.vue';
 import MhEventResponsesPage from '../pages/MhEventResponsesPage.vue';
@@ -22,6 +23,7 @@ export const router = createRouter({
     { path: '/companies', name: 'companies', component: SettingsPage, meta: { requiresAuth: true, requiresFiscalSettings: true } },
     { path: '/billing', redirect: '/billing/fe' },
     { path: '/billing/:documentSlug', name: 'billing', component: BillingPage, meta: { requiresAuth: true, requiresBilling: true } },
+    { path: '/comprobantes/:id/pdf', name: 'comprobante-pdf', component: DteArtifactPdfPage, meta: { requiresAuth: true, requiresBilling: true } },
     { path: '/comprobantes', name: 'comprobantes', component: DteArtifactsPage, meta: { requiresAuth: true, requiresBilling: true } },
     { path: '/mh-events', redirect: '/mh-events/invalidacion' },
     { path: '/mh-events/:eventSlug', name: 'mh-events', component: MhEventsPage, meta: { requiresAuth: true, requiresBilling: true } },

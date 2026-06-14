@@ -88,24 +88,16 @@ async function openGraphic(document: DteDraftSummary): Promise<void> {
 async function openPdf(document: DteDraftSummary): Promise<void> {
   if (!supportedTypes.has(document.tipoDte)) return;
 
-  const target = window.open('about:blank', '_blank');
   openingPdfId.value = document.id;
   error.value = null;
 
   try {
-    const pdf = await client.value.graphicRepresentationPdf(document.id);
-    const url = URL.createObjectURL(pdf);
+    const target = window.open(`/comprobantes/${document.id}/pdf`, '_blank');
 
-    if (target) {
-      target.location.href = url;
-      target.focus();
-      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } else {
-      URL.revokeObjectURL(url);
+    if (!target) {
       error.value = 'El navegador bloqueo la nueva pestana del PDF.';
     }
   } catch (caught) {
-    if (target) target.close();
     error.value = caught instanceof Error ? caught.message : 'No fue posible abrir el PDF.';
   } finally {
     openingPdfId.value = null;
