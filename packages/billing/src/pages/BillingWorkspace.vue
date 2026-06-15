@@ -1812,20 +1812,23 @@ function updatePaymentCondition(value: string): void {
                   Consultando correlativo disponible...
                 </p>
                 <p v-else-if="!correlativoPreview" class="text-sm text-red-700">No hay correlativo activo para esta combinacion.</p>
-                <div class="text-right">
+                <div class="min-w-0 text-right">
                   <span
-                    class="inline-flex items-center gap-2 rounded px-2 py-1 text-xs font-semibold"
+                    class="inline-flex max-w-full items-center gap-2 rounded px-2 py-1 text-xs font-semibold"
                     :class="correlativoLoading
                       ? 'bg-sky-100 text-sky-700'
                       : correlativoPreview
                         ? 'bg-emerald-100 text-emerald-700'
                         : 'bg-red-100 text-red-700'"
                   >
-                    {{ correlativoLoading ? 'Consultando' : correlativoPreview ? 'Numero correlativo' : 'Sin correlativo' }}
+                    <template v-if="correlativoPreview">
+                      <span class="shrink-0">Numero correlativo</span>
+                      <span class="min-w-0 truncate font-mono text-[11px]">{{ correlativoPreview.numero_control }}</span>
+                    </template>
+                    <template v-else>
+                      {{ correlativoLoading ? 'Consultando' : 'Sin correlativo' }}
+                    </template>
                   </span>
-                  <p v-if="correlativoPreview" class="mt-2 max-w-[320px] truncate font-mono text-[11px] text-slate-500">
-                    {{ correlativoPreview.numero_control }}
-                  </p>
                 </div>
               </div>
             </div>
