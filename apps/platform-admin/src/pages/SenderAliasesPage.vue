@@ -17,11 +17,8 @@ const saving = ref(false);
 const error = ref<string | null>(null);
 const selectedId = ref<number | null>(null);
 const filterPurpose = ref('');
-const filterScope = ref('');
 
 const form = reactive({
-  scope_type: 'global' as 'global' | 'empresa',
-  scope_id: '',
   purpose: 'dte_delivery',
   from_email: '',
   from_name: '',
@@ -33,7 +30,6 @@ const form = reactive({
 const selectedAlias = computed(() => aliases.value.find((alias) => alias.id === selectedId.value) ?? null);
 const filteredAliases = computed(() => aliases.value.filter((alias) => {
   if (filterPurpose.value && alias.purpose !== filterPurpose.value) return false;
-  if (filterScope.value && alias.scope_type !== filterScope.value) return false;
 
   return true;
 }));
@@ -90,8 +86,6 @@ async function toggleAlias(alias: NotificationSenderAlias): Promise<void> {
 
 function editAlias(alias: NotificationSenderAlias): void {
   selectedId.value = alias.id;
-  form.scope_type = alias.scope_type;
-  form.scope_id = alias.scope_type === 'empresa' ? String(alias.scope_id) : '';
   form.purpose = alias.purpose;
   form.from_email = alias.from_email;
   form.from_name = alias.from_name ?? '';
@@ -102,8 +96,6 @@ function editAlias(alias: NotificationSenderAlias): void {
 
 function resetForm(): void {
   selectedId.value = null;
-  form.scope_type = 'global';
-  form.scope_id = '';
   form.purpose = 'dte_delivery';
   form.from_email = '';
   form.from_name = '';
@@ -114,8 +106,8 @@ function resetForm(): void {
 
 function buildPayload(): NotificationSenderAliasPayload {
   return {
-    scope_type: form.scope_type,
-    scope_id: form.scope_type === 'empresa' ? Number(form.scope_id) : null,
+    scope_type: 'global',
+    scope_id: 0,
     purpose: form.purpose,
     from_email: form.from_email,
     from_name: form.from_name || null,
@@ -137,7 +129,7 @@ function purposeLabel(value: string): string {
         <p class="text-sm font-semibold uppercase tracking-wide text-slate-500">Notificaciones</p>
         <h1 class="mt-1 text-2xl font-semibold text-slate-950">Alias de remitente</h1>
         <p class="mt-2 max-w-3xl text-sm text-slate-600">
-          Remitentes por actividad para mensajes transversales de Stelfaro. Estos valores son internos de plataforma y no forman parte de la configuracion fiscal del tenant.
+          Remitentes globales por actividad para mensajes transversales de Stelfaro. Todos los tenants usan estos alias; el buzon SMTP contratado es el transporte comun.
         </p>
       </div>
 
@@ -156,7 +148,7 @@ function purposeLabel(value: string): string {
 
     <div v-else class="grid gap-6 xl:grid-cols-[1fr_420px]">
       <div class="min-w-0">
-        <div class="mb-4 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:flex-row">
+        <div class="mb-4 rounded-lg border border-slate-200 bg-white p-4">
           <label class="block flex-1">
             <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Actividad</span>
             <select v-model="filterPurpose" class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900">
@@ -164,15 +156,6 @@ function purposeLabel(value: string): string {
               <option v-for="purpose in purposes" :key="purpose.value" :value="purpose.value">
                 {{ purpose.label }}
               </option>
-            </select>
-          </label>
-
-          <label class="block flex-1">
-            <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Alcance</span>
-            <select v-model="filterScope" class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900">
-              <option value="">Todos</option>
-              <option value="global">Global</option>
-              <option value="empresa">Empresa</option>
             </select>
           </label>
         </div>
@@ -184,7 +167,6 @@ function purposeLabel(value: string): string {
             <thead class="bg-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
                 <th class="px-4 py-3">Actividad</th>
-                <th class="px-4 py-3">Alcance</th>
                 <th class="px-4 py-3">Remitente</th>
                 <th class="px-4 py-3">Reply-to</th>
                 <th class="px-4 py-3">Estado</th>
@@ -193,18 +175,15 @@ function purposeLabel(value: string): string {
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-if="loading">
-                <td class="px-4 py-6 text-slate-500" colspan="6">Cargando alias...</td>
+                <td class="px-4 py-6 text-slate-500" colspan="5">Cargando alias...</td>
               </tr>
 
               <tr v-else-if="filteredAliases.length === 0">
-                <td class="px-4 py-6 text-slate-500" colspan="6">No hay alias configurados.</td>
+                <td class="px-4 py-6 text-slate-500" colspan="5">No hay alias configurados.</td>
               </tr>
 
               <tr v-for="alias in filteredAliases" v-else :key="alias.id" class="hover:bg-slate-50">
                 <td class="px-4 py-3 font-medium text-slate-950">{{ purposeLabel(alias.purpose) }}</td>
-                <td class="px-4 py-3 text-slate-700">
-                  {{ alias.scope_type === 'global' ? 'Global' : `Empresa #${alias.scope_id}` }}
-                </td>
                 <td class="px-4 py-3">
                   <p class="font-medium text-slate-950">{{ alias.from_email }}</p>
                   <p class="text-xs text-slate-500">{{ alias.from_name || 'Sin nombre visible' }}</p>
@@ -239,7 +218,7 @@ function purposeLabel(value: string): string {
         <div class="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 class="text-lg font-semibold text-slate-950">{{ selectedAlias ? 'Editar alias' : 'Nuevo alias' }}</h2>
-            <p class="mt-1 text-sm text-slate-600">Define el remitente que se usara para una actividad.</p>
+            <p class="mt-1 text-sm text-slate-600">Define el remitente global que se usara para una actividad.</p>
           </div>
           <button v-if="selectedAlias" type="button" class="text-sm font-medium text-slate-600 hover:text-slate-950" @click="resetForm">
             Nuevo
@@ -255,28 +234,6 @@ function purposeLabel(value: string): string {
               </option>
             </select>
           </label>
-
-          <div class="grid grid-cols-2 gap-3">
-            <label class="block">
-              <span class="text-sm font-medium text-slate-700">Alcance</span>
-              <select v-model="form.scope_type" class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900">
-                <option value="global">Global</option>
-                <option value="empresa">Empresa</option>
-              </select>
-            </label>
-
-            <label class="block">
-              <span class="text-sm font-medium text-slate-700">Empresa ID</span>
-              <input
-                v-model="form.scope_id"
-                type="number"
-                min="1"
-                class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900 disabled:bg-slate-100"
-                :disabled="form.scope_type === 'global'"
-                placeholder="1"
-              />
-            </label>
-          </div>
 
           <label class="block">
             <span class="text-sm font-medium text-slate-700">Correo remitente</span>
