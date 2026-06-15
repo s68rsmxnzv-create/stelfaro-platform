@@ -32,10 +32,10 @@ Frontend modular para facturacion reutilizable y futuras apps verticales como se
 /var/www/stelfaro-platform/apps/billing-demo/dist
 ```
 
-El panel administrativo se sirve en el mismo subdominio bajo:
+El panel administrativo se sirve en su propio subdominio:
 
 ```text
-https://billing.stelfaro.com/admin/
+https://admin.stelfaro.com/
 /var/www/stelfaro-platform/apps/platform-admin/dist
 ```
 

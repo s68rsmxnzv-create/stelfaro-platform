@@ -18,7 +18,7 @@ const appNav = ref<HTMLElement | null>(null);
 const documentTypes = ref<BillingDocumentType[]>([]);
 const billingCompanies = ref<BillingEmpresa[]>([]);
 const companyLogoBroken = ref(false);
-const platformAdminUrl = import.meta.env.VITE_PLATFORM_ADMIN_URL || '/admin/';
+const platformAdminUrl = import.meta.env.VITE_PLATFORM_ADMIN_URL || 'https://admin.stelfaro.com/';
 const platformAdminEmails = String(import.meta.env.VITE_PLATFORM_ADMIN_EMAILS ?? '')
   .split(',')
   .map((email) => email.trim().toLowerCase())
