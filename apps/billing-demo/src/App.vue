@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { CoreDteClient, type BillingDocumentType } from '@stelfaro/api-client';
-import { UiInfoIcon } from '@stelfaro/ui';
+import { UiCloseCircleIcon, UiInfoIcon } from '@stelfaro/ui';
 import { useAuthStore } from './stores/auth';
 
 const route = useRoute();
@@ -562,24 +562,15 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
             </div>
           </div>
           <button
-            class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-xl leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
+            class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
             type="button"
             aria-label="Cerrar ayuda"
             @click="dteHelpModalOpen = false"
           >
-            x
+            <UiCloseCircleIcon class="h-6 w-6" />
           </button>
         </div>
         <p class="mt-4 text-sm leading-6 text-slate-700">{{ currentDteHelp.use }}</p>
-        <div class="mt-5 flex justify-end">
-          <button
-            class="rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-sky-950/10 hover:bg-sky-500 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
-            type="button"
-            @click="dteHelpModalOpen = false"
-          >
-            Entendido
-          </button>
-        </div>
       </section>
     </div>
 
