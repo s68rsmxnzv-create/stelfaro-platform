@@ -19,6 +19,11 @@ const documentTypes = ref<BillingDocumentType[]>([]);
 const billingCompanies = ref<BillingEmpresa[]>([]);
 const companyLogoBroken = ref(false);
 const platformAdminUrl = import.meta.env.VITE_PLATFORM_ADMIN_URL || '/admin/';
+const platformAdminEmails = String(import.meta.env.VITE_PLATFORM_ADMIN_EMAILS ?? '')
+  .split(',')
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
+const platformAdminRoles = new Set(['super_admin', 'admin_fiscal', 'platform_owner', 'platform_admin']);
 const isPublicLayout = computed(() => Boolean(route.meta.public));
 const nav = computed(() => [
   { label: 'Dashboard', to: '/', show: true },
@@ -140,6 +145,14 @@ const initials = computed(() => {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join('') || 'SF';
+});
+const canAccessPlatformAdmin = computed(() => {
+  const role = String(auth.user?.role ?? '').trim().toLowerCase();
+  const email = String(auth.user?.email ?? '').trim().toLowerCase();
+
+  return auth.isBackoffice
+    || platformAdminRoles.has(role)
+    || platformAdminEmails.includes(email);
 });
 
 watch(() => route.fullPath, () => {
@@ -380,7 +393,7 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
               </RouterLink>
 
               <a
-                v-if="auth.isBackoffice"
+                v-if="canAccessPlatformAdmin"
                 :href="platformAdminUrl"
                 class="rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
               >
@@ -429,7 +442,7 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
                   Configuracion fiscal
                 </RouterLink>
                 <a
-                  v-if="auth.isBackoffice"
+                  v-if="canAccessPlatformAdmin"
                   :href="platformAdminUrl"
                   class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                   @click="userMenuOpen = false"
@@ -529,7 +542,7 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
           </RouterLink>
 
           <a
-            v-if="auth.isBackoffice"
+            v-if="canAccessPlatformAdmin"
             :href="platformAdminUrl"
             class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white"
           >
