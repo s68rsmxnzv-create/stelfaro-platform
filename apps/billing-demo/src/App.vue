@@ -18,6 +18,7 @@ const appNav = ref<HTMLElement | null>(null);
 const documentTypes = ref<BillingDocumentType[]>([]);
 const billingCompanies = ref<BillingEmpresa[]>([]);
 const companyLogoBroken = ref(false);
+const platformAdminUrl = import.meta.env.VITE_PLATFORM_ADMIN_URL || '/admin/';
 const isPublicLayout = computed(() => Boolean(route.meta.public));
 const nav = computed(() => [
   { label: 'Dashboard', to: '/', show: true },
@@ -377,6 +378,14 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
               >
                 Comprobantes
               </RouterLink>
+
+              <a
+                v-if="auth.isBackoffice"
+                :href="platformAdminUrl"
+                class="rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
+              >
+                Panel admin
+              </a>
             </div>
           </div>
 
@@ -419,6 +428,14 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
                 >
                   Configuracion fiscal
                 </RouterLink>
+                <a
+                  v-if="auth.isBackoffice"
+                  :href="platformAdminUrl"
+                  class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  @click="userMenuOpen = false"
+                >
+                  Panel administrativo
+                </a>
                 <button class="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50" type="button" @click="logout">
                   Salir
                 </button>
@@ -510,6 +527,14 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
           >
             Comprobantes
           </RouterLink>
+
+          <a
+            v-if="auth.isBackoffice"
+            :href="platformAdminUrl"
+            class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white"
+          >
+            Panel admin
+          </a>
         </div>
         <div class="border-t border-white/10 pb-3 pt-4">
           <div class="flex items-center px-5">

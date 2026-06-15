@@ -32,6 +32,13 @@ Frontend modular para facturacion reutilizable y futuras apps verticales como se
 /var/www/stelfaro-platform/apps/billing-demo/dist
 ```
 
+El panel administrativo se sirve en el mismo subdominio bajo:
+
+```text
+https://billing.stelfaro.com/admin/
+/var/www/stelfaro-platform/apps/platform-admin/dist
+```
+
 El frontend consume `/api/v1` en el mismo origen. Nginx enruta `/api/*` hacia Core DTE en:
 
 ```text
