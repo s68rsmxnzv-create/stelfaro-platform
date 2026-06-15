@@ -51,6 +51,13 @@ function disconnect(): void {
         >
           Notificaciones
         </RouterLink>
+        <RouterLink
+          to="/notifications/mail-transport"
+          class="mt-1 flex h-10 items-center rounded-md px-3 text-sm font-medium"
+          :class="route.path === '/notifications/mail-transport' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'"
+        >
+          Buzon SMTP
+        </RouterLink>
       </nav>
     </aside>
 

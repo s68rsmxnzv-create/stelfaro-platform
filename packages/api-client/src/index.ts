@@ -71,6 +71,36 @@ export type NotificationSenderAliasPayload = {
   metadata?: Record<string, unknown> | null;
 };
 
+export type NotificationMailTransport = {
+  id: number;
+  name: string;
+  mailer: 'smtp' | string;
+  host: string;
+  port: number;
+  scheme: 'ssl' | 'tls' | null;
+  username: string;
+  password_configured: boolean;
+  default_from_email: string;
+  default_from_name: string | null;
+  is_active: boolean;
+  last_verified_at: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type NotificationMailTransportPayload = {
+  name: string;
+  host: string;
+  port: number;
+  scheme: 'ssl' | 'tls' | 'null';
+  username: string;
+  password?: string | null;
+  default_from_email: string;
+  default_from_name?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
 export type DteMetadata = {
   tipo_dte: string;
   nombre: string;
@@ -708,6 +738,14 @@ export class NotificationsClient {
 
   updateSenderAlias(id: number, payload: Partial<NotificationSenderAliasPayload>): Promise<{ data: NotificationSenderAlias }> {
     return this.http.patch(`sender-aliases/${id}`, { json: payload }).json();
+  }
+
+  mailTransport(): Promise<{ data: NotificationMailTransport | null }> {
+    return this.http.get('mail-transport').json();
+  }
+
+  saveMailTransport(payload: NotificationMailTransportPayload): Promise<{ data: NotificationMailTransport }> {
+    return this.http.post('mail-transport', { json: payload }).json();
   }
 }
 
