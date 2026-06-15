@@ -1919,9 +1919,6 @@ function updatePaymentCondition(value: string): void {
           <p v-if="requiresCustomerIdentificationByAmount && !hasRequiredCustomerIdentification" class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
             {{ customerIdentificationByAmountMessage }}
           </p>
-          <p v-if="isSujetoExcluido && !selectedCustomer" class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-            Sujeto excluido requiere receptor guardado con documento y direccion completa.
-          </p>
           <p v-if="isAdjustmentNote && !selectedSourceDocument" class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
             Selecciona un CCF aceptado para cargar automaticamente el receptor.
           </p>
