@@ -299,15 +299,6 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
                 </div>
               </div>
 
-              <RouterLink
-                v-if="!auth.isBackoffice"
-                to="/comprobantes"
-                class="rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
-                active-class="bg-slate-950/70 text-white"
-              >
-                Comprobantes
-              </RouterLink>
-
               <div v-if="!auth.isBackoffice" class="relative">
                 <button
                   class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
@@ -315,7 +306,7 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
                   type="button"
                   @click="toggleEventMenu"
                 >
-                  Eventos MH
+                  Eventos
                   <span
                     class="h-1.5 w-1.5 rotate-45 border-b-2 border-r-2 border-current text-slate-400 transition"
                     :class="eventMenuOpen ? 'rotate-[225deg] text-slate-200' : ''"
@@ -350,7 +341,7 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
                   type="button"
                   @click="toggleResponsesMenu"
                 >
-                  Respuestas MH
+                  Respuestas
                   <span
                     class="h-1.5 w-1.5 rotate-45 border-b-2 border-r-2 border-current text-slate-500 transition"
                     :class="responsesMenuOpen ? 'rotate-[225deg] text-slate-200' : ''"
@@ -373,14 +364,19 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
                   </RouterLink>
                 </div>
               </div>
+
+              <RouterLink
+                v-if="!auth.isBackoffice"
+                to="/comprobantes"
+                class="rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
+                active-class="bg-slate-950/70 text-white"
+              >
+                Comprobantes
+              </RouterLink>
             </div>
           </div>
 
           <div class="hidden items-center gap-4 md:flex">
-            <RouterLink v-if="!auth.isBackoffice" to="/billing/fe" class="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400">
-              Nueva factura
-            </RouterLink>
-
             <div class="relative">
               <button
                 class="flex max-w-xs items-center gap-3 rounded-full text-sm focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
@@ -459,17 +455,8 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
             </div>
           </div>
 
-          <RouterLink
-            v-if="!auth.isBackoffice"
-            to="/comprobantes"
-            class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white"
-            active-class="bg-slate-950/70 text-white"
-          >
-            Comprobantes
-          </RouterLink>
-
           <div v-if="!auth.isBackoffice" class="rounded-md bg-white/5 px-3 py-2">
-            <p class="text-base font-semibold text-white">Eventos MH</p>
+            <p class="text-base font-semibold text-white">Eventos</p>
             <div class="mt-2 space-y-1">
               <template v-for="option in eventOptions" :key="option.label">
                 <RouterLink
@@ -488,7 +475,7 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
           </div>
 
           <div v-if="responseOptions.length" class="rounded-md bg-white/5 px-3 py-2">
-            <p class="text-base font-semibold text-white">Respuestas MH</p>
+            <p class="text-base font-semibold text-white">Respuestas</p>
             <div class="mt-1 space-y-1">
               <RouterLink
                 v-for="option in responseOptions"
@@ -501,6 +488,15 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
               </RouterLink>
             </div>
           </div>
+
+          <RouterLink
+            v-if="!auth.isBackoffice"
+            to="/comprobantes"
+            class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white"
+            active-class="bg-slate-950/70 text-white"
+          >
+            Comprobantes
+          </RouterLink>
         </div>
         <div class="border-t border-white/10 pb-3 pt-4">
           <div class="flex items-center px-5">
@@ -513,9 +509,6 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
             </div>
           </div>
           <div class="mt-3 space-y-1 px-2">
-            <RouterLink v-if="!auth.isBackoffice" to="/billing/fe" class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white">
-              Nueva factura
-            </RouterLink>
             <button class="block w-full rounded-md px-3 py-2 text-left text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white" type="button" @click="logout">
               Salir
             </button>

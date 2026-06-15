@@ -340,7 +340,7 @@ function formatDate(value?: string | null): string {
 
 <template>
   <section class="space-y-6">
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div>
       <div>
         <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Comprobantes</p>
         <h2 class="mt-1 text-2xl font-bold text-slate-950">Representacion grafica</h2>
@@ -348,10 +348,6 @@ function formatDate(value?: string | null): string {
           Abre la version imprimible y el JSON final de documentos aceptados por Hacienda.
         </p>
       </div>
-
-      <RouterLink to="/billing/fe" class="inline-flex items-center justify-center rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500">
-        Nueva factura
-      </RouterLink>
     </div>
 
     <p v-if="error" class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ error }}</p>

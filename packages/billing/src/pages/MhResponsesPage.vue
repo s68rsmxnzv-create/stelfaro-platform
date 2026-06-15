@@ -208,7 +208,7 @@ function copyText(value: string): void {
 
 <template>
   <section class="space-y-6">
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div>
       <div>
         <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Respuestas MH</p>
         <h2 class="mt-1 text-2xl font-bold text-slate-950">Documentos transmitidos</h2>
@@ -216,10 +216,6 @@ function copyText(value: string): void {
           Consulta sello, estado, intentos de transmision y respuesta de Hacienda.
         </p>
       </div>
-
-      <RouterLink to="/billing/fe" class="inline-flex items-center justify-center rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500">
-        Nueva factura
-      </RouterLink>
     </div>
 
     <p v-if="error" class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ error }}</p>
