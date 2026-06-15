@@ -1,4 +1,6 @@
 export { default as BillingWorkspace } from './pages/BillingWorkspace.vue';
+export { default as BillingAppPage } from './pages/BillingAppPage.vue';
+export { default as BillingAppNav } from './components/BillingAppNav.vue';
 export { default as BillingSettingsPage } from './pages/BillingSettingsPage.vue';
 export { default as BillingOnboardingPage } from './pages/BillingOnboardingPage.vue';
 export { default as DteArtifactsPage } from './pages/DteArtifactsPage.vue';
