@@ -5,7 +5,7 @@ import {
   type DteDraftSummary,
   type DteHistoryEntry
 } from '@stelfaro/api-client';
-import { currency } from '@stelfaro/shared';
+import { currency, fiscalDateTime } from '@stelfaro/shared';
 import { UiButton, UiCard, UiLoadingMark, UiSearchInput } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
@@ -170,11 +170,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 }
 
 function formatDate(value?: string | null): string {
-  if (!value) return 'Sin fecha';
-  return new Intl.DateTimeFormat('es-SV', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(new Date(value));
+  return fiscalDateTime(value);
 }
 
 function attemptsCount(document: DteDraftSummary): number {

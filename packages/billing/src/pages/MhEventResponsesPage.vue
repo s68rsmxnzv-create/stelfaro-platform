@@ -4,6 +4,7 @@ import {
   CoreDteClient,
   type MhFiscalEventSummary
 } from '@stelfaro/api-client';
+import { fiscalDateTime } from '@stelfaro/shared';
 import { UiButton, UiCard, UiLoadingMark, UiSearchInput } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
@@ -124,11 +125,7 @@ function eventTypeLabel(value?: string | null): string {
 }
 
 function formatDate(value?: string | null): string {
-  if (!value) return 'Sin fecha';
-  return new Intl.DateTimeFormat('es-SV', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(new Date(value));
+  return fiscalDateTime(value);
 }
 
 function mhValue(keys: string[]): unknown {

@@ -6,7 +6,7 @@ import {
   type DteDraftSummary,
   type MhFiscalEventSummary
 } from '@stelfaro/api-client';
-import { currency } from '@stelfaro/shared';
+import { currency, fiscalDate, fiscalDateTime } from '@stelfaro/shared';
 import { UiButton, UiCard, UiCloseCircleIcon, UiSearchInput, UiLoadingMark, UiTextarea } from '@stelfaro/ui';
 import BillingProcessModal from '../components/BillingProcessModal.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
@@ -1442,11 +1442,7 @@ function roundMoney(value: unknown): number {
 }
 
 function formatDate(value?: string | null): string {
-  if (!value) return 'Sin fecha';
-  return new Intl.DateTimeFormat('es-SV', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(new Date(value));
+  return fiscalDateTime(value);
 }
 
 function statusLabel(document: DteDraftSummary): string {
@@ -2408,7 +2404,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 </div>
                 <div>
                   <dt class="text-xs font-semibold uppercase text-slate-500">Fecha emision</dt>
-                  <dd class="mt-1 font-semibold text-slate-950">{{ selectedIdentificacion.fecEmi ?? 'Sin fecha' }}</dd>
+                  <dd class="mt-1 font-semibold text-slate-950">{{ fiscalDate(String(selectedIdentificacion.fecEmi ?? '')) }}</dd>
                 </div>
                 <div>
                   <dt class="text-xs font-semibold uppercase text-slate-500">Sello MH</dt>

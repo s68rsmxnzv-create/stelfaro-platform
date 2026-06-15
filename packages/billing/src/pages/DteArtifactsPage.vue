@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { CoreDteClient, type DteDraftSummary, type MhFiscalEventSummary, type PaginationMeta } from '@stelfaro/api-client';
-import { currency } from '@stelfaro/shared';
+import { currency, fiscalDateTime } from '@stelfaro/shared';
 import { UiButton, UiCard, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiSearchInput } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
@@ -334,12 +334,7 @@ function eventLabel(type: string): string {
 }
 
 function formatDate(value?: string | null): string {
-  if (!value) return 'Sin fecha';
-
-  return new Intl.DateTimeFormat('es-SV', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(new Date(value));
+  return fiscalDateTime(value);
 }
 </script>
 
