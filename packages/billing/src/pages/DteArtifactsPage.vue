@@ -340,16 +340,6 @@ function formatDate(value?: string | null): string {
 
 <template>
   <section class="space-y-6">
-    <div>
-      <div>
-        <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Comprobantes</p>
-        <h2 class="mt-1 text-2xl font-bold text-slate-950">Representacion grafica</h2>
-        <p class="mt-2 text-sm text-slate-600">
-          Abre la version imprimible y el JSON final de documentos aceptados por Hacienda.
-        </p>
-      </div>
-    </div>
-
     <p v-if="error" class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ error }}</p>
 
     <UiCard>
