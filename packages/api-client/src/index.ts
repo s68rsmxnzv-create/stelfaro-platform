@@ -164,6 +164,8 @@ export type MhFiscalEventSummary = {
   numeroControl: string | null;
   codigoGeneracion: string | null;
   selloRecibido?: string | null;
+  signedDocument?: string | null;
+  signed_bundle?: Record<string, unknown> | null;
   mh_response?: Record<string, unknown> | null;
   errorCode?: string | null;
   errorMessage?: string | null;
@@ -873,6 +875,19 @@ export class CoreDteClient {
 
   graphicRepresentationPdf(id: number): Promise<Blob> {
     return this.http.get(`dte/drafts/${id}/artifacts/pdf`, {
+      headers: { Accept: 'application/pdf' },
+      timeout: 90000
+    }).blob();
+  }
+
+  mhEventGraphicRepresentationHtml(id: number): Promise<string> {
+    return this.http.get(`mh/events/${id}/artifacts/graphic`, {
+      headers: { Accept: 'text/html' }
+    }).text();
+  }
+
+  mhEventGraphicRepresentationPdf(id: number): Promise<Blob> {
+    return this.http.get(`mh/events/${id}/artifacts/pdf`, {
       headers: { Accept: 'application/pdf' },
       timeout: 90000
     }).blob();
