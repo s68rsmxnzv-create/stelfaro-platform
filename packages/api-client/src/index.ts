@@ -556,6 +556,14 @@ export type ManualInvoiceInput = {
   totalNoGravado?: number;
   relatedDocument?: DteDraftSummary | null;
   observations?: string | null;
+  paymentCondition?: number;
+  payments?: Array<{
+    codigo: string;
+    montoPago: number;
+    referencia?: string | null;
+    plazo?: string | null;
+    periodo?: number | null;
+  }>;
   items: BillingItem[];
 };
 
@@ -1019,6 +1027,16 @@ export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewReques
       ...(input.ivaPerci !== undefined ? { ivaPerci: roundMoney(input.ivaPerci) } : {}),
       ...(input.reteRenta !== undefined ? { reteRenta: roundMoney(input.reteRenta) } : {}),
       ...(input.totalNoGravado !== undefined ? { totalNoGravado: roundMoney(input.totalNoGravado) } : {}),
+      ...(input.paymentCondition !== undefined ? { condicionOperacion: input.paymentCondition } : {}),
+      ...(input.payments !== undefined ? {
+        pagos: input.payments.map((payment) => ({
+          codigo: payment.codigo,
+          montoPago: roundMoney(payment.montoPago),
+          referencia: payment.referencia?.trim() ? payment.referencia.trim() : null,
+          plazo: payment.plazo || null,
+          periodo: payment.periodo ?? null
+        }))
+      } : {}),
       observaciones: input.observations ?? null,
       codigoRetencionMH: null
     }
