@@ -21,9 +21,6 @@ const filterPurpose = ref('');
 const form = reactive({
   purpose: 'dte_delivery',
   from_email: '',
-  from_name: '',
-  reply_to_email: '',
-  reply_to_name: '',
   is_active: true
 });
 
@@ -88,9 +85,6 @@ function editAlias(alias: NotificationSenderAlias): void {
   selectedId.value = alias.id;
   form.purpose = alias.purpose;
   form.from_email = alias.from_email;
-  form.from_name = alias.from_name ?? '';
-  form.reply_to_email = alias.reply_to_email ?? '';
-  form.reply_to_name = alias.reply_to_name ?? '';
   form.is_active = alias.is_active;
 }
 
@@ -98,9 +92,6 @@ function resetForm(): void {
   selectedId.value = null;
   form.purpose = 'dte_delivery';
   form.from_email = '';
-  form.from_name = '';
-  form.reply_to_email = '';
-  form.reply_to_name = '';
   form.is_active = true;
 }
 
@@ -110,9 +101,6 @@ function buildPayload(): NotificationSenderAliasPayload {
     scope_id: 0,
     purpose: form.purpose,
     from_email: form.from_email,
-    from_name: form.from_name || null,
-    reply_to_email: form.reply_to_email || null,
-    reply_to_name: form.reply_to_name || null,
     is_active: form.is_active
   };
 }
@@ -167,31 +155,23 @@ function purposeLabel(value: string): string {
             <thead class="bg-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
                 <th class="px-4 py-3">Actividad</th>
-                <th class="px-4 py-3">Remitente</th>
-                <th class="px-4 py-3">Reply-to</th>
+                <th class="px-4 py-3">Alias</th>
                 <th class="px-4 py-3">Estado</th>
                 <th class="px-4 py-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-if="loading">
-                <td class="px-4 py-6 text-slate-500" colspan="5">Cargando alias...</td>
+                <td class="px-4 py-6 text-slate-500" colspan="4">Cargando alias...</td>
               </tr>
 
               <tr v-else-if="filteredAliases.length === 0">
-                <td class="px-4 py-6 text-slate-500" colspan="5">No hay alias configurados.</td>
+                <td class="px-4 py-6 text-slate-500" colspan="4">No hay alias configurados.</td>
               </tr>
 
               <tr v-for="alias in filteredAliases" v-else :key="alias.id" class="hover:bg-slate-50">
                 <td class="px-4 py-3 font-medium text-slate-950">{{ purposeLabel(alias.purpose) }}</td>
-                <td class="px-4 py-3">
-                  <p class="font-medium text-slate-950">{{ alias.from_email }}</p>
-                  <p class="text-xs text-slate-500">{{ alias.from_name || 'Sin nombre visible' }}</p>
-                </td>
-                <td class="px-4 py-3 text-slate-700">
-                  <span v-if="alias.reply_to_email">{{ alias.reply_to_email }}</span>
-                  <span v-else class="text-slate-400">No definido</span>
-                </td>
+                <td class="px-4 py-3 font-medium text-slate-950">{{ alias.from_email }}</td>
                 <td class="px-4 py-3">
                   <span
                     class="inline-flex rounded-full px-2 py-1 text-xs font-semibold"
@@ -218,7 +198,7 @@ function purposeLabel(value: string): string {
         <div class="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 class="text-lg font-semibold text-slate-950">{{ selectedAlias ? 'Editar alias' : 'Nuevo alias' }}</h2>
-            <p class="mt-1 text-sm text-slate-600">Define el remitente global que se usara para una actividad.</p>
+            <p class="mt-1 text-sm text-slate-600">Define el alias global que se usara para una actividad.</p>
           </div>
           <button v-if="selectedAlias" type="button" class="text-sm font-medium text-slate-600 hover:text-slate-950" @click="resetForm">
             Nuevo
@@ -243,34 +223,6 @@ function purposeLabel(value: string): string {
               required
               class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900"
               placeholder="stelfaro.dte@stelfaro.com"
-            />
-          </label>
-
-          <label class="block">
-            <span class="text-sm font-medium text-slate-700">Nombre visible</span>
-            <input
-              v-model="form.from_name"
-              class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900"
-              placeholder="Stelfaro DTE"
-            />
-          </label>
-
-          <label class="block">
-            <span class="text-sm font-medium text-slate-700">Reply-to</span>
-            <input
-              v-model="form.reply_to_email"
-              type="email"
-              class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900"
-              placeholder="soporte@stelfaro.com"
-            />
-          </label>
-
-          <label class="block">
-            <span class="text-sm font-medium text-slate-700">Nombre reply-to</span>
-            <input
-              v-model="form.reply_to_name"
-              class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900"
-              placeholder="Soporte Stelfaro"
             />
           </label>
 

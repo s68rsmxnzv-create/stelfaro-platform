@@ -64,9 +64,6 @@ export type NotificationSenderAliasPayload = {
   scope_id?: number | null;
   purpose: string;
   from_email: string;
-  from_name?: string | null;
-  reply_to_email?: string | null;
-  reply_to_name?: string | null;
   is_active?: boolean;
   metadata?: Record<string, unknown> | null;
 };
