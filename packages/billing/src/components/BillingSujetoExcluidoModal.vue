@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
-import { UiButton, UiFiscalDocumentInput, UiInput, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCloseCircleIcon, UiFiscalDocumentInput, UiInput, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
 
 type SelectOption = {
   value: string;
@@ -148,11 +148,12 @@ function submit(): void {
               <p class="mt-1 text-sm text-slate-500">Datos requeridos para emitir Factura de Sujeto Excluido.</p>
             </div>
             <button
-              class="rounded-md px-3 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+              class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
               type="button"
+              aria-label="Cerrar"
               @click="emit('close')"
             >
-              Cerrar
+              <UiCloseCircleIcon class="h-6 w-6" />
             </button>
           </div>
         </div>

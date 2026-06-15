@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, watch } from 'vue';
+import { UiCloseCircleIcon } from '@stelfaro/ui';
 
 export type BillingProcessLogEntry = {
   message?: string;
@@ -134,12 +135,13 @@ onBeforeUnmount(() => {
               <p v-if="subtitle" class="mt-1 text-sm text-slate-500">{{ subtitle }}</p>
             </div>
             <button
-              class="rounded-md px-3 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+              class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500 disabled:cursor-not-allowed disabled:opacity-40"
               :disabled="processing"
               type="button"
+              :aria-label="closeLabel"
               @click="close"
             >
-              {{ closeLabel }}
+              <UiCloseCircleIcon class="h-6 w-6" />
             </button>
           </div>
         </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { UiCloseCircleIcon } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   open: boolean;
@@ -76,11 +77,12 @@ const titleClass = computed(() => {
 
             <button
               v-if="variant !== 'loading'"
-              class="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+              class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
               type="button"
+              :aria-label="closeLabel"
               @click="$emit('close')"
             >
-              {{ closeLabel }}
+              <UiCloseCircleIcon class="h-6 w-6" />
             </button>
           </div>
         </div>

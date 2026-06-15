@@ -7,7 +7,7 @@ import {
   type MhFiscalEventSummary
 } from '@stelfaro/api-client';
 import { currency } from '@stelfaro/shared';
-import { UiButton, UiCard, UiSearchInput, UiLoadingMark, UiTextarea } from '@stelfaro/ui';
+import { UiButton, UiCard, UiCloseCircleIcon, UiSearchInput, UiLoadingMark, UiTextarea } from '@stelfaro/ui';
 import BillingProcessModal from '../components/BillingProcessModal.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 
@@ -1511,11 +1511,12 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 </p>
               </div>
               <button
-                class="rounded-md px-3 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
                 type="button"
+                aria-label="Cerrar"
                 @click="closeEventModal"
               >
-                Cerrar
+                <UiCloseCircleIcon class="h-6 w-6" />
               </button>
             </div>
           </div>
