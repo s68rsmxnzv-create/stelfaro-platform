@@ -26,12 +26,49 @@ export type CoreDteClientOptions = {
   onSessionRefresh?: (expiresAt: string | null) => void;
 };
 
+export type NotificationsClientOptions = {
+  authToken?: string | null | (() => string | null | undefined);
+};
+
 export type CoreHealth = {
   status: string;
   service: string;
   version: string;
   environment: string;
   timestamp: string;
+};
+
+export type NotificationsHealth = {
+  status: string;
+  service: string;
+  timestamp: string;
+};
+
+export type NotificationSenderAlias = {
+  id: number;
+  scope_type: 'global' | 'empresa';
+  scope_id: number;
+  purpose: string;
+  from_email: string;
+  from_name: string | null;
+  reply_to_email: string | null;
+  reply_to_name: string | null;
+  is_active: boolean;
+  metadata: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type NotificationSenderAliasPayload = {
+  scope_type: 'global' | 'empresa';
+  scope_id?: number | null;
+  purpose: string;
+  from_email: string;
+  from_name?: string | null;
+  reply_to_email?: string | null;
+  reply_to_name?: string | null;
+  is_active?: boolean;
+  metadata?: Record<string, unknown> | null;
 };
 
 export type DteMetadata = {
@@ -591,6 +628,89 @@ function compactParams(params: Record<string, unknown>): URLSearchParams {
   return searchParams;
 }
 
+function normalizeServiceBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/$/, '');
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith('/')) {
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      return `${window.location.origin}${trimmed}`;
+    }
+
+    return trimmed.replace(/^\/+/, '');
+  }
+
+  return trimmed.replace(/^\/+/, '');
+}
+
+function buildServiceHttp(baseUrl: string, authToken?: string | null | (() => string | null | undefined)): KyInstance {
+  return ky.create({
+    prefixUrl: normalizeServiceBaseUrl(baseUrl),
+    timeout: 15000,
+    hooks: {
+      beforeRequest: [
+        (request) => {
+          const token = typeof authToken === 'function' ? authToken() : authToken;
+          if (token) {
+            request.headers.set('Authorization', `Bearer ${token}`);
+          }
+        }
+      ],
+      beforeError: [
+        async (error) => {
+          const contentType = error.response.headers.get('content-type') ?? '';
+          const body = await error.response.text().catch(() => '');
+          const trimmedBody = body.trim();
+
+          if (contentType.includes('application/json') && trimmedBody !== '') {
+            try {
+              const payload = JSON.parse(trimmedBody) as { message?: unknown; errors?: unknown };
+              const message = typeof payload.message === 'string' ? payload.message : '';
+              const errors = payload.errors && typeof payload.errors === 'object'
+                ? Object.values(payload.errors as Record<string, unknown>).flat().map((item) => String(item)).join(' ')
+                : '';
+              error.message = message || errors || error.message;
+              return error;
+            } catch {
+              return error;
+            }
+          }
+
+          error.message = trimmedBody || error.message;
+          return error;
+        }
+      ]
+    }
+  });
+}
+
+export class NotificationsClient {
+  private readonly http: KyInstance;
+
+  constructor(baseUrl: string, options: NotificationsClientOptions = {}) {
+    this.http = buildServiceHttp(baseUrl, options.authToken);
+  }
+
+  health(): Promise<NotificationsHealth> {
+    return this.http.get('health').json();
+  }
+
+  senderAliases(params: { scope_type?: string; scope_id?: number; purpose?: string } = {}): Promise<{ data: NotificationSenderAlias[] }> {
+    return this.http.get('sender-aliases', { searchParams: compactParams(params) }).json();
+  }
+
+  saveSenderAlias(payload: NotificationSenderAliasPayload): Promise<{ data: NotificationSenderAlias }> {
+    return this.http.post('sender-aliases', { json: payload }).json();
+  }
+
+  updateSenderAlias(id: number, payload: Partial<NotificationSenderAliasPayload>): Promise<{ data: NotificationSenderAlias }> {
+    return this.http.patch(`sender-aliases/${id}`, { json: payload }).json();
+  }
+}
+
 export class CoreDteClient {
   private readonly http: KyInstance;
   private readonly authToken?: CoreDteClientOptions['authToken'];
@@ -655,21 +775,7 @@ export class CoreDteClient {
   }
 
   private normalizeBaseUrl(baseUrl: string): string {
-    const trimmed = baseUrl.trim().replace(/\/$/, '');
-
-    if (/^https?:\/\//i.test(trimmed)) {
-      return trimmed;
-    }
-
-    if (trimmed.startsWith('/')) {
-      if (typeof window !== 'undefined' && window.location?.origin) {
-        return `${window.location.origin}${trimmed}`;
-      }
-
-      return trimmed.replace(/^\/+/, '');
-    }
-
-    return trimmed.replace(/^\/+/, '');
+    return normalizeServiceBaseUrl(baseUrl);
   }
 
   login(payload: { email: string; password: string; device_name?: string }): Promise<LoginResponse> {

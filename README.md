@@ -15,6 +15,7 @@ Frontend modular para facturacion reutilizable y futuras apps verticales como se
 ## Apps
 
 - `apps/billing-demo`: app ejecutable para desarrollar y probar el modulo transversal de facturacion.
+- `apps/platform-admin`: panel interno de administracion de plataforma para operaciones Stelfaro.
 
 ## Packages
 
@@ -50,6 +51,7 @@ ops/nginx/billing.stelfaro.com.conf
 ```bash
 npx pnpm@9.15.4 install
 npx pnpm@9.15.4 --filter @stelfaro/billing-demo dev
+npx pnpm@9.15.4 --filter @stelfaro/platform-admin dev
 ```
 
 La app de desarrollo usa proxy de Vite contra el Core DTE publicado en:
@@ -57,3 +59,5 @@ La app de desarrollo usa proxy de Vite contra el Core DTE publicado en:
 ```text
 https://dte.stelfaro.me/api/v1
 ```
+
+El panel administrativo consume `stelfaro-notifications` desde `VITE_NOTIFICATIONS_API_BASE_URL` o, en desarrollo, desde `/notifications-api/v1`.

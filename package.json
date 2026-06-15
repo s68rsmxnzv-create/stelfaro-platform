@@ -5,8 +5,11 @@
   "packageManager": "pnpm@9.15.4",
   "scripts": {
     "dev": "pnpm --filter @stelfaro/billing-demo dev",
+    "dev:admin": "pnpm --filter @stelfaro/platform-admin dev",
     "build": "pnpm --filter @stelfaro/billing-demo build",
+    "build:admin": "pnpm --filter @stelfaro/platform-admin build",
     "typecheck": "pnpm --filter @stelfaro/billing-demo typecheck",
+    "typecheck:admin": "pnpm --filter @stelfaro/platform-admin typecheck",
     "test": "pnpm --filter @stelfaro/billing-demo test"
   },
   "devDependencies": {
