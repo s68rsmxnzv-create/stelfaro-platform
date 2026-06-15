@@ -33,6 +33,40 @@ const billingSlugByType: Record<string, string> = {
   '05': 'nc',
   '06': 'nd'
 };
+const billingTypeBySlug: Record<string, BillingDocumentType['code']> = {
+  fe: '01',
+  ccf: '03',
+  se: '14',
+  nc: '05',
+  nd: '06'
+};
+const dteHelpByType: Record<string, { title: string; summary: string; use: string }> = {
+  '01': {
+    title: 'Factura Electronica',
+    summary: 'Para ventas al consumidor final.',
+    use: 'Usala cuando tu cliente no necesita credito fiscal. Si el monto es alto, identifica al cliente antes de emitir.'
+  },
+  '03': {
+    title: 'Credito Fiscal',
+    summary: 'Para clientes que declaran IVA.',
+    use: 'Usalo cuando vendes a una empresa o contribuyente que necesita usar la compra como credito fiscal.'
+  },
+  '05': {
+    title: 'Nota de Credito',
+    summary: 'Para bajar o anular valores de un CCF.',
+    use: 'Usala cuando hubo devolucion, descuento posterior o necesitas corregir a favor del cliente.'
+  },
+  '06': {
+    title: 'Nota de Debito',
+    summary: 'Para aumentar valores de un CCF.',
+    use: 'Usala cuando faltaron cargos, se agregaron productos o debes cobrar una diferencia.'
+  },
+  '14': {
+    title: 'Sujeto Excluido',
+    summary: 'Para compras a personas fuera del IVA.',
+    use: 'Usala cuando compras bienes o servicios a alguien que no emite DTE ni factura con IVA.'
+  }
+};
 const billingOptions = computed(() => {
   const source = documentTypes.value.length ? documentTypes.value : fallbackBillingTypes;
   return source
@@ -84,6 +118,13 @@ const pageTitle = computed(() => {
   const current = nav.value.find((item) => item.to === route.path);
   return current?.label ?? 'Billing';
 });
+const currentBillingType = computed(() => {
+  if (!route.path.startsWith('/billing')) return null;
+
+  const slug = String(route.params.documentSlug ?? '').trim();
+  return billingTypeBySlug[slug] ?? null;
+});
+const currentDteHelp = computed(() => currentBillingType.value ? dteHelpByType[currentBillingType.value] ?? null : null);
 const homePath = computed(() => auth.isBackoffice ? '/companies' : '/billing/fe');
 const initials = computed(() => {
   const name = auth.user?.name ?? 'Stelfaro';
@@ -469,7 +510,22 @@ function toggleUserMenu(): void {
 
     <header class="relative z-10 border-b border-blue-100/70 bg-white/85 shadow-sm shadow-blue-950/5 backdrop-blur">
       <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-        <h1 class="text-3xl font-bold tracking-tight text-slate-950">{{ pageTitle }}</h1>
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class="text-3xl font-bold tracking-tight text-slate-950">{{ pageTitle }}</h1>
+          <div v-if="currentDteHelp" class="group relative">
+            <button
+              class="grid h-9 w-9 place-items-center rounded-full border border-sky-200 bg-sky-50 text-sm font-black text-sky-700 shadow-sm shadow-sky-950/5 transition hover:border-sky-300 hover:bg-sky-100 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
+              type="button"
+              :aria-label="`Ayuda sobre ${currentDteHelp.title}`"
+            >
+              i
+            </button>
+            <div class="pointer-events-none absolute left-0 top-11 z-40 w-[min(20rem,calc(100vw-2rem))] translate-y-1 rounded-lg border border-sky-100 bg-white p-4 text-sm opacity-0 shadow-xl shadow-sky-950/10 ring-1 ring-sky-100 transition group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100 sm:left-auto sm:right-0">
+              <p class="text-xs font-semibold uppercase text-sky-700">{{ currentDteHelp.summary }}</p>
+              <p class="mt-2 leading-6 text-slate-700">{{ currentDteHelp.use }}</p>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
 
