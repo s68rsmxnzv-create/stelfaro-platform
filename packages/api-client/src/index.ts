@@ -141,6 +141,7 @@ export type DteDraftSummary = {
 
 export type DteDocumentListResponse = {
   data: DteDraftSummary[];
+  meta?: PaginationMeta;
 };
 
 export type DteQueryMhResponse = {
@@ -222,6 +223,17 @@ export type MhFiscalEventSummary = {
 
 export type MhFiscalEventListResponse = {
   data: MhFiscalEventSummary[];
+  meta?: PaginationMeta;
+};
+
+export type PaginationMeta = {
+  current_page: number;
+  per_page: number;
+  last_page: number;
+  total: number;
+  from: number;
+  to: number;
+  has_more_pages: boolean;
 };
 
 export type MhFiscalEventValidation = {
@@ -859,7 +871,7 @@ export class CoreDteClient {
     return finalResult;
   }
 
-  documents(params: { q?: string; estado?: string; tipo_dte?: string; empresa_id?: number; limit?: number; include_payload?: boolean } = {}): Promise<DteDocumentListResponse> {
+  documents(params: { q?: string; estado?: string; tipo_dte?: string; empresa_id?: number; limit?: number; page?: number; include_payload?: boolean } = {}): Promise<DteDocumentListResponse> {
     return this.http.get('dte/drafts', { searchParams: compactParams(params) }).json();
   }
 
@@ -917,7 +929,7 @@ export class CoreDteClient {
     return this.http.get(`dte/drafts/${id}/history`).json();
   }
 
-  mhEvents(params: { q?: string; estado?: string; event_type?: string; empresa_id?: number; limit?: number } = {}): Promise<MhFiscalEventListResponse> {
+  mhEvents(params: { q?: string; estado?: string; event_type?: string; empresa_id?: number; limit?: number; page?: number } = {}): Promise<MhFiscalEventListResponse> {
     return this.http.get('mh/events', { searchParams: compactParams(params) }).json();
   }
 

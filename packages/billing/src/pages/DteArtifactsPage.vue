@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import { CoreDteClient, type DteDraftSummary, type MhFiscalEventSummary } from '@stelfaro/api-client';
+import { CoreDteClient, type DteDraftSummary, type MhFiscalEventSummary, type PaginationMeta } from '@stelfaro/api-client';
 import { currency } from '@stelfaro/shared';
 import { UiButton, UiCard, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiSearchInput } from '@stelfaro/ui';
 
@@ -13,9 +13,11 @@ const props = withDefaults(defineProps<{
 });
 
 type ArtifactTab = 'dte' | 'events';
+type PageItem = number | 'ellipsis';
 
 const supportedTypes = new Set(['01', '03', '05', '06', '14']);
 const supportedEventTypes = new Set(['invalidacion']);
+const pageSize = 10;
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const activeTab = ref<ArtifactTab>('dte');
 const loading = ref(false);
@@ -28,6 +30,10 @@ const query = ref('');
 const tipoDte = ref('');
 const documents = ref<DteDraftSummary[]>([]);
 const events = ref<MhFiscalEventSummary[]>([]);
+const dtePage = ref(1);
+const eventPage = ref(1);
+const dteMeta = ref<PaginationMeta | null>(null);
+const eventMeta = ref<PaginationMeta | null>(null);
 let searchTimer: ReturnType<typeof window.setTimeout> | null = null;
 
 const emptyState = computed(() => {
@@ -36,7 +42,10 @@ const emptyState = computed(() => {
   return activeTab.value === 'dte' ? documents.value.length === 0 : events.value.length === 0;
 });
 
-const resultCount = computed(() => activeTab.value === 'dte' ? documents.value.length : events.value.length);
+const currentMeta = computed(() => activeTab.value === 'dte' ? dteMeta.value : eventMeta.value);
+const currentPage = computed(() => activeTab.value === 'dte' ? dtePage.value : eventPage.value);
+const resultCount = computed(() => currentMeta.value?.total ?? (activeTab.value === 'dte' ? documents.value.length : events.value.length));
+const paginationItems = computed<PageItem[]>(() => pageItems(currentMeta.value?.last_page ?? 1, currentPage.value));
 
 onMounted(() => {
   void loadActiveTab();
@@ -44,10 +53,12 @@ onMounted(() => {
 
 watch(query, () => {
   if (searchTimer) window.clearTimeout(searchTimer);
+  resetPages();
   searchTimer = window.setTimeout(() => void loadActiveTab(), 250);
 });
 
 watch(tipoDte, () => {
+  dtePage.value = 1;
   if (activeTab.value === 'dte') void loadDocuments();
 });
 
@@ -74,10 +85,12 @@ async function loadDocuments(): Promise<void> {
       q: query.value.trim(),
       estado: 'accepted',
       tipo_dte: tipoDte.value,
-      limit: 40
+      limit: pageSize,
+      page: dtePage.value
     });
 
     documents.value = response.data.filter((document) => supportedTypes.has(document.tipoDte));
+    dteMeta.value = response.meta ?? fallbackMeta(documents.value.length, dtePage.value);
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar comprobantes.';
   } finally {
@@ -94,15 +107,72 @@ async function loadEvents(): Promise<void> {
       q: query.value.trim(),
       estado: 'accepted',
       event_type: 'invalidacion',
-      limit: 40
+      limit: pageSize,
+      page: eventPage.value
     });
 
     events.value = response.data.filter((event) => supportedEventTypes.has(event.eventType));
+    eventMeta.value = response.meta ?? fallbackMeta(events.value.length, eventPage.value);
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar eventos.';
   } finally {
     loading.value = false;
   }
+}
+
+function resetPages(): void {
+  dtePage.value = 1;
+  eventPage.value = 1;
+}
+
+function goToPage(page: number): void {
+  const lastPage = currentMeta.value?.last_page ?? 1;
+  const nextPage = Math.min(Math.max(page, 1), lastPage);
+
+  if (activeTab.value === 'dte') {
+    if (nextPage === dtePage.value) return;
+    dtePage.value = nextPage;
+    void loadDocuments();
+    return;
+  }
+
+  if (nextPage === eventPage.value) return;
+  eventPage.value = nextPage;
+  void loadEvents();
+}
+
+function pageItems(lastPage: number, page: number): PageItem[] {
+  if (lastPage <= 7) {
+    return Array.from({ length: lastPage }, (_, index) => index + 1);
+  }
+
+  const pages = new Set([1, 2, lastPage - 1, lastPage, page - 1, page, page + 1]);
+  const visible = [...pages]
+    .filter((item) => item >= 1 && item <= lastPage)
+    .sort((a, b) => a - b);
+  const items: PageItem[] = [];
+
+  for (const item of visible) {
+    const previous = items[items.length - 1];
+    if (typeof previous === 'number' && item - previous > 1) {
+      items.push('ellipsis');
+    }
+    items.push(item);
+  }
+
+  return items;
+}
+
+function fallbackMeta(total: number, page: number): PaginationMeta {
+  return {
+    current_page: page,
+    per_page: pageSize,
+    last_page: 1,
+    total,
+    from: total === 0 ? 0 : 1,
+    to: total,
+    has_more_pages: false
+  };
 }
 
 async function openPdf(document: DteDraftSummary): Promise<void> {
@@ -470,6 +540,62 @@ function formatDate(value?: string | null): string {
               </UiButton>
             </div>
           </article>
+        </div>
+
+        <div
+          v-if="currentMeta && currentMeta.total > 0"
+          class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <p class="text-sm text-slate-600">
+            {{ currentMeta.from }}-{{ currentMeta.to }} de {{ currentMeta.total }}
+          </p>
+
+          <nav class="flex items-center" aria-label="Paginacion">
+            <button
+              type="button"
+              class="mx-1 flex h-10 min-w-10 items-center justify-center rounded-md bg-white px-3 py-2 text-slate-500 transition-colors duration-300 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-white disabled:hover:text-slate-300 hover:bg-sky-600 hover:text-white"
+              :disabled="currentPage <= 1 || loading"
+              aria-label="Pagina anterior"
+              @click="goToPage(currentPage - 1)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+              </svg>
+            </button>
+
+            <template v-for="(item, index) in paginationItems" :key="`${item}-${index}`">
+              <span
+                v-if="item === 'ellipsis'"
+                class="mx-1 hidden h-10 min-w-10 items-center justify-center rounded-md bg-white px-4 py-2 text-slate-500 sm:inline-flex"
+              >
+                ...
+              </span>
+
+              <button
+                v-else
+                type="button"
+                class="mx-1 hidden h-10 min-w-10 items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition-colors duration-300 sm:inline-flex"
+                :class="item === currentPage ? 'bg-sky-600 text-white' : 'bg-white text-slate-700 hover:bg-sky-600 hover:text-white'"
+                :aria-current="item === currentPage ? 'page' : undefined"
+                :disabled="loading"
+                @click="goToPage(item)"
+              >
+                {{ item }}
+              </button>
+            </template>
+
+            <button
+              type="button"
+              class="mx-1 flex h-10 min-w-10 items-center justify-center rounded-md bg-white px-3 py-2 text-slate-700 transition-colors duration-300 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-white disabled:hover:text-slate-300 hover:bg-sky-600 hover:text-white"
+              :disabled="currentPage >= currentMeta.last_page || loading"
+              aria-label="Pagina siguiente"
+              @click="goToPage(currentPage + 1)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+              </svg>
+            </button>
+          </nav>
         </div>
       </div>
     </UiCard>
