@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { CoreDteClient, type BillingDocumentType } from '@stelfaro/api-client';
+import { CoreDteClient, type BillingDocumentType, type BillingEmpresa } from '@stelfaro/api-client';
 import { UiCloseCircleIcon, UiInfoIcon } from '@stelfaro/ui';
 import { useAuthStore } from './stores/auth';
 
@@ -16,6 +16,8 @@ const responsesMenuOpen = ref(false);
 const dteHelpModalOpen = ref(false);
 const appNav = ref<HTMLElement | null>(null);
 const documentTypes = ref<BillingDocumentType[]>([]);
+const billingCompanies = ref<BillingEmpresa[]>([]);
+const companyLogoBroken = ref(false);
 const isPublicLayout = computed(() => Boolean(route.meta.public));
 const nav = computed(() => [
   { label: 'Dashboard', to: '/', show: true },
@@ -127,7 +129,8 @@ const currentBillingType = computed(() => {
   return billingTypeBySlug[slug] ?? null;
 });
 const currentDteHelp = computed(() => currentBillingType.value ? dteHelpByType[currentBillingType.value] ?? null : null);
-const homePath = computed(() => auth.isBackoffice ? '/companies' : '/billing/fe');
+const activeCompany = computed(() => billingCompanies.value.find((empresa) => empresa.lifecycle_status === 'active') ?? billingCompanies.value[0] ?? null);
+const companyLogoUrl = computed(() => companyLogoBroken.value ? null : activeCompany.value?.logo_url ?? null);
 const initials = computed(() => {
   const name = auth.user?.name ?? 'Stelfaro';
   return name
@@ -150,11 +153,15 @@ watch(() => route.fullPath, () => {
 watch(() => auth.token, async () => {
   if (!auth.token || auth.isBackoffice) {
     documentTypes.value = [];
+    billingCompanies.value = [];
+    companyLogoBroken.value = false;
     return;
   }
 
   try {
     const context = await new CoreDteClient('/api/v1', { authToken: auth.token }).billingContext();
+    billingCompanies.value = context.empresas;
+    companyLogoBroken.value = false;
     const enabled = new Set(context.empresas.flatMap((empresa) => empresa.enabled_document_types ?? []));
     documentTypes.value = context.documentTypes.map((type) => ({
       ...type,
@@ -162,6 +169,8 @@ watch(() => auth.token, async () => {
     }));
   } catch {
     documentTypes.value = [];
+    billingCompanies.value = [];
+    companyLogoBroken.value = false;
   }
 }, { immediate: true });
 
@@ -248,12 +257,7 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
           <div class="flex items-center">
-            <RouterLink :to="homePath" class="flex items-center gap-3">
-              <span class="flex h-9 w-9 items-center justify-center rounded-md bg-sky-500 text-sm font-black text-white">SF</span>
-              <span class="hidden text-sm font-semibold text-white sm:inline">Stelfaro Billing</span>
-            </RouterLink>
-
-            <div class="ml-10 hidden items-baseline gap-1 md:flex">
+            <div class="hidden items-baseline gap-1 md:flex">
               <RouterLink
                 v-for="item in nav"
                 :key="item.to"
@@ -384,8 +388,17 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
                 @click="toggleUserMenu"
               >
                 <span class="sr-only">Abrir menu de usuario</span>
-                <span class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-white outline outline-1 -outline-offset-1 outline-white/10">
-                  {{ initials }}
+                <span class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-white text-xs font-bold text-slate-900 outline outline-1 -outline-offset-1 outline-white/10">
+                  <img
+                    v-if="companyLogoUrl"
+                    :src="companyLogoUrl"
+                    class="h-full w-full object-contain p-1"
+                    alt=""
+                    @error="companyLogoBroken = true"
+                  >
+                  <span v-else>
+                    {{ initials }}
+                  </span>
                 </span>
               </button>
 
@@ -500,8 +513,17 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
         </div>
         <div class="border-t border-white/10 pb-3 pt-4">
           <div class="flex items-center px-5">
-            <span class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-white outline outline-1 -outline-offset-1 outline-white/10">
-              {{ initials }}
+            <span class="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white text-xs font-bold text-slate-900 outline outline-1 -outline-offset-1 outline-white/10">
+              <img
+                v-if="companyLogoUrl"
+                :src="companyLogoUrl"
+                class="h-full w-full object-contain p-1"
+                alt=""
+                @error="companyLogoBroken = true"
+              >
+              <span v-else>
+                {{ initials }}
+              </span>
             </span>
             <div class="ml-3 min-w-0">
               <p class="truncate text-base font-medium text-white">{{ auth.user?.name }}</p>
