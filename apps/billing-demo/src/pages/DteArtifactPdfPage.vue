@@ -55,9 +55,8 @@ function revokePdfUrl(): void {
 <template>
   <main class="min-h-screen bg-slate-100">
     <div v-if="loading" class="flex min-h-screen items-center justify-center">
-      <div class="flex items-center gap-3 rounded-lg bg-white px-5 py-4 shadow-sm">
-        <UiLoadingMark />
-        <span class="font-semibold text-slate-800">Cargando PDF...</span>
+      <div class="rounded-lg bg-white px-6 py-5 shadow-sm">
+        <UiLoadingMark label="Cargando PDF" />
       </div>
     </div>
 

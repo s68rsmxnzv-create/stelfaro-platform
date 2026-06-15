@@ -865,7 +865,8 @@ export class CoreDteClient {
 
   graphicRepresentationPdf(id: number): Promise<Blob> {
     return this.http.get(`dte/drafts/${id}/artifacts/pdf`, {
-      headers: { Accept: 'application/pdf' }
+      headers: { Accept: 'application/pdf' },
+      timeout: 90000
     }).blob();
   }
 

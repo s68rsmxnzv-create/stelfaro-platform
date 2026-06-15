@@ -65,7 +65,7 @@ const pageTitle = computed(() => {
     return currentEvent?.label ?? 'Eventos MH';
   }
 
-  if (route.path === '/comprobantes') {
+  if (route.path.startsWith('/comprobantes')) {
     return 'Comprobantes';
   }
 
