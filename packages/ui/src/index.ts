@@ -9,3 +9,4 @@ export { default as UiTextarea } from './components/UiTextarea.vue';
 export { default as UiToggle } from './components/UiToggle.vue';
 export { default as UiInfoIcon } from './components/UiInfoIcon.vue';
 export { default as UiCloseCircleIcon } from './components/UiCloseCircleIcon.vue';
+export { default as UiDocumentIcon } from './components/UiDocumentIcon.vue';

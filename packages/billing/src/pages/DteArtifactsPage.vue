@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { CoreDteClient, type DteDraftSummary } from '@stelfaro/api-client';
 import { currency } from '@stelfaro/shared';
-import { UiButton, UiCard, UiLoadingMark, UiSearchInput } from '@stelfaro/ui';
+import { UiButton, UiCard, UiDocumentIcon, UiLoadingMark, UiSearchInput } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -137,12 +137,17 @@ function formatDate(value?: string | null): string {
 <template>
   <section class="space-y-6">
     <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div>
-        <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Comprobantes</p>
-        <h2 class="mt-1 text-2xl font-bold text-slate-950">Representacion grafica</h2>
-        <p class="mt-2 text-sm text-slate-600">
-          Abre la version imprimible de los DTE aceptados por Hacienda.
-        </p>
+      <div class="flex items-start gap-3">
+        <span class="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-sky-100 text-sky-700">
+          <UiDocumentIcon class="h-7 w-7" />
+        </span>
+        <div>
+          <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Comprobantes</p>
+          <h2 class="mt-1 text-2xl font-bold text-slate-950">Representacion grafica</h2>
+          <p class="mt-2 text-sm text-slate-600">
+            Abre la version imprimible de los DTE aceptados por Hacienda.
+          </p>
+        </div>
       </div>
 
       <RouterLink to="/billing/fe" class="inline-flex items-center justify-center rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500">
@@ -208,7 +213,10 @@ function formatDate(value?: string | null): string {
             class="grid grid-cols-1 gap-3 px-4 py-4 md:grid-cols-[minmax(0,1.5fr)_160px_160px_240px] md:items-center"
           >
             <div class="min-w-0">
-              <p class="truncate font-semibold text-slate-950">{{ document.numeroControl }}</p>
+              <p class="flex min-w-0 items-center gap-2 font-semibold text-slate-950">
+                <UiDocumentIcon class="h-5 w-5 shrink-0 text-sky-600" />
+                <span class="truncate">{{ document.numeroControl }}</span>
+              </p>
               <p class="mt-1 truncate font-mono text-xs text-slate-500">{{ document.codigoGeneracion }}</p>
               <p class="mt-2 text-xs font-semibold uppercase text-sky-700">{{ typeLabel(document.tipoDte) }}</p>
             </div>
