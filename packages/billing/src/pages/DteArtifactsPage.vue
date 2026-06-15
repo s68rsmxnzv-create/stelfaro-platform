@@ -15,7 +15,6 @@ const props = withDefaults(defineProps<{
 const supportedTypes = new Set(['01', '03', '05', '06', '14']);
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const loading = ref(false);
-const openingId = ref<number | null>(null);
 const openingPdfId = ref<number | null>(null);
 const error = ref<string | null>(null);
 const query = ref('');
@@ -55,33 +54,6 @@ async function loadDocuments(): Promise<void> {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar comprobantes.';
   } finally {
     loading.value = false;
-  }
-}
-
-async function openGraphic(document: DteDraftSummary): Promise<void> {
-  if (!supportedTypes.has(document.tipoDte)) return;
-
-  const target = window.open('about:blank', '_blank');
-  openingId.value = document.id;
-  error.value = null;
-
-  try {
-    const html = await client.value.graphicRepresentationHtml(document.id);
-    const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-
-    if (target) {
-      target.location.href = url;
-      target.focus();
-      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } else {
-      URL.revokeObjectURL(url);
-      error.value = 'El navegador bloqueo la nueva pestana del comprobante.';
-    }
-  } catch (caught) {
-    if (target) target.close();
-    error.value = caught instanceof Error ? caught.message : 'No fue posible abrir el comprobante.';
-  } finally {
-    openingId.value = null;
   }
 }
 
@@ -137,17 +109,12 @@ function formatDate(value?: string | null): string {
 <template>
   <section class="space-y-6">
     <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div class="flex items-start gap-3">
-        <span class="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-sky-100 text-sky-700">
-          <UiDocumentIcon class="h-7 w-7" />
-        </span>
-        <div>
-          <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Comprobantes</p>
-          <h2 class="mt-1 text-2xl font-bold text-slate-950">Representacion grafica</h2>
-          <p class="mt-2 text-sm text-slate-600">
-            Abre la version imprimible de los DTE aceptados por Hacienda.
-          </p>
-        </div>
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Comprobantes</p>
+        <h2 class="mt-1 text-2xl font-bold text-slate-950">Representacion grafica</h2>
+        <p class="mt-2 text-sm text-slate-600">
+          Abre la version imprimible de los DTE aceptados por Hacienda.
+        </p>
       </div>
 
       <RouterLink to="/billing/fe" class="inline-flex items-center justify-center rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500">
@@ -191,7 +158,7 @@ function formatDate(value?: string | null): string {
 
     <UiCard>
       <div class="overflow-hidden rounded-md border border-slate-200">
-        <div class="hidden grid-cols-[minmax(0,1.5fr)_160px_160px_240px] gap-4 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase text-slate-500 md:grid">
+        <div class="hidden grid-cols-[minmax(0,1.5fr)_160px_160px_160px] gap-4 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase text-slate-500 md:grid">
           <span>Documento</span>
           <span>Fecha</span>
           <span>Total</span>
@@ -210,7 +177,7 @@ function formatDate(value?: string | null): string {
           <article
             v-for="document in documents"
             :key="document.id"
-            class="grid grid-cols-1 gap-3 px-4 py-4 md:grid-cols-[minmax(0,1.5fr)_160px_160px_240px] md:items-center"
+            class="grid grid-cols-1 gap-3 px-4 py-4 md:grid-cols-[minmax(0,1.5fr)_160px_160px_160px] md:items-center"
           >
             <div class="min-w-0">
               <p class="flex min-w-0 items-center gap-2 font-semibold text-slate-950">
@@ -230,14 +197,10 @@ function formatDate(value?: string | null): string {
                 :disabled="openingPdfId === document.id"
                 @click="openPdf(document)"
               >
-                {{ openingPdfId === document.id ? 'Abriendo...' : 'PDF' }}
-              </UiButton>
-
-              <UiButton
-                :disabled="openingId === document.id"
-                @click="openGraphic(document)"
-              >
-                {{ openingId === document.id ? 'Abriendo...' : 'HTML' }}
+                <span class="inline-flex items-center gap-2">
+                  <UiDocumentIcon class="h-5 w-5" />
+                  {{ openingPdfId === document.id ? 'Abriendo...' : 'PDF' }}
+                </span>
               </UiButton>
             </div>
           </article>
