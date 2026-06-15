@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { CoreDteClient, type DteDraftSummary } from '@stelfaro/api-client';
 import { currency } from '@stelfaro/shared';
-import { UiButton, UiCard, UiDocumentIcon, UiLoadingMark, UiSearchInput } from '@stelfaro/ui';
+import { UiButton, UiCard, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiSearchInput } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -16,6 +16,7 @@ const supportedTypes = new Set(['01', '03', '05', '06', '14']);
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const loading = ref(false);
 const openingPdfId = ref<number | null>(null);
+const openingJsonId = ref<number | null>(null);
 const error = ref<string | null>(null);
 const query = ref('');
 const tipoDte = ref('');
@@ -81,6 +82,42 @@ async function openPdf(document: DteDraftSummary): Promise<void> {
     error.value = caught instanceof Error ? caught.message : 'No fue posible abrir el PDF.';
   } finally {
     openingPdfId.value = null;
+  }
+}
+
+async function openJson(document: DteDraftSummary): Promise<void> {
+  if (!supportedTypes.has(document.tipoDte)) return;
+
+  const target = window.open('about:blank', '_blank');
+  openingJsonId.value = document.id;
+  error.value = null;
+
+  try {
+    const detail = await client.value.document(document.id);
+    const payload = detail.payload ?? detail.dte_json;
+
+    if (!payload) {
+      error.value = 'El documento no tiene JSON disponible.';
+      if (target) target.close();
+      return;
+    }
+
+    const json = JSON.stringify(payload, null, 2);
+    const url = URL.createObjectURL(new Blob([json], { type: 'application/json;charset=utf-8' }));
+
+    if (target) {
+      target.location.href = url;
+      target.focus();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } else {
+      URL.revokeObjectURL(url);
+      error.value = 'El navegador bloqueo la nueva pestana del JSON.';
+    }
+  } catch (caught) {
+    if (target) target.close();
+    error.value = caught instanceof Error ? caught.message : 'No fue posible abrir el JSON.';
+  } finally {
+    openingJsonId.value = null;
   }
 }
 
@@ -200,6 +237,17 @@ function formatDate(value?: string | null): string {
                 <span class="inline-flex items-center gap-2">
                   <UiDocumentIcon class="h-5 w-5" />
                   {{ openingPdfId === document.id ? 'Abriendo...' : 'PDF' }}
+                </span>
+              </UiButton>
+
+              <UiButton
+                variant="secondary"
+                :disabled="openingJsonId === document.id"
+                @click="openJson(document)"
+              >
+                <span class="inline-flex items-center gap-2">
+                  <UiCodeBracketIcon class="h-5 w-5" />
+                  {{ openingJsonId === document.id ? 'Abriendo...' : 'JSON' }}
                 </span>
               </UiButton>
             </div>
