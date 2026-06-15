@@ -102,7 +102,7 @@ async function openJson(document: DteDraftSummary): Promise<void> {
       return;
     }
 
-    const json = JSON.stringify(payload, null, 2);
+    const json = JSON.stringify(clientDteJson(detail, payload), null, 2);
     const url = URL.createObjectURL(new Blob([json], { type: 'application/json;charset=utf-8' }));
 
     if (target) {
@@ -119,6 +119,26 @@ async function openJson(document: DteDraftSummary): Promise<void> {
   } finally {
     openingJsonId.value = null;
   }
+}
+
+function clientDteJson(detail: DteDraftSummary, payload: Record<string, unknown>): Record<string, unknown> {
+  const bundle = asRecord(detail.signed_bundle);
+  const bundlePayload = asRecord(bundle.payload);
+  const dte = Object.keys(bundlePayload).length > 0 ? bundlePayload : payload;
+
+  return {
+    ...dte,
+    firmaElectronica: stringValue(detail.signedDocument ?? bundle.firmaElectronica ?? bundle.firma),
+    selloRecibido: stringValue(detail.selloRecibido ?? bundle.selloRecibido),
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() !== '' ? value : null;
 }
 
 function typeLabel(code: string): string {
