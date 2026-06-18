@@ -819,10 +819,13 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           <div v-if="editingCompany" id="empresa-editor" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p class="text-sm font-semibold text-slate-950">Datos de empresa</p>
-                <p class="mt-1 text-xs text-slate-500">El documento fiscal para certificado y firmador debe ser NIT largo.</p>
+                <p class="text-sm font-semibold text-slate-950">Datos generales de la empresa</p>
+                <p class="mt-1 text-xs text-slate-500">Nombres, documento fiscal, actividad, direccion, contacto y logo.</p>
               </div>
-              <UiButton :disabled="loading || !canSaveCompany || isInactive" @click="saveCompanyData">Guardar datos</UiButton>
+              <div class="flex flex-wrap items-center gap-2">
+                <UiButton v-if="props.detailMode" variant="secondary" :disabled="loading" @click="editingCompany = false">Volver al resumen</UiButton>
+                <UiButton :disabled="loading || !canSaveCompany || isInactive" @click="saveCompanyData">Guardar datos</UiButton>
+              </div>
             </div>
 
             <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -995,7 +998,16 @@ function markLogoBroken(empresa: BillingEmpresa): void {
             </div>
           </template>
 
-          <template v-else>
+          <template v-if="!props.detailMode || editingCompany">
+            <div v-if="props.detailMode && editingCompany" id="fiscalidad-editor" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p class="text-sm font-semibold text-slate-950">Fiscalidad y credenciales</p>
+                  <p class="mt-1 text-xs text-slate-500">Ambiente, certificado, credenciales MH, firmador y pruebas de disponibilidad.</p>
+                </div>
+              </div>
+            </div>
+
             <div class="grid gap-4 lg:grid-cols-3">
               <div class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
                 <p class="font-semibold text-slate-950">Casa matriz</p>
@@ -1072,8 +1084,8 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               </div>
 
               <div class="mt-6 flex flex-wrap items-center gap-3">
-                <UiButton :disabled="loading || !form.empresa_id || isInactive || (editingCompany && !canSaveCompany)" @click="saveVisibleChanges">
-                  {{ editingCompany ? 'Guardar datos de empresa' : 'Guardar configuracion fiscal' }}
+                <UiButton :disabled="loading || !form.empresa_id || isInactive" @click="props.detailMode ? saveSettings() : saveVisibleChanges()">
+                  {{ props.detailMode ? 'Guardar fiscalidad' : (editingCompany ? 'Guardar datos de empresa' : 'Guardar configuracion fiscal') }}
                 </UiButton>
                 <UiButton variant="secondary" :disabled="loading || !form.empresa_id || isInactive" @click="verifySigner">Verificar firma</UiButton>
                 <UiButton variant="secondary" :disabled="loading || !form.empresa_id || isInactive" @click="requestBearer">Verificar autorizacion MH</UiButton>
