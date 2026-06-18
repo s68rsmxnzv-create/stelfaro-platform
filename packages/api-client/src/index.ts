@@ -432,6 +432,10 @@ export type BillingEmpresa = {
   logo_url: string | null;
   codigo_actividad: string;
   desc_actividad: string;
+  actividades_economicas?: Array<{
+    codigo: string;
+    descripcion: string;
+  }>;
   ambiente: '00' | '01';
   lifecycle_status: 'active' | 'inactive';
   enabled_document_types?: string[];
@@ -518,6 +522,10 @@ export type BillingCompanyPayload = {
   nrc?: string | null;
   codigo_actividad: string;
   desc_actividad: string;
+  actividades_economicas?: Array<{
+    codigo: string;
+    descripcion: string;
+  }>;
   ambiente: '00' | '01';
   sucursal_nombre?: string | null;
   sucursal_codigo?: string | null;
@@ -888,6 +896,10 @@ export class CoreDteClient {
           form.set(key, value);
           return;
         }
+        if (Array.isArray(value) || typeof value === 'object') {
+          form.set(key, JSON.stringify(value));
+          return;
+        }
         form.set(key, String(value));
       });
 
@@ -904,6 +916,10 @@ export class CoreDteClient {
         if (value === null || value === undefined) return;
         if (value instanceof File) {
           form.set(key, value);
+          return;
+        }
+        if (Array.isArray(value) || typeof value === 'object') {
+          form.set(key, JSON.stringify(value));
           return;
         }
         form.set(key, String(value));

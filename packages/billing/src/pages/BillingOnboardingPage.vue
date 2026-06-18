@@ -34,6 +34,7 @@ const bearer = ref<MhBearerVerification | null>(null);
 const certificateFile = ref<File | null>(null);
 const logoFile = ref<File | null>(null);
 const logoPreview = ref<string | null>(null);
+const companyActivities = ref<string[]>(['']);
 const catalogs = ref<BillingCatalogs | null>(null);
 const step = ref(0);
 const fiscalDocument = ref<FiscalDocumentDetection>({
@@ -109,7 +110,6 @@ const actividadOptions = computed(() => actividadesEconomicas.value.map((item) =
   label: item.label,
   hint: item.code
 })));
-const selectedActividad = computed(() => actividadesEconomicas.value.find((item) => item.code === companyForm.codigo_actividad) ?? null);
 const steps = [
   'Empresa',
   'Ubicacion',
@@ -120,7 +120,7 @@ const canCompanyStep = computed(() => Boolean(
   companyForm.nombre_comercial.trim()
   && companyForm.razon_social.trim()
   && fiscalDocument.value.valid
-  && companyForm.codigo_actividad.trim()
+  && companyActivities.value[0]?.trim()
 ));
 const canLocationStep = computed(() => Boolean(
   companyForm.direccion.trim()
@@ -149,9 +149,9 @@ watch(() => companyForm.municipio, () => {
   companyForm.distrito = '';
 });
 
-watch(selectedActividad, (item) => {
-  companyForm.desc_actividad = item?.label ?? '';
-});
+watch(companyActivities, () => {
+  syncPrimaryActivity();
+}, { deep: true });
 
 async function run<T>(task: () => Promise<T>): Promise<T | null> {
   loading.value = true;
@@ -276,6 +276,8 @@ async function requestBearer(): Promise<void> {
 }
 
 function normalizeCompanyPayload(): BillingCompanyPayload {
+  syncPrimaryActivity();
+
   return {
     tenant_nombre: companyForm.nombre_comercial,
     nombre_comercial: companyForm.nombre_comercial,
@@ -284,6 +286,7 @@ function normalizeCompanyPayload(): BillingCompanyPayload {
     nrc: blankToNull(companyForm.nrc),
     codigo_actividad: companyForm.codigo_actividad,
     desc_actividad: companyForm.desc_actividad,
+    actividades_economicas: normalizedEconomicActivities(),
     ambiente: companyForm.ambiente,
     direccion: companyForm.direccion,
     departamento: companyForm.departamento,
@@ -293,6 +296,44 @@ function normalizeCompanyPayload(): BillingCompanyPayload {
     email: blankToNull(companyForm.email),
     logo: logoFile.value
   };
+}
+
+function addCompanyActivity(): void {
+  if (companyActivities.value.length >= 3 || !companyActivities.value[0]?.trim()) {
+    return;
+  }
+
+  companyActivities.value = [...companyActivities.value, ''];
+}
+
+function removeCompanyActivity(index: number): void {
+  if (index === 0) {
+    return;
+  }
+
+  companyActivities.value = companyActivities.value.filter((_, activityIndex) => activityIndex !== index);
+  syncPrimaryActivity();
+}
+
+function syncPrimaryActivity(): void {
+  const primary = companyActivities.value[0] ?? '';
+  const activity = actividadesEconomicas.value.find((item) => item.code === primary) ?? null;
+  companyForm.codigo_actividad = primary;
+  companyForm.desc_actividad = activity?.label ?? '';
+}
+
+function normalizedEconomicActivities(): Array<{ codigo: string; descripcion: string }> {
+  return companyActivities.value
+    .map((code) => {
+      const activity = actividadesEconomicas.value.find((item) => item.code === code) ?? null;
+
+      return {
+        codigo: code,
+        descripcion: activity?.label ?? ''
+      };
+    })
+    .filter((activity) => activity.codigo.trim() !== '' && activity.descripcion.trim() !== '')
+    .slice(0, 3);
 }
 
 function blankToNull(value: string | null | undefined): string | null {
@@ -345,9 +386,46 @@ function setLogo(event: Event): void {
       <div v-if="step === 0" class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <UiInput v-model="companyForm.razon_social" label="Nombre del contribuyente" />
         <UiInput v-model="companyForm.nombre_comercial" label="Nombre comercial" />
-        <UiFiscalDocumentInput v-model="companyForm.documento_fiscal" label="NIT" allowed-types="nit" @detected="fiscalDocument = $event" />
-        <UiInput v-model="companyForm.nrc" label="NRC" />
-        <UiSearchSelect v-model="companyForm.codigo_actividad" label="Actividad economica" :options="actividadOptions" placeholder="Buscar por codigo o descripcion" />
+        <div class="grid gap-4 md:col-span-2 md:grid-cols-2 xl:col-span-1">
+          <UiFiscalDocumentInput v-model="companyForm.documento_fiscal" label="NIT" allowed-types="nit" @detected="fiscalDocument = $event" />
+          <UiInput v-model="companyForm.nrc" label="NRC" />
+        </div>
+        <div class="md:col-span-2 xl:col-span-3">
+          <div class="flex items-center justify-between gap-3">
+            <span class="text-sm font-medium text-slate-700">Actividades economicas</span>
+            <UiButton
+              v-if="companyActivities.length < 3"
+              variant="secondary"
+              :disabled="!companyActivities[0]?.trim()"
+              @click="addCompanyActivity"
+            >
+              Agregar actividad
+            </UiButton>
+          </div>
+          <div class="mt-2 grid gap-3">
+            <div
+              v-for="(_, index) in companyActivities"
+              :key="index"
+              class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end"
+            >
+              <UiSearchSelect
+                v-model="companyActivities[index]"
+                :label="index === 0 ? 'Actividad principal' : `Actividad adicional ${index + 1}`"
+                :options="actividadOptions"
+                placeholder="Buscar por codigo o descripcion"
+                @update:model-value="syncPrimaryActivity"
+              />
+              <UiButton
+                v-if="index > 0"
+                variant="ghost"
+                :disabled="loading"
+                @click="removeCompanyActivity(index)"
+              >
+                Quitar
+              </UiButton>
+            </div>
+          </div>
+        </div>
         <label class="block">
           <span class="text-sm font-medium text-slate-700">Logo</span>
           <span class="mt-1 flex items-center gap-3">

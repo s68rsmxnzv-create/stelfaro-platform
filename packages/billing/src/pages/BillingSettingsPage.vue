@@ -53,6 +53,7 @@ const companyLogoPreview = ref<string | null>(null);
 const editingCredentials = ref(false);
 const editingCompany = ref(false);
 const brokenLogoIds = ref<Set<number>>(new Set());
+const companyActivities = ref<string[]>(['']);
 const catalogs = ref<BillingCatalogs | null>(null);
 const syncingCompany = ref(false);
 const fiscalDocument = ref<FiscalDocumentDetection>({
@@ -174,13 +175,12 @@ const departamentoOptions = computed(() => departamentos.value.map((item) => ({ 
 const municipioOptions = computed(() => municipios.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
 const distritoOptions = computed(() => distritos.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
 const actividadOptions = computed(() => actividadesEconomicas.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
-const selectedActividad = computed(() => actividadesEconomicas.value.find((item) => item.code === companyForm.codigo_actividad) ?? null);
 const canSaveCompany = computed(() => Boolean(
   selectedEmpresa.value
   && companyForm.nombre_comercial.trim()
   && companyForm.razon_social.trim()
   && fiscalDocument.value.valid
-  && companyForm.codigo_actividad.trim()
+  && companyActivities.value[0]?.trim()
   && companyForm.direccion.trim()
   && companyForm.departamento.trim()
   && companyForm.municipio.trim()
@@ -271,9 +271,9 @@ watch(() => companyForm.municipio, (value, oldValue) => {
   }
 });
 
-watch(selectedActividad, (item) => {
-  companyForm.desc_actividad = item?.label ?? companyForm.desc_actividad;
-});
+watch(companyActivities, () => {
+  syncPrimaryActivity();
+}, { deep: true });
 
 async function loadInitialData(): Promise<void> {
   loading.value = true;
@@ -416,6 +416,9 @@ function emitSelectedCompany(empresa: BillingEmpresa): void {
 
 function syncCompanyForm(empresa: BillingEmpresa | null): void {
   const sucursal = empresa?.sucursales[0] ?? null;
+  const activities = empresa?.actividades_economicas?.length
+    ? empresa.actividades_economicas.map((activity) => activity.codigo).slice(0, 3)
+    : [empresa?.codigo_actividad ?? ''];
   syncingCompany.value = true;
   Object.assign(companyForm, {
     nombre_comercial: empresa?.nombre_comercial ?? '',
@@ -432,6 +435,8 @@ function syncCompanyForm(empresa: BillingEmpresa | null): void {
     telefono: sucursal?.telefono ?? '',
     email: sucursal?.email ?? ''
   });
+  companyActivities.value = activities.length ? activities : [''];
+  syncPrimaryActivity();
   queueMicrotask(() => {
     syncingCompany.value = false;
   });
@@ -487,6 +492,7 @@ async function saveCompanyData(): Promise<void> {
     nrc: blankToNull(companyForm.nrc),
     codigo_actividad: companyForm.codigo_actividad,
     desc_actividad: companyForm.desc_actividad,
+    actividades_economicas: normalizedEconomicActivities(),
     ambiente: companyForm.ambiente,
     direccion: companyForm.direccion,
     departamento: companyForm.departamento,
@@ -508,6 +514,44 @@ async function saveCompanyData(): Promise<void> {
   } finally {
     loading.value = false;
   }
+}
+
+function addCompanyActivity(): void {
+  if (companyActivities.value.length >= 3 || !companyActivities.value[0]?.trim()) {
+    return;
+  }
+
+  companyActivities.value = [...companyActivities.value, ''];
+}
+
+function removeCompanyActivity(index: number): void {
+  if (index === 0) {
+    return;
+  }
+
+  companyActivities.value = companyActivities.value.filter((_, activityIndex) => activityIndex !== index);
+  syncPrimaryActivity();
+}
+
+function syncPrimaryActivity(): void {
+  const primary = companyActivities.value[0] ?? '';
+  const activity = actividadesEconomicas.value.find((item) => item.code === primary) ?? null;
+  companyForm.codigo_actividad = primary;
+  companyForm.desc_actividad = activity?.label ?? '';
+}
+
+function normalizedEconomicActivities(): Array<{ codigo: string; descripcion: string }> {
+  return companyActivities.value
+    .map((code) => {
+      const activity = actividadesEconomicas.value.find((item) => item.code === code) ?? null;
+
+      return {
+        codigo: code,
+        descripcion: activity?.label ?? ''
+      };
+    })
+    .filter((activity) => activity.codigo.trim() !== '' && activity.descripcion.trim() !== '')
+    .slice(0, 3);
 }
 
 async function saveVisibleChanges(): Promise<void> {
@@ -638,6 +682,12 @@ function documentLabel(empresa: BillingEmpresa | null): string {
 
   const type = empresa.fiscal_document_type === 'nit' ? 'NIT' : 'DUI/NIT';
   return `${type}: ${empresa.fiscal_document_number ?? empresa.nit}`;
+}
+
+function economicActivitiesFor(empresa: BillingEmpresa): Array<{ codigo: string; descripcion: string }> {
+  return empresa.actividades_economicas?.length
+    ? empresa.actividades_economicas
+    : [{ codigo: empresa.codigo_actividad, descripcion: empresa.desc_actividad }];
 }
 
 function blankToNull(value: string | null | undefined): string | null {
@@ -831,9 +881,46 @@ function markLogoBroken(empresa: BillingEmpresa): void {
             <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <UiInput v-model="companyForm.razon_social" label="Nombre del contribuyente" />
               <UiInput v-model="companyForm.nombre_comercial" label="Nombre comercial" />
-              <UiFiscalDocumentInput v-model="companyForm.documento_fiscal" label="NIT" allowed-types="nit" @detected="fiscalDocument = $event" />
-              <UiInput v-model="companyForm.nrc" label="NRC" />
-              <UiSearchSelect v-model="companyForm.codigo_actividad" label="Actividad economica" :options="actividadOptions" placeholder="Buscar por codigo o descripcion" />
+              <div class="grid gap-4 md:col-span-2 md:grid-cols-2 xl:col-span-1">
+                <UiFiscalDocumentInput v-model="companyForm.documento_fiscal" label="NIT" allowed-types="nit" @detected="fiscalDocument = $event" />
+                <UiInput v-model="companyForm.nrc" label="NRC" />
+              </div>
+              <div class="md:col-span-2 xl:col-span-3">
+                <div class="flex items-center justify-between gap-3">
+                  <span class="text-sm font-medium text-slate-700">Actividades economicas</span>
+                  <UiButton
+                    v-if="companyActivities.length < 3"
+                    variant="secondary"
+                    :disabled="!companyActivities[0]?.trim()"
+                    @click="addCompanyActivity"
+                  >
+                    Agregar actividad
+                  </UiButton>
+                </div>
+                <div class="mt-2 grid gap-3">
+                  <div
+                    v-for="(_, index) in companyActivities"
+                    :key="index"
+                    class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end"
+                  >
+                    <UiSearchSelect
+                      v-model="companyActivities[index]"
+                      :label="index === 0 ? 'Actividad principal' : `Actividad adicional ${index + 1}`"
+                      :options="actividadOptions"
+                      placeholder="Buscar por codigo o descripcion"
+                      @update:model-value="syncPrimaryActivity"
+                    />
+                    <UiButton
+                      v-if="index > 0"
+                      variant="ghost"
+                      :disabled="loading"
+                      @click="removeCompanyActivity(index)"
+                    >
+                      Quitar
+                    </UiButton>
+                  </div>
+                </div>
+              </div>
               <label class="block">
                 <span class="text-sm font-medium text-slate-700">Logo</span>
                 <span class="mt-1 flex items-center gap-3">
@@ -990,8 +1077,16 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                     <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.nrc ?? 'No registrado' }}</p>
                   </div>
                   <div>
-                    <p class="text-xs font-bold uppercase text-slate-500">Actividad economica</p>
-                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.codigo_actividad }} · {{ selectedEmpresa.desc_actividad }}</p>
+                    <p class="text-xs font-bold uppercase text-slate-500">Actividades economicas</p>
+                    <div class="mt-1 space-y-1">
+                      <p
+                        v-for="activity in economicActivitiesFor(selectedEmpresa)"
+                        :key="activity.codigo"
+                        class="text-sm font-semibold text-slate-950"
+                      >
+                        {{ activity.codigo }} · {{ activity.descripcion }}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
