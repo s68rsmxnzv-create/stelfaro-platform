@@ -8,6 +8,7 @@ import {
   type BillingCompanyUpdatePayload,
   type BillingSettingsPayload,
   type BillingSignerVerification,
+  type DteDashboardSummary,
   type MhBearerVerification
 } from '@stelfaro/api-client';
 import { UiButton, UiCard, UiFileUpload, UiFiscalDocumentInput, UiInput, UiSearchInput, UiSearchSelect, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
@@ -41,6 +42,8 @@ const saved = ref<string | null>(null);
 const searchQuery = ref('');
 const signerStatus = ref<BillingSignerVerification | null>(null);
 const bearerStatus = ref<MhBearerVerification | null>(null);
+const companySummary = ref<DteDashboardSummary | null>(null);
+const healthOpen = ref(false);
 const context = ref<BillingContext | null>(null);
 const certificateFile = ref<File | null>(null);
 const companyLogoFile = ref<File | null>(null);
@@ -111,43 +114,45 @@ const selectedDocumentLabel = computed(() => documentLabel(selectedEmpresa.value
 const environmentLabel = computed(() => form.ambiente === '01' ? 'Produccion' : 'Pruebas');
 const isInactive = computed(() => selectedEmpresa.value?.lifecycle_status === 'inactive');
 const fiscalHealth = computed(() => {
-  const checks = [
-    Boolean(selectedEmpresa.value),
-    Boolean(selectedSucursal.value),
-    Boolean(selectedMhConfig.value?.credentials_configured),
-    Boolean(selectedMhConfig.value?.signer_credentials_configured),
-    Boolean(activeCertificate.value)
-  ];
-  const readyCount = checks.filter(Boolean).length;
+  const authReady = Boolean(selectedMhConfig.value?.credentials_configured);
+  const signerReady = Boolean(selectedMhConfig.value?.signer_credentials_configured);
 
   if (isInactive.value) {
     return {
       label: 'Inactiva',
       detail: 'La empresa no esta disponible para operar.',
-      tone: 'slate'
+      tone: 'slate',
+      authReady,
+      signerReady
     };
   }
 
-  if (readyCount === checks.length) {
+  if (authReady && signerReady) {
     return {
-      label: 'Saludable',
-      detail: 'La configuracion fiscal esta lista para operar en este ambiente.',
-      tone: 'success'
+      label: 'Salud OK',
+      detail: 'Autorizacion MH y firmador listos.',
+      tone: 'success',
+      authReady,
+      signerReady
     };
   }
 
-  if (readyCount >= 3) {
+  if (authReady || signerReady) {
     return {
-      label: 'Atencion',
-      detail: 'Hay configuracion cargada, pero falta completar algun punto fiscal.',
-      tone: 'warning'
+      label: 'Parcial',
+      detail: 'Uno de los servicios fiscales necesita atencion.',
+      tone: 'warning',
+      authReady,
+      signerReady
     };
   }
 
   return {
-    label: 'Pendiente',
-    detail: 'La empresa aun necesita configuracion fiscal para operar.',
-    tone: 'danger'
+    label: 'Revisar',
+    detail: 'Autorizacion MH y firmador pendientes.',
+    tone: 'danger',
+    authReady,
+    signerReady
   };
 });
 const departamentos = computed(() => catalogs.value?.departamentos ?? []);
@@ -196,9 +201,14 @@ onMounted(() => {
 
 watch(selectedEmpresa, (empresa) => {
   syncCompanyForm(empresa);
+  healthOpen.value = false;
   if (props.detailMode && empresa) {
     emitSelectedCompany(empresa);
+    void loadCompanySummary(empresa.id);
+    return;
   }
+
+  companySummary.value = null;
 }, { immediate: true });
 
 watch(() => props.companyAction?.nonce, () => {
@@ -208,7 +218,7 @@ watch(() => props.companyAction?.nonce, () => {
 
   if (props.companyAction.action === 'edit') {
     editingCompany.value = true;
-    requestAnimationFrame(() => document.getElementById('datos-empresa')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    requestAnimationFrame(() => document.getElementById('empresa-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     return;
   }
 
@@ -328,6 +338,16 @@ async function loadSettings(): Promise<void> {
     });
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar la configuracion fiscal.';
+  }
+}
+
+async function loadCompanySummary(empresaId: number): Promise<void> {
+  companySummary.value = null;
+
+  try {
+    companySummary.value = await client.value.dashboardSummary({ empresa_id: empresaId });
+  } catch {
+    companySummary.value = null;
   }
 }
 
@@ -604,6 +624,24 @@ function blankToNull(value: string | null | undefined): string | null {
   return trimmed === '' ? null : trimmed;
 }
 
+function formatDate(value: string | null | undefined): string {
+  if (!value) {
+    return 'No registrado';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat('es-SV', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }).format(date);
+}
+
 function departmentCode(value: string | number | null | undefined): string {
   return String(value ?? '').padStart(2, '0');
 }
@@ -692,7 +730,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
         </aside>
 
         <section v-if="selectedEmpresa" class="min-w-0 space-y-5">
-          <div id="datos-empresa" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
+          <div v-if="!props.detailMode" id="datos-empresa" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
             <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div class="flex min-w-0 gap-4">
                 <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
@@ -725,7 +763,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
             </div>
           </div>
 
-          <div v-if="editingCompany" class="rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
+          <div v-if="editingCompany" id="empresa-editor" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p class="text-sm font-semibold text-slate-950">Datos de empresa</p>
@@ -778,84 +816,126 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </div>
 
           <template v-if="props.detailMode">
-            <div class="grid gap-4 lg:grid-cols-[1.1fr_1fr_1fr]">
-              <div
-                class="rounded-md border p-5 shadow-sm shadow-blue-950/5"
-                :class="{
-                  'border-emerald-200 bg-emerald-50/70': fiscalHealth.tone === 'success',
-                  'border-amber-200 bg-amber-50/80': fiscalHealth.tone === 'warning',
-                  'border-red-200 bg-red-50/80': fiscalHealth.tone === 'danger',
-                  'border-slate-200 bg-slate-50': fiscalHealth.tone === 'slate'
-                }"
-              >
-                <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Estado fiscal</p>
-                <p
-                  class="mt-2 text-2xl font-bold"
-                  :class="{
-                    'text-emerald-800': fiscalHealth.tone === 'success',
-                    'text-amber-800': fiscalHealth.tone === 'warning',
-                    'text-red-800': fiscalHealth.tone === 'danger',
-                    'text-slate-700': fiscalHealth.tone === 'slate'
-                  }"
-                >
-                  {{ fiscalHealth.label }}
-                </p>
-                <p class="mt-2 text-sm text-slate-600">{{ fiscalHealth.detail }}</p>
-              </div>
+            <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
+              <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div class="flex min-w-0 gap-4">
+                  <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
+                  <div v-else class="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-slate-900 text-lg font-bold text-white">
+                    {{ initials(selectedEmpresa) }}
+                  </div>
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <h2 class="truncate text-xl font-bold text-slate-950">{{ selectedEmpresa.razon_social }}</h2>
+                      <span class="rounded px-2 py-1 text-xs font-semibold" :class="isInactive ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-700'">
+                        {{ isInactive ? 'Inactiva' : 'Activa' }}
+                      </span>
+                      <div class="relative">
+                        <button
+                          type="button"
+                          class="rounded px-2 py-1 text-xs font-semibold transition hover:brightness-95"
+                          :class="{
+                            'bg-emerald-50 text-emerald-700': fiscalHealth.tone === 'success',
+                            'bg-amber-50 text-amber-700': fiscalHealth.tone === 'warning',
+                            'bg-red-50 text-red-700': fiscalHealth.tone === 'danger',
+                            'bg-slate-100 text-slate-600': fiscalHealth.tone === 'slate'
+                          }"
+                          @click="healthOpen = !healthOpen"
+                        >
+                          {{ fiscalHealth.label }}
+                        </button>
+                        <div v-if="healthOpen" class="absolute left-0 z-20 mt-2 w-72 rounded-md border border-slate-200 bg-white p-4 text-sm shadow-lg">
+                          <p class="font-semibold text-slate-950">Salud fiscal</p>
+                          <p class="mt-1 text-xs text-slate-500">{{ fiscalHealth.detail }}</p>
+                          <div class="mt-4 space-y-3">
+                            <div class="flex items-center justify-between gap-3">
+                              <span class="text-slate-600">Autorizacion MH</span>
+                              <span class="rounded px-2 py-1 text-xs font-semibold" :class="fiscalHealth.authReady ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'">
+                                {{ fiscalHealth.authReady ? 'OK' : 'Pendiente' }}
+                              </span>
+                            </div>
+                            <div class="flex items-center justify-between gap-3">
+                              <span class="text-slate-600">Firmador</span>
+                              <span class="rounded px-2 py-1 text-xs font-semibold" :class="fiscalHealth.signerReady ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'">
+                                {{ fiscalHealth.signerReady ? 'OK' : 'Pendiente' }}
+                              </span>
+                            </div>
+                          </div>
+                          <p class="mt-4 text-xs text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${selectedMhConfig.last_verified_at}` : 'Sin verificacion registrada' }}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <p class="mt-1 text-sm text-slate-600">{{ selectedEmpresa.nombre_comercial }}</p>
+                    <p class="mt-2 text-sm font-medium text-slate-800">{{ selectedDocumentLabel }}</p>
+                    <p class="mt-1 text-sm text-slate-500">{{ selectedEmpresa.codigo_actividad }} · {{ selectedEmpresa.desc_actividad }}</p>
+                  </div>
+                </div>
 
-              <div class="rounded-md border border-blue-100/80 bg-white/85 p-5 text-sm shadow-sm shadow-blue-950/5 backdrop-blur">
-                <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Ambiente activo</p>
-                <p class="mt-2 text-xl font-bold text-slate-950">{{ form.ambiente }} · {{ environmentLabel }}</p>
-                <p class="mt-2 text-slate-600">{{ form.simulate_unavailable ? 'Contingencia simulada activa' : 'Operacion normal' }}</p>
-              </div>
-
-              <div class="rounded-md border border-blue-100/80 bg-white/85 p-5 text-sm shadow-sm shadow-blue-950/5 backdrop-blur">
-                <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Documento fiscal</p>
-                <p class="mt-2 text-xl font-bold text-slate-950">{{ selectedDocumentLabel }}</p>
-                <p class="mt-2 text-slate-600">NRC: {{ selectedEmpresa.nrc ?? 'No registrado' }}</p>
+                <div class="grid min-w-[260px] grid-cols-2 gap-3 text-sm">
+                  <div class="rounded-md bg-slate-50 px-4 py-3">
+                    <p class="text-xs font-bold uppercase text-slate-500">Activo desde</p>
+                    <p class="mt-1 font-semibold text-slate-950">{{ formatDate(selectedEmpresa.created_at) }}</p>
+                  </div>
+                  <div class="rounded-md bg-slate-50 px-4 py-3">
+                    <p class="text-xs font-bold uppercase text-slate-500">Suscripcion hasta</p>
+                    <p class="mt-1 font-semibold text-slate-950">No registrada</p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div class="grid gap-4 lg:grid-cols-3">
-              <div class="rounded-md border border-blue-100/80 bg-white/85 p-4 text-sm shadow-sm shadow-blue-950/5 backdrop-blur">
-                <p class="font-semibold text-slate-950">Casa matriz</p>
-                <p class="mt-2 text-slate-600">{{ selectedSucursal?.direccion ?? 'Direccion pendiente' }}</p>
-                <p class="mt-1 text-slate-600">{{ selectedSucursal?.departamento ?? '--' }} / {{ selectedSucursal?.municipio ?? '--' }} / {{ selectedSucursal?.distrito ?? 'Distrito pendiente' }}</p>
-                <p class="mt-3 text-xs text-slate-500">Telefono: {{ selectedSucursal?.telefono ?? 'No registrado' }}</p>
-                <p class="mt-1 text-xs text-slate-500">Correo: {{ selectedSucursal?.email ?? 'No registrado' }}</p>
+            <div class="grid gap-4 md:grid-cols-3">
+              <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
+                <p class="text-xs font-bold uppercase text-slate-500">DTE emitidos</p>
+                <p class="mt-2 text-3xl font-bold text-slate-950">{{ companySummary?.totals.emitted ?? 0 }}</p>
               </div>
-
-              <div id="credenciales-mh" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-4 text-sm shadow-sm shadow-blue-950/5 backdrop-blur">
-                <p class="font-semibold text-slate-950">Credenciales MH</p>
-                <p class="mt-2" :class="selectedMhConfig?.credentials_configured ? 'text-emerald-700' : 'text-amber-700'">
-                  {{ selectedMhConfig?.credentials_configured ? 'Configuradas' : 'Pendientes' }}
-                </p>
-                <p class="mt-1 text-slate-500">Ambiente {{ environmentLabel }}</p>
+              <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
+                <p class="text-xs font-bold uppercase text-slate-500">Bien</p>
+                <p class="mt-2 text-3xl font-bold text-emerald-700">{{ companySummary?.totals.accepted ?? 0 }}</p>
               </div>
-
-              <div id="firmador" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-4 text-sm shadow-sm shadow-blue-950/5 backdrop-blur">
-                <p class="font-semibold text-slate-950">Firmador</p>
-                <p class="mt-2" :class="selectedMhConfig?.signer_credentials_configured ? 'text-emerald-700' : 'text-amber-700'">
-                  {{ selectedMhConfig?.signer_credentials_configured ? 'Configurado' : 'Pendiente' }}
-                </p>
-                <p class="mt-1 text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${selectedMhConfig.last_verified_at}` : 'Sin verificacion registrada' }}</p>
+              <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
+                <p class="text-xs font-bold uppercase text-slate-500">Rechazos</p>
+                <p class="mt-2 text-3xl font-bold text-red-700">{{ companySummary?.totals.rejected ?? 0 }}</p>
               </div>
             </div>
 
-            <div id="certificados" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
-              <p class="text-sm font-semibold text-slate-950">Certificado fiscal</p>
-              <div class="mt-4 grid gap-4 md:grid-cols-3">
-                <div class="rounded-md bg-slate-50 p-4 text-sm">
-                  <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Activo para {{ environmentLabel }}</p>
-                  <p class="mt-2 font-semibold text-slate-950">{{ activeCertificate?.filename ?? 'Sin certificado cargado' }}</p>
+            <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
+              <p class="text-sm font-semibold text-slate-950">Resumen informativo</p>
+              <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div>
+                  <p class="text-xs font-bold uppercase text-slate-500">Contribuyente</p>
+                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.razon_social }}</p>
                 </div>
-                <div class="rounded-md bg-slate-50 p-4 text-sm">
-                  <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Vencimiento</p>
-                  <p class="mt-2 font-semibold text-slate-950">{{ activeCertificate?.vence_at ?? 'No registrado' }}</p>
+                <div>
+                  <p class="text-xs font-bold uppercase text-slate-500">Nombre comercial</p>
+                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.nombre_comercial }}</p>
                 </div>
-                <div class="rounded-md bg-slate-50 p-4 text-sm">
-                  <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Certificados del ambiente</p>
-                  <p class="mt-2 font-semibold text-slate-950">{{ certificados.length }}</p>
+                <div>
+                  <p class="text-xs font-bold uppercase text-slate-500">NRC</p>
+                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.nrc ?? 'No registrado' }}</p>
+                </div>
+                <div>
+                  <p class="text-xs font-bold uppercase text-slate-500">Actividad economica</p>
+                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.codigo_actividad }} · {{ selectedEmpresa.desc_actividad }}</p>
+                </div>
+                <div>
+                  <p class="text-xs font-bold uppercase text-slate-500">Direccion</p>
+                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.direccion ?? 'Direccion pendiente' }}</p>
+                </div>
+                <div>
+                  <p class="text-xs font-bold uppercase text-slate-500">Ubicacion</p>
+                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.departamento ?? '--' }} / {{ selectedSucursal?.municipio ?? '--' }} / {{ selectedSucursal?.distrito ?? 'Distrito pendiente' }}</p>
+                </div>
+                <div>
+                  <p class="text-xs font-bold uppercase text-slate-500">Telefono</p>
+                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.telefono ?? 'No registrado' }}</p>
+                </div>
+                <div>
+                  <p class="text-xs font-bold uppercase text-slate-500">Correo</p>
+                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.email ?? 'No registrado' }}</p>
+                </div>
+                <div>
+                  <p class="text-xs font-bold uppercase text-slate-500">Ambiente</p>
+                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ form.ambiente }} · {{ environmentLabel }}</p>
                 </div>
               </div>
             </div>

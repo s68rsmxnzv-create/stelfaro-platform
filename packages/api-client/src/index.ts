@@ -1054,8 +1054,8 @@ export class CoreDteClient {
     return this.http.get('dte/drafts', { searchParams: compactParams(params) }).json();
   }
 
-  dashboardSummary(): Promise<DteDashboardSummary> {
-    return this.http.get('dte/dashboard-summary').json();
+  dashboardSummary(params: { empresa_id?: number } = {}): Promise<DteDashboardSummary> {
+    return this.http.get('dte/dashboard-summary', { searchParams: compactParams(params) }).json();
   }
 
   document(id: number): Promise<DteDraftSummary> {
