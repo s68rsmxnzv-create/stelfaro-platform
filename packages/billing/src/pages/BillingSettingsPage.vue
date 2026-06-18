@@ -843,91 +843,86 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </div>
 
           <template v-if="props.detailMode">
-            <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_510px]">
-              <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
-                <div class="flex min-w-0 gap-4">
-                  <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
-                  <div v-else class="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-slate-900 text-lg font-bold text-white">
-                    {{ initials(selectedEmpresa) }}
-                  </div>
-                  <div class="min-w-0">
-                    <div class="flex flex-wrap items-center gap-2">
-                      <h2 class="truncate text-xl font-bold text-slate-950">{{ selectedEmpresa.razon_social }}</h2>
-                      <span class="rounded px-2 py-1 text-xs font-semibold" :class="isInactive ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-700'">
-                        {{ isInactive ? 'Inactiva' : 'Activa' }}
-                      </span>
-                      <div class="relative">
-                        <button
-                          type="button"
-                          class="rounded px-2 py-1 text-xs font-semibold transition hover:brightness-95"
-                          :class="{
-                            'bg-emerald-50 text-emerald-700': fiscalHealth.tone === 'success',
-                            'bg-amber-50 text-amber-700': fiscalHealth.tone === 'warning',
-                            'bg-red-50 text-red-700': fiscalHealth.tone === 'danger',
-                            'bg-slate-100 text-slate-600': fiscalHealth.tone === 'slate'
-                          }"
-                          @click="healthOpen = !healthOpen"
-                        >
-                          {{ fiscalHealth.label }}
-                        </button>
-                        <div v-if="healthOpen" class="absolute left-0 z-20 mt-2 w-72 rounded-md border border-slate-200 bg-white p-4 text-sm shadow-lg">
-                          <p class="font-semibold text-slate-950">Salud fiscal</p>
-                          <p class="mt-1 text-xs text-slate-500">{{ fiscalHealth.detail }}</p>
-                          <div class="mt-4 space-y-3">
-                            <div class="flex items-center justify-between gap-3">
-                              <span class="text-slate-600">Autorizacion MH</span>
-                              <span class="rounded px-2 py-1 text-xs font-semibold" :class="fiscalHealth.authReady ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'">
-                                {{ fiscalHealth.authReady ? 'OK' : 'Pendiente' }}
-                              </span>
-                            </div>
-                            <div class="flex items-center justify-between gap-3">
-                              <span class="text-slate-600">Firmador</span>
-                              <span class="rounded px-2 py-1 text-xs font-semibold" :class="fiscalHealth.signerReady ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'">
-                                {{ fiscalHealth.signerReady ? 'OK' : 'Pendiente' }}
-                              </span>
-                            </div>
+            <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
+              <div class="flex min-w-0 gap-4">
+                <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
+                <div v-else class="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-slate-900 text-lg font-bold text-white">
+                  {{ initials(selectedEmpresa) }}
+                </div>
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h2 class="truncate text-xl font-bold text-slate-950">{{ selectedEmpresa.razon_social }}</h2>
+                    <span class="rounded px-2 py-1 text-xs font-semibold" :class="isInactive ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-700'">
+                      {{ isInactive ? 'Inactiva' : 'Activa' }}
+                    </span>
+                    <div class="relative">
+                      <button
+                        type="button"
+                        class="rounded px-2 py-1 text-xs font-semibold transition hover:brightness-95"
+                        :class="{
+                          'bg-emerald-50 text-emerald-700': fiscalHealth.tone === 'success',
+                          'bg-amber-50 text-amber-700': fiscalHealth.tone === 'warning',
+                          'bg-red-50 text-red-700': fiscalHealth.tone === 'danger',
+                          'bg-slate-100 text-slate-600': fiscalHealth.tone === 'slate'
+                        }"
+                        @click="healthOpen = !healthOpen"
+                      >
+                        {{ fiscalHealth.label }}
+                      </button>
+                      <div v-if="healthOpen" class="absolute left-0 z-20 mt-2 w-72 rounded-md border border-slate-200 bg-white p-4 text-sm shadow-lg">
+                        <p class="font-semibold text-slate-950">Salud fiscal</p>
+                        <p class="mt-1 text-xs text-slate-500">{{ fiscalHealth.detail }}</p>
+                        <div class="mt-4 space-y-3">
+                          <div class="flex items-center justify-between gap-3">
+                            <span class="text-slate-600">Autorizacion MH</span>
+                            <span class="rounded px-2 py-1 text-xs font-semibold" :class="fiscalHealth.authReady ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'">
+                              {{ fiscalHealth.authReady ? 'OK' : 'Pendiente' }}
+                            </span>
                           </div>
-                          <p class="mt-4 text-xs text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${formatDateTime(selectedMhConfig.last_verified_at)}` : 'Sin verificacion registrada' }}</p>
+                          <div class="flex items-center justify-between gap-3">
+                            <span class="text-slate-600">Firmador</span>
+                            <span class="rounded px-2 py-1 text-xs font-semibold" :class="fiscalHealth.signerReady ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'">
+                              {{ fiscalHealth.signerReady ? 'OK' : 'Pendiente' }}
+                            </span>
+                          </div>
                         </div>
+                        <p class="mt-4 text-xs text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${formatDateTime(selectedMhConfig.last_verified_at)}` : 'Sin verificacion registrada' }}</p>
                       </div>
                     </div>
-                    <p class="mt-1 text-sm text-slate-600">{{ selectedEmpresa.nombre_comercial }}</p>
-                    <p class="mt-2 text-sm font-medium text-slate-800">{{ selectedDocumentLabel }}</p>
-                    <p class="mt-1 text-sm text-slate-500">{{ selectedEmpresa.codigo_actividad }} · {{ selectedEmpresa.desc_actividad }}</p>
                   </div>
-                </div>
-              </div>
-
-              <div class="grid gap-4 sm:grid-cols-3">
-                <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
-                  <p class="text-xs font-bold uppercase text-slate-500">DTE emitidos</p>
-                  <p class="mt-2 text-3xl font-bold text-slate-950">{{ companySummary?.totals.emitted ?? 0 }}</p>
-                </div>
-                <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
-                  <p class="text-xs font-bold uppercase text-slate-500">Bien</p>
-                  <p class="mt-2 text-3xl font-bold text-emerald-700">{{ companySummary?.totals.accepted ?? 0 }}</p>
-                </div>
-                <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
-                  <p class="text-xs font-bold uppercase text-slate-500">Rechazos</p>
-                  <p class="mt-2 text-3xl font-bold text-red-700">{{ companySummary?.totals.rejected ?? 0 }}</p>
+                  <p class="mt-1 text-sm text-slate-600">{{ selectedEmpresa.nombre_comercial }}</p>
+                  <p class="mt-2 text-sm font-medium text-slate-800">{{ selectedDocumentLabel }}</p>
+                  <p class="mt-1 text-sm text-slate-500">{{ selectedEmpresa.codigo_actividad }} · {{ selectedEmpresa.desc_actividad }}</p>
                 </div>
               </div>
             </div>
 
-            <div class="grid gap-4 md:grid-cols-2">
-              <div class="rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
-                <p class="text-xs font-bold uppercase text-slate-500">Activo desde</p>
-                <p class="mt-1 text-sm font-semibold text-slate-950">{{ formatDate(selectedEmpresa.created_at) }}</p>
+            <div class="grid grid-cols-5 gap-3">
+              <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
+                <p class="truncate text-[11px] font-bold uppercase text-slate-500">DTE emitidos</p>
+                <p class="mt-2 text-2xl font-bold text-slate-950">{{ companySummary?.totals.emitted ?? 0 }}</p>
               </div>
-              <div class="rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
-                <p class="text-xs font-bold uppercase text-slate-500">Suscripcion hasta</p>
+              <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
+                <p class="truncate text-[11px] font-bold uppercase text-slate-500">Bien</p>
+                <p class="mt-2 text-2xl font-bold text-emerald-700">{{ companySummary?.totals.accepted ?? 0 }}</p>
+              </div>
+              <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
+                <p class="truncate text-[11px] font-bold uppercase text-slate-500">Rechazos</p>
+                <p class="mt-2 text-2xl font-bold text-red-700">{{ companySummary?.totals.rejected ?? 0 }}</p>
+              </div>
+              <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
+                <p class="truncate text-[11px] font-bold uppercase text-slate-500">Activo desde</p>
+                <p class="mt-2 text-sm font-semibold text-slate-950">{{ formatDate(selectedEmpresa.created_at) }}</p>
+              </div>
+              <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
+                <p class="truncate text-[11px] font-bold uppercase text-slate-500">Suscripcion hasta</p>
                 <p class="mt-1 text-sm font-semibold text-slate-950">No registrada</p>
               </div>
             </div>
 
             <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
               <p class="text-sm font-semibold text-slate-950">Resumen informativo</p>
-              <div class="mt-4 grid gap-8 lg:grid-cols-2">
+              <div class="mt-4 grid grid-cols-2 gap-8">
                 <div class="space-y-4">
                   <div>
                     <p class="text-xs font-bold uppercase text-slate-500">Contribuyente</p>
