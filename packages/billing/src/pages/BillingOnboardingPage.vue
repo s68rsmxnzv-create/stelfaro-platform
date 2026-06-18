@@ -391,7 +391,6 @@ function setLogo(event: Event): void {
           <UiInput v-model="companyForm.nrc" label="NRC" />
         </div>
         <div class="md:col-span-2 xl:col-span-3">
-          <span class="text-sm font-medium text-slate-700">Actividades economicas</span>
           <div class="mt-2 grid gap-3" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
             <div v-for="(_, activityIndex) in companyActivities" :key="activityIndex" class="grid gap-2">
               <div
