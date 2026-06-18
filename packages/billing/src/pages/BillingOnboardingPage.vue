@@ -391,38 +391,53 @@ function setLogo(event: Event): void {
           <UiInput v-model="companyForm.nrc" label="NRC" />
         </div>
         <div class="md:col-span-2 xl:col-span-3">
-          <div class="flex items-center justify-between gap-3">
-            <span class="text-sm font-medium text-slate-700">Actividades economicas</span>
-            <UiButton
-              v-if="companyActivities.length < 3"
-              variant="secondary"
-              :disabled="!companyActivities[0]?.trim()"
-              @click="addCompanyActivity"
-            >
-              Agregar actividad
-            </UiButton>
-          </div>
+          <span class="text-sm font-medium text-slate-700">Actividades economicas</span>
           <div class="mt-2 grid gap-3">
-            <div
-              v-for="(_, index) in companyActivities"
-              :key="index"
-              class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end"
-            >
+            <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_44px] md:items-end">
               <UiSearchSelect
-                v-model="companyActivities[index]"
-                :label="index === 0 ? 'Actividad principal' : `Actividad adicional ${index + 1}`"
+                v-model="companyActivities[0]"
+                label="Actividad principal"
                 :options="actividadOptions"
                 placeholder="Buscar por codigo o descripcion"
                 @update:model-value="syncPrimaryActivity"
               />
-              <UiButton
-                v-if="index > 0"
-                variant="ghost"
-                :disabled="loading"
-                @click="removeCompanyActivity(index)"
+              <button
+                v-if="companyActivities.length < 3"
+                type="button"
+                class="mb-0.5 grid h-11 w-11 place-items-center rounded-md border border-blue-100 bg-white text-slate-700 shadow-sm shadow-blue-950/5 transition hover:border-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="!companyActivities[0]?.trim()"
+                aria-label="Agregar actividad economica"
+                @click="addCompanyActivity"
               >
-                Quitar
-              </UiButton>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+              </button>
+            </div>
+
+            <div
+              v-if="companyActivities.length > 1"
+              class="grid gap-3"
+              style="grid-template-columns: repeat(2, minmax(0, 1fr));"
+            >
+              <div v-if="companyActivities.length > 1" class="grid gap-2">
+                <UiSearchSelect
+                  v-model="companyActivities[1]"
+                  label="Actividad adicional 2"
+                  :options="actividadOptions"
+                  placeholder="Buscar por codigo o descripcion"
+                />
+                <UiButton variant="ghost" :disabled="loading" @click="removeCompanyActivity(1)">Quitar</UiButton>
+              </div>
+              <div v-if="companyActivities.length > 2" class="grid gap-2">
+                <UiSearchSelect
+                  v-model="companyActivities[2]"
+                  label="Actividad adicional 3"
+                  :options="actividadOptions"
+                  placeholder="Buscar por codigo o descripcion"
+                />
+                <UiButton variant="ghost" :disabled="loading" @click="removeCompanyActivity(2)">Quitar</UiButton>
+              </div>
             </div>
           </div>
         </div>
