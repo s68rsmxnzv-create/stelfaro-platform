@@ -110,6 +110,46 @@ const activeCertificate = computed(() => selectedCertificate.value ?? certificad
 const selectedDocumentLabel = computed(() => documentLabel(selectedEmpresa.value));
 const environmentLabel = computed(() => form.ambiente === '01' ? 'Produccion' : 'Pruebas');
 const isInactive = computed(() => selectedEmpresa.value?.lifecycle_status === 'inactive');
+const fiscalHealth = computed(() => {
+  const checks = [
+    Boolean(selectedEmpresa.value),
+    Boolean(selectedSucursal.value),
+    Boolean(selectedMhConfig.value?.credentials_configured),
+    Boolean(selectedMhConfig.value?.signer_credentials_configured),
+    Boolean(activeCertificate.value)
+  ];
+  const readyCount = checks.filter(Boolean).length;
+
+  if (isInactive.value) {
+    return {
+      label: 'Inactiva',
+      detail: 'La empresa no esta disponible para operar.',
+      tone: 'slate'
+    };
+  }
+
+  if (readyCount === checks.length) {
+    return {
+      label: 'Saludable',
+      detail: 'La configuracion fiscal esta lista para operar en este ambiente.',
+      tone: 'success'
+    };
+  }
+
+  if (readyCount >= 3) {
+    return {
+      label: 'Atencion',
+      detail: 'Hay configuracion cargada, pero falta completar algun punto fiscal.',
+      tone: 'warning'
+    };
+  }
+
+  return {
+    label: 'Pendiente',
+    detail: 'La empresa aun necesita configuracion fiscal para operar.',
+    tone: 'danger'
+  };
+});
 const departamentos = computed(() => catalogs.value?.departamentos ?? []);
 const municipios = computed(() => (catalogs.value?.municipios ?? []).filter((item) => departmentCode(item.departamento) === departmentCode(companyForm.departamento)));
 const distritos = computed(() => (catalogs.value?.distritos ?? []).filter((item) => (
@@ -737,121 +777,207 @@ function markLogoBroken(empresa: BillingEmpresa): void {
             </div>
           </div>
 
-          <div class="grid gap-4 lg:grid-cols-3">
-            <div class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
-              <p class="font-semibold text-slate-950">Casa matriz</p>
-              <p class="mt-2 text-slate-600">{{ selectedSucursal?.direccion ?? 'Direccion pendiente' }}</p>
-              <p class="mt-1 text-slate-600">{{ selectedSucursal?.departamento }} / {{ selectedSucursal?.municipio }} / {{ selectedSucursal?.distrito ?? 'Distrito pendiente' }}</p>
-            </div>
-            <div id="credenciales-mh" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
-              <p class="font-semibold text-slate-950">Credenciales MH</p>
-              <p class="mt-2" :class="selectedMhConfig?.credentials_configured ? 'text-emerald-700' : 'text-slate-500'">
-                {{ selectedMhConfig?.credentials_configured ? 'Usuario API configurado' : 'Pendiente de configurar' }}
-              </p>
-              <p class="mt-1 text-slate-500">Ambiente {{ environmentLabel }}</p>
-            </div>
-            <div id="firmador" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
-              <p class="font-semibold text-slate-950">Firmador</p>
-              <p class="mt-2" :class="selectedMhConfig?.signer_credentials_configured ? 'text-emerald-700' : 'text-slate-500'">
-                {{ selectedMhConfig?.signer_credentials_configured ? 'Password privado configurado' : 'Pendiente de configurar' }}
-              </p>
-              <p class="mt-1 text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${selectedMhConfig.last_verified_at}` : 'Sin verificacion registrada' }}</p>
-            </div>
-          </div>
-
-          <div id="certificados" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
-            <div class="grid gap-4 md:grid-cols-2">
-              <label class="block">
-                <span class="text-sm font-medium text-slate-700">Ambiente</span>
-                <select v-model="form.ambiente" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                  <option value="00">00 · Pruebas</option>
-                  <option value="01">01 · Produccion</option>
-                </select>
-              </label>
-
-              <div class="block">
-                <span class="text-sm font-medium text-slate-700">Certificado activo</span>
-                <div class="mt-1 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-800">
-                  <p v-if="activeCertificate" class="font-medium">
-                    {{ activeCertificate.filename }}
-                  </p>
-                  <p v-else class="text-slate-500">
-                    Sin certificado cargado para este ambiente.
-                  </p>
-                </div>
-                <p v-if="activeCertificate?.vence_at" class="mt-1 text-xs text-slate-500">Vence: {{ activeCertificate.vence_at }}</p>
+          <template v-if="props.detailMode">
+            <div class="grid gap-4 lg:grid-cols-[1.1fr_1fr_1fr]">
+              <div
+                class="rounded-md border p-5 shadow-sm shadow-blue-950/5"
+                :class="{
+                  'border-emerald-200 bg-emerald-50/70': fiscalHealth.tone === 'success',
+                  'border-amber-200 bg-amber-50/80': fiscalHealth.tone === 'warning',
+                  'border-red-200 bg-red-50/80': fiscalHealth.tone === 'danger',
+                  'border-slate-200 bg-slate-50': fiscalHealth.tone === 'slate'
+                }"
+              >
+                <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Estado fiscal</p>
+                <p
+                  class="mt-2 text-2xl font-bold"
+                  :class="{
+                    'text-emerald-800': fiscalHealth.tone === 'success',
+                    'text-amber-800': fiscalHealth.tone === 'warning',
+                    'text-red-800': fiscalHealth.tone === 'danger',
+                    'text-slate-700': fiscalHealth.tone === 'slate'
+                  }"
+                >
+                  {{ fiscalHealth.label }}
+                </p>
+                <p class="mt-2 text-sm text-slate-600">{{ fiscalHealth.detail }}</p>
               </div>
 
-              <label class="block md:col-span-2">
-                <span class="text-sm font-medium text-slate-700">Reemplazar certificado .p12/.crt</span>
-                <UiFileUpload
-                  id="certificate-upload"
-                  class="mt-1"
-                  label="Subir certificado"
-                  :selected-label="certificateFile?.name"
-                  @change="setCertificate"
-                />
-              </label>
-            </div>
-
-            <div class="mt-5 border-t border-slate-200 pt-5">
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <p class="text-sm font-semibold text-slate-950">Credenciales sensibles</p>
-                  <p class="mt-1 text-xs text-slate-500">Se conservan las existentes si dejas los campos vacios.</p>
-                </div>
-                <UiButton variant="secondary" @click="editingCredentials = !editingCredentials">
-                  {{ editingCredentials ? 'Ocultar' : 'Editar credenciales' }}
-                </UiButton>
+              <div class="rounded-md border border-blue-100/80 bg-white/85 p-5 text-sm shadow-sm shadow-blue-950/5 backdrop-blur">
+                <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Ambiente activo</p>
+                <p class="mt-2 text-xl font-bold text-slate-950">{{ form.ambiente }} · {{ environmentLabel }}</p>
+                <p class="mt-2 text-slate-600">{{ form.simulate_unavailable ? 'Contingencia simulada activa' : 'Operacion normal' }}</p>
               </div>
 
-              <div v-if="editingCredentials" class="mt-4 grid gap-4 md:grid-cols-2">
-                <UiInput v-model="form.mh_user" label="MH Usuario API" placeholder="Dejar vacio para conservar" />
-                <UiInput v-model="form.mh_password" label="MH Password API" type="password" placeholder="Dejar vacio para conservar" revealable />
-                <UiInput v-model="form.signer_password_pri" label="Password privado certificado" type="password" placeholder="Dejar vacio para conservar" revealable />
+              <div class="rounded-md border border-blue-100/80 bg-white/85 p-5 text-sm shadow-sm shadow-blue-950/5 backdrop-blur">
+                <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Documento fiscal</p>
+                <p class="mt-2 text-xl font-bold text-slate-950">{{ selectedDocumentLabel }}</p>
+                <p class="mt-2 text-slate-600">NRC: {{ selectedEmpresa.nrc ?? 'No registrado' }}</p>
               </div>
             </div>
 
-            <div class="mt-6 flex flex-wrap items-center gap-3">
-              <UiButton :disabled="loading || !form.empresa_id || isInactive || (editingCompany && !canSaveCompany)" @click="saveVisibleChanges">
-                {{ editingCompany ? 'Guardar datos de empresa' : 'Guardar configuracion fiscal' }}
-              </UiButton>
-              <UiButton variant="secondary" :disabled="loading || !form.empresa_id || isInactive" @click="verifySigner">Verificar firma</UiButton>
-              <UiButton variant="secondary" :disabled="loading || !form.empresa_id || isInactive" @click="requestBearer">Verificar autorizacion MH</UiButton>
-              <p v-if="saved" class="text-sm text-emerald-700">{{ saved }}</p>
+            <div class="grid gap-4 lg:grid-cols-3">
+              <div class="rounded-md border border-blue-100/80 bg-white/85 p-4 text-sm shadow-sm shadow-blue-950/5 backdrop-blur">
+                <p class="font-semibold text-slate-950">Casa matriz</p>
+                <p class="mt-2 text-slate-600">{{ selectedSucursal?.direccion ?? 'Direccion pendiente' }}</p>
+                <p class="mt-1 text-slate-600">{{ selectedSucursal?.departamento ?? '--' }} / {{ selectedSucursal?.municipio ?? '--' }} / {{ selectedSucursal?.distrito ?? 'Distrito pendiente' }}</p>
+                <p class="mt-3 text-xs text-slate-500">Telefono: {{ selectedSucursal?.telefono ?? 'No registrado' }}</p>
+                <p class="mt-1 text-xs text-slate-500">Correo: {{ selectedSucursal?.email ?? 'No registrado' }}</p>
+              </div>
+
+              <div id="credenciales-mh" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-4 text-sm shadow-sm shadow-blue-950/5 backdrop-blur">
+                <p class="font-semibold text-slate-950">Credenciales MH</p>
+                <p class="mt-2" :class="selectedMhConfig?.credentials_configured ? 'text-emerald-700' : 'text-amber-700'">
+                  {{ selectedMhConfig?.credentials_configured ? 'Configuradas' : 'Pendientes' }}
+                </p>
+                <p class="mt-1 text-slate-500">Ambiente {{ environmentLabel }}</p>
+              </div>
+
+              <div id="firmador" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-4 text-sm shadow-sm shadow-blue-950/5 backdrop-blur">
+                <p class="font-semibold text-slate-950">Firmador</p>
+                <p class="mt-2" :class="selectedMhConfig?.signer_credentials_configured ? 'text-emerald-700' : 'text-amber-700'">
+                  {{ selectedMhConfig?.signer_credentials_configured ? 'Configurado' : 'Pendiente' }}
+                </p>
+                <p class="mt-1 text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${selectedMhConfig.last_verified_at}` : 'Sin verificacion registrada' }}</p>
+              </div>
             </div>
 
-            <div class="mt-5 rounded-md border p-4" :class="form.simulate_unavailable ? 'border-amber-300 bg-amber-50' : 'border-blue-100/80 bg-slate-50/80'">
-              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p class="text-sm font-semibold text-slate-950">Simular MH sin respuesta</p>
-                  <p class="mt-1 text-xs text-slate-600">Usalo solo para pruebas de contingencia en este ambiente.</p>
+            <div id="certificados" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
+              <p class="text-sm font-semibold text-slate-950">Certificado fiscal</p>
+              <div class="mt-4 grid gap-4 md:grid-cols-3">
+                <div class="rounded-md bg-slate-50 p-4 text-sm">
+                  <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Activo para {{ environmentLabel }}</p>
+                  <p class="mt-2 font-semibold text-slate-950">{{ activeCertificate?.filename ?? 'Sin certificado cargado' }}</p>
                 </div>
-                <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-800">
-                  <span>{{ form.simulate_unavailable ? 'Activo' : 'Inactivo' }}</span>
-                  <UiToggle
-                    v-model="form.simulate_unavailable"
-                    aria-label="Simular MH sin respuesta"
-                    :disabled="loading || isInactive"
-                    off-variant="success"
-                    variant="warning"
+                <div class="rounded-md bg-slate-50 p-4 text-sm">
+                  <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Vencimiento</p>
+                  <p class="mt-2 font-semibold text-slate-950">{{ activeCertificate?.vence_at ?? 'No registrado' }}</p>
+                </div>
+                <div class="rounded-md bg-slate-50 p-4 text-sm">
+                  <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Certificados del ambiente</p>
+                  <p class="mt-2 font-semibold text-slate-950">{{ certificados.length }}</p>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <template v-else>
+            <div class="grid gap-4 lg:grid-cols-3">
+              <div class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
+                <p class="font-semibold text-slate-950">Casa matriz</p>
+                <p class="mt-2 text-slate-600">{{ selectedSucursal?.direccion ?? 'Direccion pendiente' }}</p>
+                <p class="mt-1 text-slate-600">{{ selectedSucursal?.departamento }} / {{ selectedSucursal?.municipio }} / {{ selectedSucursal?.distrito ?? 'Distrito pendiente' }}</p>
+              </div>
+              <div id="credenciales-mh" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
+                <p class="font-semibold text-slate-950">Credenciales MH</p>
+                <p class="mt-2" :class="selectedMhConfig?.credentials_configured ? 'text-emerald-700' : 'text-slate-500'">
+                  {{ selectedMhConfig?.credentials_configured ? 'Usuario API configurado' : 'Pendiente de configurar' }}
+                </p>
+                <p class="mt-1 text-slate-500">Ambiente {{ environmentLabel }}</p>
+              </div>
+              <div id="firmador" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
+                <p class="font-semibold text-slate-950">Firmador</p>
+                <p class="mt-2" :class="selectedMhConfig?.signer_credentials_configured ? 'text-emerald-700' : 'text-slate-500'">
+                  {{ selectedMhConfig?.signer_credentials_configured ? 'Password privado configurado' : 'Pendiente de configurar' }}
+                </p>
+                <p class="mt-1 text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${selectedMhConfig.last_verified_at}` : 'Sin verificacion registrada' }}</p>
+              </div>
+            </div>
+
+            <div id="certificados" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="block">
+                  <span class="text-sm font-medium text-slate-700">Ambiente</span>
+                  <select v-model="form.ambiente" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                    <option value="00">00 · Pruebas</option>
+                    <option value="01">01 · Produccion</option>
+                  </select>
+                </label>
+
+                <div class="block">
+                  <span class="text-sm font-medium text-slate-700">Certificado activo</span>
+                  <div class="mt-1 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-800">
+                    <p v-if="activeCertificate" class="font-medium">
+                      {{ activeCertificate.filename }}
+                    </p>
+                    <p v-else class="text-slate-500">
+                      Sin certificado cargado para este ambiente.
+                    </p>
+                  </div>
+                  <p v-if="activeCertificate?.vence_at" class="mt-1 text-xs text-slate-500">Vence: {{ activeCertificate.vence_at }}</p>
+                </div>
+
+                <label class="block md:col-span-2">
+                  <span class="text-sm font-medium text-slate-700">Reemplazar certificado .p12/.crt</span>
+                  <UiFileUpload
+                    id="certificate-upload"
+                    class="mt-1"
+                    label="Subir certificado"
+                    :selected-label="certificateFile?.name"
+                    @change="setCertificate"
                   />
                 </label>
               </div>
-              <p v-if="form.simulate_unavailable" class="mt-3 rounded-md border border-amber-200 bg-white px-3 py-2 text-xs font-medium text-amber-800">
-                Recepcion y consulta de DTE fallaran localmente; los eventos MH siguen usando el servicio configurado.
-              </p>
-            </div>
-          </div>
 
-          <div v-if="signerStatus" class="rounded-md border p-3 text-sm" :class="signerStatus.available ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'">
+              <div class="mt-5 border-t border-slate-200 pt-5">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <p class="text-sm font-semibold text-slate-950">Credenciales sensibles</p>
+                    <p class="mt-1 text-xs text-slate-500">Se conservan las existentes si dejas los campos vacios.</p>
+                  </div>
+                  <UiButton variant="secondary" @click="editingCredentials = !editingCredentials">
+                    {{ editingCredentials ? 'Ocultar' : 'Editar credenciales' }}
+                  </UiButton>
+                </div>
+
+                <div v-if="editingCredentials" class="mt-4 grid gap-4 md:grid-cols-2">
+                  <UiInput v-model="form.mh_user" label="MH Usuario API" placeholder="Dejar vacio para conservar" />
+                  <UiInput v-model="form.mh_password" label="MH Password API" type="password" placeholder="Dejar vacio para conservar" revealable />
+                  <UiInput v-model="form.signer_password_pri" label="Password privado certificado" type="password" placeholder="Dejar vacio para conservar" revealable />
+                </div>
+              </div>
+
+              <div class="mt-6 flex flex-wrap items-center gap-3">
+                <UiButton :disabled="loading || !form.empresa_id || isInactive || (editingCompany && !canSaveCompany)" @click="saveVisibleChanges">
+                  {{ editingCompany ? 'Guardar datos de empresa' : 'Guardar configuracion fiscal' }}
+                </UiButton>
+                <UiButton variant="secondary" :disabled="loading || !form.empresa_id || isInactive" @click="verifySigner">Verificar firma</UiButton>
+                <UiButton variant="secondary" :disabled="loading || !form.empresa_id || isInactive" @click="requestBearer">Verificar autorizacion MH</UiButton>
+                <p v-if="saved" class="text-sm text-emerald-700">{{ saved }}</p>
+              </div>
+
+              <div class="mt-5 rounded-md border p-4" :class="form.simulate_unavailable ? 'border-amber-300 bg-amber-50' : 'border-blue-100/80 bg-slate-50/80'">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p class="text-sm font-semibold text-slate-950">Simular MH sin respuesta</p>
+                    <p class="mt-1 text-xs text-slate-600">Usalo solo para pruebas de contingencia en este ambiente.</p>
+                  </div>
+                  <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-800">
+                    <span>{{ form.simulate_unavailable ? 'Activo' : 'Inactivo' }}</span>
+                    <UiToggle
+                      v-model="form.simulate_unavailable"
+                      aria-label="Simular MH sin respuesta"
+                      :disabled="loading || isInactive"
+                      off-variant="success"
+                      variant="warning"
+                    />
+                  </label>
+                </div>
+                <p v-if="form.simulate_unavailable" class="mt-3 rounded-md border border-amber-200 bg-white px-3 py-2 text-xs font-medium text-amber-800">
+                  Recepcion y consulta de DTE fallaran localmente; los eventos MH siguen usando el servicio configurado.
+                </p>
+              </div>
+            </div>
+          </template>
+
+          <div v-if="!props.detailMode && signerStatus" class="rounded-md border p-3 text-sm" :class="signerStatus.available ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'">
             <p class="font-semibold">Firmador {{ signerStatus.available ? 'disponible' : 'no disponible' }}</p>
             <p v-if="signerStatus.status_code">HTTP {{ signerStatus.status_code }}</p>
             <p v-if="signerStatus.last_verified_at">Verificado: {{ signerStatus.last_verified_at }}</p>
             <p v-if="signerStatus.message">Detalle: {{ signerStatus.message }}</p>
           </div>
 
-          <div v-if="bearerStatus" class="rounded-md border p-3 text-sm" :class="bearerStatus.available ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'">
+          <div v-if="!props.detailMode && bearerStatus" class="rounded-md border p-3 text-sm" :class="bearerStatus.available ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'">
             <p class="font-semibold">Autorizacion MH {{ bearerStatus.available ? 'verificada' : 'no disponible' }}</p>
             <p v-if="bearerStatus.http_status" class="mt-1">HTTP {{ bearerStatus.http_status }}</p>
             <p v-if="bearerStatus.auth_url">Servicio: {{ bearerStatus.auth_url }}</p>
