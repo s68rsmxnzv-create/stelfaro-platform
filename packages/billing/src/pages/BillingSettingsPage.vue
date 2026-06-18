@@ -702,7 +702,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
 
 <template>
   <div class="space-y-5">
-    <UiCard>
+    <UiCard :variant="props.detailMode && selectedEmpresa ? 'bare' : 'default'">
       <div v-if="!empresas.length && !loading" class="rounded-md border border-dashed border-slate-300 p-6 text-sm text-slate-500">
         Aun no hay empresas registradas.
       </div>
@@ -756,7 +756,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </div>
         </aside>
 
-        <section v-if="selectedEmpresa" class="min-w-0 space-y-5">
+        <section v-if="selectedEmpresa" class="min-w-0" :class="props.detailMode ? 'space-y-6' : 'space-y-5'">
           <div v-if="!props.detailMode" id="datos-empresa" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
             <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div class="flex min-w-0 gap-4">
@@ -897,7 +897,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               </div>
             </div>
 
-            <div class="grid gap-3" style="grid-template-columns: repeat(5, minmax(0, 1fr));">
+            <div class="grid gap-4" style="grid-template-columns: repeat(5, minmax(0, 1fr));">
               <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
                 <p class="truncate text-[11px] font-bold uppercase text-slate-500">DTE emitidos</p>
                 <p class="mt-2 text-2xl font-bold text-slate-950">{{ companySummary?.totals.emitted ?? 0 }}</p>
