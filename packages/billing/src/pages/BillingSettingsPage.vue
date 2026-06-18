@@ -897,7 +897,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               </div>
             </div>
 
-            <div class="grid grid-cols-5 gap-3">
+            <div class="grid gap-3" style="grid-template-columns: repeat(5, minmax(0, 1fr));">
               <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
                 <p class="truncate text-[11px] font-bold uppercase text-slate-500">DTE emitidos</p>
                 <p class="mt-2 text-2xl font-bold text-slate-950">{{ companySummary?.totals.emitted ?? 0 }}</p>
