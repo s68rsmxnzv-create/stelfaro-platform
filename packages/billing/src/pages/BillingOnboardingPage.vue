@@ -408,7 +408,7 @@ function setLogo(event: Event): void {
                 <button
                   v-if="activityIndex === companyActivities.length - 1 && companyActivities.length < 3"
                   type="button"
-                  class="mb-px grid h-10 w-10 place-items-center self-end rounded-md border border-blue-100 bg-white text-slate-700 shadow-sm shadow-blue-950/5 transition hover:border-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  class="mt-6 grid h-10 w-10 place-items-center rounded-md border border-blue-100 bg-white text-slate-700 shadow-sm shadow-blue-950/5 transition hover:border-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
                   :disabled="!companyActivities[0]?.trim()"
                   aria-label="Agregar actividad economica"
                   @click="addCompanyActivity"

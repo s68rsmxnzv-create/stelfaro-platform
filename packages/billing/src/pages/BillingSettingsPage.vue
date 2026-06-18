@@ -916,7 +916,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                       <button
                         v-if="activityIndex === companyActivities.length - 1 && companyActivities.length < 3"
                         type="button"
-                        class="mb-px grid h-10 w-10 place-items-center self-end rounded-md border border-blue-100 bg-white text-slate-700 shadow-sm shadow-blue-950/5 transition hover:border-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        class="mt-6 grid h-10 w-10 place-items-center rounded-md border border-blue-100 bg-white text-slate-700 shadow-sm shadow-blue-950/5 transition hover:border-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
                         :disabled="!companyActivities[0]?.trim()"
                         aria-label="Agregar actividad economica"
                         @click="addCompanyActivity"
@@ -959,10 +959,6 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               </label>
             </div>
 
-            <div class="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-200 pt-4">
-              <UiButton :disabled="loading || !canSaveCompany || isInactive" @click="saveCompanyData">Guardar datos de empresa</UiButton>
-              <p class="text-xs text-slate-500">Este guardado actualiza NIT, nombre, actividad, direccion y logo.</p>
-            </div>
           </div>
 
           <template v-if="props.detailMode && !editingCompany && !editingFiscal">
