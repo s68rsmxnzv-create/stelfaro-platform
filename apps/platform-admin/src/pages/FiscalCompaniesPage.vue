@@ -28,6 +28,7 @@ const platform = usePlatformSessionStore();
       :company-action="workspace.companyActionRequest"
       @company-selected="workspace.focusCompany"
       @company-cleared="workspace.clearCompany"
+      @company-view-changed="workspace.setCompanyView"
     />
   </section>
 </template>

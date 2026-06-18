@@ -40,6 +40,16 @@ async function logout(): Promise<void> {
   window.location.assign(platform.loginUrl);
 }
 
+function companyViewButtonClass(view: 'data' | 'fiscal'): string {
+  return workspace.activeCompanyView === view
+    ? 'bg-slate-100 text-slate-950'
+    : 'text-slate-800 hover:bg-slate-50 hover:text-slate-950';
+}
+
+function companyViewIconClass(view: 'data' | 'fiscal'): string {
+  return workspace.activeCompanyView === view ? 'text-slate-950' : 'text-slate-600';
+}
+
 type NavIcon = 'home' | 'building' | 'plus' | 'credit-card' | 'mail' | 'settings';
 
 type NavLink = {
@@ -383,18 +393,20 @@ function groupClass(group: NavGroup): string {
             <template v-if="workspace.companyEditMode">
               <button
                 type="button"
-                class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold text-slate-800 transition hover:bg-slate-50 hover:text-slate-950"
+                class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold transition"
+                :class="companyViewButtonClass('data')"
                 @click="workspace.requestCompanyAction('edit-data')"
               >
-                <span class="grid h-[22px] w-[22px] place-items-center text-slate-600">ID</span>
+                <span class="grid h-[22px] w-[22px] place-items-center" :class="companyViewIconClass('data')">ID</span>
                 Datos generales
               </button>
               <button
                 type="button"
-                class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold text-slate-800 transition hover:bg-slate-50 hover:text-slate-950"
+                class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold transition"
+                :class="companyViewButtonClass('fiscal')"
                 @click="workspace.requestCompanyAction('edit-fiscal')"
               >
-                <svg class="h-[22px] w-[22px] text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                <svg class="h-[22px] w-[22px]" :class="companyViewIconClass('fiscal')" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
                   <path d="M15 7a5 5 0 1 0-4 4.9L20 21l1-1-2-2 2-2-2-2 2-2-1-1-2 2-1.6-1.6A5 5 0 0 0 15 7Z" />
                 </svg>
                 Datos fiscales

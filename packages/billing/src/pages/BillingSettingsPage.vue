@@ -32,6 +32,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   companySelected: [company: { id: number; name: string; tradeName: string; documentLabel: string; lifecycleStatus: string }];
   companyCleared: [];
+  companyViewChanged: [view: 'summary' | 'data' | 'fiscal'];
 }>();
 
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, {
@@ -218,6 +219,20 @@ watch(selectedEmpresa, (empresa) => {
   }
 
   companySummary.value = null;
+}, { immediate: true });
+
+watch([editingCompany, editingFiscal], () => {
+  if (editingCompany.value) {
+    emit('companyViewChanged', 'data');
+    return;
+  }
+
+  if (editingFiscal.value) {
+    emit('companyViewChanged', 'fiscal');
+    return;
+  }
+
+  emit('companyViewChanged', 'summary');
 }, { immediate: true });
 
 watch(() => props.companyAction?.nonce, () => {
@@ -412,6 +427,7 @@ function selectEmpresa(empresa: BillingEmpresa): void {
   editingCompany.value = false;
   editingFiscal.value = false;
   emitSelectedCompany(empresa);
+  emit('companyViewChanged', 'summary');
 }
 
 function emitSelectedCompany(empresa: BillingEmpresa): void {
@@ -654,6 +670,7 @@ async function deleteCompany(): Promise<void> {
     await client.value.deleteBillingCompany(selectedEmpresa.value.id);
     form.empresa_id = 0;
     emit('companyCleared');
+    emit('companyViewChanged', 'summary');
     saved.value = 'Empresa borrada.';
     await loadContext();
   } catch (caught) {

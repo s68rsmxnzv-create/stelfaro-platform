@@ -10,11 +10,13 @@ export type SelectedAdminCompany = {
 };
 
 export type AdminCompanyAction = 'edit' | 'edit-data' | 'edit-fiscal' | 'toggle-status' | 'delete';
+export type AdminCompanyView = 'summary' | 'data' | 'fiscal';
 
 export const useAdminWorkspaceStore = defineStore('admin-workspace', () => {
   const selectedCompany = ref<SelectedAdminCompany | null>(null);
   const companyDetailMode = ref(false);
   const companyEditMode = ref(false);
+  const activeCompanyView = ref<AdminCompanyView>('summary');
   const companyActionRequest = ref<{ action: AdminCompanyAction; nonce: number } | null>(null);
 
   const hasCompanyDetail = computed(() => Boolean(selectedCompany.value && companyDetailMode.value));
@@ -27,12 +29,14 @@ export const useAdminWorkspaceStore = defineStore('admin-workspace', () => {
   function showCompanySearch(): void {
     companyDetailMode.value = false;
     companyEditMode.value = false;
+    activeCompanyView.value = 'summary';
   }
 
   function clearCompany(): void {
     selectedCompany.value = null;
     companyDetailMode.value = false;
     companyEditMode.value = false;
+    activeCompanyView.value = 'summary';
     companyActionRequest.value = null;
   }
 
@@ -41,21 +45,36 @@ export const useAdminWorkspaceStore = defineStore('admin-workspace', () => {
       companyEditMode.value = true;
     }
 
+    if (action === 'edit' || action === 'edit-data') {
+      activeCompanyView.value = 'data';
+    }
+
+    if (action === 'edit-fiscal') {
+      activeCompanyView.value = 'fiscal';
+    }
+
     companyActionRequest.value = {
       action,
       nonce: Date.now()
     };
   }
 
+  function setCompanyView(view: AdminCompanyView): void {
+    activeCompanyView.value = view;
+    companyEditMode.value = view !== 'summary';
+  }
+
   return {
     selectedCompany,
     companyDetailMode,
     companyEditMode,
+    activeCompanyView,
     companyActionRequest,
     hasCompanyDetail,
     focusCompany,
     showCompanySearch,
     clearCompany,
-    requestCompanyAction
+    requestCompanyAction,
+    setCompanyView
   };
 });
