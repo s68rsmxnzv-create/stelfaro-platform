@@ -940,22 +940,6 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                   </div>
                 </div>
               </div>
-              <label class="block">
-                <span class="text-sm font-medium text-slate-700">Logo</span>
-                <span class="mt-1 flex items-center gap-3">
-                  <img v-if="companyLogoPreview" :src="companyLogoPreview" class="h-10 w-10 rounded object-contain" alt="">
-                  <img v-else-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-10 w-10 rounded object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
-                  <span v-else class="flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-xs font-semibold text-slate-500">Logo</span>
-                  <UiFileUpload
-                    id="company-logo-upload"
-                    class="min-w-0 flex-1"
-                    label="Subir logo"
-                    :selected-label="companyLogoFile?.name"
-                    accept="image/*"
-                    @change="setCompanyLogo"
-                  />
-                </span>
-              </label>
               <UiInput v-model="companyForm.direccion" label="Direccion" />
               <div class="grid gap-4" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
                 <UiSearchSelect v-model="companyForm.departamento" label="Departamento" :options="departamentoOptions" placeholder="Seleccionar departamento" />
@@ -967,11 +951,21 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 <UiInput v-model="companyForm.email" label="Correo" type="email" />
               </div>
               <label class="block">
-                <span class="text-sm font-medium text-slate-700">Ambiente base</span>
-                <select v-model="companyForm.ambiente" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                  <option value="00">00 · Pruebas</option>
-                  <option value="01">01 · Produccion</option>
-                </select>
+                <span class="text-sm font-medium text-slate-700">Logo</span>
+                <span class="mt-1 flex max-w-xl items-center gap-3">
+                  <img v-if="companyLogoPreview" :src="companyLogoPreview" class="h-10 w-10 rounded object-contain" alt="">
+                  <img v-else-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-10 w-10 rounded object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
+                  <span v-else class="flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-xs font-semibold text-slate-500">Logo</span>
+                  <UiFileUpload
+                    id="company-logo-upload"
+                    class="min-w-0 flex-1"
+                    label="Subir logo"
+                    :selected-label="companyLogoFile?.name"
+                    accept="image/*"
+                    compact
+                    @change="setCompanyLogo"
+                  />
+                </span>
               </label>
             </div>
 

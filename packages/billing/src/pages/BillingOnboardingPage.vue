@@ -443,6 +443,7 @@ function setLogo(event: Event): void {
               label="Subir logo"
               :selected-label="logoFile?.name"
               accept="image/*"
+              compact
               @change="setLogo"
             />
           </span>
