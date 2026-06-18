@@ -868,7 +868,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
             </div>
           </div>
 
-          <template v-if="props.detailMode">
+          <template v-if="props.detailMode && !editingCompany">
             <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
               <div class="flex min-w-0 gap-4">
                 <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
