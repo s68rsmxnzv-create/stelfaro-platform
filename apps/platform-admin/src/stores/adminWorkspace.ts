@@ -9,11 +9,12 @@ export type SelectedAdminCompany = {
   lifecycleStatus: 'active' | 'inactive' | string;
 };
 
-export type AdminCompanyAction = 'edit' | 'toggle-status' | 'delete';
+export type AdminCompanyAction = 'edit' | 'edit-data' | 'edit-fiscal' | 'toggle-status' | 'delete';
 
 export const useAdminWorkspaceStore = defineStore('admin-workspace', () => {
   const selectedCompany = ref<SelectedAdminCompany | null>(null);
   const companyDetailMode = ref(false);
+  const companyEditMode = ref(false);
   const companyActionRequest = ref<{ action: AdminCompanyAction; nonce: number } | null>(null);
 
   const hasCompanyDetail = computed(() => Boolean(selectedCompany.value && companyDetailMode.value));
@@ -25,15 +26,21 @@ export const useAdminWorkspaceStore = defineStore('admin-workspace', () => {
 
   function showCompanySearch(): void {
     companyDetailMode.value = false;
+    companyEditMode.value = false;
   }
 
   function clearCompany(): void {
     selectedCompany.value = null;
     companyDetailMode.value = false;
+    companyEditMode.value = false;
     companyActionRequest.value = null;
   }
 
   function requestCompanyAction(action: AdminCompanyAction): void {
+    if (action === 'edit' || action === 'edit-data' || action === 'edit-fiscal') {
+      companyEditMode.value = true;
+    }
+
     companyActionRequest.value = {
       action,
       nonce: Date.now()
@@ -43,6 +50,7 @@ export const useAdminWorkspaceStore = defineStore('admin-workspace', () => {
   return {
     selectedCompany,
     companyDetailMode,
+    companyEditMode,
     companyActionRequest,
     hasCompanyDetail,
     focusCompany,

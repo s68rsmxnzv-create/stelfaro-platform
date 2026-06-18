@@ -19,7 +19,7 @@ const props = withDefaults(defineProps<{
   requestCredentials?: RequestCredentials;
   detailMode?: boolean;
   alwaysShowCompanySearch?: boolean;
-  companyAction?: { action: 'edit' | 'toggle-status' | 'delete'; nonce: number } | null;
+  companyAction?: { action: 'edit' | 'edit-data' | 'edit-fiscal' | 'toggle-status' | 'delete'; nonce: number } | null;
 }>(), {
   coreBaseUrl: '/api/v1',
   authToken: null,
@@ -52,6 +52,7 @@ const companyLogoFile = ref<File | null>(null);
 const companyLogoPreview = ref<string | null>(null);
 const editingCredentials = ref(false);
 const editingCompany = ref(false);
+const editingFiscal = ref(false);
 const brokenLogoIds = ref<Set<number>>(new Set());
 const companyActivities = ref<string[]>(['']);
 const catalogs = ref<BillingCatalogs | null>(null);
@@ -224,9 +225,17 @@ watch(() => props.companyAction?.nonce, () => {
     return;
   }
 
-  if (props.companyAction.action === 'edit') {
+  if (props.companyAction.action === 'edit' || props.companyAction.action === 'edit-data') {
     editingCompany.value = true;
+    editingFiscal.value = false;
     requestAnimationFrame(() => document.getElementById('empresa-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    return;
+  }
+
+  if (props.companyAction.action === 'edit-fiscal') {
+    editingCompany.value = false;
+    editingFiscal.value = true;
+    requestAnimationFrame(() => document.getElementById('certificados')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     return;
   }
 
@@ -401,6 +410,7 @@ function selectEmpresa(empresa: BillingEmpresa): void {
   form.ambiente = empresa.ambiente;
   editingCredentials.value = false;
   editingCompany.value = false;
+  editingFiscal.value = false;
   emitSelectedCompany(empresa);
 }
 
@@ -508,6 +518,7 @@ async function saveCompanyData(): Promise<void> {
     form.ambiente = response.empresa.ambiente;
     saved.value = 'Datos de empresa guardados.';
     editingCompany.value = false;
+    editingFiscal.value = false;
     await loadContext();
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible guardar los datos de la empresa.';
@@ -867,25 +878,27 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </div>
 
           <div v-if="editingCompany" id="empresa-editor" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p class="text-sm font-semibold text-slate-950">Datos generales de la empresa</p>
-                <p class="mt-1 text-xs text-slate-500">Nombres, documento fiscal, actividad, direccion, contacto y logo.</p>
-              </div>
-              <div class="flex flex-wrap items-center gap-2">
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p class="text-sm font-semibold text-slate-950">Datos generales de la empresa</p>
+                  <p class="mt-1 text-xs text-slate-500">Nombres, documento fiscal, actividad, direccion, contacto y logo.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
                 <UiButton v-if="props.detailMode" variant="secondary" :disabled="loading" @click="editingCompany = false">Volver al resumen</UiButton>
                 <UiButton :disabled="loading || !canSaveCompany || isInactive" @click="saveCompanyData">Guardar datos</UiButton>
               </div>
             </div>
 
-            <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <UiInput v-model="companyForm.razon_social" label="Nombre del contribuyente" />
-              <UiInput v-model="companyForm.nombre_comercial" label="Nombre comercial" />
-              <div class="grid gap-4 md:col-span-2 md:grid-cols-2 xl:col-span-1">
+            <div class="mt-5 grid gap-5">
+              <div class="grid gap-4" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+                <UiInput v-model="companyForm.razon_social" label="Nombre del contribuyente" />
+                <UiInput v-model="companyForm.nombre_comercial" label="Nombre comercial" />
+              </div>
+              <div class="grid gap-4" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
                 <UiFiscalDocumentInput v-model="companyForm.documento_fiscal" label="NIT" allowed-types="nit" @detected="fiscalDocument = $event" />
                 <UiInput v-model="companyForm.nrc" label="NRC" />
               </div>
-              <div class="md:col-span-2 xl:col-span-3">
+              <div>
                 <div class="flex items-center justify-between gap-3">
                   <span class="text-sm font-medium text-slate-700">Actividades economicas</span>
                   <UiButton
@@ -938,11 +951,15 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 </span>
               </label>
               <UiInput v-model="companyForm.direccion" label="Direccion" />
-              <UiSearchSelect v-model="companyForm.departamento" label="Departamento" :options="departamentoOptions" placeholder="Seleccionar departamento" />
-              <UiSearchSelect v-model="companyForm.municipio" label="Municipio" :options="municipioOptions" :disabled="!companyForm.departamento" placeholder="Seleccionar municipio" />
-              <UiSearchSelect v-model="companyForm.distrito" label="Distrito" :options="distritoOptions" :disabled="!companyForm.municipio" placeholder="Seleccionar distrito" />
-              <UiInput v-model="companyForm.telefono" label="Telefono" />
-              <UiInput v-model="companyForm.email" label="Correo" type="email" />
+              <div class="grid gap-4" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+                <UiSearchSelect v-model="companyForm.departamento" label="Departamento" :options="departamentoOptions" placeholder="Seleccionar departamento" />
+                <UiSearchSelect v-model="companyForm.municipio" label="Municipio" :options="municipioOptions" :disabled="!companyForm.departamento" placeholder="Seleccionar municipio" />
+                <UiSearchSelect v-model="companyForm.distrito" label="Distrito" :options="distritoOptions" :disabled="!companyForm.municipio" placeholder="Seleccionar distrito" />
+              </div>
+              <div class="grid gap-4" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+                <UiInput v-model="companyForm.telefono" label="Telefono" />
+                <UiInput v-model="companyForm.email" label="Correo" type="email" />
+              </div>
               <label class="block">
                 <span class="text-sm font-medium text-slate-700">Ambiente base</span>
                 <select v-model="companyForm.ambiente" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
@@ -958,7 +975,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
             </div>
           </div>
 
-          <template v-if="props.detailMode && !editingCompany">
+          <template v-if="props.detailMode && !editingCompany && !editingFiscal">
             <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
               <div class="flex min-w-0 gap-4">
                 <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
@@ -1093,17 +1110,8 @@ function markLogoBroken(empresa: BillingEmpresa): void {
             </div>
           </template>
 
-          <template v-if="!props.detailMode || editingCompany">
-            <div v-if="props.detailMode && editingCompany" id="fiscalidad-editor" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
-              <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p class="text-sm font-semibold text-slate-950">Fiscalidad y credenciales</p>
-                  <p class="mt-1 text-xs text-slate-500">Ambiente, certificado, credenciales MH, firmador y pruebas de disponibilidad.</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="grid gap-4 lg:grid-cols-3">
+          <template v-if="!props.detailMode || editingFiscal">
+            <div v-if="!props.detailMode" class="grid gap-4 lg:grid-cols-3">
               <div class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
                 <p class="font-semibold text-slate-950">Casa matriz</p>
                 <p class="mt-2 text-slate-600">{{ selectedSucursal?.direccion ?? 'Direccion pendiente' }}</p>

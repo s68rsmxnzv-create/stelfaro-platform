@@ -380,32 +380,26 @@ function groupClass(group: NavGroup): string {
               </svg>
               Configuracion fiscal
             </RouterLink>
-            <a href="#datos-empresa" class="flex min-h-12 items-center gap-3 rounded-lg px-3 text-base font-semibold text-slate-800 transition hover:bg-slate-50 hover:text-slate-950">
-              <span class="grid h-[22px] w-[22px] place-items-center text-slate-600">ID</span>
-              Datos de empresa
-            </a>
-            <a href="#credenciales-mh" class="flex min-h-12 items-center gap-3 rounded-lg px-3 text-base font-semibold text-slate-800 transition hover:bg-slate-50 hover:text-slate-950">
-              <svg class="h-[22px] w-[22px] text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-                <path d="M15 7a5 5 0 1 0-4 4.9L20 21l1-1-2-2 2-2-2-2 2-2-1-1-2 2-1.6-1.6A5 5 0 0 0 15 7Z" />
-              </svg>
-              Credenciales MH
-            </a>
-            <a href="#firmador" class="flex min-h-12 items-center gap-3 rounded-lg px-3 text-base font-semibold text-slate-800 transition hover:bg-slate-50 hover:text-slate-950">
-              <svg class="h-[22px] w-[22px] text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-                <path d="M12 3v18" />
-                <path d="M6 8h12" />
-                <path d="M8 21h8" />
-                <path d="m8 8-4 7h8L8 8Z" />
-                <path d="m16 8-4 7h8l-4-7Z" />
-              </svg>
-              Firmador
-            </a>
-            <a href="#certificados" class="flex min-h-12 items-center gap-3 rounded-lg px-3 text-base font-semibold text-slate-800 transition hover:bg-slate-50 hover:text-slate-950">
-              <svg class="h-[22px] w-[22px] text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-                <path d="M7 3h10v18l-5-3-5 3V3Z" />
-              </svg>
-              Certificados
-            </a>
+            <template v-if="workspace.companyEditMode">
+              <button
+                type="button"
+                class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold text-slate-800 transition hover:bg-slate-50 hover:text-slate-950"
+                @click="workspace.requestCompanyAction('edit-data')"
+              >
+                <span class="grid h-[22px] w-[22px] place-items-center text-slate-600">ID</span>
+                Datos generales
+              </button>
+              <button
+                type="button"
+                class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold text-slate-800 transition hover:bg-slate-50 hover:text-slate-950"
+                @click="workspace.requestCompanyAction('edit-fiscal')"
+              >
+                <svg class="h-[22px] w-[22px] text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                  <path d="M15 7a5 5 0 1 0-4 4.9L20 21l1-1-2-2 2-2-2-2 2-2-1-1-2 2-1.6-1.6A5 5 0 0 0 15 7Z" />
+                </svg>
+                Datos fiscales
+              </button>
+            </template>
           </div>
 
           <div class="mt-6 border-t border-slate-200 pt-5">

@@ -386,7 +386,7 @@ function setLogo(event: Event): void {
       <div v-if="step === 0" class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <UiInput v-model="companyForm.razon_social" label="Nombre del contribuyente" />
         <UiInput v-model="companyForm.nombre_comercial" label="Nombre comercial" />
-        <div class="grid gap-4 md:col-span-2 md:grid-cols-2 xl:col-span-1">
+        <div class="grid gap-4 md:col-span-2 xl:col-span-3" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
           <UiFiscalDocumentInput v-model="companyForm.documento_fiscal" label="NIT" allowed-types="nit" @detected="fiscalDocument = $event" />
           <UiInput v-model="companyForm.nrc" label="NRC" />
         </div>
@@ -443,13 +443,17 @@ function setLogo(event: Event): void {
         </label>
       </div>
 
-      <div v-else-if="step === 1" class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div v-else-if="step === 1" class="mt-6 grid gap-4">
         <UiInput v-model="companyForm.direccion" label="Direccion" />
-        <UiSearchSelect v-model="companyForm.departamento" label="Departamento" :options="departamentoOptions" placeholder="Seleccionar departamento" />
-        <UiSearchSelect v-model="companyForm.municipio" label="Municipio" :options="municipioOptions" :disabled="!companyForm.departamento" placeholder="Seleccionar municipio" />
-        <UiSearchSelect v-model="companyForm.distrito" label="Distrito" :options="distritoOptions" :disabled="!companyForm.municipio" placeholder="Seleccionar distrito" />
-        <UiInput v-model="companyForm.telefono" label="Telefono" />
-        <UiInput v-model="companyForm.email" label="Correo" type="email" />
+        <div class="grid gap-4" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+          <UiSearchSelect v-model="companyForm.departamento" label="Departamento" :options="departamentoOptions" placeholder="Seleccionar departamento" />
+          <UiSearchSelect v-model="companyForm.municipio" label="Municipio" :options="municipioOptions" :disabled="!companyForm.departamento" placeholder="Seleccionar municipio" />
+          <UiSearchSelect v-model="companyForm.distrito" label="Distrito" :options="distritoOptions" :disabled="!companyForm.municipio" placeholder="Seleccionar distrito" />
+        </div>
+        <div class="grid gap-4" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+          <UiInput v-model="companyForm.telefono" label="Telefono" />
+          <UiInput v-model="companyForm.email" label="Correo" type="email" />
+        </div>
         <label class="block">
           <span class="text-sm font-medium text-slate-700">Ambiente</span>
           <select v-model="companyForm.ambiente" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
