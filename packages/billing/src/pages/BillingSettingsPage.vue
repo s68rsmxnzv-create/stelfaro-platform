@@ -900,43 +900,33 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               </div>
               <div>
                 <span class="text-sm font-medium text-slate-700">Actividades economicas</span>
-                <div class="mt-2 grid gap-3" style="grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr) minmax(0, 1fr);">
-                  <UiSearchSelect
-                    v-model="companyActivities[0]"
-                    label="Actividad principal"
-                    :options="actividadOptions"
-                    placeholder="Buscar por codigo o descripcion"
-                    @update:model-value="syncPrimaryActivity"
-                  />
-                  <button
-                    type="button"
-                    class="mb-0.5 grid h-11 w-11 place-items-center self-end rounded-md border border-blue-100 bg-white text-slate-700 shadow-sm shadow-blue-950/5 transition hover:border-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    :class="companyActivities.length >= 3 ? 'invisible pointer-events-none' : ''"
-                    :disabled="!companyActivities[0]?.trim() || companyActivities.length >= 3"
-                    aria-label="Agregar actividad economica"
-                    @click="addCompanyActivity"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    </svg>
-                  </button>
-                  <div v-if="companyActivities.length > 1" class="grid gap-2">
-                    <UiSearchSelect
-                      v-model="companyActivities[1]"
-                      label="Actividad adicional 2"
-                      :options="actividadOptions"
-                      placeholder="Buscar por codigo o descripcion"
-                    />
-                    <UiButton variant="ghost" :disabled="loading" @click="removeCompanyActivity(1)">Quitar</UiButton>
-                  </div>
-                  <div v-if="companyActivities.length > 2" class="grid gap-2">
-                    <UiSearchSelect
-                      v-model="companyActivities[2]"
-                      label="Actividad adicional 3"
-                      :options="actividadOptions"
-                      placeholder="Buscar por codigo o descripcion"
-                    />
-                    <UiButton variant="ghost" :disabled="loading" @click="removeCompanyActivity(2)">Quitar</UiButton>
+                <div class="mt-2 grid gap-3" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+                  <div v-for="(_, activityIndex) in companyActivities" :key="activityIndex" class="grid gap-2">
+                    <div
+                      class="grid gap-2"
+                      :style="activityIndex === companyActivities.length - 1 && companyActivities.length < 3 ? 'grid-template-columns: minmax(0, 1fr) 42px;' : 'grid-template-columns: minmax(0, 1fr);'"
+                    >
+                      <UiSearchSelect
+                        v-model="companyActivities[activityIndex]"
+                        :label="activityIndex === 0 ? 'Actividad principal' : `Actividad adicional ${activityIndex + 1}`"
+                        :options="actividadOptions"
+                        placeholder="Buscar por codigo o descripcion"
+                        @update:model-value="activityIndex === 0 ? syncPrimaryActivity() : undefined"
+                      />
+                      <button
+                        v-if="activityIndex === companyActivities.length - 1 && companyActivities.length < 3"
+                        type="button"
+                        class="mb-px grid h-10 w-10 place-items-center self-end rounded-md border border-blue-100 bg-white text-slate-700 shadow-sm shadow-blue-950/5 transition hover:border-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        :disabled="!companyActivities[0]?.trim()"
+                        aria-label="Agregar actividad economica"
+                        @click="addCompanyActivity"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                      </button>
+                    </div>
+                    <UiButton v-if="activityIndex > 0" variant="ghost" class="justify-self-start" :disabled="loading" @click="removeCompanyActivity(activityIndex)">Quitar</UiButton>
                   </div>
                 </div>
               </div>
