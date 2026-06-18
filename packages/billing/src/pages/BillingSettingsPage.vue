@@ -756,7 +756,12 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </div>
         </aside>
 
-        <section v-if="selectedEmpresa" class="min-w-0" :class="props.detailMode ? 'flex flex-col gap-7' : 'space-y-5'">
+        <section
+          v-if="selectedEmpresa"
+          class="min-w-0"
+          :class="props.detailMode ? 'flex flex-col' : 'space-y-5'"
+          :style="props.detailMode ? { rowGap: '28px' } : undefined"
+        >
           <div v-if="!props.detailMode" id="datos-empresa" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
             <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div class="flex min-w-0 gap-4">
