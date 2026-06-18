@@ -24,10 +24,12 @@ export type LoginResponse = {
 export type CoreDteClientOptions = {
   authToken?: string | null | (() => string | null | undefined);
   onSessionRefresh?: (expiresAt: string | null) => void;
+  credentials?: RequestCredentials;
 };
 
 export type NotificationsClientOptions = {
   authToken?: string | null | (() => string | null | undefined);
+  credentials?: RequestCredentials;
 };
 
 export type CoreHealth = {
@@ -206,6 +208,33 @@ export type DteDraftSummary = {
 export type DteDocumentListResponse = {
   data: DteDraftSummary[];
   meta?: PaginationMeta;
+};
+
+export type DteDashboardSummary = {
+  generated_at: string;
+  totals: {
+    documents: number;
+    emitted: number;
+    accepted: number;
+    rejected: number;
+    invalidated: number;
+    pending: number;
+    companies: number;
+  };
+  by_status: Array<{
+    status: string;
+    total: number;
+  }>;
+  by_type: Array<{
+    tipo_dte: string;
+    total: number;
+  }>;
+  daily: Array<{
+    date: string;
+    total: number;
+    accepted: number;
+    rejected: number;
+  }>;
 };
 
 export type DteQueryMhResponse = {
@@ -673,10 +702,15 @@ function normalizeServiceBaseUrl(baseUrl: string): string {
   return trimmed.replace(/^\/+/, '');
 }
 
-function buildServiceHttp(baseUrl: string, authToken?: string | null | (() => string | null | undefined)): KyInstance {
+function buildServiceHttp(
+  baseUrl: string,
+  authToken?: string | null | (() => string | null | undefined),
+  credentials?: RequestCredentials
+): KyInstance {
   return ky.create({
     prefixUrl: normalizeServiceBaseUrl(baseUrl),
     timeout: 15000,
+    credentials,
     hooks: {
       beforeRequest: [
         (request) => {
@@ -718,7 +752,7 @@ export class NotificationsClient {
   private readonly http: KyInstance;
 
   constructor(baseUrl: string, options: NotificationsClientOptions = {}) {
-    this.http = buildServiceHttp(baseUrl, options.authToken);
+    this.http = buildServiceHttp(baseUrl, options.authToken, options.credentials);
   }
 
   health(): Promise<NotificationsHealth> {
@@ -750,15 +784,18 @@ export class CoreDteClient {
   private readonly http: KyInstance;
   private readonly authToken?: CoreDteClientOptions['authToken'];
   private readonly onSessionRefresh?: CoreDteClientOptions['onSessionRefresh'];
+  private readonly credentials?: CoreDteClientOptions['credentials'];
   private readonly baseUrl: string;
 
   constructor(baseUrl: string, options: CoreDteClientOptions = {}) {
     this.authToken = options.authToken;
     this.onSessionRefresh = options.onSessionRefresh;
+    this.credentials = options.credentials;
     this.baseUrl = this.normalizeBaseUrl(baseUrl);
     this.http = ky.create({
       prefixUrl: this.baseUrl,
       timeout: 15000,
+      credentials: this.credentials,
       hooks: {
         beforeRequest: [
           (request) => {
@@ -974,6 +1011,7 @@ export class CoreDteClient {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
+      credentials: this.credentials,
       body: JSON.stringify(payload)
     });
 
@@ -1014,6 +1052,10 @@ export class CoreDteClient {
 
   documents(params: { q?: string; estado?: string; tipo_dte?: string; empresa_id?: number; limit?: number; page?: number; include_payload?: boolean } = {}): Promise<DteDocumentListResponse> {
     return this.http.get('dte/drafts', { searchParams: compactParams(params) }).json();
+  }
+
+  dashboardSummary(): Promise<DteDashboardSummary> {
+    return this.http.get('dte/dashboard-summary').json();
   }
 
   document(id: number): Promise<DteDraftSummary> {

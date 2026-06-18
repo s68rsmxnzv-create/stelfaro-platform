@@ -7,6 +7,7 @@ export { default as UiLoadingMark } from './components/UiLoadingMark.vue';
 export { default as UiInput } from './components/UiInput.vue';
 export { default as UiTextarea } from './components/UiTextarea.vue';
 export { default as UiToggle } from './components/UiToggle.vue';
+export { default as UiFileUpload } from './components/UiFileUpload.vue';
 export { default as UiInfoIcon } from './components/UiInfoIcon.vue';
 export { default as UiCloseCircleIcon } from './components/UiCloseCircleIcon.vue';
 export { default as UiDocumentIcon } from './components/UiDocumentIcon.vue';

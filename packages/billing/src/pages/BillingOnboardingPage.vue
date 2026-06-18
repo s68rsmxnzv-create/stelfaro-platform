@@ -9,17 +9,22 @@ import {
   type BillingSignerVerification,
   type MhBearerVerification
 } from '@stelfaro/api-client';
-import { UiButton, UiCard, UiFiscalDocumentInput, UiInput, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCard, UiFileUpload, UiFiscalDocumentInput, UiInput, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
   authToken?: string | null;
+  requestCredentials?: RequestCredentials;
 }>(), {
   coreBaseUrl: '/api/v1',
-  authToken: null
+  authToken: null,
+  requestCredentials: undefined
 });
 
-const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
+const client = computed(() => new CoreDteClient(props.coreBaseUrl, {
+  authToken: props.authToken,
+  credentials: props.requestCredentials
+}));
 const loading = ref(false);
 const error = ref<string | null>(null);
 const saved = ref<string | null>(null);
@@ -345,10 +350,17 @@ function setLogo(event: Event): void {
         <UiSearchSelect v-model="companyForm.codigo_actividad" label="Actividad economica" :options="actividadOptions" placeholder="Buscar por codigo o descripcion" />
         <label class="block">
           <span class="text-sm font-medium text-slate-700">Logo</span>
-          <span class="mt-1 flex items-center gap-3 rounded-md border border-slate-300 px-3 py-2">
+          <span class="mt-1 flex items-center gap-3">
             <img v-if="logoPreview" :src="logoPreview" class="h-10 w-10 rounded object-contain" alt="">
             <span v-else class="flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-xs font-semibold text-slate-500">Logo</span>
-            <input class="min-w-0 flex-1 text-sm" type="file" accept="image/*" @change="setLogo">
+            <UiFileUpload
+              id="onboarding-logo-upload"
+              class="min-w-0 flex-1"
+              label="Subir logo"
+              :selected-label="logoFile?.name"
+              accept="image/*"
+              @change="setLogo"
+            />
           </span>
         </label>
       </div>
@@ -375,7 +387,13 @@ function setLogo(event: Event): void {
         <UiInput v-model="fiscalForm.signer_password_pri" label="Password privado certificado" type="password" revealable />
         <label class="block">
           <span class="text-sm font-medium text-slate-700">Certificado .p12/.crt</span>
-          <input class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" type="file" @change="setCertificate">
+          <UiFileUpload
+            id="onboarding-certificate-upload"
+            class="mt-1"
+            label="Subir certificado"
+            :selected-label="certificateFile?.name"
+            @change="setCertificate"
+          />
         </label>
       </div>
 

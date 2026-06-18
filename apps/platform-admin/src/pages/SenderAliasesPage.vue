@@ -36,8 +36,6 @@ onMounted(() => {
 });
 
 async function loadAliases(): Promise<void> {
-  if (!session.token) return;
-
   loading.value = true;
   error.value = null;
   try {
@@ -130,8 +128,8 @@ function purposeLabel(value: string): string {
       </button>
     </div>
 
-    <div v-if="!session.token" class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-      Conecta el servicio de notificaciones para administrar alias.
+    <div v-if="!session.isConnected" class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      No fue posible conectar con el servicio de notificaciones.
     </div>
 
     <div v-else class="grid gap-6 xl:grid-cols-[1fr_420px]">
@@ -235,7 +233,7 @@ function purposeLabel(value: string): string {
         <button
           type="submit"
           class="mt-5 h-10 w-full rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-          :disabled="saving || !session.token"
+          :disabled="saving || !session.isConnected"
         >
           {{ saving ? 'Guardando...' : selectedAlias ? 'Guardar cambios' : 'Crear alias' }}
         </button>

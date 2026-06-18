@@ -3,12 +3,16 @@
 import { CoreDteClient } from '@stelfaro/api-client';
 import { UiCloseCircleIcon, UiInfoIcon } from '@stelfaro/ui';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import BillingAppNav from '../components/BillingAppNav.vue';
+import BillingDashboardPage from './BillingDashboardPage.vue';
+import BillingOperationalPlaceholderPage from './BillingOperationalPlaceholderPage.vue';
 import BillingSettingsPage from './BillingSettingsPage.vue';
 import BillingWorkspace from './BillingWorkspace.vue';
 import DteArtifactsPage from './DteArtifactsPage.vue';
 import MhEventResponsesPage from './MhEventResponsesPage.vue';
 import MhEventsPage from './MhEventsPage.vue';
 import MhResponsesPage from './MhResponsesPage.vue';
+import { getBillingContext, peekBillingContext } from '../support/billingDataCache';
 
 const props = defineProps({
   app: {
@@ -54,13 +58,24 @@ const props = defineProps({
   eventSlug: {
     type: String,
     default: 'invalidacion'
+  },
+  extraNavItems: {
+    type: Array,
+    default: () => []
+  },
+  operationalPage: {
+    type: Object,
+    default: null
   }
 });
 
 const dteHelpModalOpen = ref(false);
+const userMenuOpen = ref(false);
+const userMenuRef = ref(null);
 const contextLoading = ref(false);
 const documentTypes = ref([]);
 const billingCompanies = ref([]);
+const emit = defineEmits(['logout', 'navigate']);
 
 const documentTypeBySlug = {
   fe: '01',
@@ -117,6 +132,8 @@ const fallbackBillingTypes = [
   { code: '06', label: 'Nota de debito', version: 4, implemented: true }
 ];
 const moduleComponents = {
+  dashboard: BillingDashboardPage,
+  'operational-placeholder': BillingOperationalPlaceholderPage,
   billing: BillingWorkspace,
   artifacts: DteArtifactsPage,
   'mh-events': MhEventsPage,
@@ -148,7 +165,8 @@ const billingOptions = computed(() => {
 const selectedComponentProps = computed(() => {
   const baseProps = {
     authToken: props.authToken,
-    coreBaseUrl: props.coreBaseUrl
+    coreBaseUrl: props.coreBaseUrl,
+    billingContextCacheScope: billingContextCacheScope.value
   };
 
   if (props.module === 'billing') {
@@ -165,9 +183,17 @@ const selectedComponentProps = computed(() => {
     };
   }
 
+  if (props.module === 'operational-placeholder') {
+    return props.operationalPage ?? {};
+  }
+
   return baseProps;
 });
+const dashboardHref = computed(() => props.dashboardUrl || props.appBaseUrl || '/');
 const pageTitle = computed(() => {
+  if (props.module === 'dashboard') return 'Dashboard';
+  if (props.module === 'operational-placeholder') return props.operationalPage?.title ?? props.app.name;
+
   if (props.module === 'billing') {
     return billingOptions.value.find((item) => item.slug === props.documentSlug)?.label ?? 'Facturacion';
   }
@@ -184,6 +210,19 @@ const pageTitle = computed(() => {
   return props.app.name;
 });
 const currentDteHelp = computed(() => (props.module === 'billing' ? dteHelpByType[selectedDocumentType.value] ?? null : null));
+const activeCompany = computed(() => billingCompanies.value.find((empresa) => empresa.lifecycle_status === 'active') ?? billingCompanies.value[0] ?? null);
+const billingContextCacheScope = computed(() => props.user?.email ?? props.app?.id ?? 'default');
+const companyLogoUrl = computed(() => activeCompany.value?.logo_url ?? null);
+const displayName = computed(() => props.user?.name ?? props.app?.name ?? 'Stelfaro');
+const firstName = computed(() => displayName.value.split(' ').filter(Boolean)[0] ?? 'Stelfaro');
+const initials = computed(() => {
+  return displayName.value
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'SF';
+});
 
 watch(() => props.authToken, async (token) => {
   if (!token) {
@@ -192,16 +231,20 @@ watch(() => props.authToken, async (token) => {
     return;
   }
 
-  contextLoading.value = true;
+  const cached = peekBillingContext(props.coreBaseUrl, billingContextCacheScope.value);
+  if (cached) {
+    applyBillingContext(cached);
+  } else {
+    contextLoading.value = true;
+  }
 
   try {
-    const context = await new CoreDteClient(props.coreBaseUrl, { authToken: token }).billingContext();
-    billingCompanies.value = context.empresas;
-    const enabled = new Set(context.empresas.flatMap((empresa) => empresa.enabled_document_types ?? []));
-    documentTypes.value = context.documentTypes.map((type) => ({
-      ...type,
-      implemented: Boolean(type.implemented) && (['05', '06', '14'].includes(type.code) || enabled.size === 0 || enabled.has(type.code))
-    }));
+    const context = await getBillingContext(
+      new CoreDteClient(props.coreBaseUrl, { authToken: token }),
+      props.coreBaseUrl,
+      billingContextCacheScope.value
+    );
+    applyBillingContext(context);
   } catch {
     documentTypes.value = [];
     billingCompanies.value = [];
@@ -210,28 +253,211 @@ watch(() => props.authToken, async (token) => {
   }
 }, { immediate: true });
 
+function applyBillingContext(context) {
+  billingCompanies.value = context.empresas;
+  const enabled = new Set(context.empresas.flatMap((empresa) => empresa.enabled_document_types ?? []));
+  documentTypes.value = context.documentTypes.map((type) => ({
+    ...type,
+    implemented: Boolean(type.implemented) && (['05', '06', '14'].includes(type.code) || enabled.size === 0 || enabled.has(type.code))
+  }));
+}
+
+watch(() => props.user?.email, () => {
+  userMenuOpen.value = false;
+});
+
 onMounted(() => {
   window.addEventListener('keydown', closeDteHelpOnEscape);
+  document.addEventListener('click', closeUserMenuOnOutsideClick);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', closeDteHelpOnEscape);
+  document.removeEventListener('click', closeUserMenuOnOutsideClick);
 });
 
 function closeDteHelpOnEscape(event) {
   if (event.key === 'Escape') {
     dteHelpModalOpen.value = false;
+    userMenuOpen.value = false;
   }
 }
 
 function openDteHelpModal() {
   dteHelpModalOpen.value = true;
 }
+
+function toggleUserMenu() {
+  userMenuOpen.value = !userMenuOpen.value;
+}
+
+function closeUserMenuOnOutsideClick(event) {
+  if (!userMenuOpen.value || !userMenuRef.value) return;
+
+  if (!userMenuRef.value.contains(event.target)) {
+    userMenuOpen.value = false;
+  }
+}
+
+function logout() {
+  userMenuOpen.value = false;
+  emit('logout');
+}
+
+function navigate(event, href) {
+  emit('navigate', { event, href });
+}
+
+function navigateFromMenu(event, href) {
+  userMenuOpen.value = false;
+  navigate(event, href);
+}
 </script>
 
 <template>
-  <div class="bg-[#f6f8fb] text-slate-950">
-    <header class="border-b border-slate-200 bg-white">
+  <div class="relative min-h-screen overflow-x-hidden bg-white pt-16 text-slate-950">
+    <div
+      class="pointer-events-none fixed inset-0 z-0"
+      style="background: #ffffff; background-image: radial-gradient(circle at top center, rgba(59, 130, 246, 0.28), transparent 42rem);"
+    ></div>
+
+    <nav class="fixed inset-x-0 top-0 z-50 bg-slate-900/95 shadow-sm backdrop-blur">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="flex h-16 items-center justify-between">
+          <div class="flex items-center">
+            <div class="hidden items-baseline gap-1 md:flex">
+              <a
+                :href="dashboardHref"
+                class="rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
+                :class="module === 'dashboard' ? 'bg-slate-950/70 text-white' : ''"
+                @click="navigate($event, dashboardHref)"
+              >
+                Dashboard
+              </a>
+
+              <a
+                v-for="item in extraNavItems"
+                :key="item.href"
+                :href="item.href"
+                class="rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
+                :class="item.active ? 'bg-slate-950/70 text-white' : ''"
+                @click="navigate($event, item.href)"
+              >
+                {{ item.label }}
+              </a>
+
+              <BillingAppNav
+                :auth-token="authToken"
+                :core-base-url="coreBaseUrl"
+                :document-slug="documentSlug"
+                :event-slug="eventSlug"
+                :module="module"
+                :app-base-url="appBaseUrl"
+                :billing-context-cache-scope="billingContextCacheScope"
+                @navigate="navigate($event.event, $event.href)"
+              />
+            </div>
+          </div>
+
+          <div class="flex items-center gap-4">
+            <div ref="userMenuRef" class="relative">
+              <button
+                class="inline-flex h-12 items-center gap-3 rounded-full bg-slate-900 px-2 pr-3 text-left text-white transition hover:bg-slate-800 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-400"
+                type="button"
+                :aria-expanded="userMenuOpen ? 'true' : 'false'"
+                aria-haspopup="menu"
+                aria-label="Abrir menu de usuario"
+                @click="toggleUserMenu"
+              >
+                <span class="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-indigo-100 text-xs font-bold text-indigo-950 ring-2 ring-sky-400">
+                  <img
+                    v-if="companyLogoUrl"
+                    :src="companyLogoUrl"
+                    class="h-full w-full object-contain p-1"
+                    alt=""
+                  >
+                  <span v-else>{{ initials }}</span>
+                </span>
+                <span class="hidden max-w-32 truncate text-sm font-semibold md:block">{{ firstName }}</span>
+                <svg class="h-4 w-4 text-slate-300 transition" :class="userMenuOpen ? 'rotate-180' : ''" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" />
+                </svg>
+              </button>
+
+              <div
+                v-if="userMenuOpen"
+                class="absolute right-0 z-30 mt-3 w-80 origin-top-right rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-xl shadow-slate-950/15"
+                role="menu"
+              >
+                <div class="px-1 pb-4">
+                  <p class="truncate text-sm font-semibold text-slate-950">{{ user?.name ?? app.name }}</p>
+                  <p class="mt-1 truncate text-sm text-slate-500">{{ user?.email ?? 'Sesion activa' }}</p>
+                </div>
+                <div class="space-y-1 py-2 text-sm font-semibold">
+                  <a
+                    :href="dashboardHref"
+                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+                    role="menuitem"
+                    @click="navigateFromMenu($event, dashboardHref)"
+                  >
+                    <svg class="h-5 w-5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                      <path d="M4 11.5 12 4l8 7.5" />
+                      <path d="M6.5 10.5V20h11v-9.5" />
+                    </svg>
+                    Dashboard
+                  </a>
+                  <a
+                    v-if="canAccessPlatformAdmin && platformAdminUrl"
+                    :href="platformAdminUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+                    role="menuitem"
+                    @click="userMenuOpen = false"
+                  >
+                    <svg class="h-5 w-5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                      <path d="M4 5h16" />
+                      <path d="M4 12h16" />
+                      <path d="M4 19h16" />
+                    </svg>
+                    Panel administrativo
+                  </a>
+                  <a
+                    :href="`${appBaseUrl || ''}/configuracion-fiscal`"
+                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+                    role="menuitem"
+                    @click="navigateFromMenu($event, `${appBaseUrl || ''}/configuracion-fiscal`)"
+                  >
+                    <svg class="h-5 w-5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                      <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
+                      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.05.05a2.1 2.1 0 1 1-2.97 2.97l-.05-.05a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.55V21a2.1 2.1 0 0 1-4.2 0v-.08a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.05.05a2.1 2.1 0 1 1-2.97-2.97l.05-.05A1.7 1.7 0 0 0 4.2 15a1.7 1.7 0 0 0-1.55-1H2.6a2.1 2.1 0 0 1 0-4.2h.08a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.05-.05A2.1 2.1 0 1 1 6.8 3.9l.05.05a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1-1.55V2.7a2.1 2.1 0 0 1 4.2 0v.08a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.05-.05a2.1 2.1 0 1 1 2.97 2.97l-.05.05a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.55 1h.08a2.1 2.1 0 0 1 0 4.2H21a1.7 1.7 0 0 0-1.6 1Z" />
+                    </svg>
+                    Configuracion fiscal
+                  </a>
+                </div>
+                <div class="mt-2 border-t border-slate-200 pt-2">
+                  <button
+                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-700"
+                    type="button"
+                    role="menuitem"
+                    @click="logout"
+                  >
+                    <svg class="h-5 w-5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                      <path d="M15 17l5-5-5-5" />
+                      <path d="M20 12H9" />
+                      <path d="M11 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6" />
+                    </svg>
+                    Salir
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <header class="relative z-10 border-b border-blue-100/70 bg-white/85 shadow-sm shadow-blue-950/5 backdrop-blur">
       <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div class="flex flex-wrap items-center gap-3">
           <h1 class="text-3xl font-bold tracking-tight text-slate-950">{{ pageTitle }}</h1>
@@ -281,17 +507,18 @@ function openDteHelpModal() {
       </section>
     </div>
 
-    <main>
+    <main class="relative z-10">
       <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div v-if="!authToken" class="rounded-md border border-red-200 bg-red-50 p-5 text-red-700">
           No fue posible abrir la sesion fiscal.
         </div>
-        <div v-else-if="contextLoading" class="rounded-md border border-slate-200 bg-white p-5 text-slate-600">
-          Preparando contexto fiscal...
-        </div>
+        <slot
+          v-else
+          name="before-content"
+        />
         <component
           :is="selectedComponent"
-          v-else
+          v-if="authToken"
           v-bind="selectedComponentProps"
         />
       </div>

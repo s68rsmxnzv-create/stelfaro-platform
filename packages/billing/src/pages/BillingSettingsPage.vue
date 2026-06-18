@@ -10,17 +10,31 @@ import {
   type BillingSignerVerification,
   type MhBearerVerification
 } from '@stelfaro/api-client';
-import { UiButton, UiCard, UiFiscalDocumentInput, UiInput, UiSearchInput, UiSearchSelect, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCard, UiFileUpload, UiFiscalDocumentInput, UiInput, UiSearchInput, UiSearchSelect, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
   authToken?: string | null;
+  requestCredentials?: RequestCredentials;
+  detailMode?: boolean;
+  companyAction?: { action: 'edit' | 'toggle-status' | 'delete'; nonce: number } | null;
 }>(), {
   coreBaseUrl: '/api/v1',
-  authToken: null
+  authToken: null,
+  requestCredentials: undefined,
+  detailMode: false,
+  companyAction: null
 });
 
-const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
+const emit = defineEmits<{
+  companySelected: [company: { id: number; name: string; tradeName: string; documentLabel: string; lifecycleStatus: string }];
+  companyCleared: [];
+}>();
+
+const client = computed(() => new CoreDteClient(props.coreBaseUrl, {
+  authToken: props.authToken,
+  credentials: props.requestCredentials
+}));
 const loading = ref(false);
 const error = ref<string | null>(null);
 const saved = ref<string | null>(null);
@@ -87,10 +101,12 @@ const companyForm = reactive({
 const empresas = computed(() => context.value?.empresas ?? []);
 const singleCompanyScope = computed(() => empresas.value.length === 1);
 const selectedEmpresa = computed(() => empresas.value.find((empresa) => empresa.id === form.empresa_id) ?? null);
+const showCompanySearch = computed(() => !singleCompanyScope.value && !(props.detailMode && selectedEmpresa.value));
 const selectedSucursal = computed(() => selectedEmpresa.value?.sucursales[0] ?? null);
 const selectedMhConfig = computed(() => selectedEmpresa.value?.mh_configs.find((config) => config.ambiente === form.ambiente) ?? null);
 const certificados = computed(() => selectedEmpresa.value?.certificados.filter((cert) => cert.ambiente === form.ambiente) ?? []);
 const selectedCertificate = computed(() => certificados.value.find((cert) => cert.id === form.certificado_id) ?? null);
+const activeCertificate = computed(() => selectedCertificate.value ?? certificados.value.find((cert) => cert.activo) ?? null);
 const selectedDocumentLabel = computed(() => documentLabel(selectedEmpresa.value));
 const environmentLabel = computed(() => form.ambiente === '01' ? 'Produccion' : 'Pruebas');
 const isInactive = computed(() => selectedEmpresa.value?.lifecycle_status === 'inactive');
@@ -128,7 +144,7 @@ const filteredEmpresas = computed(() => {
 });
 const resultLabel = computed(() => {
   if (!searchQuery.value.trim()) {
-    return 'Escribe para buscar';
+    return '';
   }
 
   return `${filteredEmpresas.value.length} resultado${filteredEmpresas.value.length === 1 ? '' : 's'}`;
@@ -140,7 +156,31 @@ onMounted(() => {
 
 watch(selectedEmpresa, (empresa) => {
   syncCompanyForm(empresa);
+  if (props.detailMode && empresa) {
+    emitSelectedCompany(empresa);
+  }
 }, { immediate: true });
+
+watch(() => props.companyAction?.nonce, () => {
+  if (!props.companyAction || !selectedEmpresa.value) {
+    return;
+  }
+
+  if (props.companyAction.action === 'edit') {
+    editingCompany.value = true;
+    requestAnimationFrame(() => document.getElementById('datos-empresa')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    return;
+  }
+
+  if (props.companyAction.action === 'toggle-status') {
+    void updateCompanyStatus(isInactive.value ? 'active' : 'inactive');
+    return;
+  }
+
+  if (props.companyAction.action === 'delete') {
+    void deleteCompany();
+  }
+});
 
 watch(() => [form.empresa_id, form.ambiente] as const, () => {
   signerStatus.value = null;
@@ -280,6 +320,17 @@ function selectEmpresa(empresa: BillingEmpresa): void {
   form.ambiente = empresa.ambiente;
   editingCredentials.value = false;
   editingCompany.value = false;
+  emitSelectedCompany(empresa);
+}
+
+function emitSelectedCompany(empresa: BillingEmpresa): void {
+  emit('companySelected', {
+    id: empresa.id,
+    name: empresa.razon_social,
+    tradeName: empresa.nombre_comercial,
+    documentLabel: documentLabel(empresa),
+    lifecycleStatus: empresa.lifecycle_status
+  });
 }
 
 function syncCompanyForm(empresa: BillingEmpresa | null): void {
@@ -466,6 +517,7 @@ async function deleteCompany(): Promise<void> {
   try {
     await client.value.deleteBillingCompany(selectedEmpresa.value.id);
     form.empresa_id = 0;
+    emit('companyCleared');
     saved.value = 'Empresa borrada.';
     await loadContext();
   } catch (caught) {
@@ -545,26 +597,13 @@ function markLogoBroken(empresa: BillingEmpresa): void {
 
 <template>
   <div class="space-y-5">
-    <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-      <div>
-        <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Empresas</p>
-        <h1 class="mt-1 text-2xl font-bold text-slate-950">{{ singleCompanyScope ? 'Configuracion fiscal' : 'Gestion de empresas' }}</h1>
-        <p class="mt-2 max-w-3xl text-sm text-slate-500">
-          {{ singleCompanyScope ? 'Revisa y actualiza la configuracion fiscal de tu empresa.' : 'Busca contribuyentes, revisa su estado fiscal y valida firma o autorizacion con Hacienda.' }}
-        </p>
-      </div>
-      <RouterLink v-if="!singleCompanyScope" to="/onboarding" class="inline-flex items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
-        Registrar empresa
-      </RouterLink>
-    </div>
-
     <UiCard>
       <div v-if="!empresas.length && !loading" class="rounded-md border border-dashed border-slate-300 p-6 text-sm text-slate-500">
         Aun no hay empresas registradas.
       </div>
 
-      <div v-else class="grid gap-8" :class="singleCompanyScope ? '' : 'xl:grid-cols-[420px_minmax(0,1fr)]'">
-        <aside v-if="!singleCompanyScope" class="space-y-5">
+      <div v-else class="grid gap-8" :class="showCompanySearch ? 'xl:grid-cols-[420px_minmax(0,1fr)]' : ''">
+        <aside v-if="showCompanySearch" class="space-y-5">
           <UiSearchInput
             v-model="searchQuery"
             label="Buscar empresa"
@@ -573,7 +612,8 @@ function markLogoBroken(empresa: BillingEmpresa): void {
 
           <div>
             <div class="mb-3 flex items-center justify-between">
-              <p class="text-sm font-semibold text-slate-950">{{ resultLabel }}</p>
+              <p v-if="resultLabel" class="text-sm font-semibold text-slate-950">{{ resultLabel }}</p>
+              <span v-else></span>
               <p class="text-xs text-slate-500">{{ empresas.length }} registradas</p>
             </div>
 
@@ -604,11 +644,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 </div>
               </button>
 
-              <div v-if="!searchQuery.trim()" class="rounded-md border border-dashed border-slate-300 p-5 text-sm text-slate-500">
-                Escribe el DUI, NIT, nombre fiscal o nombre comercial para buscar una empresa.
-              </div>
-
-              <div v-else-if="!filteredEmpresas.length" class="rounded-md border border-dashed border-slate-300 p-5 text-sm text-slate-500">
+              <div v-if="searchQuery.trim() && !filteredEmpresas.length" class="rounded-md border border-dashed border-slate-300 p-5 text-sm text-slate-500">
                 No se encontro ninguna empresa con ese criterio.
               </div>
             </div>
@@ -616,7 +652,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
         </aside>
 
         <section v-if="selectedEmpresa" class="min-w-0 space-y-5">
-          <div class="rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
+          <div id="datos-empresa" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
             <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div class="flex min-w-0 gap-4">
                 <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
@@ -636,7 +672,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 </div>
               </div>
 
-              <div class="flex flex-wrap gap-2">
+              <div v-if="!props.detailMode" class="flex flex-wrap gap-2">
                 <UiButton variant="secondary" :disabled="loading" @click="editingCompany = !editingCompany">
                   {{ editingCompany ? 'Ocultar datos' : 'Editar datos' }}
                 </UiButton>
@@ -666,11 +702,18 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               <UiSearchSelect v-model="companyForm.codigo_actividad" label="Actividad economica" :options="actividadOptions" placeholder="Buscar por codigo o descripcion" />
               <label class="block">
                 <span class="text-sm font-medium text-slate-700">Logo</span>
-                <span class="mt-1 flex items-center gap-3 rounded-md border border-slate-300 px-3 py-2">
+                <span class="mt-1 flex items-center gap-3">
                   <img v-if="companyLogoPreview" :src="companyLogoPreview" class="h-10 w-10 rounded object-contain" alt="">
                   <img v-else-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-10 w-10 rounded object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
                   <span v-else class="flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-xs font-semibold text-slate-500">Logo</span>
-                  <input class="min-w-0 flex-1 text-sm" type="file" accept="image/*" @change="setCompanyLogo">
+                  <UiFileUpload
+                    id="company-logo-upload"
+                    class="min-w-0 flex-1"
+                    label="Subir logo"
+                    :selected-label="companyLogoFile?.name"
+                    accept="image/*"
+                    @change="setCompanyLogo"
+                  />
                 </span>
               </label>
               <UiInput v-model="companyForm.direccion" label="Direccion" />
@@ -700,14 +743,14 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               <p class="mt-2 text-slate-600">{{ selectedSucursal?.direccion ?? 'Direccion pendiente' }}</p>
               <p class="mt-1 text-slate-600">{{ selectedSucursal?.departamento }} / {{ selectedSucursal?.municipio }} / {{ selectedSucursal?.distrito ?? 'Distrito pendiente' }}</p>
             </div>
-            <div class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
+            <div id="credenciales-mh" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
               <p class="font-semibold text-slate-950">Credenciales MH</p>
               <p class="mt-2" :class="selectedMhConfig?.credentials_configured ? 'text-emerald-700' : 'text-slate-500'">
                 {{ selectedMhConfig?.credentials_configured ? 'Usuario API configurado' : 'Pendiente de configurar' }}
               </p>
               <p class="mt-1 text-slate-500">Ambiente {{ environmentLabel }}</p>
             </div>
-            <div class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
+            <div id="firmador" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
               <p class="font-semibold text-slate-950">Firmador</p>
               <p class="mt-2" :class="selectedMhConfig?.signer_credentials_configured ? 'text-emerald-700' : 'text-slate-500'">
                 {{ selectedMhConfig?.signer_credentials_configured ? 'Password privado configurado' : 'Pendiente de configurar' }}
@@ -716,7 +759,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
             </div>
           </div>
 
-          <div class="rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
+          <div id="certificados" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
             <div class="grid gap-4 md:grid-cols-2">
               <label class="block">
                 <span class="text-sm font-medium text-slate-700">Ambiente</span>
@@ -726,21 +769,28 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 </select>
               </label>
 
-              <label class="block">
+              <div class="block">
                 <span class="text-sm font-medium text-slate-700">Certificado activo</span>
-                <select v-model.number="form.certificado_id" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                  <option :value="null">Sin certificado seleccionado</option>
-                  <option v-for="cert in certificados" :key="cert.id" :value="cert.id">
-                    #{{ cert.id }} · {{ cert.filename }} {{ cert.activo ? '(activo)' : '' }}
-                  </option>
-                </select>
-                <p v-if="selectedCertificate?.vence_at" class="mt-1 text-xs text-slate-500">Vence: {{ selectedCertificate.vence_at }}</p>
-              </label>
+                <div class="mt-1 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-800">
+                  <p v-if="activeCertificate" class="font-medium">
+                    {{ activeCertificate.filename }}
+                  </p>
+                  <p v-else class="text-slate-500">
+                    Sin certificado cargado para este ambiente.
+                  </p>
+                </div>
+                <p v-if="activeCertificate?.vence_at" class="mt-1 text-xs text-slate-500">Vence: {{ activeCertificate.vence_at }}</p>
+              </div>
 
               <label class="block md:col-span-2">
                 <span class="text-sm font-medium text-slate-700">Reemplazar certificado .p12/.crt</span>
-                <input class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" type="file" @change="setCertificate">
-                <p v-if="certificateFile" class="mt-1 text-xs text-slate-500">{{ certificateFile.name }}</p>
+                <UiFileUpload
+                  id="certificate-upload"
+                  class="mt-1"
+                  label="Subir certificado"
+                  :selected-label="certificateFile?.name"
+                  @change="setCertificate"
+                />
               </label>
             </div>
 
@@ -813,14 +863,6 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </div>
         </section>
 
-        <section v-else class="flex min-h-[420px] items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-          <div>
-            <p class="text-base font-semibold text-slate-900">Selecciona una empresa</p>
-            <p class="mt-2 max-w-md text-sm text-slate-500">
-              Busca por documento o nombre y elige un resultado para cargar su informacion fiscal, certificado, firma y autorizacion MH.
-            </p>
-          </div>
-        </section>
       </div>
 
       <p v-if="error" class="mt-4 whitespace-pre-wrap rounded-md bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>

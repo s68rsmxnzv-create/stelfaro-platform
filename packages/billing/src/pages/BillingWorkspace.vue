@@ -26,15 +26,23 @@ import BillingCustomerSearchModal from '../components/BillingCustomerSearchModal
 import BillingInvoiceSummaryBar from '../components/BillingInvoiceSummaryBar.vue';
 import BillingProcessModal from '../components/BillingProcessModal.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
+import {
+  getBillingCatalogs,
+  getBillingContext,
+  peekBillingCatalogs,
+  peekBillingContext
+} from '../support/billingDataCache';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
   authToken?: string | null;
   initialDocumentType?: DocumentType;
+  billingContextCacheScope?: string;
 }>(), {
   coreBaseUrl: '/api/v1',
   authToken: null,
-  initialDocumentType: '01'
+  initialDocumentType: '01',
+  billingContextCacheScope: 'default'
 });
 
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
@@ -664,34 +672,46 @@ watch(() => props.initialDocumentType, (documentType) => {
 });
 
 async function loadContext(): Promise<void> {
-  contextLoading.value = true;
+  const cachedContext = peekBillingContext(props.coreBaseUrl, props.billingContextCacheScope);
+  const cachedCatalogs = peekBillingCatalogs(props.coreBaseUrl, props.billingContextCacheScope);
+
+  if (cachedContext && cachedCatalogs) {
+    applyInitialContext(cachedContext, cachedCatalogs);
+  } else {
+    contextLoading.value = true;
+  }
+
   error.value = null;
 
   try {
     const [contextResult, catalogsResult] = await Promise.all([
-      client.value.billingContext(),
-      client.value.billingCatalogs()
+      getBillingContext(client.value, props.coreBaseUrl, props.billingContextCacheScope),
+      getBillingCatalogs(client.value, props.coreBaseUrl, props.billingContextCacheScope)
     ]);
-    context.value = contextResult;
-    catalogs.value = catalogsResult;
-    form.empresaId = context.value.empresas[0]?.id ?? null;
-    form.sucursalId = context.value.empresas[0]?.sucursales[0]?.id ?? null;
-    form.puntoVentaId = context.value.empresas[0]?.sucursales[0]?.puntosVenta[0]?.id ?? null;
-    if (requiresStructuredCustomer.value) {
-      customerMode.value = 'base';
-      clearCustomerFields('');
-    } else {
-      setGenericCustomer();
-    }
-    lineId = 1;
-    draftLine.value = newInvoiceLine();
-    lines.value = [];
+    applyInitialContext(contextResult, catalogsResult);
     await Promise.all([loadCustomers(), loadItemTemplates()]);
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar la configuracion de facturacion.';
   } finally {
     contextLoading.value = false;
   }
+}
+
+function applyInitialContext(contextResult: BillingContext, catalogsResult: BillingCatalogs): void {
+  context.value = contextResult;
+  catalogs.value = catalogsResult;
+  form.empresaId = context.value.empresas[0]?.id ?? null;
+  form.sucursalId = context.value.empresas[0]?.sucursales[0]?.id ?? null;
+  form.puntoVentaId = context.value.empresas[0]?.sucursales[0]?.puntosVenta[0]?.id ?? null;
+  if (requiresStructuredCustomer.value) {
+    customerMode.value = 'base';
+    clearCustomerFields('');
+  } else {
+    setGenericCustomer();
+  }
+  lineId = 1;
+  draftLine.value = newInvoiceLine();
+  lines.value = [];
 }
 
 watch(customerMode, (mode) => {

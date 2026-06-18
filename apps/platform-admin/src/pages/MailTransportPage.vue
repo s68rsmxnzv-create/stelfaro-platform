@@ -26,8 +26,6 @@ onMounted(() => {
 });
 
 async function loadTransport(): Promise<void> {
-  if (!session.token) return;
-
   loading.value = true;
   error.value = null;
   try {
@@ -88,8 +86,8 @@ async function saveTransport(): Promise<void> {
       </p>
     </div>
 
-    <div v-if="!session.token" class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-      Conecta el servicio de notificaciones para administrar el buzon.
+    <div v-if="!session.isConnected" class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      No fue posible conectar con el servicio de notificaciones.
     </div>
 
     <div v-else class="grid gap-6 lg:grid-cols-[1fr_320px]">

@@ -2,6 +2,7 @@
 // @ts-nocheck
 import { CoreDteClient } from '@stelfaro/api-client';
 import { computed, ref, watch } from 'vue';
+import { getBillingContext, peekBillingContext } from '../support/billingDataCache';
 
 const props = defineProps({
   authToken: {
@@ -27,8 +28,13 @@ const props = defineProps({
   eventSlug: {
     type: String,
     default: 'invalidacion'
+  },
+  billingContextCacheScope: {
+    type: String,
+    default: 'default'
   }
 });
+const emit = defineEmits(['navigate']);
 
 const billingMenuOpen = ref(false);
 const eventMenuOpen = ref(false);
@@ -82,17 +88,30 @@ watch(() => props.authToken, async (token) => {
     return;
   }
 
+  const cached = peekBillingContext(props.coreBaseUrl, props.billingContextCacheScope);
+  if (cached) {
+    applyBillingContext(cached);
+  }
+
   try {
-    const context = await new CoreDteClient(props.coreBaseUrl, { authToken: token }).billingContext();
+    const context = await getBillingContext(
+      new CoreDteClient(props.coreBaseUrl, { authToken: token }),
+      props.coreBaseUrl,
+      props.billingContextCacheScope
+    );
+    applyBillingContext(context);
+  } catch {
+    documentTypes.value = [];
+  }
+}, { immediate: true });
+
+function applyBillingContext(context) {
     const enabled = new Set(context.empresas.flatMap((empresa) => empresa.enabled_document_types ?? []));
     documentTypes.value = context.documentTypes.map((type) => ({
       ...type,
       implemented: Boolean(type.implemented) && (['05', '06', '14'].includes(type.code) || enabled.size === 0 || enabled.has(type.code))
     }));
-  } catch {
-    documentTypes.value = [];
-  }
-}, { immediate: true });
+}
 
 function toggleBillingMenu() {
   const next = !billingMenuOpen.value;
@@ -114,14 +133,21 @@ function toggleResponsesMenu() {
   billingMenuOpen.value = false;
   eventMenuOpen.value = false;
 }
+
+function navigate(event, href) {
+  billingMenuOpen.value = false;
+  eventMenuOpen.value = false;
+  responsesMenuOpen.value = false;
+  emit('navigate', { event, href });
+}
 </script>
 
 <template>
   <div class="hidden items-center gap-1 md:flex">
     <div class="relative">
       <button
-        class="inline-flex items-center gap-2 rounded px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
-        :class="module === 'billing' ? 'bg-white text-[#0d1629] hover:bg-white hover:text-[#0d1629]' : ''"
+        class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
+        :class="module === 'billing' ? 'bg-slate-950/70 text-white' : ''"
         type="button"
         @click="toggleBillingMenu"
       >
@@ -143,6 +169,7 @@ function toggleResponsesMenu() {
             :href="option.href"
             class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
             :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === 'billing' && documentSlug === option.slug }"
+            @click="navigate($event, option.href)"
           >
             {{ option.label }}
           </a>
@@ -155,8 +182,8 @@ function toggleResponsesMenu() {
 
     <div class="relative">
       <button
-        class="inline-flex items-center gap-2 rounded px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
-        :class="module === 'mh-events' ? 'bg-white text-[#0d1629] hover:bg-white hover:text-[#0d1629]' : ''"
+        class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
+        :class="module === 'mh-events' ? 'bg-slate-950/70 text-white' : ''"
         type="button"
         @click="toggleEventMenu"
       >
@@ -178,6 +205,7 @@ function toggleResponsesMenu() {
           :href="hrefFor(option.path)"
           class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
           :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === 'mh-events' && eventSlug === option.slug }"
+          @click="navigate($event, hrefFor(option.path))"
         >
           {{ option.label }}
         </a>
@@ -186,8 +214,8 @@ function toggleResponsesMenu() {
 
     <div class="relative">
       <button
-        class="inline-flex items-center gap-2 rounded px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
-        :class="responsesMenuActive ? 'bg-white text-[#0d1629] hover:bg-white hover:text-[#0d1629]' : ''"
+        class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
+        :class="responsesMenuActive ? 'bg-slate-950/70 text-white' : ''"
         type="button"
         @click="toggleResponsesMenu"
       >
@@ -209,6 +237,7 @@ function toggleResponsesMenu() {
           :href="hrefFor(option.path)"
           class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
           :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === option.module }"
+          @click="navigate($event, hrefFor(option.path))"
         >
           {{ option.label }}
         </a>
@@ -217,8 +246,9 @@ function toggleResponsesMenu() {
 
     <a
       :href="hrefFor('/comprobantes')"
-      class="rounded px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
-      :class="module === 'artifacts' ? 'bg-white text-[#0d1629] hover:bg-white hover:text-[#0d1629]' : ''"
+      class="rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
+      :class="module === 'artifacts' ? 'bg-slate-950/70 text-white' : ''"
+      @click="navigate($event, hrefFor('/comprobantes'))"
     >
       Comprobantes
     </a>
