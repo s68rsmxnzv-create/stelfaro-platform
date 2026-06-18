@@ -624,7 +624,7 @@ function blankToNull(value: string | null | undefined): string | null {
   return trimmed === '' ? null : trimmed;
 }
 
-function formatDate(value: string | null | undefined): string {
+function formatDate(value: string | null | undefined, includeTime = false): string {
   if (!value) {
     return 'No registrado';
   }
@@ -637,9 +637,36 @@ function formatDate(value: string | null | undefined): string {
 
   return new Intl.DateTimeFormat('es-SV', {
     day: '2-digit',
-    month: 'short',
-    year: 'numeric'
+    month: '2-digit',
+    year: 'numeric',
+    ...(includeTime ? {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    } : {})
   }).format(date);
+}
+
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) {
+    return 'No registrado';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const hours24 = date.getHours();
+  const hours12 = hours24 % 12 || 12;
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const period = hours24 >= 12 ? 'pm' : 'am';
+
+  return `${day}/${month}/${year} ${String(hours12).padStart(2, '0')}:${minutes} ${period}`;
 }
 
 function departmentCode(value: string | number | null | undefined): string {
@@ -860,7 +887,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                               </span>
                             </div>
                           </div>
-                          <p class="mt-4 text-xs text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${selectedMhConfig.last_verified_at}` : 'Sin verificacion registrada' }}</p>
+                          <p class="mt-4 text-xs text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${formatDateTime(selectedMhConfig.last_verified_at)}` : 'Sin verificacion registrada' }}</p>
                         </div>
                       </div>
                     </div>
@@ -960,7 +987,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 <p class="mt-2" :class="selectedMhConfig?.signer_credentials_configured ? 'text-emerald-700' : 'text-slate-500'">
                   {{ selectedMhConfig?.signer_credentials_configured ? 'Password privado configurado' : 'Pendiente de configurar' }}
                 </p>
-                <p class="mt-1 text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${selectedMhConfig.last_verified_at}` : 'Sin verificacion registrada' }}</p>
+                <p class="mt-1 text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${formatDateTime(selectedMhConfig.last_verified_at)}` : 'Sin verificacion registrada' }}</p>
               </div>
             </div>
 
@@ -1053,7 +1080,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           <div v-if="!props.detailMode && signerStatus" class="rounded-md border p-3 text-sm" :class="signerStatus.available ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'">
             <p class="font-semibold">Firmador {{ signerStatus.available ? 'disponible' : 'no disponible' }}</p>
             <p v-if="signerStatus.status_code">HTTP {{ signerStatus.status_code }}</p>
-            <p v-if="signerStatus.last_verified_at">Verificado: {{ signerStatus.last_verified_at }}</p>
+            <p v-if="signerStatus.last_verified_at">Verificado: {{ formatDateTime(signerStatus.last_verified_at) }}</p>
             <p v-if="signerStatus.message">Detalle: {{ signerStatus.message }}</p>
           </div>
 
