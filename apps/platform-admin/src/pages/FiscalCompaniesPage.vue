@@ -3,9 +3,11 @@ import { BillingSettingsPage } from '@stelfaro/billing';
 import { UiLoadingMark } from '@stelfaro/ui';
 import { useCoreSessionStore } from '../stores/coreSession';
 import { useAdminWorkspaceStore } from '../stores/adminWorkspace';
+import { usePlatformSessionStore } from '../stores/platformSession';
 
 const core = useCoreSessionStore();
 const workspace = useAdminWorkspaceStore();
+const platform = usePlatformSessionStore();
 </script>
 
 <template>
@@ -22,6 +24,7 @@ const workspace = useAdminWorkspaceStore();
       :core-base-url="core.baseUrl"
       request-credentials="include"
       :detail-mode="workspace.companyDetailMode"
+      :always-show-company-search="platform.canAccessAdmin"
       :company-action="workspace.companyActionRequest"
       @company-selected="workspace.focusCompany"
       @company-cleared="workspace.clearCompany"

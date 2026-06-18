@@ -18,12 +18,14 @@ const props = withDefaults(defineProps<{
   authToken?: string | null;
   requestCredentials?: RequestCredentials;
   detailMode?: boolean;
+  alwaysShowCompanySearch?: boolean;
   companyAction?: { action: 'edit' | 'toggle-status' | 'delete'; nonce: number } | null;
 }>(), {
   coreBaseUrl: '/api/v1',
   authToken: null,
   requestCredentials: undefined,
   detailMode: false,
+  alwaysShowCompanySearch: false,
   companyAction: null
 });
 
@@ -104,7 +106,13 @@ const companyForm = reactive({
 const empresas = computed(() => context.value?.empresas ?? []);
 const singleCompanyScope = computed(() => empresas.value.length === 1);
 const selectedEmpresa = computed(() => empresas.value.find((empresa) => empresa.id === form.empresa_id) ?? null);
-const showCompanySearch = computed(() => !singleCompanyScope.value && !(props.detailMode && selectedEmpresa.value));
+const showCompanySearch = computed(() => {
+  if (props.alwaysShowCompanySearch && !props.detailMode) {
+    return true;
+  }
+
+  return !singleCompanyScope.value && !(props.detailMode && selectedEmpresa.value);
+});
 const selectedSucursal = computed(() => selectedEmpresa.value?.sucursales[0] ?? null);
 const selectedMhConfig = computed(() => selectedEmpresa.value?.mh_configs.find((config) => config.ambiente === form.ambiente) ?? null);
 const certificados = computed(() => selectedEmpresa.value?.certificados.filter((cert) => cert.ambiente === form.ambiente) ?? []);
@@ -182,7 +190,7 @@ const filteredEmpresas = computed(() => {
   const query = normalizeSearchText(searchQuery.value.trim());
 
   if (!query) {
-    return [];
+    return props.alwaysShowCompanySearch ? empresas.value : [];
   }
 
   return empresas.value.filter((empresa) => matchesCompany(empresa, query));
@@ -229,6 +237,14 @@ watch(() => props.companyAction?.nonce, () => {
 
   if (props.companyAction.action === 'delete') {
     void deleteCompany();
+  }
+});
+
+watch(() => props.detailMode, (detailMode) => {
+  if (props.alwaysShowCompanySearch && !detailMode) {
+    form.empresa_id = 0;
+    companySummary.value = null;
+    healthOpen.value = false;
   }
 });
 
@@ -300,6 +316,11 @@ async function loadContext(): Promise<void> {
 }
 
 function ensureSelectedEmpresa(): void {
+  if (props.alwaysShowCompanySearch && !props.detailMode) {
+    form.empresa_id = 0;
+    return;
+  }
+
   if (empresas.value.some((empresa) => empresa.id === form.empresa_id)) {
     return;
   }
