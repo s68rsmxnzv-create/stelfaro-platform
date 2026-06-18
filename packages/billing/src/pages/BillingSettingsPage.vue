@@ -843,8 +843,8 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </div>
 
           <template v-if="props.detailMode">
-            <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
-              <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_510px]">
+              <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
                 <div class="flex min-w-0 gap-4">
                   <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
                   <div v-else class="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-slate-900 text-lg font-bold text-white">
@@ -896,73 +896,79 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                     <p class="mt-1 text-sm text-slate-500">{{ selectedEmpresa.codigo_actividad }} · {{ selectedEmpresa.desc_actividad }}</p>
                   </div>
                 </div>
+              </div>
 
-                <div class="grid min-w-[260px] grid-cols-2 gap-3 text-sm">
-                  <div class="rounded-md bg-slate-50 px-4 py-3">
-                    <p class="text-xs font-bold uppercase text-slate-500">Activo desde</p>
-                    <p class="mt-1 font-semibold text-slate-950">{{ formatDate(selectedEmpresa.created_at) }}</p>
-                  </div>
-                  <div class="rounded-md bg-slate-50 px-4 py-3">
-                    <p class="text-xs font-bold uppercase text-slate-500">Suscripcion hasta</p>
-                    <p class="mt-1 font-semibold text-slate-950">No registrada</p>
-                  </div>
+              <div class="grid gap-4 sm:grid-cols-3">
+                <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
+                  <p class="text-xs font-bold uppercase text-slate-500">DTE emitidos</p>
+                  <p class="mt-2 text-3xl font-bold text-slate-950">{{ companySummary?.totals.emitted ?? 0 }}</p>
+                </div>
+                <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
+                  <p class="text-xs font-bold uppercase text-slate-500">Bien</p>
+                  <p class="mt-2 text-3xl font-bold text-emerald-700">{{ companySummary?.totals.accepted ?? 0 }}</p>
+                </div>
+                <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
+                  <p class="text-xs font-bold uppercase text-slate-500">Rechazos</p>
+                  <p class="mt-2 text-3xl font-bold text-red-700">{{ companySummary?.totals.rejected ?? 0 }}</p>
                 </div>
               </div>
             </div>
 
-            <div class="grid gap-4 md:grid-cols-3">
-              <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
-                <p class="text-xs font-bold uppercase text-slate-500">DTE emitidos</p>
-                <p class="mt-2 text-3xl font-bold text-slate-950">{{ companySummary?.totals.emitted ?? 0 }}</p>
+            <div class="grid gap-4 md:grid-cols-2">
+              <div class="rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
+                <p class="text-xs font-bold uppercase text-slate-500">Activo desde</p>
+                <p class="mt-1 text-sm font-semibold text-slate-950">{{ formatDate(selectedEmpresa.created_at) }}</p>
               </div>
-              <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
-                <p class="text-xs font-bold uppercase text-slate-500">Bien</p>
-                <p class="mt-2 text-3xl font-bold text-emerald-700">{{ companySummary?.totals.accepted ?? 0 }}</p>
-              </div>
-              <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
-                <p class="text-xs font-bold uppercase text-slate-500">Rechazos</p>
-                <p class="mt-2 text-3xl font-bold text-red-700">{{ companySummary?.totals.rejected ?? 0 }}</p>
+              <div class="rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
+                <p class="text-xs font-bold uppercase text-slate-500">Suscripcion hasta</p>
+                <p class="mt-1 text-sm font-semibold text-slate-950">No registrada</p>
               </div>
             </div>
 
             <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
               <p class="text-sm font-semibold text-slate-950">Resumen informativo</p>
-              <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <div>
-                  <p class="text-xs font-bold uppercase text-slate-500">Contribuyente</p>
-                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.razon_social }}</p>
+              <div class="mt-4 grid gap-8 lg:grid-cols-2">
+                <div class="space-y-4">
+                  <div>
+                    <p class="text-xs font-bold uppercase text-slate-500">Contribuyente</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.razon_social }}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs font-bold uppercase text-slate-500">Direccion</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.direccion ?? 'Direccion pendiente' }}</p>
+                    <p class="mt-1 text-xs text-slate-500">{{ selectedSucursal?.departamento ?? '--' }} / {{ selectedSucursal?.municipio ?? '--' }} / {{ selectedSucursal?.distrito ?? 'Distrito pendiente' }}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs font-bold uppercase text-slate-500">Telefono</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.telefono ?? 'No registrado' }}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs font-bold uppercase text-slate-500">Correo</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.email ?? 'No registrado' }}</p>
+                  </div>
                 </div>
-                <div>
-                  <p class="text-xs font-bold uppercase text-slate-500">Nombre comercial</p>
-                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.nombre_comercial }}</p>
-                </div>
-                <div>
-                  <p class="text-xs font-bold uppercase text-slate-500">NRC</p>
-                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.nrc ?? 'No registrado' }}</p>
-                </div>
-                <div>
-                  <p class="text-xs font-bold uppercase text-slate-500">Actividad economica</p>
-                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.codigo_actividad }} · {{ selectedEmpresa.desc_actividad }}</p>
-                </div>
-                <div>
-                  <p class="text-xs font-bold uppercase text-slate-500">Direccion</p>
-                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.direccion ?? 'Direccion pendiente' }}</p>
-                </div>
-                <div>
-                  <p class="text-xs font-bold uppercase text-slate-500">Ubicacion</p>
-                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.departamento ?? '--' }} / {{ selectedSucursal?.municipio ?? '--' }} / {{ selectedSucursal?.distrito ?? 'Distrito pendiente' }}</p>
-                </div>
-                <div>
-                  <p class="text-xs font-bold uppercase text-slate-500">Telefono</p>
-                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.telefono ?? 'No registrado' }}</p>
-                </div>
-                <div>
-                  <p class="text-xs font-bold uppercase text-slate-500">Correo</p>
-                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.email ?? 'No registrado' }}</p>
-                </div>
-                <div>
-                  <p class="text-xs font-bold uppercase text-slate-500">Ambiente</p>
-                  <p class="mt-1 text-sm font-semibold text-slate-950">{{ form.ambiente }} · {{ environmentLabel }}</p>
+
+                <div class="space-y-4">
+                  <div>
+                    <p class="text-xs font-bold uppercase text-slate-500">Nombre comercial</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.nombre_comercial }}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs font-bold uppercase text-slate-500">Ambiente</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ form.ambiente }} · {{ environmentLabel }}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs font-bold uppercase text-slate-500">NIT</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.fiscal_document_number ?? selectedEmpresa.nit }}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs font-bold uppercase text-slate-500">NRC</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.nrc ?? 'No registrado' }}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs font-bold uppercase text-slate-500">Actividad economica</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.codigo_actividad }} · {{ selectedEmpresa.desc_actividad }}</p>
+                  </div>
                 </div>
               </div>
             </div>
