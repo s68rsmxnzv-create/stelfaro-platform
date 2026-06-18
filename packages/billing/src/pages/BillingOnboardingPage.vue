@@ -116,6 +116,42 @@ const steps = [
   'Credenciales',
   'Verificacion'
 ];
+
+function stepButtonClass(index: number): string {
+  if (index < step.value) {
+    return 'border-emerald-300 bg-emerald-50 text-emerald-950 shadow-emerald-950/5';
+  }
+
+  if (index === step.value) {
+    return 'border-sky-500 bg-sky-50 text-sky-950 shadow-sky-950/10 ring-2 ring-sky-100';
+  }
+
+  return 'border-amber-300 bg-amber-50 text-amber-950 shadow-amber-950/5';
+}
+
+function stepBadgeClass(index: number): string {
+  if (index < step.value) {
+    return 'bg-emerald-600 text-white';
+  }
+
+  if (index === step.value) {
+    return 'bg-sky-600 text-white';
+  }
+
+  return 'bg-amber-500 text-white';
+}
+
+function stepStatusLabel(index: number): string {
+  if (index < step.value) {
+    return 'Completado';
+  }
+
+  if (index === step.value) {
+    return 'En curso';
+  }
+
+  return 'Pendiente';
+}
 const canCompanyStep = computed(() => Boolean(
   companyForm.nombre_comercial.trim()
   && companyForm.razon_social.trim()
@@ -370,16 +406,22 @@ function setLogo(event: Event): void {
         </div>
       </div>
 
-      <div class="mt-6 grid gap-2 md:grid-cols-4">
+      <div class="mt-6 grid gap-3 md:grid-cols-4">
         <button
           v-for="(item, index) in steps"
           :key="item"
           type="button"
-          class="rounded-md border px-3 py-2 text-left text-sm"
-          :class="index === step ? 'border-sky-500 bg-sky-50 text-sky-800' : index < step ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white text-slate-500'"
+          class="flex min-h-16 items-center gap-3 rounded-md border px-4 py-3 text-left text-sm shadow-sm transition hover:-translate-y-px"
+          :class="stepButtonClass(index)"
           @click="step = index"
         >
-          <span class="font-semibold">{{ index < step ? '✓ ' : '' }}{{ item }}</span>
+          <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-bold" :class="stepBadgeClass(index)">
+            {{ index < step ? '✓' : index + 1 }}
+          </span>
+          <span class="grid gap-0.5">
+            <span class="font-bold">{{ item }}</span>
+            <span class="text-xs font-semibold opacity-75">{{ stepStatusLabel(index) }}</span>
+          </span>
         </button>
       </div>
 
