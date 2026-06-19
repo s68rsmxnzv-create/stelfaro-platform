@@ -4,6 +4,7 @@ import {
   CoreDteClient,
   type BillingCatalogs,
   type BillingContext,
+  type BillingCertificate,
   type BillingEmpresa,
   type BillingCompanyUpdatePayload,
   type BillingSettingsPayload,
@@ -11,7 +12,7 @@ import {
   type DteDashboardSummary,
   type MhBearerVerification
 } from '@stelfaro/api-client';
-import { UiButton, UiCard, UiFileUpload, UiFiscalDocumentInput, UiInput, UiSearchInput, UiSearchSelect, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiSearchInput, UiSearchSelect, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -118,15 +119,20 @@ const showCompanySearch = computed(() => {
 });
 const selectedSucursal = computed(() => selectedEmpresa.value?.sucursales[0] ?? null);
 const selectedMhConfig = computed(() => selectedEmpresa.value?.mh_configs.find((config) => config.ambiente === form.ambiente) ?? null);
+const selectedAuthStatus = computed(() => selectedMhConfig.value?.last_auth ?? null);
+const selectedSignerSync = computed(() => selectedMhConfig.value?.signer_sync ?? null);
 const certificados = computed(() => selectedEmpresa.value?.certificados.filter((cert) => cert.ambiente === form.ambiente) ?? []);
 const selectedCertificate = computed(() => certificados.value.find((cert) => cert.id === form.certificado_id) ?? null);
 const activeCertificate = computed(() => selectedCertificate.value ?? certificados.value.find((cert) => cert.activo) ?? null);
+const activeCertificatesByEnvironment = computed(() => certificateEnvironmentRows(selectedEmpresa.value));
+const activeCertificatesForEnvironment = computed(() => certificados.value.filter((cert) => cert.activo));
+const hasCertificateConflict = computed(() => activeCertificatesForEnvironment.value.length > 1);
 const selectedDocumentLabel = computed(() => documentLabel(selectedEmpresa.value));
 const environmentLabel = computed(() => form.ambiente === '01' ? 'Produccion' : 'Pruebas');
 const isInactive = computed(() => selectedEmpresa.value?.lifecycle_status === 'inactive');
 const fiscalHealth = computed(() => {
-  const authReady = Boolean(selectedMhConfig.value?.credentials_configured);
-  const signerReady = Boolean(selectedMhConfig.value?.signer_credentials_configured);
+  const authReady = selectedAuthStatus.value?.status === 'ok' || Boolean(selectedMhConfig.value?.credentials_configured && !selectedAuthStatus.value);
+  const signerReady = selectedSignerSync.value?.available === true;
 
   if (isInactive.value) {
     return {
@@ -173,6 +179,34 @@ const distritos = computed(() => (catalogs.value?.distritos ?? []).filter((item)
   && String(item.municipio) === String(companyForm.municipio)
 )));
 const actividadesEconomicas = computed(() => catalogs.value?.actividadesEconomicas ?? []);
+const authStatusLabel = computed(() => {
+  if (selectedAuthStatus.value?.status === 'ok') {
+    return 'Autorizacion verificada';
+  }
+
+  return selectedMhConfig.value?.credentials_configured ? 'Usuario API configurado' : 'Pendiente de credenciales MH';
+});
+const authStatusClass = computed(() => selectedAuthStatus.value?.status === 'ok' || (selectedMhConfig.value?.credentials_configured && !selectedAuthStatus.value)
+  ? 'text-emerald-700'
+  : 'text-slate-500');
+const signerStatusLabel = computed(() => {
+  if (selectedSignerSync.value?.available === true) {
+    return 'Firmador verificado';
+  }
+
+  if (selectedSignerSync.value?.status === 'error') {
+    return 'Firmador no disponible';
+  }
+
+  return selectedMhConfig.value?.signer_credentials_configured ? 'Password privado configurado' : 'Pendiente de firmador';
+});
+const signerStatusClass = computed(() => {
+  if (selectedSignerSync.value?.available === true) {
+    return 'text-emerald-700';
+  }
+
+  return selectedSignerSync.value?.status === 'error' ? 'text-red-700' : 'text-slate-500';
+});
 const departamentoOptions = computed(() => departamentos.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
 const municipioOptions = computed(() => municipios.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
 const distritoOptions = computed(() => distritos.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
@@ -718,6 +752,26 @@ function economicActivitiesFor(empresa: BillingEmpresa): Array<{ codigo: string;
     : [{ codigo: empresa.codigo_actividad, descripcion: empresa.desc_actividad }];
 }
 
+function certificateEnvironmentRows(empresa: BillingEmpresa | null): Array<{
+  ambiente: '00' | '01';
+  label: string;
+  activeCertificate: BillingCertificate | null;
+  activeCount: number;
+}> {
+  return [
+    { ambiente: '00' as const, label: 'Pruebas' },
+    { ambiente: '01' as const, label: 'Produccion' }
+  ].map((environment) => {
+    const activeCertificates = empresa?.certificados.filter((cert) => cert.ambiente === environment.ambiente && cert.activo) ?? [];
+
+    return {
+      ...environment,
+      activeCertificate: activeCertificates[0] ?? null,
+      activeCount: activeCertificates.length
+    };
+  });
+}
+
 function blankToNull(value: string | null | undefined): string | null {
   const trimmed = (value ?? '').trim();
   return trimmed === '' ? null : trimmed;
@@ -907,7 +961,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
             </div>
 
             <div class="mt-5 grid gap-5">
-              <div class="grid gap-4" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+              <div class="grid gap-4 md:grid-cols-2">
                 <UiInput v-model="companyForm.razon_social" label="Nombre del contribuyente" />
                 <UiInput v-model="companyForm.nombre_comercial" label="Nombre comercial" />
               </div>
@@ -954,25 +1008,15 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               </div>
               <div class="grid gap-4" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
                 <UiInput v-model="companyForm.telefono" label="Telefono" />
-                <UiInput v-model="companyForm.email" label="Correo" type="email" />
+                <UiEmailInput v-model="companyForm.email" label="Correo" />
               </div>
-              <label class="block">
-                <span class="text-sm font-medium text-slate-700">Logo</span>
-                <span class="mt-1 flex max-w-xl items-center gap-3">
-                  <img v-if="companyLogoPreview" :src="companyLogoPreview" class="h-10 w-10 rounded object-contain" alt="">
-                  <img v-else-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-10 w-10 rounded object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
-                  <span v-else class="flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-xs font-semibold text-slate-500">Logo</span>
-                  <UiFileUpload
-                    id="company-logo-upload"
-                    class="min-w-0 flex-1"
-                    label="Subir logo"
-                    :selected-label="companyLogoFile?.name"
-                    accept="image/*"
-                    compact
-                    @change="setCompanyLogo"
-                  />
-                </span>
-              </label>
+              <UiLogoUpload
+                id="company-logo-upload"
+                :preview-src="companyLogoPreview ?? (hasLogo(selectedEmpresa) ? selectedEmpresa.logo_url : null)"
+                :selected-label="companyLogoFile?.name"
+                @change="setCompanyLogo"
+                @image-error="markLogoBroken(selectedEmpresa)"
+              />
             </div>
 
           </div>
@@ -1017,10 +1061,11 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                           <div class="flex items-center justify-between gap-3">
                             <span class="text-slate-600">Firmador</span>
                             <span class="rounded px-2 py-1 text-xs font-semibold" :class="fiscalHealth.signerReady ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'">
-                              {{ fiscalHealth.signerReady ? 'OK' : 'Pendiente' }}
+                              {{ fiscalHealth.signerReady ? 'OK' : 'Error' }}
                             </span>
                           </div>
                         </div>
+                        <p v-if="selectedSignerSync?.message" class="mt-3 rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700">{{ selectedSignerSync.message }}</p>
                         <p class="mt-4 text-xs text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${formatDateTime(selectedMhConfig.last_verified_at)}` : 'Sin verificacion registrada' }}</p>
                       </div>
                     </div>
@@ -1032,7 +1077,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               </div>
             </div>
 
-            <div class="grid gap-4" style="grid-template-columns: repeat(5, minmax(0, 1fr));">
+            <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
               <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
                 <p class="truncate text-[11px] font-bold uppercase text-slate-500">DTE emitidos</p>
                 <p class="mt-2 text-2xl font-bold text-slate-950">{{ companySummary?.totals.emitted ?? 0 }}</p>
@@ -1057,7 +1102,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
 
             <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
               <p class="text-sm font-semibold text-slate-950">Resumen informativo</p>
-              <div class="mt-4 grid grid-cols-2 gap-8">
+              <div class="mt-4 grid gap-8" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
                 <div class="space-y-4">
                   <div>
                     <p class="text-xs font-bold uppercase text-slate-500">Contribuyente</p>
@@ -1121,22 +1166,69 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               </div>
               <div id="credenciales-mh" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
                 <p class="font-semibold text-slate-950">Credenciales MH</p>
-                <p class="mt-2" :class="selectedMhConfig?.credentials_configured ? 'text-emerald-700' : 'text-slate-500'">
-                  {{ selectedMhConfig?.credentials_configured ? 'Usuario API configurado' : 'Pendiente de configurar' }}
+                <p class="mt-2" :class="authStatusClass">
+                  {{ authStatusLabel }}
                 </p>
                 <p class="mt-1 text-slate-500">Ambiente {{ environmentLabel }}</p>
               </div>
               <div id="firmador" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
                 <p class="font-semibold text-slate-950">Firmador</p>
-                <p class="mt-2" :class="selectedMhConfig?.signer_credentials_configured ? 'text-emerald-700' : 'text-slate-500'">
-                  {{ selectedMhConfig?.signer_credentials_configured ? 'Password privado configurado' : 'Pendiente de configurar' }}
+                <p class="mt-2" :class="signerStatusClass">
+                  {{ signerStatusLabel }}
                 </p>
                 <p class="mt-1 text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${formatDateTime(selectedMhConfig.last_verified_at)}` : 'Sin verificacion registrada' }}</p>
+                <p v-if="selectedSignerSync?.message" class="mt-2 rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700">{{ selectedSignerSync.message }}</p>
               </div>
             </div>
 
             <div id="certificados" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
-              <div class="grid gap-4 md:grid-cols-2">
+              <div class="flex flex-col gap-3 border-b border-slate-200 pb-5 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p class="text-sm font-semibold text-slate-950">Datos fiscales</p>
+                  <p class="mt-1 text-xs text-slate-500">Ambiente, certificado activo, credenciales MH, firmador y simulacion por empresa.</p>
+                </div>
+                <UiButton v-if="props.detailMode" variant="secondary" :disabled="loading" @click="editingFiscal = false">Volver al resumen</UiButton>
+              </div>
+
+              <div class="mt-5 grid gap-3 md:grid-cols-2">
+                <div
+                  v-for="row in activeCertificatesByEnvironment"
+                  :key="row.ambiente"
+                  class="rounded-md border p-4"
+                  :class="row.ambiente === form.ambiente ? 'border-sky-200 bg-sky-50/70' : 'border-slate-200 bg-slate-50/70'"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <div>
+                      <p class="text-xs font-bold uppercase text-slate-500">{{ row.ambiente }} · {{ row.label }}</p>
+                      <p class="mt-2 text-sm font-semibold text-slate-950">
+                        {{ row.activeCertificate?.filename ?? 'Sin certificado activo' }}
+                      </p>
+                      <p class="mt-1 text-xs text-slate-500">
+                        {{ row.activeCertificate?.vence_at ? `Vence: ${formatDate(row.activeCertificate.vence_at)}` : 'Carga un certificado para operar en este ambiente.' }}
+                      </p>
+                    </div>
+                    <span
+                      class="rounded px-2 py-1 text-xs font-semibold"
+                      :class="{
+                        'bg-emerald-50 text-emerald-700': row.activeCount === 1,
+                        'bg-amber-50 text-amber-700': row.activeCount > 1,
+                        'bg-slate-100 text-slate-600': row.activeCount === 0
+                      }"
+                    >
+                      {{ row.activeCount === 1 ? 'Activo' : row.activeCount > 1 ? 'Revisar' : 'Pendiente' }}
+                    </span>
+                  </div>
+                  <p v-if="row.activeCount > 1" class="mt-3 rounded-md border border-amber-200 bg-white px-3 py-2 text-xs font-medium text-amber-800">
+                    Hay mas de un certificado activo para este ambiente. Deja solo uno activo desde soporte fiscal.
+                  </p>
+                </div>
+              </div>
+
+              <p v-if="hasCertificateConflict" class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                Este ambiente tiene mas de un certificado activo. Guardar una nueva configuracion no debe ocultar esa revision.
+              </p>
+
+              <div class="mt-5 grid gap-4 md:grid-cols-2">
                 <label class="block">
                   <span class="text-sm font-medium text-slate-700">Ambiente</span>
                   <select v-model="form.ambiente" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
@@ -1155,7 +1247,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                       Sin certificado cargado para este ambiente.
                     </p>
                   </div>
-                  <p v-if="activeCertificate?.vence_at" class="mt-1 text-xs text-slate-500">Vence: {{ activeCertificate.vence_at }}</p>
+                  <p v-if="activeCertificate?.vence_at" class="mt-1 text-xs text-slate-500">Vence: {{ formatDate(activeCertificate.vence_at) }}</p>
                 </div>
 
                 <label class="block md:col-span-2">
@@ -1168,6 +1260,24 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                     @change="setCertificate"
                   />
                 </label>
+              </div>
+
+              <div class="mt-5 grid gap-4 border-t border-slate-200 pt-5 md:grid-cols-2">
+                <div class="rounded-md border border-slate-200 bg-slate-50/70 p-4">
+                  <p class="text-sm font-semibold text-slate-950">Autorizacion MH</p>
+                  <p class="mt-2 text-sm" :class="authStatusClass">
+                    {{ authStatusLabel }}
+                  </p>
+                  <p class="mt-1 text-xs text-slate-500">Ambiente {{ form.ambiente }} · {{ environmentLabel }}</p>
+                </div>
+                <div class="rounded-md border border-slate-200 bg-slate-50/70 p-4">
+                  <p class="text-sm font-semibold text-slate-950">Firmador</p>
+                  <p class="mt-2 text-sm" :class="signerStatusClass">
+                    {{ signerStatusLabel }}
+                  </p>
+                  <p class="mt-1 text-xs text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${formatDateTime(selectedMhConfig.last_verified_at)}` : 'Sin verificacion registrada' }}</p>
+                  <p v-if="selectedSignerSync?.message" class="mt-2 rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700">{{ selectedSignerSync.message }}</p>
+                </div>
               </div>
 
               <div class="mt-5 border-t border-slate-200 pt-5">
@@ -1183,8 +1293,8 @@ function markLogoBroken(empresa: BillingEmpresa): void {
 
                 <div v-if="editingCredentials" class="mt-4 grid gap-4 md:grid-cols-2">
                   <UiInput v-model="form.mh_user" label="MH Usuario API" placeholder="Dejar vacio para conservar" />
-                  <UiInput v-model="form.mh_password" label="MH Password API" type="password" placeholder="Dejar vacio para conservar" revealable />
-                  <UiInput v-model="form.signer_password_pri" label="Password privado certificado" type="password" placeholder="Dejar vacio para conservar" revealable />
+                  <UiPasswordInput v-model="form.mh_password" label="MH Password API" placeholder="Dejar vacio para conservar" />
+                  <UiPasswordInput v-model="form.signer_password_pri" label="Password privado certificado" placeholder="Dejar vacio para conservar" />
                 </div>
               </div>
 

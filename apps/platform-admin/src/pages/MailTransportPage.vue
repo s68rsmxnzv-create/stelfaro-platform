@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import type { NotificationMailTransport } from '@stelfaro/api-client';
+import { UiEmailInput, UiPasswordInput } from '@stelfaro/ui';
 import { useAdminSessionStore } from '../stores/adminSession';
 
 const session = useAdminSessionStore();
@@ -126,15 +127,9 @@ async function saveTransport(): Promise<void> {
             <input v-model="form.username" required class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900" autocomplete="off" />
           </label>
 
-          <label class="block">
-            <span class="text-sm font-medium text-slate-700">Contrasena SMTP</span>
-            <input v-model="form.password" type="password" class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900" autocomplete="new-password" :placeholder="current?.password_configured ? 'Conservar actual' : ''" />
-          </label>
+          <UiPasswordInput v-model="form.password" label="Contrasena SMTP" autocomplete="new-password" :placeholder="current?.password_configured ? 'Conservar actual' : ''" />
 
-          <label class="block">
-            <span class="text-sm font-medium text-slate-700">From por defecto</span>
-            <input v-model="form.default_from_email" type="email" required class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900" />
-          </label>
+          <UiEmailInput v-model="form.default_from_email" label="From por defecto" required />
 
           <label class="block">
             <span class="text-sm font-medium text-slate-700">Nombre por defecto</span>

@@ -417,6 +417,23 @@ export type BillingMhConfig = {
   simulate_unavailable: boolean;
   credentials_configured: boolean;
   signer_credentials_configured: boolean;
+  last_auth?: {
+    status?: string;
+    expires_at?: string | null;
+    http_status?: number | null;
+    verified_at?: string | null;
+    cache_status?: string | null;
+  } | null;
+  signer_sync?: {
+    status?: string;
+    service?: string;
+    available?: boolean;
+    status_url?: string;
+    status_code?: number | null;
+    message?: string;
+    checked_at?: string | null;
+    last_verified_at?: string | null;
+  } | null;
   last_verified_at: string | null;
 };
 
@@ -439,6 +456,7 @@ export type BillingEmpresa = {
   ambiente: '00' | '01';
   lifecycle_status: 'active' | 'inactive';
   enabled_document_types?: string[];
+  enabled_event_types?: string[];
   created_at: string | null;
   certificados: BillingCertificate[];
   mh_configs: BillingMhConfig[];
@@ -526,6 +544,8 @@ export type BillingCompanyPayload = {
     codigo: string;
     descripcion: string;
   }>;
+  enabled_document_types?: string[];
+  enabled_event_types?: string[];
   ambiente: '00' | '01';
   sucursal_nombre?: string | null;
   sucursal_codigo?: string | null;
@@ -889,7 +909,6 @@ export class CoreDteClient {
   registerBillingCompany(payload: BillingCompanyPayload): Promise<BillingCompanyResponse> {
     if (payload.logo) {
       const form = new FormData();
-      form.set('_method', 'PATCH');
       Object.entries(payload).forEach(([key, value]) => {
         if (value === null || value === undefined) return;
         if (value instanceof File) {

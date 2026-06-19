@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import type { NotificationSenderAlias, NotificationSenderAliasPayload } from '@stelfaro/api-client';
+import { UiEmailInput } from '@stelfaro/ui';
 import { useAdminSessionStore } from '../stores/adminSession';
 
 const purposes = [
@@ -213,16 +214,7 @@ function purposeLabel(value: string): string {
             </select>
           </label>
 
-          <label class="block">
-            <span class="text-sm font-medium text-slate-700">Correo remitente</span>
-            <input
-              v-model="form.from_email"
-              type="email"
-              required
-              class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900"
-              placeholder="stelfaro.dte@stelfaro.com"
-            />
-          </label>
+          <UiEmailInput v-model="form.from_email" label="Correo remitente" placeholder="stelfaro.dte@stelfaro.com" required />
 
           <label class="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2">
             <span class="text-sm font-medium text-slate-700">Activo</span>

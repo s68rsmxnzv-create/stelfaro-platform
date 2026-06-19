@@ -144,7 +144,6 @@ const moduleComponents = {
 const eventOptions = [
   { label: 'Invalidacion', slug: 'invalidacion' },
   { label: 'Contingencia', slug: 'contingencia' },
-  { label: 'Retorno', slug: 'retorno' },
   { label: 'Operaciones especiales', slug: 'operaciones-especiales' }
 ];
 

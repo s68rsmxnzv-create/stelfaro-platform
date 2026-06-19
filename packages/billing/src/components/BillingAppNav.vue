@@ -40,6 +40,7 @@ const billingMenuOpen = ref(false);
 const eventMenuOpen = ref(false);
 const responsesMenuOpen = ref(false);
 const documentTypes = ref([]);
+const enabledEventTypes = ref([]);
 
 const billingSlugByType = {
   '01': 'fe',
@@ -58,9 +59,13 @@ const fallbackBillingTypes = [
 const eventOptions = [
   { label: 'Invalidacion', path: '/eventos-mh/invalidacion', slug: 'invalidacion' },
   { label: 'Contingencia', path: '/eventos-mh/contingencia', slug: 'contingencia' },
-  { label: 'Retorno', path: '/eventos-mh/retorno', slug: 'retorno' },
   { label: 'Operaciones especiales', path: '/eventos-mh/operaciones-especiales', slug: 'operaciones-especiales' }
 ];
+const eventTypeBySlug = {
+  invalidacion: 'invalidacion',
+  contingencia: 'contingencia',
+  'operaciones-especiales': 'operaciones_especiales'
+};
 const responseOptions = [
   { label: 'DTE', path: '/respuestas-mh', module: 'mh-responses' },
   { label: 'Eventos', path: '/respuestas-eventos-mh', module: 'mh-event-responses' }
@@ -81,10 +86,16 @@ const billingOptions = computed(() => {
       enabled: Boolean(type.implemented)
     }));
 });
+const visibleEventOptions = computed(() => {
+  const enabled = new Set(enabledEventTypes.value);
+
+  return eventOptions.filter((option) => enabled.size === 0 || enabled.has(eventTypeBySlug[option.slug]));
+});
 
 watch(() => props.authToken, async (token) => {
   if (!token) {
     documentTypes.value = [];
+    enabledEventTypes.value = [];
     return;
   }
 
@@ -102,11 +113,13 @@ watch(() => props.authToken, async (token) => {
     applyBillingContext(context);
   } catch {
     documentTypes.value = [];
+    enabledEventTypes.value = [];
   }
 }, { immediate: true });
 
 function applyBillingContext(context) {
     const enabled = new Set(context.empresas.flatMap((empresa) => empresa.enabled_document_types ?? []));
+    enabledEventTypes.value = Array.from(new Set(context.empresas.flatMap((empresa) => empresa.enabled_event_types ?? [])));
     documentTypes.value = context.documentTypes.map((type) => ({
       ...type,
       implemented: Boolean(type.implemented) && (['05', '06', '14'].includes(type.code) || enabled.size === 0 || enabled.has(type.code))
@@ -200,7 +213,7 @@ function navigate(event, href) {
         class="absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 bg-slate-900 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
       >
         <a
-          v-for="option in eventOptions"
+          v-for="option in visibleEventOptions"
           :key="option.label"
           :href="hrefFor(option.path)"
           class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"

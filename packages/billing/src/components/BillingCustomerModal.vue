@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
-import { UiButton, UiCloseCircleIcon, UiFiscalDocumentInput, UiInput, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCloseCircleIcon, UiEmailInput, UiFiscalDocumentInput, UiInput, type FiscalDocumentDetection } from '@stelfaro/ui';
 
 export type BillingCustomerModalMode = 'new' | 'quick';
 
@@ -112,7 +112,7 @@ function submit(): void {
             @detected="updateDetection"
           />
           <div class="grid gap-4 sm:grid-cols-2">
-            <UiInput v-model="form.email" label="Correo" type="email" />
+            <UiEmailInput v-model="form.email" label="Correo" />
             <UiInput v-model="form.phone" label="Telefono" />
           </div>
           <p v-if="!documentIsValid" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800">

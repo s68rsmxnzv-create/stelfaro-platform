@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, useSlots, watch } from 'vue';
 import {
   CoreDteClient,
   type BillingCatalogs,
@@ -9,17 +9,26 @@ import {
   type BillingSignerVerification,
   type MhBearerVerification
 } from '@stelfaro/api-client';
-import { UiButton, UiCard, UiFileUpload, UiFiscalDocumentInput, UiInput, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
   authToken?: string | null;
   requestCredentials?: RequestCredentials;
+  enabledDocumentTypes?: string[];
+  enabledEventTypes?: string[];
 }>(), {
   coreBaseUrl: '/api/v1',
   authToken: null,
-  requestCredentials: undefined
+  requestCredentials: undefined,
+  enabledDocumentTypes: () => ['01', '03', '05', '06', '14'],
+  enabledEventTypes: () => ['invalidacion', 'contingencia', 'operaciones_especiales']
 });
+
+const emit = defineEmits<{
+  companyRegistered: [response: BillingCompanyResponse];
+}>();
+const slots = useSlots();
 
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, {
   authToken: props.authToken,
@@ -110,35 +119,24 @@ const actividadOptions = computed(() => actividadesEconomicas.value.map((item) =
   label: item.label,
   hint: item.code
 })));
-const steps = [
+const hasAccessStep = computed(() => Boolean(slots.access));
+const steps = computed(() => [
   'Empresa',
   'Ubicacion',
+  ...(hasAccessStep.value ? ['Accesos'] : []),
   'Credenciales',
   'Verificacion'
-];
+]);
+const credentialsStepIndex = computed(() => hasAccessStep.value ? 3 : 2);
+const verificationStepIndex = computed(() => hasAccessStep.value ? 4 : 3);
+const stepProgressWidth = computed(() => `${((step.value + 1) / steps.value.length) * 100}%`);
 
-function stepButtonClass(index: number): string {
-  if (index < step.value) {
-    return 'border-emerald-300 bg-emerald-50 text-emerald-950 shadow-emerald-950/5';
+function stepItemClass(index: number): string {
+  if (index <= step.value) {
+    return 'text-sky-600';
   }
 
-  if (index === step.value) {
-    return 'border-sky-500 bg-sky-50 text-sky-950 shadow-sky-950/10 ring-2 ring-sky-100';
-  }
-
-  return 'border-amber-300 bg-amber-50 text-amber-950 shadow-amber-950/5';
-}
-
-function stepBadgeClass(index: number): string {
-  if (index < step.value) {
-    return 'bg-emerald-600 text-white';
-  }
-
-  if (index === step.value) {
-    return 'bg-sky-600 text-white';
-  }
-
-  return 'bg-amber-500 text-white';
+  return 'text-slate-500';
 }
 
 function stepStatusLabel(index: number): string {
@@ -218,6 +216,7 @@ async function registerCompany(): Promise<void> {
   }
 
   company.value = result;
+  emit('companyRegistered', result);
   saved.value = `Empresa registrada: ${result.empresa.razon_social}`;
 }
 
@@ -230,16 +229,21 @@ async function nextStep(): Promise<void> {
     if (!canLocationStep.value) {
       return;
     }
+  }
 
+  const shouldRegisterCompany = !company.value && (
+    (hasAccessStep.value && step.value === 2)
+    || (!hasAccessStep.value && step.value === 1)
+  );
+
+  if (shouldRegisterCompany) {
+    await registerCompany();
     if (!company.value) {
-      await registerCompany();
-      if (!company.value) {
-        return;
-      }
+      return;
     }
   }
 
-  if (step.value < steps.length - 1) {
+  if (step.value < steps.value.length - 1) {
     step.value += 1;
   }
 }
@@ -323,6 +327,8 @@ function normalizeCompanyPayload(): BillingCompanyPayload {
     codigo_actividad: companyForm.codigo_actividad,
     desc_actividad: companyForm.desc_actividad,
     actividades_economicas: normalizedEconomicActivities(),
+    enabled_document_types: props.enabledDocumentTypes,
+    enabled_event_types: props.enabledEventTypes,
     ambiente: companyForm.ambiente,
     direccion: companyForm.direccion,
     departamento: companyForm.departamento,
@@ -406,28 +412,47 @@ function setLogo(event: Event): void {
         </div>
       </div>
 
-      <div class="mt-6 grid gap-3 md:grid-cols-4">
-        <button
-          v-for="(item, index) in steps"
-          :key="item"
-          type="button"
-          class="flex min-h-16 items-center gap-3 rounded-md border px-4 py-3 text-left text-sm shadow-sm transition hover:-translate-y-px"
-          :class="stepButtonClass(index)"
-          @click="step = index"
-        >
-          <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-bold" :class="stepBadgeClass(index)">
-            {{ index < step ? '✓' : index + 1 }}
-          </span>
-          <span class="grid gap-0.5">
-            <span class="font-bold">{{ item }}</span>
-            <span class="text-xs font-semibold opacity-75">{{ stepStatusLabel(index) }}</span>
-          </span>
-        </button>
+      <div class="mt-6">
+        <h2 class="sr-only">Pasos</h2>
+
+        <div>
+          <div style="height: 8px; overflow: hidden; border-radius: 9999px; background: #e2e8f0;">
+            <div style="height: 8px; border-radius: 9999px; background: #0ea5e9; transition: width 180ms ease;" :style="{ width: stepProgressWidth }"></div>
+          </div>
+
+          <ol
+            class="mt-4 text-sm font-semibold text-slate-500"
+            :style="{ display: 'grid', columnGap: '12px', gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }"
+          >
+            <li
+              v-for="(item, index) in steps"
+              :key="item"
+              class="min-w-0"
+              :class="[
+                stepItemClass(index),
+                index === 0 ? 'text-left' : index === steps.length - 1 ? 'text-right' : 'text-center'
+              ]"
+            >
+              <button
+                type="button"
+                class="min-w-0 rounded-md px-1 py-1 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                :aria-current="index === step ? 'step' : undefined"
+                :aria-label="`${item}: ${stepStatusLabel(index)}`"
+                @click="step = index"
+              >
+                <span class="block truncate">{{ item }}</span>
+                <span class="mt-1 block truncate text-xs opacity-75">{{ stepStatusLabel(index) }}</span>
+              </button>
+            </li>
+          </ol>
+        </div>
       </div>
 
       <div v-if="step === 0" class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <UiInput v-model="companyForm.razon_social" label="Nombre del contribuyente" />
-        <UiInput v-model="companyForm.nombre_comercial" label="Nombre comercial" />
+        <div class="grid gap-4 md:col-span-2 xl:col-span-3" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+          <UiInput v-model="companyForm.razon_social" label="Nombre del contribuyente" />
+          <UiInput v-model="companyForm.nombre_comercial" label="Nombre comercial" />
+        </div>
         <div class="grid gap-4 md:col-span-2 xl:col-span-3" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
           <UiFiscalDocumentInput v-model="companyForm.documento_fiscal" label="NIT" allowed-types="nit" @detected="fiscalDocument = $event" />
           <UiInput v-model="companyForm.nrc" label="NRC" />
@@ -463,22 +488,12 @@ function setLogo(event: Event): void {
             </div>
           </div>
         </div>
-        <label class="block">
-          <span class="text-sm font-medium text-slate-700">Logo</span>
-          <span class="mt-1 flex items-center gap-3">
-            <img v-if="logoPreview" :src="logoPreview" class="h-10 w-10 rounded object-contain" alt="">
-            <span v-else class="flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-xs font-semibold text-slate-500">Logo</span>
-            <UiFileUpload
-              id="onboarding-logo-upload"
-              class="min-w-0 flex-1"
-              label="Subir logo"
-              :selected-label="logoFile?.name"
-              accept="image/*"
-              compact
-              @change="setLogo"
-            />
-          </span>
-        </label>
+        <UiLogoUpload
+          id="onboarding-logo-upload"
+          :preview-src="logoPreview"
+          :selected-label="logoFile?.name"
+          @change="setLogo"
+        />
       </div>
 
       <div v-else-if="step === 1" class="mt-6 grid gap-4">
@@ -490,8 +505,15 @@ function setLogo(event: Event): void {
         </div>
         <div class="grid gap-4" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
           <UiInput v-model="companyForm.telefono" label="Telefono" />
-          <UiInput v-model="companyForm.email" label="Correo" type="email" />
+          <UiEmailInput v-model="companyForm.email" label="Correo" />
         </div>
+      </div>
+
+      <div v-else-if="hasAccessStep && step === 2" class="mt-6">
+        <slot name="access" />
+      </div>
+
+      <div v-else-if="step === credentialsStepIndex" class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <label class="block">
           <span class="text-sm font-medium text-slate-700">Ambiente</span>
           <select v-model="companyForm.ambiente" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
@@ -499,12 +521,9 @@ function setLogo(event: Event): void {
             <option value="01">01 · Produccion</option>
           </select>
         </label>
-      </div>
-
-      <div v-else-if="step === 2" class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <UiInput v-model="fiscalForm.mh_user" label="MH Usuario API" />
-        <UiInput v-model="fiscalForm.mh_password" label="MH Password API" type="password" revealable />
-        <UiInput v-model="fiscalForm.signer_password_pri" label="Password privado certificado" type="password" revealable />
+        <UiPasswordInput v-model="fiscalForm.mh_password" label="MH Password API" />
+        <UiPasswordInput v-model="fiscalForm.signer_password_pri" label="Password privado certificado" />
         <label class="block">
           <span class="text-sm font-medium text-slate-700">Certificado .p12/.crt</span>
           <UiFileUpload
@@ -517,7 +536,7 @@ function setLogo(event: Event): void {
         </label>
       </div>
 
-      <div v-else class="mt-6 grid gap-4 lg:grid-cols-2">
+      <div v-else-if="step === verificationStepIndex" class="mt-6 grid gap-4 lg:grid-cols-2">
         <div class="rounded-md border border-slate-200 p-4 text-sm">
           <p class="font-semibold text-slate-900">{{ company?.empresa.razon_social }}</p>
           <p class="mt-1 text-slate-600">{{ company?.empresa.fiscal_document_number }} · {{ company?.empresa.nombre_comercial }}</p>
@@ -545,7 +564,7 @@ function setLogo(event: Event): void {
 
       <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
         <UiButton variant="secondary" :disabled="loading || step === 0" @click="previousStep">Atras</UiButton>
-        <UiButton v-if="step < 3" :disabled="loading || (step === 0 && !canCompanyStep) || (step === 1 && !canLocationStep)" @click="nextStep">
+        <UiButton v-if="step < steps.length - 1" :disabled="loading || (step === 0 && !canCompanyStep) || (step === 1 && !canLocationStep)" @click="nextStep">
           Continuar
         </UiButton>
       </div>

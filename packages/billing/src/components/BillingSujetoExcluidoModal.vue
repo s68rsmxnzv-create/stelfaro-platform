@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
-import { UiButton, UiCloseCircleIcon, UiFiscalDocumentInput, UiInput, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCloseCircleIcon, UiEmailInput, UiFiscalDocumentInput, UiInput, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
 
 type SelectOption = {
   value: string;
@@ -202,7 +202,7 @@ function submit(): void {
           <UiInput v-model="form.direccion" label="Direccion" />
 
           <div class="grid gap-4 md:grid-cols-2">
-            <UiInput v-model="form.email" label="Correo (opcional)" type="email" />
+            <UiEmailInput v-model="form.email" label="Correo (opcional)" />
             <UiInput v-model="form.phone" label="Telefono (opcional)" />
           </div>
 
