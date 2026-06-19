@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
-import { UiButton, UiCloseCircleIcon, UiEmailInput, UiFiscalDocumentInput, UiInput, UiPhoneInput, UiSaveIcon, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiEmailInput, UiFiscalDocumentInput, UiInput, UiPhoneInput, UiSaveIcon, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
+import BillingModalShell from './BillingModalShell.vue';
 
 type SelectOption = {
   value: string;
@@ -146,93 +147,80 @@ function submit(): void {
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 px-4 py-6">
-      <form class="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-md bg-white shadow-2xl" @submit.prevent="submit">
-        <div class="shrink-0 border-b border-slate-200 px-6 py-5">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Receptor CCF</p>
-              <h2 class="mt-1 text-xl font-bold text-slate-950">Nuevo cliente fiscal</h2>
-              <p class="mt-1 text-sm text-slate-500">Datos fiscales requeridos para emitir Comprobante de Credito Fiscal.</p>
-            </div>
-            <button
-              class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
-              type="button"
-              aria-label="Cerrar"
-              @click="emit('close')"
-            >
-              <UiCloseCircleIcon class="h-6 w-6" />
-            </button>
-          </div>
-        </div>
-
-        <div class="grid min-h-0 gap-4 overflow-y-auto px-6 py-5">
-          <div class="grid gap-4 md:grid-cols-2">
-            <UiInput v-model="form.name" label="Nombre fiscal / razon social" />
-            <UiInput v-model="form.nombreComercial" label="Nombre comercial" />
-          </div>
-
-          <div class="grid gap-4 md:grid-cols-2">
-            <UiFiscalDocumentInput
-              v-model="form.document"
-              label="NIT o DUI homologado"
-              @detected="updateDetection"
-            />
-            <UiInput v-model="form.nrc" label="NRC" />
-          </div>
-
-          <UiSearchSelect
-            v-model="form.actividad"
-            label="Actividad economica"
-            :options="actividadOptions"
-            placeholder="Buscar por codigo o descripcion"
-          />
-
-          <div class="grid gap-4 md:grid-cols-2">
-            <UiSearchSelect
-              v-model="form.departamento"
-              label="Departamento"
-              :options="departamentoOptions"
-              placeholder="Seleccionar departamento"
-            />
-            <UiSearchSelect
-              v-model="form.municipio"
-              label="Municipio"
-              :options="municipioOptions"
-              :disabled="!form.departamento"
-              placeholder="Seleccionar municipio"
-            />
-          </div>
-
-          <UiSearchSelect
-            v-model="form.distrito"
-            label="Distrito"
-            :options="distritoOptions"
-            :disabled="!form.municipio"
-            placeholder="Seleccionar distrito"
-          />
-
-          <UiInput v-model="form.direccion" label="Direccion" />
-
-          <div class="grid gap-4 md:grid-cols-2">
-            <UiEmailInput v-model="form.email" label="Correo" />
-            <UiPhoneInput v-model="form.phone" label="Telefono" />
-          </div>
-
-          <p v-if="form.document.trim() && !detection.valid" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
-            Usa NIT de 14 digitos o DUI homologado de 9 digitos. En CCF viajará como NIT del receptor.
-          </p>
-        </div>
-
-        <div class="shrink-0 flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
-          <UiButton variant="secondary" type="button" @click="emit('close')">Cancelar</UiButton>
-          <UiButton variant="success" type="submit" :disabled="!canSave">
-            <UiSaveIcon v-if="!loading" class="mr-2 h-5 w-5" />
-            <span>{{ loading ? 'Guardando...' : 'Guardar cliente fiscal' }}</span>
-          </UiButton>
-        </div>
-      </form>
+  <BillingModalShell
+    :open="open"
+    eyebrow="Receptor CCF"
+    title="Nuevo cliente fiscal"
+    description="Datos fiscales requeridos para emitir Comprobante de Credito Fiscal."
+    max-width="max-w-3xl"
+    panel-as="form"
+    panel-class="max-h-[92vh] overflow-hidden"
+    body-class="grid min-h-0 gap-4 overflow-y-auto px-5 py-5"
+    @close="emit('close')"
+    @submit="submit"
+  >
+    <div class="grid gap-4 md:grid-cols-2">
+      <UiInput v-model="form.name" label="Nombre fiscal / razon social" />
+      <UiInput v-model="form.nombreComercial" label="Nombre comercial" />
     </div>
-  </Teleport>
+
+    <div class="grid gap-4 md:grid-cols-2">
+      <UiFiscalDocumentInput
+        v-model="form.document"
+        label="NIT o DUI homologado"
+        @detected="updateDetection"
+      />
+      <UiInput v-model="form.nrc" label="NRC" />
+    </div>
+
+    <UiSearchSelect
+      v-model="form.actividad"
+      label="Actividad economica"
+      :options="actividadOptions"
+      placeholder="Buscar por codigo o descripcion"
+    />
+
+    <div class="grid gap-4 md:grid-cols-2">
+      <UiSearchSelect
+        v-model="form.departamento"
+        label="Departamento"
+        :options="departamentoOptions"
+        placeholder="Seleccionar departamento"
+      />
+      <UiSearchSelect
+        v-model="form.municipio"
+        label="Municipio"
+        :options="municipioOptions"
+        :disabled="!form.departamento"
+        placeholder="Seleccionar municipio"
+      />
+    </div>
+
+    <UiSearchSelect
+      v-model="form.distrito"
+      label="Distrito"
+      :options="distritoOptions"
+      :disabled="!form.municipio"
+      placeholder="Seleccionar distrito"
+    />
+
+    <UiInput v-model="form.direccion" label="Direccion" />
+
+    <div class="grid gap-4 md:grid-cols-2">
+      <UiEmailInput v-model="form.email" label="Correo" />
+      <UiPhoneInput v-model="form.phone" label="Telefono" />
+    </div>
+
+    <p v-if="form.document.trim() && !detection.valid" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+      Usa NIT de 14 digitos o DUI homologado de 9 digitos. En CCF viajará como NIT del receptor.
+    </p>
+
+    <template #footer>
+      <UiButton variant="secondary" type="button" @click="emit('close')">Cancelar</UiButton>
+      <UiButton variant="success" type="submit" :disabled="!canSave">
+        <UiSaveIcon v-if="!loading" class="mr-2 h-5 w-5" />
+        <span>{{ loading ? 'Guardando...' : 'Guardar cliente fiscal' }}</span>
+      </UiButton>
+    </template>
+  </BillingModalShell>
 </template>

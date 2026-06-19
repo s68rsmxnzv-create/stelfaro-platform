@@ -7,7 +7,8 @@ import {
   type MhFiscalEventSummary
 } from '@stelfaro/api-client';
 import { currency, fiscalDate, fiscalDateTime } from '@stelfaro/shared';
-import { UiButton, UiCard, UiCloseCircleIcon, UiSearchInput, UiLoadingMark, UiSaveIcon, UiTextarea } from '@stelfaro/ui';
+import { UiButton, UiCard, UiSearchInput, UiLoadingMark, UiSaveIcon, UiTextarea } from '@stelfaro/ui';
+import BillingModalShell from '../components/BillingModalShell.vue';
 import BillingProcessModal from '../components/BillingProcessModal.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 
@@ -1489,88 +1490,65 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
       @close="closeEventModal"
     />
 
-    <Teleport to="body">
-      <div
-        v-if="contingencyMomentModalOpen"
-        class="fixed inset-0 z-[9999] grid place-items-center bg-slate-950/35 px-4 backdrop-blur-sm"
-        role="dialog"
-        aria-modal="true"
-      >
-        <section class="w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-2xl shadow-slate-950/25">
-          <div class="border-b border-slate-200 px-5 py-4">
-            <div class="flex items-start justify-between gap-4">
-              <div>
-                <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Momento 3</p>
-                <h2 class="mt-1 text-xl font-bold text-slate-950">Transmitir DTE reportados</h2>
-                <p class="mt-1 text-sm text-slate-500">
-                  Evento aceptado por MH. Continua con los DTE incluidos en la contingencia.
-                </p>
-              </div>
-              <button
-                class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
-                type="button"
-                aria-label="Cerrar"
-                @click="closeEventModal"
-              >
-                <UiCloseCircleIcon class="h-6 w-6" />
-              </button>
-            </div>
-          </div>
+    <BillingModalShell
+      :open="contingencyMomentModalOpen"
+      eyebrow="Momento 3"
+      title="Transmitir DTE reportados"
+      description="Evento aceptado por MH. Continua con los DTE incluidos en la contingencia."
+      max-width="max-w-2xl"
+      z-index-class="z-[9999]"
+      @close="closeEventModal"
+    >
+      <p v-if="contingencyRetransmissionError" class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        {{ contingencyRetransmissionError }}
+      </p>
 
-          <div class="px-5 py-4">
-            <p v-if="contingencyRetransmissionError" class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              {{ contingencyRetransmissionError }}
-            </p>
-
-            <div class="divide-y divide-slate-100 overflow-hidden rounded-md border border-slate-200 bg-white">
-              <div
-                v-for="document in reportedContingencyDocuments"
-                :key="document.id"
-                class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
-              >
-                <span class="min-w-0">
-                  <span class="block truncate font-semibold text-slate-950">{{ document.numeroControl }}</span>
-                  <span class="block truncate font-mono text-xs text-slate-500">{{ document.codigoGeneracion }}</span>
-                </span>
-                <span class="rounded px-2 py-1 text-xs font-semibold" :class="contingencyDocumentStatusClass(document)">
-                  {{ contingencyDocumentStatusLabel(document) }}
-                </span>
-              </div>
-            </div>
-
-            <div v-if="contingencyRetransmissionResults.length" class="mt-3 space-y-2">
-              <p
-                v-for="result in contingencyRetransmissionResults"
-                :key="result.id"
-                class="rounded-md px-3 py-2 text-xs"
-                :class="contingencyRetransmissionResultClass(result)"
-              >
-                <span class="font-semibold">{{ result.numeroControl }} · {{ contingencyRetransmissionResultLabel(result) }}</span>
-                <span v-if="result.message" class="ml-1">{{ result.message }}</span>
-              </p>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4">
-            <p class="text-sm text-slate-600">
-              <span v-if="retransmittableContingencyDocuments.length">
-                {{ retransmittableContingencyDocuments.length }} DTE pendiente{{ retransmittableContingencyDocuments.length === 1 ? '' : 's' }} de retransmitir.
-              </span>
-              <span v-else>
-                Sin DTE pendientes de retransmitir.
-              </span>
-            </p>
-            <UiButton
-              type="button"
-              :disabled="!canRetransmitContingencyDocuments"
-              @click="retransmitContingencyDocuments"
-            >
-              {{ contingencyRetransmissionLoading ? 'Transmitiendo...' : 'Retransmitir pendientes' }}
-            </UiButton>
-          </div>
-        </section>
+      <div class="divide-y divide-slate-100 overflow-hidden rounded-md border border-slate-200 bg-white">
+        <div
+          v-for="document in reportedContingencyDocuments"
+          :key="document.id"
+          class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
+        >
+          <span class="min-w-0">
+            <span class="block truncate font-semibold text-slate-950">{{ document.numeroControl }}</span>
+            <span class="block truncate font-mono text-xs text-slate-500">{{ document.codigoGeneracion }}</span>
+          </span>
+          <span class="rounded px-2 py-1 text-xs font-semibold" :class="contingencyDocumentStatusClass(document)">
+            {{ contingencyDocumentStatusLabel(document) }}
+          </span>
+        </div>
       </div>
-    </Teleport>
+
+      <div v-if="contingencyRetransmissionResults.length" class="mt-3 space-y-2">
+        <p
+          v-for="result in contingencyRetransmissionResults"
+          :key="result.id"
+          class="rounded-md px-3 py-2 text-xs"
+          :class="contingencyRetransmissionResultClass(result)"
+        >
+          <span class="font-semibold">{{ result.numeroControl }} · {{ contingencyRetransmissionResultLabel(result) }}</span>
+          <span v-if="result.message" class="ml-1">{{ result.message }}</span>
+        </p>
+      </div>
+
+      <template #footer>
+        <p class="mr-auto text-sm text-slate-600">
+          <span v-if="retransmittableContingencyDocuments.length">
+            {{ retransmittableContingencyDocuments.length }} DTE pendiente{{ retransmittableContingencyDocuments.length === 1 ? '' : 's' }} de retransmitir.
+          </span>
+          <span v-else>
+            Sin DTE pendientes de retransmitir.
+          </span>
+        </p>
+        <UiButton
+          type="button"
+          :disabled="!canRetransmitContingencyDocuments"
+          @click="retransmitContingencyDocuments"
+        >
+          {{ contingencyRetransmissionLoading ? 'Transmitiendo...' : 'Retransmitir pendientes' }}
+        </UiButton>
+      </template>
+    </BillingModalShell>
 
     <UiCard v-if="!isInvalidacion && !isContingencia && !isOperacionesEspeciales">
       <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
@@ -1991,36 +1969,29 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
         </div>
       </BillingProcessModal>
 
-      <div
-        v-if="motivoModalOpen"
-        class="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/50 px-4"
-        role="dialog"
-        aria-modal="true"
+      <BillingModalShell
+        :open="motivoModalOpen"
+        eyebrow="Motivo de contingencia"
+        :title="contingenciaTipos.find((tipo) => tipo.value === Number(form.tipoContingencia))?.label ?? 'Motivo'"
+        description="Este detalle se enviara junto con el evento de contingencia."
+        max-width="max-w-xl"
+        z-index-class="z-40"
+        @close="closeMotivoModal"
       >
-        <section class="w-full max-w-xl rounded-lg bg-white shadow-2xl shadow-slate-950/30">
-          <div class="border-b border-slate-200 px-5 py-4">
-            <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Motivo de contingencia</p>
-            <h3 class="mt-1 text-xl font-bold text-slate-950">
-              {{ contingenciaTipos.find((tipo) => tipo.value === Number(form.tipoContingencia))?.label ?? 'Motivo' }}
-            </h3>
-          </div>
-          <div class="px-5 py-4">
-            <UiTextarea
-              v-model="motivoDraft"
-              label="Detalle del motivo"
-              :rows="5"
-            />
-            <p class="mt-2 text-xs text-slate-500">Este detalle se enviara junto con el evento de contingencia.</p>
-          </div>
-          <div class="flex flex-wrap justify-end gap-3 border-t border-slate-200 px-5 py-4">
-            <UiButton type="button" variant="secondary" @click="closeMotivoModal">Cerrar</UiButton>
-            <UiButton type="button" variant="success" :disabled="!motivoDraft.trim()" @click="saveMotivoModal">
-              <UiSaveIcon class="mr-2 h-5 w-5" />
-              <span>Guardar motivo</span>
-            </UiButton>
-          </div>
-        </section>
-      </div>
+        <UiTextarea
+          v-model="motivoDraft"
+          label="Detalle del motivo"
+          :rows="5"
+        />
+
+        <template #footer>
+          <UiButton type="button" variant="secondary" @click="closeMotivoModal">Cerrar</UiButton>
+          <UiButton type="button" variant="success" :disabled="!motivoDraft.trim()" @click="saveMotivoModal">
+            <UiSaveIcon class="mr-2 h-5 w-5" />
+            <span>Guardar motivo</span>
+          </UiButton>
+        </template>
+      </BillingModalShell>
 
       <UiCard>
         <div class="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
@@ -2303,36 +2274,29 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
             </div>
       </BillingProcessModal>
 
-      <div
-        v-if="motivoModalOpen"
-        class="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/50 px-4"
-        role="dialog"
-        aria-modal="true"
+      <BillingModalShell
+        :open="motivoModalOpen"
+        eyebrow="Motivo de invalidacion"
+        :title="invalidacionTipos.find((tipo) => tipo.value === Number(form.tipoAnulacion))?.label ?? 'Motivo'"
+        description="Este detalle se enviara junto con la solicitud."
+        max-width="max-w-xl"
+        z-index-class="z-40"
+        @close="closeMotivoModal"
       >
-        <section class="w-full max-w-xl rounded-lg bg-white shadow-2xl shadow-slate-950/30">
-          <div class="border-b border-slate-200 px-5 py-4">
-            <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Motivo de invalidacion</p>
-            <h3 class="mt-1 text-xl font-bold text-slate-950">
-              {{ invalidacionTipos.find((tipo) => tipo.value === Number(form.tipoAnulacion))?.label ?? 'Motivo' }}
-            </h3>
-          </div>
-          <div class="px-5 py-4">
-            <UiTextarea
-              v-model="motivoDraft"
-              label="Detalle del motivo"
-              :rows="5"
-            />
-            <p class="mt-2 text-xs text-slate-500">Este detalle se enviara junto con la solicitud.</p>
-          </div>
-          <div class="flex flex-wrap justify-end gap-3 border-t border-slate-200 px-5 py-4">
-            <UiButton type="button" variant="secondary" @click="closeMotivoModal">Cerrar</UiButton>
-            <UiButton type="button" variant="success" :disabled="!motivoDraft.trim()" @click="saveMotivoModal">
-              <UiSaveIcon class="mr-2 h-5 w-5" />
-              <span>Guardar motivo</span>
-            </UiButton>
-          </div>
-        </section>
-      </div>
+        <UiTextarea
+          v-model="motivoDraft"
+          label="Detalle del motivo"
+          :rows="5"
+        />
+
+        <template #footer>
+          <UiButton type="button" variant="secondary" @click="closeMotivoModal">Cerrar</UiButton>
+          <UiButton type="button" variant="success" :disabled="!motivoDraft.trim()" @click="saveMotivoModal">
+            <UiSaveIcon class="mr-2 h-5 w-5" />
+            <span>Guardar motivo</span>
+          </UiButton>
+        </template>
+      </BillingModalShell>
 
       <UiCard>
         <div class="grid gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)]">

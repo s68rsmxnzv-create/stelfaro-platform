@@ -1,9 +1,10 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { CoreDteClient } from '@stelfaro/api-client';
-import { UiCloseCircleIcon, UiInfoIcon } from '@stelfaro/ui';
+import { UiInfoIcon } from '@stelfaro/ui';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingAppNav from '../components/BillingAppNav.vue';
+import BillingModalShell from '../components/BillingModalShell.vue';
 import BillingDashboardPage from './BillingDashboardPage.vue';
 import BillingOperationalPlaceholderPage from './BillingOperationalPlaceholderPage.vue';
 import BillingSettingsPage from './BillingSettingsPage.vue';
@@ -474,37 +475,23 @@ function navigateFromMenu(event, href) {
       </div>
     </header>
 
-    <div
-      v-if="dteHelpModalOpen && currentDteHelp"
-      class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 px-4 py-8 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="`Ayuda sobre ${currentDteHelp.title}`"
-      @click.self="dteHelpModalOpen = false"
+    <BillingModalShell
+      :open="dteHelpModalOpen && Boolean(currentDteHelp)"
+      :title="currentDteHelp?.title ?? 'Ayuda'"
+      :eyebrow="currentDteHelp?.summary ?? null"
+      max-width="max-w-md"
+      z-index-class="z-[100]"
+      panel-class="rounded-xl"
+      close-label="Cerrar ayuda"
+      @close="dteHelpModalOpen = false"
     >
-      <section class="w-full max-w-md rounded-xl border border-sky-100 bg-white p-5 shadow-2xl shadow-slate-950/20">
-        <div class="flex items-start justify-between gap-4">
-          <div class="flex min-w-0 items-start gap-3">
-            <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-700">
-              <UiInfoIcon class="h-7 w-7" />
-            </span>
-            <div class="min-w-0">
-              <p class="text-xs font-semibold uppercase text-sky-700">{{ currentDteHelp.summary }}</p>
-              <h2 class="mt-1 text-xl font-bold text-slate-950">{{ currentDteHelp.title }}</h2>
-            </div>
-          </div>
-          <button
-            class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
-            type="button"
-            aria-label="Cerrar ayuda"
-            @click="dteHelpModalOpen = false"
-          >
-            <UiCloseCircleIcon class="h-6 w-6" />
-          </button>
-        </div>
-        <p class="mt-4 text-sm leading-6 text-slate-700">{{ currentDteHelp.use }}</p>
-      </section>
-    </div>
+      <div class="flex items-start gap-3">
+        <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-700">
+          <UiInfoIcon class="h-7 w-7" />
+        </span>
+        <p class="text-sm leading-6 text-slate-700">{{ currentDteHelp?.use }}</p>
+      </div>
+    </BillingModalShell>
 
     <main class="relative z-10">
       <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">

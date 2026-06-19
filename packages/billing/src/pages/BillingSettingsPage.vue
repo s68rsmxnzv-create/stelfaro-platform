@@ -15,7 +15,8 @@ import {
   type DteDashboardSummary,
   type MhBearerVerification
 } from '@stelfaro/api-client';
-import { UiButton, UiCard, UiCloseCircleIcon, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiPhoneInput, UiSaveIcon, UiSearchInput, UiSearchSelect, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiPhoneInput, UiSaveIcon, UiSearchInput, UiSearchSelect, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
+import BillingModalShell from '../components/BillingModalShell.vue';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -1745,19 +1746,9 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                       <UiButton
                         variant="secondary"
                         :disabled="loading || isInactive"
-                        @click="resetNewPuntoVentaForm(); creatingPuntoVenta = !creatingPuntoVenta"
+                        @click="resetNewPuntoVentaForm(); creatingPuntoVenta = true"
                       >
-                        {{ creatingPuntoVenta ? 'Cancelar' : 'Nuevo punto' }}
-                      </UiButton>
-                    </div>
-
-                    <div v-if="creatingPuntoVenta" class="mt-4 grid gap-4 rounded-md border border-slate-200 bg-slate-50 p-4 md:grid-cols-[130px_minmax(0,1fr)_120px_auto] md:items-end">
-                      <UiInput v-model="newPuntoVentaForm.codigo" label="Codigo" />
-                      <UiInput v-model="newPuntoVentaForm.nombre" label="Nombre" />
-                      <UiInput v-model="newPuntoVentaForm.tipo" label="Tipo" />
-                      <UiButton variant="success" :disabled="loading || !canCreatePuntoVenta" @click="createPuntoVenta">
-                        <UiSaveIcon class="mr-2 h-4 w-4" />
-                        Crear
+                        Nuevo punto
                       </UiButton>
                     </div>
 
@@ -2061,63 +2052,70 @@ function markLogoBroken(empresa: BillingEmpresa): void {
 
       </div>
 
-      <div
-        v-if="creatingSucursal"
-        class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 px-4 py-6 backdrop-blur-sm"
-        @click.self="creatingSucursal = false"
+      <BillingModalShell
+        :open="creatingSucursal"
+        title="Nueva sucursal"
+        description="Registra la sucursal y su primer punto de venta."
+        max-width="max-w-4xl"
+        @close="creatingSucursal = false"
       >
-        <div class="w-full max-w-4xl rounded-md border border-blue-100 bg-white shadow-2xl shadow-slate-950/25">
-          <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
-            <div>
-              <p class="text-lg font-bold text-slate-950">Nueva sucursal</p>
-              <p class="mt-1 text-sm text-slate-500">Registra la sucursal y su primer punto de venta.</p>
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
+          <div class="grid gap-4">
+            <div class="grid gap-4 md:grid-cols-2">
+              <UiInput v-model="newSucursalForm.nombre" label="Nombre sucursal" />
+              <UiInput v-model="newSucursalForm.codigo" label="Codigo establecimiento" />
             </div>
-            <button
-              type="button"
-              class="rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-              aria-label="Cerrar"
-              @click="creatingSucursal = false"
-            >
-              <UiCloseCircleIcon class="h-6 w-6" />
-            </button>
-          </div>
-
-          <div class="grid gap-6 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_260px]">
-            <div class="grid gap-4">
-              <div class="grid gap-4 md:grid-cols-2">
-                <UiInput v-model="newSucursalForm.nombre" label="Nombre sucursal" />
-                <UiInput v-model="newSucursalForm.codigo" label="Codigo establecimiento" />
-              </div>
-              <UiInput v-model="newSucursalForm.direccion" label="Direccion" />
-              <div class="grid gap-4 md:grid-cols-3">
-                <UiSearchSelect v-model="newSucursalForm.departamento" label="Departamento" :options="departamentoOptions" placeholder="Seleccionar departamento" />
-                <UiSearchSelect v-model="newSucursalForm.municipio" label="Municipio" :options="newSucursalMunicipioOptions" :disabled="!newSucursalForm.departamento" placeholder="Seleccionar municipio" />
-                <UiSearchSelect v-model="newSucursalForm.distrito" label="Distrito" :options="newSucursalDistritoOptions" :disabled="!newSucursalForm.municipio" placeholder="Seleccionar distrito" />
-              </div>
-              <div class="grid gap-4 md:grid-cols-2">
-                <UiPhoneInput v-model="newSucursalForm.telefono" label="Telefono" />
-                <UiEmailInput v-model="newSucursalForm.email" label="Correo" />
-              </div>
+            <UiInput v-model="newSucursalForm.direccion" label="Direccion" />
+            <div class="grid gap-4 md:grid-cols-3">
+              <UiSearchSelect v-model="newSucursalForm.departamento" label="Departamento" :options="departamentoOptions" placeholder="Seleccionar departamento" />
+              <UiSearchSelect v-model="newSucursalForm.municipio" label="Municipio" :options="newSucursalMunicipioOptions" :disabled="!newSucursalForm.departamento" placeholder="Seleccionar municipio" />
+              <UiSearchSelect v-model="newSucursalForm.distrito" label="Distrito" :options="newSucursalDistritoOptions" :disabled="!newSucursalForm.municipio" placeholder="Seleccionar distrito" />
             </div>
-
-            <div class="rounded-md border border-slate-200 bg-slate-50 p-4">
-              <p class="text-sm font-semibold text-slate-950">Punto inicial</p>
-              <div class="mt-4 grid gap-4">
-                <UiInput v-model="newSucursalForm.punto_venta_codigo" label="Codigo" />
-                <UiInput v-model="newSucursalForm.punto_venta_nombre" label="Nombre" />
-              </div>
+            <div class="grid gap-4 md:grid-cols-2">
+              <UiPhoneInput v-model="newSucursalForm.telefono" label="Telefono" />
+              <UiEmailInput v-model="newSucursalForm.email" label="Correo" />
             </div>
           </div>
 
-          <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">
-            <UiButton variant="secondary" :disabled="loading" @click="creatingSucursal = false">Cancelar</UiButton>
-            <UiButton variant="success" :disabled="loading || !canCreateSucursal" @click="createSucursal">
-              <UiSaveIcon class="mr-2 h-4 w-4" />
-              Crear sucursal
-            </UiButton>
+          <div class="rounded-md border border-slate-200 bg-slate-50 p-4">
+            <p class="text-sm font-semibold text-slate-950">Punto inicial</p>
+            <div class="mt-4 grid gap-4">
+              <UiInput v-model="newSucursalForm.punto_venta_codigo" label="Codigo" />
+              <UiInput v-model="newSucursalForm.punto_venta_nombre" label="Nombre" />
+            </div>
           </div>
         </div>
-      </div>
+
+        <template #footer>
+          <UiButton variant="secondary" :disabled="loading" @click="creatingSucursal = false">Cancelar</UiButton>
+          <UiButton variant="success" :disabled="loading || !canCreateSucursal" @click="createSucursal">
+            <UiSaveIcon class="mr-2 h-4 w-4" />
+            Crear sucursal
+          </UiButton>
+        </template>
+      </BillingModalShell>
+
+      <BillingModalShell
+        :open="creatingPuntoVenta"
+        title="Nuevo punto de venta"
+        :description="selectedSucursal ? `Crea una caja o terminal para ${selectedSucursal.codigo} · ${selectedSucursal.nombre}.` : 'Crea una caja o terminal para la sucursal seleccionada.'"
+        max-width="max-w-2xl"
+        @close="creatingPuntoVenta = false"
+      >
+        <div class="grid gap-4 md:grid-cols-[130px_minmax(0,1fr)_140px]">
+          <UiInput v-model="newPuntoVentaForm.codigo" label="Codigo" />
+          <UiInput v-model="newPuntoVentaForm.nombre" label="Nombre" />
+          <UiInput v-model="newPuntoVentaForm.tipo" label="Tipo" />
+        </div>
+
+        <template #footer>
+          <UiButton variant="secondary" :disabled="loading" @click="creatingPuntoVenta = false">Cancelar</UiButton>
+          <UiButton variant="success" :disabled="loading || !canCreatePuntoVenta" @click="createPuntoVenta">
+            <UiSaveIcon class="mr-2 h-4 w-4" />
+            Crear punto
+          </UiButton>
+        </template>
+      </BillingModalShell>
 
       <p v-if="error" class="mt-4 whitespace-pre-wrap rounded-md bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
     </UiCard>

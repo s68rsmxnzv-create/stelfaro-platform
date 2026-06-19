@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
-import { UiButton, UiCloseCircleIcon, UiEmailInput, UiFiscalDocumentInput, UiInput, UiPhoneInput, UiSaveIcon, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiEmailInput, UiFiscalDocumentInput, UiInput, UiPhoneInput, UiSaveIcon, type FiscalDocumentDetection } from '@stelfaro/ui';
+import BillingModalShell from './BillingModalShell.vue';
 
 export type BillingCustomerModalMode = 'new' | 'quick';
 
@@ -43,9 +44,6 @@ const detection = reactive<FiscalDocumentDetection>({
 });
 
 const title = computed(() => props.mode === 'new' ? 'Nuevo cliente' : 'Cliente rapido');
-const subtitle = computed(() => props.mode === 'new'
-  ? 'Se guardara en la base de clientes de esta empresa.'
-  : 'Solo se usara en esta factura; no queda guardado.');
 const documentRequired = computed(() => props.mode === 'new');
 const documentIsValid = computed(() => {
   if (!form.document.trim()) return !documentRequired.value;
@@ -83,51 +81,32 @@ function submit(): void {
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 px-4 py-6">
-      <form class="w-full max-w-xl rounded-md bg-white shadow-2xl" @submit.prevent="submit">
-        <div class="border-b border-slate-200 px-6 py-5">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Receptor</p>
-              <h2 class="mt-1 text-xl font-bold text-slate-950">{{ title }}</h2>
-              <p class="mt-1 text-sm text-slate-500">{{ subtitle }}</p>
-            </div>
-            <button
-              class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
-              type="button"
-              aria-label="Cerrar"
-              @click="emit('close')"
-            >
-              <UiCloseCircleIcon class="h-6 w-6" />
-            </button>
-          </div>
-        </div>
-
-        <div class="grid gap-4 px-6 py-5">
-          <UiInput v-model="form.name" :label="mode === 'quick' ? 'Nombre en factura' : 'Nombre del cliente'" />
-          <UiFiscalDocumentInput
-            v-model="form.document"
-            :label="documentRequired ? 'DUI/NIT del cliente' : 'DUI/NIT del cliente (opcional)'"
-            @detected="updateDetection"
-          />
-          <div class="grid gap-4 sm:grid-cols-2">
-            <UiEmailInput v-model="form.email" label="Correo" />
-            <UiPhoneInput v-model="form.phone" label="Telefono" />
-          </div>
-          <p v-if="!documentIsValid" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
-            {{ documentRequired ? 'Para guardar un cliente necesitamos DUI/NIT valido.' : 'Si colocas documento, debe tener formato valido.' }}
-          </p>
-        </div>
-
-        <div class="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
-          <UiButton variant="secondary" type="button" @click="emit('close')">Cancelar</UiButton>
-          <UiButton :variant="mode === 'new' ? 'success' : 'primary'" type="submit" :disabled="!canSave">
-            <UiSaveIcon v-if="mode === 'new' && !loading" class="mr-2 h-5 w-5" />
-            <span>{{ loading ? 'Guardando...' : mode === 'new' ? 'Guardar cliente' : 'Usar cliente' }}</span>
-          </UiButton>
-        </div>
-      </form>
+  <BillingModalShell
+    :open="open"
+    eyebrow="Receptor"
+    :title="title"
+    max-width="max-w-xl"
+    panel-as="form"
+    body-class="grid gap-4 px-5 py-5"
+    @close="emit('close')"
+    @submit="submit"
+  >
+    <UiInput v-model="form.name" :label="mode === 'quick' ? 'Nombre en factura' : 'Nombre del cliente'" />
+    <UiFiscalDocumentInput
+      v-model="form.document"
+      :label="documentRequired ? 'DUI/NIT del cliente' : 'DUI/NIT del cliente (opcional)'"
+      @detected="updateDetection"
+    />
+    <div class="grid gap-4 sm:grid-cols-2">
+      <UiEmailInput v-model="form.email" label="Correo" />
+      <UiPhoneInput v-model="form.phone" label="Telefono" />
     </div>
-  </Teleport>
+    <template #footer>
+      <UiButton variant="secondary" type="button" @click="emit('close')">Cancelar</UiButton>
+      <UiButton :variant="mode === 'new' ? 'success' : 'primary'" type="submit" :disabled="!canSave">
+        <UiSaveIcon v-if="mode === 'new' && !loading" class="mr-2 h-5 w-5" />
+        <span>{{ loading ? 'Guardando...' : mode === 'new' ? 'Guardar cliente' : 'Usar cliente' }}</span>
+      </UiButton>
+    </template>
+  </BillingModalShell>
 </template>
