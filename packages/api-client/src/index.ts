@@ -186,6 +186,15 @@ export type DteDraftSummary = {
   }>;
   transmission_attempts_count?: number;
   correlativo_retry?: Record<string, unknown> | null;
+  notifications?: {
+    dte_delivery?: {
+      status?: string | null;
+      message_id?: number | string | null;
+      queued_at?: string | null;
+      recipient_email?: string | null;
+      error?: string | null;
+    };
+  } | null;
   invalidacion?: {
     eligible: boolean;
     status: 'eligible' | 'expired' | 'invalidated' | 'not_transmitted' | 'missing_receipt_stamp' | 'missing_transmission_date' | string;
@@ -377,6 +386,18 @@ export type BillingCorrelativo = {
   activo: boolean;
 };
 
+export type BillingCorrelativoAdmin = BillingCorrelativo & {
+  empresa_id: number;
+  sucursal_id: number;
+  sucursal_codigo: string | null;
+  sucursal_nombre: string | null;
+  punto_venta_codigo: string | null;
+  punto_venta_nombre: string | null;
+  next_correlativo: number | null;
+  next_numero_control: string | null;
+  remaining: number;
+};
+
 export type BillingCertificate = {
   id: number;
   ambiente: '00' | '01';
@@ -398,6 +419,28 @@ export type BillingSucursal = {
   email: string | null;
   puntosVenta: BillingPuntoVenta[];
   correlativos: BillingCorrelativo[];
+};
+
+export type BillingSucursalPayload = {
+  nombre: string;
+  codigo: string;
+  direccion: string;
+  departamento: string;
+  municipio: string;
+  distrito?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  punto_venta_codigo?: string | null;
+  punto_venta_nombre?: string | null;
+  punto_venta_tipo?: string | null;
+  lifecycle_status?: 'active' | 'inactive';
+};
+
+export type BillingPuntoVentaPayload = {
+  codigo: string;
+  nombre: string;
+  tipo?: string | null;
+  lifecycle_status?: 'active' | 'inactive';
 };
 
 export type BillingMhConfig = {
@@ -497,12 +540,14 @@ export type BillingItemTemplate = {
 };
 
 export type DteIssueProgressEvent =
-  | { type: 'stage'; stage: string; progress: number; message: string }
+  | { type: 'stage'; stage: string; progress: number; message: string; attempt?: number; max_attempts?: number; numero_control?: string; correlativo?: number }
+  | { type: 'retry'; stage: string; progress: number; message: string; attempt: number; next_attempt: number; max_attempts?: number; numero_control?: string; correlativo?: number; conflict?: boolean }
   | { type: 'completed'; ok: boolean; progress?: number; message: string; document_id?: number; attempts?: DteIssueResponse['attempts'] }
   | ({ type: 'result'; ok: true } & DteIssueResponse)
   | { type: 'result'; ok: false; message: string; errors?: string[] };
 
 export type BillingContext = {
+  user: Pick<AuthUser, 'id' | 'name' | 'email' | 'role' | 'is_backoffice'> | null;
   core: {
     profile: string;
     signing_provider: string;
@@ -596,6 +641,7 @@ export type BillingSettingsPayload = {
   signer_password_pri?: string | null;
   signer_activo?: boolean;
   simulate_unavailable?: boolean;
+  verify?: boolean;
 };
 
 export type BillingSettings = Omit<BillingSettingsPayload, 'mh_nit' | 'mh_user' | 'mh_password' | 'signer_nit' | 'signer_password_pri' | 'signer_activo'> & {
@@ -630,6 +676,24 @@ export type MhBearerVerification = {
   received_at?: string;
   expires_at?: string;
   message?: string;
+};
+
+export type BillingSettingsVerification = {
+  ok: boolean;
+  message: string;
+  correlativos?: {
+    ok: boolean;
+    message: string;
+    enabled_document_types: string[];
+    active_count: number;
+    missing: Array<{
+      sucursal: string;
+      punto_venta: string;
+      tipo_dte: string;
+    }>;
+  };
+  signer: BillingSignerVerification;
+  auth: MhBearerVerification;
 };
 
 export type CorrelativoRequest = {
@@ -954,6 +1018,22 @@ export class CoreDteClient {
     return this.updateBillingCompany(empresaId, { lifecycle_status: lifecycleStatus });
   }
 
+  createBillingSucursal(empresaId: number, payload: BillingSucursalPayload): Promise<{ empresa: BillingEmpresa }> {
+    return this.http.post(`billing/companies/${empresaId}/sucursales`, { json: payload }).json();
+  }
+
+  updateBillingSucursal(sucursalId: number, payload: Partial<BillingSucursalPayload>): Promise<{ empresa: BillingEmpresa }> {
+    return this.http.patch(`billing/sucursales/${sucursalId}`, { json: payload }).json();
+  }
+
+  createBillingPuntoVenta(sucursalId: number, payload: BillingPuntoVentaPayload): Promise<{ empresa: BillingEmpresa }> {
+    return this.http.post(`billing/sucursales/${sucursalId}/puntos-venta`, { json: payload }).json();
+  }
+
+  updateBillingPuntoVenta(puntoVentaId: number, payload: Partial<BillingPuntoVentaPayload>): Promise<{ empresa: BillingEmpresa }> {
+    return this.http.patch(`billing/puntos-venta/${puntoVentaId}`, { json: payload }).json();
+  }
+
   deleteBillingCompany(empresaId: number): Promise<void> {
     return this.http.delete(`billing/companies/${empresaId}`).then(() => undefined);
   }
@@ -967,7 +1047,7 @@ export class CoreDteClient {
     }).json();
   }
 
-  saveBillingSettings(payload: BillingSettingsPayload): Promise<{ config: BillingSettings }> {
+  saveBillingSettings(payload: BillingSettingsPayload): Promise<{ config: BillingSettings; verification?: BillingSettingsVerification }> {
     return this.http.put('billing/settings', { json: payload }).json();
   }
 
@@ -1023,6 +1103,14 @@ export class CoreDteClient {
 
   reserveCorrelativo(payload: CorrelativoRequest): Promise<CorrelativoReservation> {
     return this.http.post('billing/correlativos/reserve', { json: payload }).json();
+  }
+
+  correlativos(params: { empresa_id: number; ambiente?: '00' | '01' | string }): Promise<{ data: BillingCorrelativoAdmin[] }> {
+    return this.http.get('billing/correlativos', { searchParams: compactParams(params) }).json();
+  }
+
+  updateCorrelativo(correlativoId: number, payload: { actual: number }): Promise<{ data: BillingCorrelativoAdmin }> {
+    return this.http.patch(`billing/correlativos/${correlativoId}`, { json: payload }).json();
   }
 
   preview(payload: DtePreviewRequest): Promise<DtePreviewResponse> {

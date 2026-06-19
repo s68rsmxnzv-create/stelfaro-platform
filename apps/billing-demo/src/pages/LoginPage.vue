@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { UiEmailInput } from '@stelfaro/ui';
 import { useAuthStore } from '../stores/auth';
 
 const router = useRouter();
@@ -35,16 +36,7 @@ async function submit(): Promise<void> {
 
     <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
       <form class="space-y-6" @submit.prevent="submit">
-        <label class="block">
-          <span class="block text-sm font-medium text-slate-100">Correo</span>
-          <input
-            v-model="form.email"
-            class="mt-2 block w-full rounded-md bg-white/5 px-3 py-2 text-base text-white outline outline-1 -outline-offset-1 outline-white/10 transition placeholder:text-slate-500 focus:outline-2 focus:-outline-offset-2 focus:outline-sky-500 sm:text-sm"
-            autocomplete="email"
-            required
-            type="email"
-          >
-        </label>
+        <UiEmailInput v-model="form.email" label="Correo" variant="dark" autocomplete="email" required />
 
         <label class="block">
           <span class="flex items-center justify-between">

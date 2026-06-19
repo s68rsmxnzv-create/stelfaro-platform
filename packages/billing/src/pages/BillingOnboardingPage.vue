@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, useSlots, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, useSlots, watch } from 'vue';
 import {
   CoreDteClient,
   type BillingCatalogs,
   type BillingCompanyPayload,
   type BillingCompanyResponse,
-  type BillingSettingsPayload,
-  type BillingSignerVerification,
-  type MhBearerVerification
+  type BillingSettingsPayload
 } from '@stelfaro/api-client';
-import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLoadingMark, UiLogoUpload, UiNextIcon, UiPasswordInput, UiPhoneInput, UiPreviousIcon, UiSaveIcon, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
+import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
+import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -17,16 +17,19 @@ const props = withDefaults(defineProps<{
   requestCredentials?: RequestCredentials;
   enabledDocumentTypes?: string[];
   enabledEventTypes?: string[];
+  showToasts?: boolean;
 }>(), {
   coreBaseUrl: '/api/v1',
   authToken: null,
   requestCredentials: undefined,
   enabledDocumentTypes: () => ['01', '03', '05', '06', '14'],
-  enabledEventTypes: () => ['invalidacion', 'contingencia', 'operaciones_especiales']
+  enabledEventTypes: () => ['invalidacion', 'contingencia', 'operaciones_especiales'],
+  showToasts: true
 });
 
 const emit = defineEmits<{
   companyRegistered: [response: BillingCompanyResponse];
+  fiscalConfigured: [];
 }>();
 const slots = useSlots();
 
@@ -36,10 +39,7 @@ const client = computed(() => new CoreDteClient(props.coreBaseUrl, {
 }));
 const loading = ref(false);
 const error = ref<string | null>(null);
-const saved = ref<string | null>(null);
 const company = ref<BillingCompanyResponse | null>(null);
-const signer = ref<BillingSignerVerification | null>(null);
-const bearer = ref<MhBearerVerification | null>(null);
 const certificateFile = ref<File | null>(null);
 const logoFile = ref<File | null>(null);
 const logoPreview = ref<string | null>(null);
@@ -124,12 +124,24 @@ const steps = computed(() => [
   'Empresa',
   'Ubicacion',
   ...(hasAccessStep.value ? ['Accesos'] : []),
-  'Credenciales',
-  'Verificacion'
+  'Credenciales'
 ]);
 const credentialsStepIndex = computed(() => hasAccessStep.value ? 3 : 2);
-const verificationStepIndex = computed(() => hasAccessStep.value ? 4 : 3);
 const stepProgressWidth = computed(() => `${((step.value + 1) / steps.value.length) * 100}%`);
+const verificationOverlayOpen = ref(false);
+const verificationOverlayVariant = ref<'loading' | 'success' | 'warning' | 'error'>('loading');
+const verificationOverlayTitle = ref('Verificando credenciales');
+const verificationOverlayMessage = ref<string | null>('Guardando configuracion fiscal y validando servicios MH.');
+const processOverlayOpen = ref(false);
+const processOverlayTitle = ref('Procesando registro fiscal');
+const processOverlayMessage = ref('Guardando informacion de la empresa.');
+const floatingToasts = ref<BillingFloatingToast[]>([]);
+let toastId = 0;
+const toastTimers: ReturnType<typeof window.setTimeout>[] = [];
+
+onBeforeUnmount(() => {
+  toastTimers.forEach((timer) => window.clearTimeout(timer));
+});
 
 function stepItemClass(index: number): string {
   if (index <= step.value) {
@@ -190,7 +202,6 @@ watch(companyActivities, () => {
 async function run<T>(task: () => Promise<T>): Promise<T | null> {
   loading.value = true;
   error.value = null;
-  saved.value = null;
 
   try {
     return await task();
@@ -210,14 +221,24 @@ async function loadCatalogs(): Promise<void> {
 }
 
 async function registerCompany(): Promise<void> {
+  processOverlayOpen.value = true;
+  processOverlayTitle.value = 'Registrando empresa';
+  processOverlayMessage.value = 'Guardando empresa fiscal, accesos y correlativos iniciales.';
+
   const result = await run(() => client.value.registerBillingCompany(normalizeCompanyPayload()));
   if (!result) {
+    processOverlayOpen.value = false;
     return;
   }
 
   company.value = result;
   emit('companyRegistered', result);
-  saved.value = `Empresa registrada: ${result.empresa.razon_social}`;
+  showFloatingToast({
+    title: 'Empresa registrada',
+    message: `${result.empresa.razon_social} quedo creada en el core fiscal.`,
+    variant: 'success'
+  });
+  processOverlayOpen.value = false;
 }
 
 async function nextStep(): Promise<void> {
@@ -260,7 +281,14 @@ async function saveFiscalSettings(): Promise<void> {
     return;
   }
 
-  const result = await run(async () => {
+  loading.value = true;
+  error.value = null;
+  verificationOverlayOpen.value = true;
+  verificationOverlayVariant.value = 'loading';
+  verificationOverlayTitle.value = 'Verificando credenciales';
+  verificationOverlayMessage.value = 'Guardando configuracion fiscal y validando servicios MH.';
+
+  try {
     let certificadoId: number | null = null;
     if (certificateFile.value) {
       const upload = await client.value.uploadCertificate({
@@ -271,47 +299,31 @@ async function saveFiscalSettings(): Promise<void> {
       certificadoId = upload.certificate.id;
     }
 
-    return client.value.saveBillingSettings({
+    const result = await client.value.saveBillingSettings({
       empresa_id: empresaId.value!,
       ambiente: ambiente.value,
       certificado_id: certificadoId,
+      verify: true,
       ...fiscalForm
     });
-  });
 
-  if (result) {
-    saved.value = 'Configuracion fiscal guardada.';
-  }
-}
-
-async function verifySigner(): Promise<void> {
-  if (!empresaId.value) {
-    return;
-  }
-
-  const result = await run(() => client.value.verifyBillingSigner({
-    empresa_id: empresaId.value!,
-    ambiente: ambiente.value
-  }));
-
-  if (result) {
-    signer.value = result.signer;
-  }
-}
-
-async function requestBearer(): Promise<void> {
-  if (!empresaId.value) {
-    return;
-  }
-
-  const result = await run(() => client.value.requestMhBearer({
-    empresa_id: empresaId.value!,
-    ambiente: ambiente.value,
-    include_token: true
-  }));
-
-  if (result) {
-    bearer.value = result.auth;
+    showFloatingToast({
+      title: 'Configuracion fiscal guardada',
+      message: result.verification?.message ?? 'Firma, autorizacion MH y correlativos verificados.',
+      variant: 'success'
+    });
+    verificationOverlayVariant.value = 'success';
+    verificationOverlayTitle.value = 'Credenciales verificadas';
+    verificationOverlayMessage.value = result.verification?.message ?? 'La firma, la autorizacion MH y los correlativos respondieron correctamente.';
+    emit('fiscalConfigured');
+  } catch (caught) {
+    const message = await errorMessageFromResponse(caught);
+    error.value = message;
+    verificationOverlayVariant.value = 'error';
+    verificationOverlayTitle.value = 'No fue posible verificar';
+    verificationOverlayMessage.value = message;
+  } finally {
+    loading.value = false;
   }
 }
 
@@ -397,6 +409,38 @@ function setLogo(event: Event): void {
   logoPreview.value = file ? URL.createObjectURL(file) : null;
 }
 
+async function errorMessageFromResponse(caught: unknown): Promise<string> {
+  if (caught && typeof caught === 'object' && 'response' in caught) {
+    const response = (caught as { response?: { json?: () => Promise<unknown> } }).response;
+    const payload = await response?.json?.().catch(() => null);
+
+    if (payload && typeof payload === 'object') {
+      const record = payload as { message?: unknown; verification?: { message?: unknown } };
+      if (typeof record.verification?.message === 'string' && record.verification.message.trim()) {
+        return record.verification.message;
+      }
+
+      if (typeof record.message === 'string' && record.message.trim()) {
+        return record.message;
+      }
+    }
+  }
+
+  return caught instanceof Error ? caught.message : 'No fue posible guardar y verificar las credenciales fiscales.';
+}
+
+function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
+  if (!props.showToasts) {
+    return;
+  }
+
+  const id = ++toastId;
+  floatingToasts.value = [...floatingToasts.value, { id, ...toast }];
+  const timer = window.setTimeout(() => {
+    floatingToasts.value = floatingToasts.value.filter((item) => item.id !== id);
+  }, toast.variant === 'success' || !toast.variant ? 2000 : 4300);
+  toastTimers.push(timer);
+}
 </script>
 
 <template>
@@ -406,9 +450,6 @@ function setLogo(event: Event): void {
         <div>
           <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Onboarding fiscal</p>
           <h1 class="mt-1 text-2xl font-bold text-slate-950">Empresa, certificado y MH</h1>
-        </div>
-        <div v-if="company" class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          Empresa #{{ company.empresa.id }} · {{ company.tenant.slug }}
         </div>
       </div>
 
@@ -454,7 +495,7 @@ function setLogo(event: Event): void {
           <UiInput v-model="companyForm.nombre_comercial" label="Nombre comercial" />
         </div>
         <div class="grid gap-4 md:col-span-2 xl:col-span-3" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
-          <UiFiscalDocumentInput v-model="companyForm.documento_fiscal" label="NIT" allowed-types="nit" @detected="fiscalDocument = $event" />
+          <UiFiscalDocumentInput v-model="companyForm.documento_fiscal" label="NIT" allowed-types="nit" :show-message="false" @detected="fiscalDocument = $event" />
           <UiInput v-model="companyForm.nrc" label="NRC" />
         </div>
         <div class="md:col-span-2 xl:col-span-3">
@@ -488,12 +529,17 @@ function setLogo(event: Event): void {
             </div>
           </div>
         </div>
-        <UiLogoUpload
-          id="onboarding-logo-upload"
-          :preview-src="logoPreview"
-          :selected-label="logoFile?.name"
-          @change="setLogo"
-        />
+        <div class="md:col-span-2 xl:col-span-3">
+          <UiLogoUpload
+            id="onboarding-logo-upload"
+            label="Logo comercial"
+            title="Agregar logo"
+            variant="compact"
+            :preview-src="logoPreview"
+            :selected-label="logoFile?.name"
+            @change="setLogo"
+          />
+        </div>
       </div>
 
       <div v-else-if="step === 1" class="mt-6 grid gap-4">
@@ -504,7 +550,7 @@ function setLogo(event: Event): void {
           <UiSearchSelect v-model="companyForm.distrito" label="Distrito" :options="distritoOptions" :disabled="!companyForm.municipio" placeholder="Seleccionar distrito" />
         </div>
         <div class="grid gap-4" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
-          <UiInput v-model="companyForm.telefono" label="Telefono" />
+          <UiPhoneInput v-model="companyForm.telefono" label="Telefono" />
           <UiEmailInput v-model="companyForm.email" label="Correo" />
         </div>
       </div>
@@ -523,54 +569,62 @@ function setLogo(event: Event): void {
         </label>
         <UiInput v-model="fiscalForm.mh_user" label="MH Usuario API" />
         <UiPasswordInput v-model="fiscalForm.mh_password" label="MH Password API" />
-        <UiPasswordInput v-model="fiscalForm.signer_password_pri" label="Password privado certificado" />
-        <label class="block">
-          <span class="text-sm font-medium text-slate-700">Certificado .p12/.crt</span>
-          <UiFileUpload
-            id="onboarding-certificate-upload"
-            class="mt-1"
-            label="Subir certificado"
-            :selected-label="certificateFile?.name"
-            @change="setCertificate"
-          />
-        </label>
-      </div>
-
-      <div v-else-if="step === verificationStepIndex" class="mt-6 grid gap-4 lg:grid-cols-2">
-        <div class="rounded-md border border-slate-200 p-4 text-sm">
-          <p class="font-semibold text-slate-900">{{ company?.empresa.razon_social }}</p>
-          <p class="mt-1 text-slate-600">{{ company?.empresa.fiscal_document_number }} · {{ company?.empresa.nombre_comercial }}</p>
-          <p class="mt-1 text-slate-600">Ambiente {{ ambiente === '01' ? 'Produccion' : 'Pruebas' }}</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-3">
-          <UiButton :disabled="loading || !canConfigureFiscal" @click="saveFiscalSettings">Guardar configuracion</UiButton>
-          <UiButton variant="secondary" :disabled="loading || !empresaId" @click="verifySigner">Verificar firma</UiButton>
-          <UiButton variant="secondary" :disabled="loading || !empresaId" @click="requestBearer">Verificar autorizacion MH</UiButton>
-        </div>
-        <div v-if="signer" class="rounded-md border p-3 text-sm" :class="signer.available ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'">
-          <p class="font-semibold">{{ signer.available ? 'Firma verificada' : 'Firma no verificada' }}</p>
-          <p v-if="signer.status_code">HTTP {{ signer.status_code }}</p>
-          <p v-if="signer.message">Detalle: {{ signer.message }}</p>
-        </div>
-        <div v-if="bearer" class="rounded-md border p-3 text-sm" :class="bearer.status === 'ok' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'">
-          <p class="font-semibold">Autorizacion MH {{ bearer.status === 'ok' ? 'verificada' : 'no disponible' }}</p>
-          <p v-if="bearer.http_status" class="mt-1">HTTP {{ bearer.http_status }}</p>
-          <p v-if="bearer.auth_url">Servicio: {{ bearer.auth_url }}</p>
-          <p v-if="bearer.bearer_token" class="mt-2 break-all font-mono text-xs">{{ bearer.bearer_token }}</p>
-          <p v-else-if="bearer.token_preview" class="mt-2 font-mono text-xs">{{ bearer.token_preview }}</p>
-          <p v-if="bearer.message" class="mt-1">{{ bearer.message }}</p>
+        <div class="grid gap-4 md:col-span-2 md:grid-cols-2 xl:col-span-2">
+          <label class="block">
+            <span class="text-sm font-medium text-slate-700">Certificado</span>
+            <UiFileUpload
+              id="onboarding-certificate-upload"
+              class="mt-1"
+              label="Subir certificado"
+              :selected-label="certificateFile?.name"
+              compact
+              @change="setCertificate"
+            />
+          </label>
+          <UiPasswordInput v-model="fiscalForm.signer_password_pri" label="Password privado certificado" />
         </div>
       </div>
 
       <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <UiButton variant="secondary" :disabled="loading || step === 0" @click="previousStep">Atras</UiButton>
+        <UiButton variant="secondary" :disabled="loading || step === 0" @click="previousStep">
+          <UiPreviousIcon class="mr-2 h-5 w-5" />
+          Atras
+        </UiButton>
         <UiButton v-if="step < steps.length - 1" :disabled="loading || (step === 0 && !canCompanyStep) || (step === 1 && !canLocationStep)" @click="nextStep">
-          Continuar
+          <span>Continuar</span>
+          <UiNextIcon class="ml-2 h-5 w-5" />
+        </UiButton>
+        <UiButton v-else variant="success" :disabled="loading || !canConfigureFiscal" @click="saveFiscalSettings">
+          <UiSaveIcon class="mr-2 h-5 w-5" />
+          <span>Guardar</span>
         </UiButton>
       </div>
 
-      <p v-if="saved" class="mt-4 rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">{{ saved }}</p>
       <p v-if="error" class="mt-4 whitespace-pre-wrap rounded-md bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
     </UiCard>
+
+    <Teleport to="body">
+      <div
+        v-if="processOverlayOpen"
+        class="fixed inset-0 z-[9998] grid place-items-center bg-slate-950/25 px-4 backdrop-blur-sm"
+        role="status"
+        aria-live="polite"
+      >
+        <div class="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl shadow-slate-950/20">
+          <UiLoadingMark :label="processOverlayTitle" />
+          <p class="mt-3 text-center text-sm text-slate-600">{{ processOverlayMessage }}</p>
+        </div>
+      </div>
+    </Teleport>
+
+    <BillingProcessToastOverlay
+      :open="verificationOverlayOpen"
+      :variant="verificationOverlayVariant"
+      :title="verificationOverlayTitle"
+      :message="verificationOverlayMessage"
+      @close="verificationOverlayOpen = false"
+    />
+
+    <BillingFloatingToastStack v-if="showToasts" :toasts="floatingToasts" />
   </div>
 </template>

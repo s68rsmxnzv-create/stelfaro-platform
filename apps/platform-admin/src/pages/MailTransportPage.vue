@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import type { NotificationMailTransport } from '@stelfaro/api-client';
-import { UiEmailInput, UiPasswordInput } from '@stelfaro/ui';
+import { UiButton, UiEmailInput, UiPasswordInput, UiSaveIcon } from '@stelfaro/ui';
 import { useAdminSessionStore } from '../stores/adminSession';
 
 const session = useAdminSessionStore();
@@ -137,9 +137,10 @@ async function saveTransport(): Promise<void> {
           </label>
         </div>
 
-        <button type="submit" class="mt-5 h-10 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60" :disabled="saving || loading">
-          {{ saving ? 'Guardando...' : 'Guardar buzon' }}
-        </button>
+        <UiButton type="submit" variant="success" class="mt-5" :disabled="saving || loading">
+          <UiSaveIcon v-if="!saving" class="mr-2 h-5 w-5" />
+          <span>{{ saving ? 'Guardando...' : 'Guardar buzon' }}</span>
+        </UiButton>
       </form>
 
       <aside class="rounded-lg border border-slate-200 bg-white p-5">

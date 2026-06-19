@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
-import { UiButton, UiCloseCircleIcon, UiEmailInput, UiFiscalDocumentInput, UiInput, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCloseCircleIcon, UiEmailInput, UiFiscalDocumentInput, UiInput, UiPhoneInput, UiSaveIcon, type FiscalDocumentDetection } from '@stelfaro/ui';
 
 export type BillingCustomerModalMode = 'new' | 'quick';
 
@@ -113,7 +113,7 @@ function submit(): void {
           />
           <div class="grid gap-4 sm:grid-cols-2">
             <UiEmailInput v-model="form.email" label="Correo" />
-            <UiInput v-model="form.phone" label="Telefono" />
+            <UiPhoneInput v-model="form.phone" label="Telefono" />
           </div>
           <p v-if="!documentIsValid" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
             {{ documentRequired ? 'Para guardar un cliente necesitamos DUI/NIT valido.' : 'Si colocas documento, debe tener formato valido.' }}
@@ -122,7 +122,10 @@ function submit(): void {
 
         <div class="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
           <UiButton variant="secondary" type="button" @click="emit('close')">Cancelar</UiButton>
-          <UiButton type="submit" :disabled="!canSave">{{ loading ? 'Guardando...' : mode === 'new' ? 'Guardar cliente' : 'Usar cliente' }}</UiButton>
+          <UiButton :variant="mode === 'new' ? 'success' : 'primary'" type="submit" :disabled="!canSave">
+            <UiSaveIcon v-if="mode === 'new' && !loading" class="mr-2 h-5 w-5" />
+            <span>{{ loading ? 'Guardando...' : mode === 'new' ? 'Guardar cliente' : 'Usar cliente' }}</span>
+          </UiButton>
         </div>
       </form>
     </div>

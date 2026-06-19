@@ -40,13 +40,13 @@ async function logout(): Promise<void> {
   window.location.assign(platform.loginUrl);
 }
 
-function companyViewButtonClass(view: 'data' | 'fiscal'): string {
+function companyViewButtonClass(view: 'data' | 'fiscal' | 'sucursales' | 'correlativos'): string {
   return workspace.activeCompanyView === view
     ? 'bg-slate-100 text-slate-950'
     : 'text-slate-800 hover:bg-slate-50 hover:text-slate-950';
 }
 
-function companyViewIconClass(view: 'data' | 'fiscal'): string {
+function companyViewIconClass(view: 'data' | 'fiscal' | 'sucursales' | 'correlativos'): string {
   return workspace.activeCompanyView === view ? 'text-slate-950' : 'text-slate-600';
 }
 
@@ -411,6 +411,30 @@ function groupClass(group: NavGroup): string {
                 </svg>
                 Datos fiscales
               </button>
+              <button
+                type="button"
+                class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold transition"
+                :class="companyViewButtonClass('sucursales')"
+                @click="workspace.requestCompanyAction('edit-sucursales')"
+              >
+                <svg class="h-[22px] w-[22px]" :class="companyViewIconClass('sucursales')" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                  <path d="M4 21V9l8-5 8 5v12" />
+                  <path d="M9 21v-6h6v6M8 11h.01M12 11h.01M16 11h.01" />
+                </svg>
+                Sucursales
+              </button>
+              <button
+                type="button"
+                class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold transition"
+                :class="companyViewButtonClass('correlativos')"
+                @click="workspace.requestCompanyAction('edit-correlativos')"
+              >
+                <svg class="h-[22px] w-[22px]" :class="companyViewIconClass('correlativos')" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                  <path d="M4 7h16M4 12h16M4 17h16" />
+                  <path d="M8 5v14M16 5v14" />
+                </svg>
+                Correlativos
+              </button>
             </template>
           </div>
 
@@ -492,7 +516,7 @@ function groupClass(group: NavGroup): string {
           </template>
         </div>
 
-        <RouterView />
+        <RouterView :key="route.fullPath" />
       </main>
     </div>
   </div>

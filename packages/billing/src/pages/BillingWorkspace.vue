@@ -13,11 +13,12 @@ import {
   type CorrelativoReservation,
   type DteDraftSummary,
   type DteHistoryEntry,
+  type DteIssueProgressEvent,
   type DteIssueResponse,
   type DtePreviewResponse
 } from '@stelfaro/api-client';
 import { currency, type BillingItem, type DocumentType } from '@stelfaro/shared';
-import { UiButton, UiCard, UiSearchInput, UiLoadingMark, UiToggle } from '@stelfaro/ui';
+import { UiButton, UiCard, UiSearchInput, UiLoadingMark, UiSaveIcon, UiToggle } from '@stelfaro/ui';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import BillingFiscalCustomerModal, { type BillingFiscalCustomerModalPayload } from '../components/BillingFiscalCustomerModal.vue';
 import BillingSujetoExcluidoModal, { type BillingSujetoExcluidoModalPayload } from '../components/BillingSujetoExcluidoModal.vue';
@@ -26,6 +27,7 @@ import BillingCustomerSearchModal from '../components/BillingCustomerSearchModal
 import BillingInvoiceSummaryBar from '../components/BillingInvoiceSummaryBar.vue';
 import BillingProcessModal from '../components/BillingProcessModal.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
+import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
 import {
   getBillingCatalogs,
   getBillingContext,
@@ -62,6 +64,10 @@ const issueModalOpen = ref(false);
 const issuePhaseIndex = ref(0);
 const issueResult = ref<DteIssueResponse | null>(null);
 const issueProgress = ref(0);
+const issueLiveMessage = ref<string | null>(null);
+const floatingToasts = ref<BillingFloatingToast[]>([]);
+const pendingEmailToast = ref<Omit<BillingFloatingToast, 'id'> | null>(null);
+const stationPreferenceVersion = ref(0);
 type IssueLogEntry = {
   message: string;
   status: 'ok' | 'error';
@@ -87,6 +93,8 @@ const ccfPriceIncludesIva = ref(true);
 const ccfRetainIva10 = ref(false);
 const advancedPaymentMode = ref(false);
 let issueAutoCloseTimer: ReturnType<typeof window.setTimeout> | null = null;
+let floatingToastId = 0;
+const floatingToastTimers: ReturnType<typeof window.setTimeout>[] = [];
 const finalConsumerIdentificationThreshold = 25000;
 
 type InvoiceLine = BillingItem & {
@@ -176,6 +184,19 @@ const sucursales = computed(() => selectedEmpresa.value?.sucursales ?? []);
 const selectedSucursal = computed<BillingSucursal | null>(() => sucursales.value.find((sucursal) => sucursal.id === form.sucursalId) ?? null);
 const puntosVenta = computed(() => selectedSucursal.value?.puntosVenta ?? []);
 const selectedPuntoVenta = computed<BillingPuntoVenta | null>(() => puntosVenta.value.find((punto) => punto.id === form.puntoVentaId) ?? null);
+const canManageBillingStation = computed(() => {
+  const role = context.value?.user?.role ?? '';
+  return ['super_admin', 'admin_fiscal', 'company_admin'].includes(role);
+});
+const billingStationPreference = computed(() => {
+  stationPreferenceVersion.value;
+  return selectedEmpresa.value ? readBillingStationPreference(selectedEmpresa.value) : null;
+});
+const selectedStationIsFixed = computed(() => Boolean(
+  billingStationPreference.value
+  && billingStationPreference.value.sucursalId === selectedSucursal.value?.id
+  && billingStationPreference.value.puntoVentaId === selectedPuntoVenta.value?.id
+));
 const documentTypes = computed(() => context.value?.documentTypes ?? []);
 const departamentos = computed(() => catalogs.value?.departamentos ?? []);
 const municipios = computed(() => (catalogs.value?.municipios ?? []).filter((item) => departmentCode(item.departamento) === departmentCode(fiscalModalDepartamento.value)));
@@ -338,7 +359,7 @@ const issuePhases = computed(() => [
   { label: 'Preparando emision', detail: 'Validando datos fiscales, receptor y detalle.' },
   { label: 'Asignando numero', detail: 'Reservando el correlativo del documento.' },
   { label: 'Preparando documento', detail: 'Completando la informacion fiscal.' },
-  { label: 'Firmando documento', detail: 'Aplicando la firma electronica.' },
+  { label: 'Firmando documento', detail: 'Firmando el documento con el certificado configurado.' },
   { label: 'Enviando a Hacienda', detail: 'Transmitiendo el documento para su recepcion.' },
   { label: 'Esperando respuesta', detail: 'Registrando el resultado de Hacienda.' }
 ]);
@@ -361,17 +382,35 @@ const issueOverlayTitle = computed(() => {
   return 'Documento transmitido';
 });
 const issueOverlayMessage = computed(() => {
-  if (issuing.value) return issuePhases.value[issuePhaseIndex.value]?.detail ?? 'Procesando documento.';
+  if (issuing.value) return issueLiveMessage.value ?? issuePhases.value[issuePhaseIndex.value]?.detail ?? 'Procesando documento.';
   if (issueInContingency.value) return `${issueResult.value?.document.numeroControl ?? 'DTE'} quedo pendiente para reportar contingencia.`;
   return issueResult.value?.document.numeroControl ?? null;
 });
-const issueTransmissionAttempts = computed(() => issueResult.value?.document.transmission_attempts ?? []);
-const issueAttemptCount = computed(() => Math.max(
-  issueResult.value?.attempts.length ?? 0,
-  issueTransmissionAttempts.value.length
-));
+const issueStatusDetail = computed(() => {
+  if (issuing.value) return issueLiveMessage.value ?? issuePhases.value[issuePhaseIndex.value]?.detail ?? 'Procesando documento.';
+  if (issueRejected.value) return issueResult.value?.document.transmission?.descripcion_msg;
+  if (issueInContingency.value) return `${issueResult.value?.document.numeroControl} quedo pendiente de reporte en contingencia.`;
+  if (issueResult.value) return issueResult.value.document.numeroControl;
+  return error.value;
+});
+const issueAttemptCount = computed(() => {
+  const attempts = issueResult.value?.attempts ?? [];
+  return attempts.some((attempt) => Boolean((attempt as { conflict?: boolean }).conflict)) ? attempts.length : 0;
+});
 const pushIssueLog = (message: string, status: IssueLogEntry['status'] = 'ok'): void => {
   issueLog.value = [...issueLog.value.slice(-8), { message, status }];
+};
+const issueEventMessage = (event: DteIssueProgressEvent): string => {
+  if (event.type === 'stage' && event.attempt && event.max_attempts && event.attempt > 1) {
+    return `Reintento ${event.attempt}/${event.max_attempts} · Identificando correlativo disponible`;
+  }
+
+  if (event.type === 'retry') {
+    const maxAttempts = event.max_attempts ? `/${event.max_attempts}` : '';
+    return `Reintento ${event.next_attempt}${maxAttempts} · Identificando correlativo disponible`;
+  }
+
+  return 'message' in event ? event.message : 'Proceso actualizado.';
 };
 const selectedCustomer = computed(() => selectedCustomerRecord.value);
 const hasReceptorCard = computed(() => Boolean(selectedCustomer.value || (isAdjustmentNote.value && selectedSourceDocument.value)));
@@ -577,6 +616,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleIssueModalKeydown);
   clearIssueAutoClose();
+  floatingToastTimers.forEach((timer) => window.clearTimeout(timer));
 });
 
 watch(issueResult, (result) => {
@@ -658,11 +698,13 @@ watch([
 });
 
 watch(() => form.empresaId, () => {
-  form.sucursalId = selectedEmpresa.value?.sucursales[0]?.id ?? null;
+  applyBillingStationPreference(selectedEmpresa.value);
 });
 
 watch(() => form.sucursalId, () => {
-  form.puntoVentaId = selectedSucursal.value?.puntosVenta[0]?.id ?? null;
+  if (!puntosVenta.value.some((punto) => punto.id === form.puntoVentaId)) {
+    form.puntoVentaId = selectedSucursal.value?.puntosVenta[0]?.id ?? null;
+  }
 });
 
 watch(() => props.initialDocumentType, (documentType) => {
@@ -701,8 +743,7 @@ function applyInitialContext(contextResult: BillingContext, catalogsResult: Bill
   context.value = contextResult;
   catalogs.value = catalogsResult;
   form.empresaId = context.value.empresas[0]?.id ?? null;
-  form.sucursalId = context.value.empresas[0]?.sucursales[0]?.id ?? null;
-  form.puntoVentaId = context.value.empresas[0]?.sucursales[0]?.puntosVenta[0]?.id ?? null;
+  applyBillingStationPreference(context.value.empresas[0] ?? null);
   if (requiresStructuredCustomer.value) {
     customerMode.value = 'base';
     clearCustomerFields('');
@@ -712,6 +753,94 @@ function applyInitialContext(contextResult: BillingContext, catalogsResult: Bill
   lineId = 1;
   draftLine.value = newInvoiceLine();
   lines.value = [];
+}
+
+type BillingStationPreference = {
+  sucursalId: number;
+  puntoVentaId: number;
+};
+
+function billingStationStorageKey(empresaId: number): string {
+  return `stelfaro.billing.station.${empresaId}`;
+}
+
+function readBillingStationPreference(empresa: BillingEmpresa): BillingStationPreference | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(billingStationStorageKey(empresa.id));
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<BillingStationPreference>;
+    const sucursal = empresa.sucursales.find((item) => item.id === parsed.sucursalId) ?? null;
+    const puntoVenta = sucursal?.puntosVenta.find((item) => item.id === parsed.puntoVentaId) ?? null;
+
+    if (!sucursal || !puntoVenta) {
+      window.localStorage.removeItem(billingStationStorageKey(empresa.id));
+      return null;
+    }
+
+    return {
+      sucursalId: sucursal.id,
+      puntoVentaId: puntoVenta.id
+    };
+  } catch {
+    return null;
+  }
+}
+
+function applyBillingStationPreference(empresa: BillingEmpresa | null): void {
+  if (!empresa) {
+    form.sucursalId = null;
+    form.puntoVentaId = null;
+    return;
+  }
+
+  const preference = readBillingStationPreference(empresa);
+  const sucursal = preference
+    ? empresa.sucursales.find((item) => item.id === preference.sucursalId) ?? null
+    : empresa.sucursales[0] ?? null;
+  const puntoVenta = preference && sucursal
+    ? sucursal.puntosVenta.find((item) => item.id === preference.puntoVentaId) ?? null
+    : sucursal?.puntosVenta[0] ?? null;
+
+  form.sucursalId = sucursal?.id ?? null;
+  form.puntoVentaId = puntoVenta?.id ?? sucursal?.puntosVenta[0]?.id ?? null;
+}
+
+function saveBillingStationPreference(): void {
+  if (!selectedEmpresa.value || !selectedSucursal.value || !selectedPuntoVenta.value || typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(billingStationStorageKey(selectedEmpresa.value.id), JSON.stringify({
+    sucursalId: selectedSucursal.value.id,
+    puntoVentaId: selectedPuntoVenta.value.id
+  }));
+  stationPreferenceVersion.value++;
+  pushFloatingToast({
+    title: 'Equipo configurado',
+    message: `${selectedSucursal.value.codigo} · ${selectedPuntoVenta.value.codigo} quedo fijado para este navegador.`,
+    variant: 'success'
+  });
+}
+
+function clearBillingStationPreference(): void {
+  if (!selectedEmpresa.value || typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.removeItem(billingStationStorageKey(selectedEmpresa.value.id));
+  stationPreferenceVersion.value++;
+  pushFloatingToast({
+    title: 'Equipo liberado',
+    message: 'Este navegador volvera a usar la primera sucursal disponible.',
+    variant: 'success'
+  });
 }
 
 watch(customerMode, (mode) => {
@@ -839,6 +968,7 @@ async function issueDocument(): Promise<void> {
   issueModalOpen.value = true;
   issueResult.value = null;
   issueProgress.value = 5;
+  issueLiveMessage.value = 'Preparando emision del documento...';
   issueLog.value = [];
   issuePhaseIndex.value = 0;
 
@@ -857,8 +987,20 @@ async function issueDocument(): Promise<void> {
     currentStep.value = 'sent';
     const result = await client.value.issueProgress(payload, (event) => {
       if (event.type === 'stage') {
+        const message = issueEventMessage(event);
         issueProgress.value = event.progress;
-        pushIssueLog(event.message);
+        issueLiveMessage.value = message;
+        pushIssueLog(message);
+        const idx = issuePhases.value.findIndex((phase) => phase.label.toLowerCase().includes(event.stage));
+        if (idx >= 0) issuePhaseIndex.value = idx;
+        return;
+      }
+
+      if (event.type === 'retry') {
+        const message = issueEventMessage(event);
+        issueProgress.value = event.progress;
+        issueLiveMessage.value = message;
+        pushIssueLog(message);
         const idx = issuePhases.value.findIndex((phase) => phase.label.toLowerCase().includes(event.stage));
         if (idx >= 0) issuePhaseIndex.value = idx;
         return;
@@ -866,12 +1008,14 @@ async function issueDocument(): Promise<void> {
 
       if (event.type === 'completed') {
         issueProgress.value = event.progress ?? 100;
+        issueLiveMessage.value = event.message;
         pushIssueLog(event.message, event.ok ? 'ok' : 'error');
       }
     });
     if (result) {
       issueResult.value = result;
       draft.value = result.document;
+      notifyEmailDelivery(result.document);
       correlativoPreview.value = null;
       preview.value = null;
       history.value = [];
@@ -896,6 +1040,7 @@ function closeIssueModal(): void {
   if (shouldResetInvoice) {
     resetInvoiceForm();
   }
+  flushPendingEmailToast();
 }
 
 function resetInvoiceForm(): void {
@@ -906,6 +1051,7 @@ function resetInvoiceForm(): void {
   error.value = null;
   issueResult.value = null;
   issueProgress.value = 0;
+  issueLiveMessage.value = null;
   issueLog.value = [];
   issuePhaseIndex.value = 0;
   selectedCustomerId.value = null;
@@ -933,6 +1079,50 @@ function resetInvoiceForm(): void {
   lineId = 1;
   draftLine.value = newInvoiceLine();
   lines.value = [];
+}
+
+function notifyEmailDelivery(document: DteDraftSummary): void {
+  const delivery = document.notifications?.dte_delivery
+    ?? (document as DteDraftSummary & { metadata?: { notifications?: DteDraftSummary['notifications'] } }).metadata?.notifications?.dte_delivery;
+  if (!delivery) {
+    return;
+  }
+
+  const status = String(delivery?.status ?? '').toLowerCase();
+  if (!['queued', 'sent', 'delivered'].includes(status)) {
+    return;
+  }
+
+  const toast = {
+    title: 'Correo enviado',
+    message: delivery.recipient_email ? `El comprobante fue enviado a ${delivery.recipient_email}.` : 'El comprobante fue enviado al correo del cliente.',
+    variant: 'success'
+  } satisfies Omit<BillingFloatingToast, 'id'>;
+
+  if (issueOverlayOpen.value || issueModalOpen.value) {
+    pendingEmailToast.value = toast;
+    return;
+  }
+
+  pushFloatingToast(toast);
+}
+
+function flushPendingEmailToast(): void {
+  if (!pendingEmailToast.value) {
+    return;
+  }
+
+  pushFloatingToast(pendingEmailToast.value);
+  pendingEmailToast.value = null;
+}
+
+function pushFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
+  const id = ++floatingToastId;
+  floatingToasts.value = [...floatingToasts.value, { id, ...toast }];
+  const timer = window.setTimeout(() => {
+    floatingToasts.value = floatingToasts.value.filter((item) => item.id !== id);
+  }, toast.variant === 'success' || !toast.variant ? 2000 : 4300);
+  floatingToastTimers.push(timer);
 }
 
 async function transition(action: 'ready' | 'sign' | 'send' | 'receive'): Promise<void> {
@@ -1660,7 +1850,7 @@ function updatePaymentCondition(value: string): void {
       :warning="issueInContingency"
       :rejected="issueRejected || Boolean(error && !issuing && !issueResult)"
       :status-label="issuing ? issuePhases[issuePhaseIndex].label : issueRejected ? 'MH rechazo el documento' : issueInContingency ? 'Documento enviado a contingencia' : issueResult ? 'Documento transmitido' : 'No fue posible emitir'"
-      :status-detail="issuing ? issuePhases[issuePhaseIndex].detail : issueRejected ? issueResult?.document.transmission?.descripcion_msg : issueInContingency ? `${issueResult?.document.numeroControl} quedo pendiente de reporte en contingencia.` : issueResult ? issueResult.document.numeroControl : error"
+      :status-detail="issueStatusDetail"
       :progress="issueProgress"
       progress-label="Emision"
       :logs="issueLog"
@@ -1824,6 +2014,50 @@ function updatePaymentCondition(value: string): void {
                     <span class="font-semibold text-slate-500">Punto venta:</span>
                     <span class="ml-1 font-semibold text-slate-950">{{ selectedPuntoVenta?.codigo }}</span>
                   </p>
+                </div>
+                <div v-if="sucursales.length > 1 || puntosVenta.length > 1" class="mt-3 grid gap-2 sm:grid-cols-2">
+                  <label v-if="sucursales.length > 1" class="grid gap-1 text-xs font-semibold text-slate-600">
+                    <span>Sucursal</span>
+                    <select v-model.number="form.sucursalId" class="h-9 rounded-md border border-blue-100 bg-white px-2 text-sm font-semibold text-slate-950 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100">
+                      <option v-for="sucursal in sucursales" :key="sucursal.id" :value="sucursal.id">
+                        {{ sucursal.codigo }} · {{ sucursal.nombre }}
+                      </option>
+                    </select>
+                  </label>
+                  <label v-if="puntosVenta.length > 1" class="grid gap-1 text-xs font-semibold text-slate-600">
+                    <span>Punto de venta</span>
+                    <select v-model.number="form.puntoVentaId" class="h-9 rounded-md border border-blue-100 bg-white px-2 text-sm font-semibold text-slate-950 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100">
+                      <option v-for="punto in puntosVenta" :key="punto.id" :value="punto.id">
+                        {{ punto.codigo }} · {{ punto.nombre }}
+                      </option>
+                    </select>
+                  </label>
+                </div>
+                <div v-if="selectedSucursal && selectedPuntoVenta" class="mt-3 flex flex-wrap items-center gap-2">
+                  <span
+                    v-if="billingStationPreference"
+                    class="rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700"
+                  >
+                    Equipo fijado: {{ billingStationPreference.sucursalId === selectedSucursal.id && billingStationPreference.puntoVentaId === selectedPuntoVenta.id ? `${selectedSucursal.codigo} · ${selectedPuntoVenta.codigo}` : 'otra sucursal' }}
+                  </span>
+                  <template v-if="canManageBillingStation">
+                    <button
+                      type="button"
+                      class="rounded px-2 py-1 text-xs font-semibold text-sky-700 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      :disabled="selectedStationIsFixed"
+                      @click="saveBillingStationPreference"
+                    >
+                      Fijar en este equipo
+                    </button>
+                    <button
+                      v-if="billingStationPreference"
+                      type="button"
+                      class="rounded px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                      @click="clearBillingStationPreference"
+                    >
+                      Quitar fijacion
+                    </button>
+                  </template>
                 </div>
               </div>
               <div class="flex flex-wrap items-end justify-between gap-3 border-t border-slate-200 pt-3">
@@ -2082,7 +2316,10 @@ function updatePaymentCondition(value: string): void {
                     <p v-if="lineDiscountAmount(line) > 0" class="text-[11px] text-slate-500">Bruto {{ currency(lineGrossTotal(line)) }}</p>
                   </td>
                   <td class="px-3 py-2 text-right">
-                    <button v-if="!isAdjustmentNote" class="rounded px-2 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-50" type="button" @click="saveLineAsTemplate(line)">Guardar</button>
+                    <button v-if="!isAdjustmentNote" class="inline-flex items-center rounded px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50" type="button" @click="saveLineAsTemplate(line)">
+                      <UiSaveIcon class="mr-1 h-4 w-4" />
+                      <span>Guardar</span>
+                    </button>
                     <button class="rounded px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-red-700" type="button" @click="removeLine(line.id)">Quitar</button>
                   </td>
                 </tr>
@@ -2236,5 +2473,7 @@ function updatePaymentCondition(value: string): void {
       :issuing="issuing"
       @issue="issueDocument"
     />
+
+    <BillingFloatingToastStack :toasts="floatingToasts" />
   </div>
 </template>

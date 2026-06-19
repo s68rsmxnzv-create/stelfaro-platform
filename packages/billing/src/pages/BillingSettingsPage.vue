@@ -5,14 +5,17 @@ import {
   type BillingCatalogs,
   type BillingContext,
   type BillingCertificate,
+  type BillingCorrelativoAdmin,
   type BillingEmpresa,
+  type BillingPuntoVenta,
+  type BillingSucursal,
   type BillingCompanyUpdatePayload,
   type BillingSettingsPayload,
   type BillingSignerVerification,
   type DteDashboardSummary,
   type MhBearerVerification
 } from '@stelfaro/api-client';
-import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiSearchInput, UiSearchSelect, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCard, UiCloseCircleIcon, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiPhoneInput, UiSaveIcon, UiSearchInput, UiSearchSelect, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -20,7 +23,7 @@ const props = withDefaults(defineProps<{
   requestCredentials?: RequestCredentials;
   detailMode?: boolean;
   alwaysShowCompanySearch?: boolean;
-  companyAction?: { action: 'edit' | 'edit-data' | 'edit-fiscal' | 'toggle-status' | 'delete'; nonce: number } | null;
+  companyAction?: { action: 'edit' | 'edit-data' | 'edit-fiscal' | 'edit-sucursales' | 'edit-correlativos' | 'toggle-status' | 'delete'; nonce: number } | null;
 }>(), {
   coreBaseUrl: '/api/v1',
   authToken: null,
@@ -33,7 +36,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   companySelected: [company: { id: number; name: string; tradeName: string; documentLabel: string; lifecycleStatus: string }];
   companyCleared: [];
-  companyViewChanged: [view: 'summary' | 'data' | 'fiscal'];
+  companyViewChanged: [view: 'summary' | 'data' | 'fiscal' | 'sucursales' | 'correlativos'];
 }>();
 
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, {
@@ -47,6 +50,10 @@ const searchQuery = ref('');
 const signerStatus = ref<BillingSignerVerification | null>(null);
 const bearerStatus = ref<MhBearerVerification | null>(null);
 const companySummary = ref<DteDashboardSummary | null>(null);
+const correlativos = ref<BillingCorrelativoAdmin[]>([]);
+const correlativoDrafts = ref<Record<number, string>>({});
+const correlativosLoading = ref(false);
+const savingCorrelativoId = ref<number | null>(null);
 const healthOpen = ref(false);
 const context = ref<BillingContext | null>(null);
 const certificateFile = ref<File | null>(null);
@@ -55,6 +62,12 @@ const companyLogoPreview = ref<string | null>(null);
 const editingCredentials = ref(false);
 const editingCompany = ref(false);
 const editingFiscal = ref(false);
+const editingSucursales = ref(false);
+const editingCorrelativos = ref(false);
+const selectedSucursalId = ref<number | null>(null);
+const selectedPuntoVentaId = ref<number | null>(null);
+const creatingSucursal = ref(false);
+const creatingPuntoVenta = ref(false);
 const brokenLogoIds = ref<Set<number>>(new Set());
 const companyActivities = ref<string[]>(['']);
 const catalogs = ref<BillingCatalogs | null>(null);
@@ -107,6 +120,42 @@ const companyForm = reactive({
   email: ''
 });
 
+const sucursalForm = reactive({
+  nombre: '',
+  codigo: '',
+  direccion: '',
+  departamento: '',
+  municipio: '',
+  distrito: '',
+  telefono: '',
+  email: ''
+});
+
+const newSucursalForm = reactive({
+  nombre: '',
+  codigo: '',
+  direccion: '',
+  departamento: '',
+  municipio: '',
+  distrito: '',
+  telefono: '',
+  email: '',
+  punto_venta_codigo: 'P001',
+  punto_venta_nombre: 'Caja principal'
+});
+
+const puntoVentaForm = reactive({
+  codigo: '',
+  nombre: '',
+  tipo: 'terminal'
+});
+
+const newPuntoVentaForm = reactive({
+  codigo: '',
+  nombre: '',
+  tipo: 'terminal'
+});
+
 const empresas = computed(() => context.value?.empresas ?? []);
 const singleCompanyScope = computed(() => empresas.value.length === 1);
 const selectedEmpresa = computed(() => empresas.value.find((empresa) => empresa.id === form.empresa_id) ?? null);
@@ -117,7 +166,16 @@ const showCompanySearch = computed(() => {
 
   return !singleCompanyScope.value && !(props.detailMode && selectedEmpresa.value);
 });
-const selectedSucursal = computed(() => selectedEmpresa.value?.sucursales[0] ?? null);
+const sucursales = computed(() => selectedEmpresa.value?.sucursales ?? []);
+const selectedSucursal = computed<BillingSucursal | null>(() => {
+  const byId = sucursales.value.find((sucursal) => sucursal.id === selectedSucursalId.value);
+  return byId ?? sucursales.value[0] ?? null;
+});
+const puntosVenta = computed(() => selectedSucursal.value?.puntosVenta ?? []);
+const selectedPuntoVenta = computed<BillingPuntoVenta | null>(() => {
+  const byId = puntosVenta.value.find((punto) => punto.id === selectedPuntoVentaId.value);
+  return byId ?? puntosVenta.value[0] ?? null;
+});
 const selectedMhConfig = computed(() => selectedEmpresa.value?.mh_configs.find((config) => config.ambiente === form.ambiente) ?? null);
 const selectedAuthStatus = computed(() => selectedMhConfig.value?.last_auth ?? null);
 const selectedSignerSync = computed(() => selectedMhConfig.value?.signer_sync ?? null);
@@ -127,6 +185,11 @@ const activeCertificate = computed(() => selectedCertificate.value ?? certificad
 const activeCertificatesByEnvironment = computed(() => certificateEnvironmentRows(selectedEmpresa.value));
 const activeCertificatesForEnvironment = computed(() => certificados.value.filter((cert) => cert.activo));
 const hasCertificateConflict = computed(() => activeCertificatesForEnvironment.value.length > 1);
+const correlativoRows = computed(() => correlativos.value.filter((correlativo) => (
+  correlativo.activo
+  && (!selectedSucursal.value || correlativo.sucursal_id === selectedSucursal.value.id)
+  && (!selectedPuntoVenta.value || correlativo.punto_venta_id === selectedPuntoVenta.value.id)
+)));
 const selectedDocumentLabel = computed(() => documentLabel(selectedEmpresa.value));
 const environmentLabel = computed(() => form.ambiente === '01' ? 'Produccion' : 'Pruebas');
 const isInactive = computed(() => selectedEmpresa.value?.lifecycle_status === 'inactive');
@@ -210,6 +273,20 @@ const signerStatusClass = computed(() => {
 const departamentoOptions = computed(() => departamentos.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
 const municipioOptions = computed(() => municipios.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
 const distritoOptions = computed(() => distritos.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
+const sucursalMunicipios = computed(() => (catalogs.value?.municipios ?? []).filter((item) => departmentCode(item.departamento) === departmentCode(sucursalForm.departamento)));
+const sucursalDistritos = computed(() => (catalogs.value?.distritos ?? []).filter((item) => (
+  departmentCode(item.departamento) === departmentCode(sucursalForm.departamento)
+  && String(item.municipio) === String(sucursalForm.municipio)
+)));
+const newSucursalMunicipios = computed(() => (catalogs.value?.municipios ?? []).filter((item) => departmentCode(item.departamento) === departmentCode(newSucursalForm.departamento)));
+const newSucursalDistritos = computed(() => (catalogs.value?.distritos ?? []).filter((item) => (
+  departmentCode(item.departamento) === departmentCode(newSucursalForm.departamento)
+  && String(item.municipio) === String(newSucursalForm.municipio)
+)));
+const sucursalMunicipioOptions = computed(() => sucursalMunicipios.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
+const sucursalDistritoOptions = computed(() => sucursalDistritos.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
+const newSucursalMunicipioOptions = computed(() => newSucursalMunicipios.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
+const newSucursalDistritoOptions = computed(() => newSucursalDistritos.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
 const actividadOptions = computed(() => actividadesEconomicas.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
 const canSaveCompany = computed(() => Boolean(
   selectedEmpresa.value
@@ -222,6 +299,27 @@ const canSaveCompany = computed(() => Boolean(
   && companyForm.municipio.trim()
   && companyForm.distrito.trim()
 ));
+const canSaveSucursal = computed(() => Boolean(
+  selectedEmpresa.value
+  && selectedSucursal.value
+  && sucursalForm.nombre.trim()
+  && sucursalForm.codigo.trim()
+  && sucursalForm.direccion.trim()
+  && sucursalForm.departamento.trim()
+  && sucursalForm.municipio.trim()
+));
+const canCreateSucursal = computed(() => Boolean(
+  selectedEmpresa.value
+  && newSucursalForm.nombre.trim()
+  && newSucursalForm.codigo.trim()
+  && newSucursalForm.direccion.trim()
+  && newSucursalForm.departamento.trim()
+  && newSucursalForm.municipio.trim()
+  && newSucursalForm.punto_venta_codigo.trim()
+  && newSucursalForm.punto_venta_nombre.trim()
+));
+const canSavePuntoVenta = computed(() => Boolean(selectedPuntoVenta.value && puntoVentaForm.codigo.trim() && puntoVentaForm.nombre.trim()));
+const canCreatePuntoVenta = computed(() => Boolean(selectedSucursal.value && newPuntoVentaForm.codigo.trim() && newPuntoVentaForm.nombre.trim()));
 const filteredEmpresas = computed(() => {
   const query = normalizeSearchText(searchQuery.value.trim());
 
@@ -245,6 +343,9 @@ onMounted(() => {
 
 watch(selectedEmpresa, (empresa) => {
   syncCompanyForm(empresa);
+  ensureSelectedSucursal();
+  syncSucursalForm(selectedSucursal.value);
+  syncPuntoVentaForm(selectedPuntoVenta.value);
   healthOpen.value = false;
   if (props.detailMode && empresa) {
     emitSelectedCompany(empresa);
@@ -255,7 +356,7 @@ watch(selectedEmpresa, (empresa) => {
   companySummary.value = null;
 }, { immediate: true });
 
-watch([editingCompany, editingFiscal], () => {
+watch([editingCompany, editingFiscal, editingSucursales, editingCorrelativos], () => {
   if (editingCompany.value) {
     emit('companyViewChanged', 'data');
     return;
@@ -263,6 +364,16 @@ watch([editingCompany, editingFiscal], () => {
 
   if (editingFiscal.value) {
     emit('companyViewChanged', 'fiscal');
+    return;
+  }
+
+  if (editingSucursales.value) {
+    emit('companyViewChanged', 'sucursales');
+    return;
+  }
+
+  if (editingCorrelativos.value) {
+    emit('companyViewChanged', 'correlativos');
     return;
   }
 
@@ -277,6 +388,8 @@ watch(() => props.companyAction?.nonce, () => {
   if (props.companyAction.action === 'edit' || props.companyAction.action === 'edit-data') {
     editingCompany.value = true;
     editingFiscal.value = false;
+    editingSucursales.value = false;
+    editingCorrelativos.value = false;
     requestAnimationFrame(() => document.getElementById('empresa-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     return;
   }
@@ -284,7 +397,27 @@ watch(() => props.companyAction?.nonce, () => {
   if (props.companyAction.action === 'edit-fiscal') {
     editingCompany.value = false;
     editingFiscal.value = true;
+    editingSucursales.value = false;
+    editingCorrelativos.value = false;
     requestAnimationFrame(() => document.getElementById('certificados')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    return;
+  }
+
+  if (props.companyAction.action === 'edit-sucursales') {
+    editingCompany.value = false;
+    editingFiscal.value = false;
+    editingSucursales.value = true;
+    editingCorrelativos.value = false;
+    requestAnimationFrame(() => document.getElementById('sucursales')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    return;
+  }
+
+  if (props.companyAction.action === 'edit-correlativos') {
+    editingCompany.value = false;
+    editingFiscal.value = false;
+    editingSucursales.value = false;
+    editingCorrelativos.value = true;
+    requestAnimationFrame(() => document.getElementById('correlativos')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     return;
   }
 
@@ -313,6 +446,10 @@ watch(() => [form.empresa_id, form.ambiente] as const, () => {
 
   if (form.empresa_id) {
     void loadSettings();
+    void loadCorrelativos();
+  } else {
+    correlativos.value = [];
+    correlativoDrafts.value = {};
   }
 });
 
@@ -326,6 +463,41 @@ watch(() => companyForm.departamento, (value, oldValue) => {
 watch(() => companyForm.municipio, (value, oldValue) => {
   if (!syncingCompany.value && value !== oldValue && oldValue !== undefined) {
     companyForm.distrito = '';
+  }
+});
+
+watch(() => selectedSucursal.value?.id ?? null, () => {
+  syncSucursalForm(selectedSucursal.value);
+  ensureSelectedPuntoVenta();
+});
+
+watch(() => selectedPuntoVenta.value?.id ?? null, () => {
+  syncPuntoVentaForm(selectedPuntoVenta.value);
+});
+
+watch(() => sucursalForm.departamento, (value, oldValue) => {
+  if (!syncingCompany.value && value !== oldValue && oldValue !== undefined) {
+    sucursalForm.municipio = '';
+    sucursalForm.distrito = '';
+  }
+});
+
+watch(() => sucursalForm.municipio, (value, oldValue) => {
+  if (!syncingCompany.value && value !== oldValue && oldValue !== undefined) {
+    sucursalForm.distrito = '';
+  }
+});
+
+watch(() => newSucursalForm.departamento, (value, oldValue) => {
+  if (value !== oldValue && oldValue !== undefined) {
+    newSucursalForm.municipio = '';
+    newSucursalForm.distrito = '';
+  }
+});
+
+watch(() => newSucursalForm.municipio, (value, oldValue) => {
+  if (value !== oldValue && oldValue !== undefined) {
+    newSucursalForm.distrito = '';
   }
 });
 
@@ -348,6 +520,7 @@ async function loadInitialData(): Promise<void> {
     ensureSelectedEmpresa();
     if (form.empresa_id) {
       await loadSettings();
+      await loadCorrelativos();
     }
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar las empresas.';
@@ -365,6 +538,7 @@ async function loadContext(): Promise<void> {
     ensureSelectedEmpresa();
     if (form.empresa_id) {
       await loadSettings();
+      await loadCorrelativos();
     }
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar las empresas.';
@@ -420,6 +594,57 @@ async function loadSettings(): Promise<void> {
   }
 }
 
+async function loadCorrelativos(): Promise<void> {
+  if (!form.empresa_id) {
+    correlativos.value = [];
+    correlativoDrafts.value = {};
+    return;
+  }
+
+  correlativosLoading.value = true;
+
+  try {
+    const response = await client.value.correlativos({
+      empresa_id: form.empresa_id,
+      ambiente: form.ambiente
+    });
+    correlativos.value = response.data;
+    correlativoDrafts.value = Object.fromEntries(response.data.map((row) => [row.id, String(row.actual)]));
+  } catch (caught) {
+    correlativos.value = [];
+    correlativoDrafts.value = {};
+    error.value = caught instanceof Error ? caught.message : 'No fue posible cargar los correlativos.';
+  } finally {
+    correlativosLoading.value = false;
+  }
+}
+
+async function saveCorrelativo(row: BillingCorrelativoAdmin): Promise<void> {
+  const value = Number(correlativoDrafts.value[row.id] ?? row.actual);
+  if (!Number.isInteger(value) || value < 0) {
+    error.value = 'Ingresa un ultimo correlativo valido.';
+    return;
+  }
+
+  savingCorrelativoId.value = row.id;
+  error.value = null;
+  saved.value = null;
+
+  try {
+    const response = await client.value.updateCorrelativo(row.id, { actual: value });
+    correlativos.value = correlativos.value.map((item) => item.id === row.id ? response.data : item);
+    correlativoDrafts.value = {
+      ...correlativoDrafts.value,
+      [row.id]: String(response.data.actual)
+    };
+    saved.value = `Correlativo ${dteShortLabel(row.tipo_dte)} actualizado. Proximo: ${response.data.next_correlativo ?? 'sin disponible'}.`;
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible actualizar el correlativo.';
+  } finally {
+    savingCorrelativoId.value = null;
+  }
+}
+
 async function loadCompanySummary(empresaId: number): Promise<void> {
   companySummary.value = null;
 
@@ -460,6 +685,8 @@ function selectEmpresa(empresa: BillingEmpresa): void {
   editingCredentials.value = false;
   editingCompany.value = false;
   editingFiscal.value = false;
+  editingSucursales.value = false;
+  editingCorrelativos.value = false;
   emitSelectedCompany(empresa);
   emit('companyViewChanged', 'summary');
 }
@@ -504,6 +731,214 @@ function syncCompanyForm(empresa: BillingEmpresa | null): void {
   companyLogoPreview.value = null;
 }
 
+function ensureSelectedSucursal(): void {
+  const current = sucursales.value.find((sucursal) => sucursal.id === selectedSucursalId.value);
+  selectedSucursalId.value = current?.id ?? sucursales.value[0]?.id ?? null;
+  ensureSelectedPuntoVenta();
+}
+
+function ensureSelectedPuntoVenta(): void {
+  const current = puntosVenta.value.find((punto) => punto.id === selectedPuntoVentaId.value);
+  selectedPuntoVentaId.value = current?.id ?? puntosVenta.value[0]?.id ?? null;
+}
+
+function syncSucursalForm(sucursal: BillingSucursal | null): void {
+  syncingCompany.value = true;
+  Object.assign(sucursalForm, {
+    nombre: sucursal?.nombre ?? '',
+    codigo: sucursal?.codigo ?? '',
+    direccion: sucursal?.direccion ?? '',
+    departamento: sucursal?.departamento ?? '',
+    municipio: sucursal?.municipio ?? '',
+    distrito: sucursal?.distrito ?? '',
+    telefono: sucursal?.telefono ?? '',
+    email: sucursal?.email ?? ''
+  });
+  queueMicrotask(() => {
+    syncingCompany.value = false;
+  });
+}
+
+function syncPuntoVentaForm(puntoVenta: BillingPuntoVenta | null): void {
+  Object.assign(puntoVentaForm, {
+    codigo: puntoVenta?.codigo ?? '',
+    nombre: puntoVenta?.nombre ?? '',
+    tipo: puntoVenta?.tipo ?? 'terminal'
+  });
+}
+
+function resetNewSucursalForm(): void {
+  Object.assign(newSucursalForm, {
+    nombre: '',
+    codigo: nextSucursalCode(),
+    direccion: '',
+    departamento: '',
+    municipio: '',
+    distrito: '',
+    telefono: '',
+    email: '',
+    punto_venta_codigo: 'P001',
+    punto_venta_nombre: 'Caja principal'
+  });
+}
+
+function resetNewPuntoVentaForm(): void {
+  Object.assign(newPuntoVentaForm, {
+    codigo: nextPuntoVentaCode(),
+    nombre: 'Caja nueva',
+    tipo: 'terminal'
+  });
+}
+
+function nextSucursalCode(): string {
+  const next = sucursales.value
+    .map((sucursal) => /^S(\d+)$/i.exec(sucursal.codigo.trim())?.[1] ?? null)
+    .filter((value): value is string => Boolean(value))
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value))
+    .reduce((max, value) => Math.max(max, value), 0) + 1;
+  return `S${String(next).padStart(3, '0')}`;
+}
+
+function nextPuntoVentaCode(): string {
+  const next = puntosVenta.value.length + 1;
+  return `P${String(next).padStart(3, '0')}`;
+}
+
+function mergeEmpresa(empresa: BillingEmpresa): void {
+  if (!context.value) {
+    return;
+  }
+
+  context.value = {
+    ...context.value,
+    empresas: context.value.empresas.map((item) => item.id === empresa.id ? empresa : item)
+  };
+  form.empresa_id = empresa.id;
+  selectedSucursalId.value = empresa.sucursales.find((sucursal) => sucursal.id === selectedSucursalId.value)?.id ?? empresa.sucursales[0]?.id ?? null;
+  ensureSelectedPuntoVenta();
+}
+
+async function saveSucursal(): Promise<void> {
+  if (!selectedSucursal.value || !canSaveSucursal.value) {
+    return;
+  }
+
+  loading.value = true;
+  error.value = null;
+  saved.value = null;
+
+  try {
+    const response = await client.value.updateBillingSucursal(selectedSucursal.value.id, {
+      nombre: sucursalForm.nombre,
+      codigo: sucursalForm.codigo,
+      direccion: sucursalForm.direccion,
+      departamento: sucursalForm.departamento,
+      municipio: sucursalForm.municipio,
+      distrito: blankToNull(sucursalForm.distrito),
+      telefono: blankToNull(sucursalForm.telefono),
+      email: blankToNull(sucursalForm.email)
+    });
+    mergeEmpresa(response.empresa);
+    saved.value = 'Sucursal guardada.';
+    await loadCorrelativos();
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible guardar la sucursal.';
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function createSucursal(): Promise<void> {
+  if (!selectedEmpresa.value || !canCreateSucursal.value) {
+    return;
+  }
+
+  loading.value = true;
+  error.value = null;
+  saved.value = null;
+
+  try {
+    const response = await client.value.createBillingSucursal(selectedEmpresa.value.id, {
+      nombre: newSucursalForm.nombre,
+      codigo: newSucursalForm.codigo,
+      direccion: newSucursalForm.direccion,
+      departamento: newSucursalForm.departamento,
+      municipio: newSucursalForm.municipio,
+      distrito: blankToNull(newSucursalForm.distrito),
+      telefono: blankToNull(newSucursalForm.telefono),
+      email: blankToNull(newSucursalForm.email),
+      punto_venta_codigo: newSucursalForm.punto_venta_codigo,
+      punto_venta_nombre: newSucursalForm.punto_venta_nombre,
+      punto_venta_tipo: 'terminal'
+    });
+    mergeEmpresa(response.empresa);
+    selectedSucursalId.value = response.empresa.sucursales.at(-1)?.id ?? selectedSucursalId.value;
+    resetNewSucursalForm();
+    creatingSucursal.value = false;
+    saved.value = 'Sucursal creada con correlativos iniciales.';
+    await loadCorrelativos();
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible crear la sucursal.';
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function savePuntoVenta(): Promise<void> {
+  if (!selectedPuntoVenta.value || !canSavePuntoVenta.value) {
+    return;
+  }
+
+  loading.value = true;
+  error.value = null;
+  saved.value = null;
+
+  try {
+    const response = await client.value.updateBillingPuntoVenta(selectedPuntoVenta.value.id, {
+      codigo: puntoVentaForm.codigo,
+      nombre: puntoVentaForm.nombre,
+      tipo: puntoVentaForm.tipo
+    });
+    mergeEmpresa(response.empresa);
+    saved.value = 'Punto de venta guardado.';
+    await loadCorrelativos();
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible guardar el punto de venta.';
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function createPuntoVenta(): Promise<void> {
+  if (!selectedSucursal.value || !canCreatePuntoVenta.value) {
+    return;
+  }
+
+  loading.value = true;
+  error.value = null;
+  saved.value = null;
+
+  try {
+    const response = await client.value.createBillingPuntoVenta(selectedSucursal.value.id, {
+      codigo: newPuntoVentaForm.codigo,
+      nombre: newPuntoVentaForm.nombre,
+      tipo: newPuntoVentaForm.tipo
+    });
+    mergeEmpresa(response.empresa);
+    const refreshedSucursal = response.empresa.sucursales.find((sucursal) => sucursal.id === selectedSucursal.value?.id) ?? null;
+    selectedPuntoVentaId.value = refreshedSucursal?.puntosVenta.at(-1)?.id ?? selectedPuntoVentaId.value;
+    resetNewPuntoVentaForm();
+    creatingPuntoVenta.value = false;
+    saved.value = 'Punto de venta creado con correlativos iniciales.';
+    await loadCorrelativos();
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible crear el punto de venta.';
+  } finally {
+    loading.value = false;
+  }
+}
+
 async function saveSettings(): Promise<void> {
   loading.value = true;
   error.value = null;
@@ -522,12 +957,15 @@ async function saveSettings(): Promise<void> {
       certificateFile.value = null;
     }
 
-    await client.value.saveBillingSettings(form);
-    saved.value = 'Configuracion fiscal guardada.';
+    const response = await client.value.saveBillingSettings({
+      ...form,
+      verify: true
+    });
+    saved.value = response.verification?.message ?? 'Configuracion fiscal guardada.';
     editingCredentials.value = false;
     await loadContext();
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'No fue posible guardar la configuracion fiscal.';
+    error.value = await errorMessageFromResponse(caught, 'No fue posible guardar la configuracion fiscal.');
   } finally {
     loading.value = false;
   }
@@ -613,6 +1051,26 @@ function normalizedEconomicActivities(): Array<{ codigo: string; descripcion: st
     })
     .filter((activity) => activity.codigo.trim() !== '' && activity.descripcion.trim() !== '')
     .slice(0, 3);
+}
+
+async function errorMessageFromResponse(caught: unknown, fallback: string): Promise<string> {
+  if (caught && typeof caught === 'object' && 'response' in caught) {
+    const response = (caught as { response?: { json?: () => Promise<unknown> } }).response;
+    const payload = await response?.json?.().catch(() => null);
+
+    if (payload && typeof payload === 'object') {
+      const record = payload as { message?: unknown; verification?: { message?: unknown } };
+      if (typeof record.verification?.message === 'string' && record.verification.message.trim()) {
+        return record.verification.message;
+      }
+
+      if (typeof record.message === 'string' && record.message.trim()) {
+        return record.message;
+      }
+    }
+  }
+
+  return caught instanceof Error ? caught.message : fallback;
 }
 
 async function saveVisibleChanges(): Promise<void> {
@@ -746,6 +1204,26 @@ function documentLabel(empresa: BillingEmpresa | null): string {
   return `${type}: ${empresa.fiscal_document_number ?? empresa.nit}`;
 }
 
+function dteShortLabel(tipoDte: string): string {
+  return ({
+    '01': 'FCF',
+    '03': 'CCF',
+    '05': 'NC',
+    '06': 'ND',
+    '14': 'FSE'
+  } as Record<string, string>)[tipoDte] ?? tipoDte;
+}
+
+function dteLongLabel(tipoDte: string): string {
+  return ({
+    '01': 'Factura consumidor final',
+    '03': 'Comprobante credito fiscal',
+    '05': 'Nota de credito',
+    '06': 'Nota de debito',
+    '14': 'Sujeto excluido'
+  } as Record<string, string>)[tipoDte] ?? `DTE ${tipoDte}`;
+}
+
 function economicActivitiesFor(empresa: BillingEmpresa): Array<{ codigo: string; descripcion: string }> {
   return empresa.actividades_economicas?.length
     ? empresa.actividades_economicas
@@ -775,6 +1253,32 @@ function certificateEnvironmentRows(empresa: BillingEmpresa | null): Array<{
 function blankToNull(value: string | null | undefined): string | null {
   const trimmed = (value ?? '').trim();
   return trimmed === '' ? null : trimmed;
+}
+
+function branchLocationLabel(sucursal: BillingSucursal | null | undefined): string {
+  if (!sucursal) {
+    return 'Ubicacion pendiente';
+  }
+
+  const department = displayText(departamentos.value.find((item) => item.code === departmentCode(sucursal.departamento))?.label ?? sucursal.departamento);
+  const municipality = displayText((catalogs.value?.municipios ?? []).find((item) => (
+    departmentCode(item.departamento) === departmentCode(sucursal.departamento)
+    && String(item.code) === String(sucursal.municipio)
+  ))?.label ?? sucursal.municipio);
+  const district = displayText((catalogs.value?.distritos ?? []).find((item) => (
+    departmentCode(item.departamento) === departmentCode(sucursal.departamento)
+    && String(item.municipio) === String(sucursal.municipio)
+    && String(item.code) === String(sucursal.distrito ?? '')
+  ))?.label ?? sucursal.distrito ?? 'Distrito pendiente');
+
+  return [department, municipality, district].filter(Boolean).join(' / ');
+}
+
+function displayText(value: string | null | undefined): string {
+  return (value ?? '')
+    .toLocaleLowerCase('es-SV')
+    .replace(/(^|[\s/.,;:()_-])([\p{L}\p{N}])/gu, (_, separator: string, char: string) => `${separator}${char.toLocaleUpperCase('es-SV')}`)
+    .replace(/\b(Nit|Nrc|Dui|Mh|Dte|FcF|Ccf)\b/g, (match) => match.toLocaleUpperCase('es-SV'));
 }
 
 function formatDate(value: string | null | undefined, includeTime = false): string {
@@ -860,33 +1364,34 @@ function markLogoBroken(empresa: BillingEmpresa): void {
         Aun no hay empresas registradas.
       </div>
 
-      <div v-else class="grid gap-8" :class="showCompanySearch ? 'xl:grid-cols-[420px_minmax(0,1fr)]' : ''">
-        <aside v-if="showCompanySearch" class="space-y-5">
-          <UiSearchInput
-            v-model="searchQuery"
-            label="Buscar empresa"
-            placeholder="DUI, NIT, nombre fiscal o comercial"
-          />
+      <div v-else class="space-y-8">
+        <aside v-if="showCompanySearch" class="mx-auto w-full max-w-5xl">
+          <div class="mx-auto w-full max-w-3xl">
+            <UiSearchInput
+              v-model="searchQuery"
+              label="Buscar empresa"
+              placeholder="DUI, NIT, nombre fiscal o comercial"
+            />
+          </div>
 
-          <div>
-            <div class="mb-3 flex items-center justify-between">
+          <div v-if="searchQuery.trim()" class="mx-auto mt-6 w-full max-w-3xl">
+            <div class="mb-4 flex items-center justify-center gap-3 text-center">
               <p v-if="resultLabel" class="text-sm font-semibold text-slate-950">{{ resultLabel }}</p>
-              <span v-else></span>
-              <p class="text-xs text-slate-500">{{ empresas.length }} registradas</p>
+              <p class="text-sm text-slate-500">{{ empresas.length }} registrada{{ empresas.length === 1 ? '' : 's' }}</p>
             </div>
 
-            <div class="space-y-2">
+            <div class="grid gap-3">
               <button
                 v-for="empresa in filteredEmpresas"
                 :key="empresa.id"
                 type="button"
-                class="w-full rounded-md border p-4 text-left transition hover:border-sky-300 hover:bg-slate-50"
+                class="w-full rounded-md border px-6 py-5 text-left transition hover:border-sky-300 hover:bg-slate-50"
                 :class="empresa.id === form.empresa_id ? 'border-sky-500 bg-sky-50' : 'border-blue-100/80 bg-white/85'"
                 @click="selectEmpresa(empresa)"
               >
-                <div class="flex gap-3">
-                  <img v-if="hasLogo(empresa)" :src="empresa.logo_url ?? ''" class="h-11 w-11 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(empresa)">
-                  <div v-else class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-slate-900 text-sm font-bold text-white">
+                <div class="flex items-center gap-4">
+                  <img v-if="hasLogo(empresa)" :src="empresa.logo_url ?? ''" class="h-14 w-14 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(empresa)">
+                  <div v-else class="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-slate-900 text-sm font-bold text-white">
                     {{ initials(empresa) }}
                   </div>
                   <div class="min-w-0 flex-1">
@@ -902,7 +1407,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 </div>
               </button>
 
-              <div v-if="searchQuery.trim() && !filteredEmpresas.length" class="rounded-md border border-dashed border-slate-300 p-5 text-sm text-slate-500">
+              <div v-if="searchQuery.trim() && !filteredEmpresas.length" class="rounded-md border border-dashed border-slate-300 p-5 text-center text-sm text-slate-500">
                 No se encontro ninguna empresa con ese criterio.
               </div>
             </div>
@@ -956,20 +1461,23 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                 <UiButton v-if="props.detailMode" variant="secondary" :disabled="loading" @click="editingCompany = false">Volver al resumen</UiButton>
-                <UiButton :disabled="loading || !canSaveCompany || isInactive" @click="saveCompanyData">Guardar datos</UiButton>
+                <UiButton variant="success" :disabled="loading || !canSaveCompany || isInactive" @click="saveCompanyData">
+                  <UiSaveIcon class="mr-2 h-5 w-5" />
+                  <span>Guardar datos</span>
+                </UiButton>
               </div>
             </div>
 
-            <div class="mt-5 grid gap-5">
-              <div class="grid gap-4 md:grid-cols-2">
+            <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div class="grid gap-4 md:col-span-2 xl:col-span-3" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
                 <UiInput v-model="companyForm.razon_social" label="Nombre del contribuyente" />
                 <UiInput v-model="companyForm.nombre_comercial" label="Nombre comercial" />
               </div>
-              <div class="grid gap-4" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
-                <UiFiscalDocumentInput v-model="companyForm.documento_fiscal" label="NIT" allowed-types="nit" @detected="fiscalDocument = $event" />
+              <div class="grid gap-4 md:col-span-2 xl:col-span-3" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+                <UiFiscalDocumentInput v-model="companyForm.documento_fiscal" label="NIT" allowed-types="nit" :show-message="false" @detected="fiscalDocument = $event" />
                 <UiInput v-model="companyForm.nrc" label="NRC" />
               </div>
-              <div>
+              <div class="md:col-span-2 xl:col-span-3">
                 <div class="mt-2 grid gap-3" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
                   <div v-for="(_, activityIndex) in companyActivities" :key="activityIndex" class="grid gap-2">
                     <div
@@ -1000,6 +1508,21 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                   </div>
                 </div>
               </div>
+              <div class="md:col-span-2 xl:col-span-3">
+                <UiLogoUpload
+                  id="company-logo-upload"
+                  label="Logo comercial"
+                  title="Agregar logo"
+                  variant="compact"
+                  :preview-src="companyLogoPreview ?? (hasLogo(selectedEmpresa) ? selectedEmpresa.logo_url : null)"
+                  :selected-label="companyLogoFile?.name"
+                  @change="setCompanyLogo"
+                  @image-error="markLogoBroken(selectedEmpresa)"
+                />
+              </div>
+            </div>
+
+            <div class="mt-6 grid gap-4">
               <UiInput v-model="companyForm.direccion" label="Direccion" />
               <div class="grid gap-4" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
                 <UiSearchSelect v-model="companyForm.departamento" label="Departamento" :options="departamentoOptions" placeholder="Seleccionar departamento" />
@@ -1007,21 +1530,14 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 <UiSearchSelect v-model="companyForm.distrito" label="Distrito" :options="distritoOptions" :disabled="!companyForm.municipio" placeholder="Seleccionar distrito" />
               </div>
               <div class="grid gap-4" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
-                <UiInput v-model="companyForm.telefono" label="Telefono" />
+                <UiPhoneInput v-model="companyForm.telefono" label="Telefono" />
                 <UiEmailInput v-model="companyForm.email" label="Correo" />
               </div>
-              <UiLogoUpload
-                id="company-logo-upload"
-                :preview-src="companyLogoPreview ?? (hasLogo(selectedEmpresa) ? selectedEmpresa.logo_url : null)"
-                :selected-label="companyLogoFile?.name"
-                @change="setCompanyLogo"
-                @image-error="markLogoBroken(selectedEmpresa)"
-              />
             </div>
 
           </div>
 
-          <template v-if="props.detailMode && !editingCompany && !editingFiscal">
+          <template v-if="props.detailMode && !editingCompany && !editingFiscal && !editingSucursales && !editingCorrelativos">
             <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
               <div class="flex min-w-0 gap-4">
                 <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
@@ -1110,8 +1626,8 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                   </div>
                   <div>
                     <p class="text-xs font-bold uppercase text-slate-500">Direccion</p>
-                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.direccion ?? 'Direccion pendiente' }}</p>
-                    <p class="mt-1 text-xs text-slate-500">{{ selectedSucursal?.departamento ?? '--' }} / {{ selectedSucursal?.municipio ?? '--' }} / {{ selectedSucursal?.distrito ?? 'Distrito pendiente' }}</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.direccion ? displayText(selectedSucursal.direccion) : 'Direccion pendiente' }}</p>
+                    <p class="mt-1 text-xs text-slate-500">{{ branchLocationLabel(selectedSucursal) }}</p>
                   </div>
                   <div>
                     <p class="text-xs font-bold uppercase text-slate-500">Telefono</p>
@@ -1157,12 +1673,204 @@ function markLogoBroken(empresa: BillingEmpresa): void {
             </div>
           </template>
 
+          <template v-if="editingSucursales">
+            <div id="sucursales" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
+              <div class="flex flex-col gap-3 border-b border-slate-200 pb-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p class="text-sm font-semibold text-slate-950">Sucursales y puntos de venta</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <UiButton
+                    variant="secondary"
+                    :disabled="loading || isInactive"
+                    @click="resetNewSucursalForm(); creatingSucursal = true"
+                  >
+                    Nueva sucursal
+                  </UiButton>
+                  <UiButton v-if="props.detailMode" variant="secondary" :disabled="loading" @click="editingSucursales = false">Volver al resumen</UiButton>
+                </div>
+              </div>
+
+              <div class="mt-5 grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
+                <div class="space-y-3">
+                  <div class="rounded-md border border-slate-200 bg-white">
+                    <button
+                      v-for="sucursal in sucursales"
+                      :key="sucursal.id"
+                      type="button"
+                      class="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 text-left last:border-b-0"
+                      :class="sucursal.id === selectedSucursal?.id ? 'bg-sky-50' : 'hover:bg-slate-50'"
+                      @click="selectedSucursalId = sucursal.id"
+                    >
+                      <span class="min-w-0">
+                        <span class="block truncate text-sm font-bold text-slate-950">{{ sucursal.nombre }}</span>
+                        <span class="mt-1 block truncate text-xs text-slate-500">{{ sucursal.codigo }} · {{ sucursal.puntosVenta.length }} punto{{ sucursal.puntosVenta.length === 1 ? '' : 's' }}</span>
+                      </span>
+                      <span class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">{{ sucursal.codigo }}</span>
+                    </button>
+                  </div>
+
+                </div>
+
+                <div v-if="selectedSucursal" class="min-w-0">
+                  <div class="grid gap-4 md:grid-cols-2">
+                    <UiInput v-model="sucursalForm.nombre" label="Nombre sucursal" />
+                    <UiInput v-model="sucursalForm.codigo" label="Codigo establecimiento" />
+                  </div>
+                  <div class="mt-4 grid gap-4">
+                    <UiInput v-model="sucursalForm.direccion" label="Direccion" />
+                    <div class="grid gap-4 md:grid-cols-3">
+                      <UiSearchSelect v-model="sucursalForm.departamento" label="Departamento" :options="departamentoOptions" placeholder="Seleccionar departamento" />
+                      <UiSearchSelect v-model="sucursalForm.municipio" label="Municipio" :options="sucursalMunicipioOptions" :disabled="!sucursalForm.departamento" placeholder="Seleccionar municipio" />
+                      <UiSearchSelect v-model="sucursalForm.distrito" label="Distrito" :options="sucursalDistritoOptions" :disabled="!sucursalForm.municipio" placeholder="Seleccionar distrito" />
+                    </div>
+                    <div class="grid gap-4 md:grid-cols-2">
+                      <UiPhoneInput v-model="sucursalForm.telefono" label="Telefono" />
+                      <UiEmailInput v-model="sucursalForm.email" label="Correo" />
+                    </div>
+                  </div>
+                  <div class="mt-4 flex justify-end">
+                    <UiButton variant="success" :disabled="loading || !canSaveSucursal || isInactive" @click="saveSucursal">
+                      <UiSaveIcon class="mr-2 h-4 w-4" />
+                      Guardar sucursal
+                    </UiButton>
+                  </div>
+
+                  <div class="mt-6 border-t border-slate-200 pt-5">
+                    <div class="flex items-center justify-between gap-3">
+                      <div>
+                        <p class="text-sm font-semibold text-slate-950">Puntos de venta</p>
+                        <p class="mt-1 text-xs text-slate-500">Cada punto abre su propia serie {{ selectedSucursal.codigo }} + codigo punto venta.</p>
+                      </div>
+                      <UiButton
+                        variant="secondary"
+                        :disabled="loading || isInactive"
+                        @click="resetNewPuntoVentaForm(); creatingPuntoVenta = !creatingPuntoVenta"
+                      >
+                        {{ creatingPuntoVenta ? 'Cancelar' : 'Nuevo punto' }}
+                      </UiButton>
+                    </div>
+
+                    <div v-if="creatingPuntoVenta" class="mt-4 grid gap-4 rounded-md border border-slate-200 bg-slate-50 p-4 md:grid-cols-[130px_minmax(0,1fr)_120px_auto] md:items-end">
+                      <UiInput v-model="newPuntoVentaForm.codigo" label="Codigo" />
+                      <UiInput v-model="newPuntoVentaForm.nombre" label="Nombre" />
+                      <UiInput v-model="newPuntoVentaForm.tipo" label="Tipo" />
+                      <UiButton variant="success" :disabled="loading || !canCreatePuntoVenta" @click="createPuntoVenta">
+                        <UiSaveIcon class="mr-2 h-4 w-4" />
+                        Crear
+                      </UiButton>
+                    </div>
+
+                    <div class="mt-4 overflow-hidden rounded-md border border-slate-200">
+                      <button
+                        v-for="punto in puntosVenta"
+                        :key="punto.id"
+                        type="button"
+                        class="grid w-full grid-cols-[110px_minmax(0,1fr)_110px] items-center gap-3 border-b border-slate-100 px-3 py-3 text-left text-sm last:border-b-0"
+                        :class="punto.id === selectedPuntoVenta?.id ? 'bg-sky-50' : 'hover:bg-slate-50'"
+                        @click="selectedPuntoVentaId = punto.id"
+                      >
+                        <span class="font-bold text-slate-950">{{ punto.codigo }}</span>
+                        <span class="truncate text-slate-700">{{ punto.nombre }}</span>
+                        <span class="rounded bg-slate-100 px-2 py-1 text-center text-xs font-semibold text-slate-600">{{ punto.tipo }}</span>
+                      </button>
+                    </div>
+
+                    <div v-if="selectedPuntoVenta" class="mt-4 grid gap-4 rounded-md border border-blue-100 bg-white p-4 md:grid-cols-[130px_minmax(0,1fr)_130px_auto] md:items-end">
+                      <UiInput v-model="puntoVentaForm.codigo" label="Codigo" />
+                      <UiInput v-model="puntoVentaForm.nombre" label="Nombre" />
+                      <UiInput v-model="puntoVentaForm.tipo" label="Tipo" />
+                      <UiButton variant="success" :disabled="loading || !canSavePuntoVenta || isInactive" @click="savePuntoVenta">
+                        <UiSaveIcon class="mr-2 h-4 w-4" />
+                        Guardar
+                      </UiButton>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <template v-if="editingCorrelativos">
+            <div id="correlativos" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
+              <div class="flex flex-col gap-3 border-b border-slate-200 pb-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p class="text-sm font-semibold text-slate-950">Correlativos</p>
+                  <p class="mt-1 text-xs text-slate-500">Selecciona sucursal y punto de venta para ajustar el ultimo correlativo emitido por cada DTE.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <select v-model.number="selectedSucursalId" class="h-9 rounded-md border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-700">
+                    <option v-for="sucursal in sucursales" :key="sucursal.id" :value="sucursal.id">
+                      {{ sucursal.codigo }} · {{ sucursal.nombre }}
+                    </option>
+                  </select>
+                  <select v-model.number="selectedPuntoVentaId" class="h-9 rounded-md border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-700">
+                    <option v-for="punto in puntosVenta" :key="punto.id" :value="punto.id">
+                      {{ punto.codigo }} · {{ punto.nombre }}
+                    </option>
+                  </select>
+                  <select v-model="form.ambiente" class="h-9 rounded-md border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-700">
+                    <option value="00">Pruebas</option>
+                    <option value="01">Produccion</option>
+                  </select>
+                  <UiButton variant="secondary" :disabled="correlativosLoading || !form.empresa_id" @click="loadCorrelativos">Actualizar</UiButton>
+                </div>
+              </div>
+
+              <UiLoadingMark v-if="correlativosLoading" class="mt-4" label="Cargando correlativos" />
+              <div v-else-if="correlativoRows.length === 0" class="mt-4 rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+                No hay correlativos activos para esta sucursal, punto de venta y ambiente.
+              </div>
+              <div v-else class="mt-4 overflow-hidden rounded-md border border-slate-200">
+                <div class="grid grid-cols-[minmax(180px,1fr)_150px_170px_150px] bg-slate-50 px-3 py-2 text-[11px] font-bold uppercase text-slate-500">
+                  <span>DTE</span>
+                  <span>Ultimo emitido</span>
+                  <span>Proximo a usar</span>
+                  <span class="text-right">Accion</span>
+                </div>
+                <div
+                  v-for="row in correlativoRows"
+                  :key="row.id"
+                  class="grid grid-cols-[minmax(180px,1fr)_150px_170px_150px] items-center gap-3 border-t border-slate-100 px-3 py-3 text-sm"
+                >
+                  <div class="min-w-0">
+                    <p class="font-bold text-slate-950">{{ dteShortLabel(row.tipo_dte) }}</p>
+                    <p class="truncate text-xs text-slate-500">{{ dteLongLabel(row.tipo_dte) }} · {{ row.sucursal_codigo }}{{ row.punto_venta_codigo }}</p>
+                  </div>
+                  <input
+                    :value="correlativoDrafts[row.id] ?? String(row.actual)"
+                    class="h-10 w-full rounded-md border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-950 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                    inputmode="numeric"
+                    type="number"
+                    min="0"
+                    :max="row.hasta"
+                    @input="correlativoDrafts = { ...correlativoDrafts, [row.id]: ($event.target as HTMLInputElement).value.replace(/\\D/g, '') }"
+                  >
+                  <div class="min-w-0">
+                    <p class="font-semibold text-slate-950">{{ row.next_correlativo ?? 'Sin disponible' }}</p>
+                    <p class="truncate font-mono text-[11px] text-slate-500">{{ row.next_numero_control ?? 'Rango agotado' }}</p>
+                  </div>
+                  <div class="flex justify-end">
+                    <UiButton
+                      variant="success"
+                      :disabled="savingCorrelativoId === row.id || Number(correlativoDrafts[row.id] ?? row.actual) === row.actual"
+                      @click="saveCorrelativo(row)"
+                    >
+                      <UiSaveIcon class="mr-2 h-4 w-4" />
+                      {{ savingCorrelativoId === row.id ? 'Guardando' : 'Guardar' }}
+                    </UiButton>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+
           <template v-if="!props.detailMode || editingFiscal">
             <div v-if="!props.detailMode" class="grid gap-4 lg:grid-cols-3">
               <div class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
                 <p class="font-semibold text-slate-950">Casa matriz</p>
-                <p class="mt-2 text-slate-600">{{ selectedSucursal?.direccion ?? 'Direccion pendiente' }}</p>
-                <p class="mt-1 text-slate-600">{{ selectedSucursal?.departamento }} / {{ selectedSucursal?.municipio }} / {{ selectedSucursal?.distrito ?? 'Distrito pendiente' }}</p>
+                <p class="mt-2 text-slate-600">{{ selectedSucursal?.direccion ? displayText(selectedSucursal.direccion) : 'Direccion pendiente' }}</p>
+                <p class="mt-1 text-slate-600">{{ branchLocationLabel(selectedSucursal) }}</p>
               </div>
               <div id="credenciales-mh" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
                 <p class="font-semibold text-slate-950">Credenciales MH</p>
@@ -1299,7 +2007,8 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               </div>
 
               <div class="mt-6 flex flex-wrap items-center gap-3">
-                <UiButton :disabled="loading || !form.empresa_id || isInactive" @click="props.detailMode ? saveSettings() : saveVisibleChanges()">
+                <UiButton variant="success" :disabled="loading || !form.empresa_id || isInactive" @click="props.detailMode ? saveSettings() : saveVisibleChanges()">
+                  <UiSaveIcon class="mr-2 h-5 w-5" />
                   {{ props.detailMode ? 'Guardar fiscalidad' : (editingCompany ? 'Guardar datos de empresa' : 'Guardar configuracion fiscal') }}
                 </UiButton>
                 <UiButton variant="secondary" :disabled="loading || !form.empresa_id || isInactive" @click="verifySigner">Verificar firma</UiButton>
@@ -1350,6 +2059,64 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </div>
         </section>
 
+      </div>
+
+      <div
+        v-if="creatingSucursal"
+        class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 px-4 py-6 backdrop-blur-sm"
+        @click.self="creatingSucursal = false"
+      >
+        <div class="w-full max-w-4xl rounded-md border border-blue-100 bg-white shadow-2xl shadow-slate-950/25">
+          <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+            <div>
+              <p class="text-lg font-bold text-slate-950">Nueva sucursal</p>
+              <p class="mt-1 text-sm text-slate-500">Registra la sucursal y su primer punto de venta.</p>
+            </div>
+            <button
+              type="button"
+              class="rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+              aria-label="Cerrar"
+              @click="creatingSucursal = false"
+            >
+              <UiCloseCircleIcon class="h-6 w-6" />
+            </button>
+          </div>
+
+          <div class="grid gap-6 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+            <div class="grid gap-4">
+              <div class="grid gap-4 md:grid-cols-2">
+                <UiInput v-model="newSucursalForm.nombre" label="Nombre sucursal" />
+                <UiInput v-model="newSucursalForm.codigo" label="Codigo establecimiento" />
+              </div>
+              <UiInput v-model="newSucursalForm.direccion" label="Direccion" />
+              <div class="grid gap-4 md:grid-cols-3">
+                <UiSearchSelect v-model="newSucursalForm.departamento" label="Departamento" :options="departamentoOptions" placeholder="Seleccionar departamento" />
+                <UiSearchSelect v-model="newSucursalForm.municipio" label="Municipio" :options="newSucursalMunicipioOptions" :disabled="!newSucursalForm.departamento" placeholder="Seleccionar municipio" />
+                <UiSearchSelect v-model="newSucursalForm.distrito" label="Distrito" :options="newSucursalDistritoOptions" :disabled="!newSucursalForm.municipio" placeholder="Seleccionar distrito" />
+              </div>
+              <div class="grid gap-4 md:grid-cols-2">
+                <UiPhoneInput v-model="newSucursalForm.telefono" label="Telefono" />
+                <UiEmailInput v-model="newSucursalForm.email" label="Correo" />
+              </div>
+            </div>
+
+            <div class="rounded-md border border-slate-200 bg-slate-50 p-4">
+              <p class="text-sm font-semibold text-slate-950">Punto inicial</p>
+              <div class="mt-4 grid gap-4">
+                <UiInput v-model="newSucursalForm.punto_venta_codigo" label="Codigo" />
+                <UiInput v-model="newSucursalForm.punto_venta_nombre" label="Nombre" />
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">
+            <UiButton variant="secondary" :disabled="loading" @click="creatingSucursal = false">Cancelar</UiButton>
+            <UiButton variant="success" :disabled="loading || !canCreateSucursal" @click="createSucursal">
+              <UiSaveIcon class="mr-2 h-4 w-4" />
+              Crear sucursal
+            </UiButton>
+          </div>
+        </div>
       </div>
 
       <p v-if="error" class="mt-4 whitespace-pre-wrap rounded-md bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>

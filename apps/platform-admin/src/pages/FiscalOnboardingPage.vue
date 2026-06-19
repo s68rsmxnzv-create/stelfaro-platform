@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import type { BillingCompanyResponse } from '@stelfaro/api-client';
-import { BillingOnboardingPage } from '@stelfaro/billing';
-import { UiLoadingMark } from '@stelfaro/ui';
+import { BillingFloatingToastStack, BillingOnboardingPage, type BillingFloatingToast } from '@stelfaro/billing';
+import { UiLoadingMark, UiToggle } from '@stelfaro/ui';
 import { useCoreSessionStore } from '../stores/coreSession';
 
 const core = useCoreSessionStore();
+const router = useRouter();
 
 type PlatformAppOption = {
   key: string;
@@ -19,8 +21,15 @@ const apps = ref<PlatformAppOption[]>([]);
 const selectedAppKeys = ref<string[]>(['facturacion']);
 const loadingApps = ref(false);
 const appError = ref<string | null>(null);
-const tenantStatus = ref<string | null>(null);
 const tenantError = ref<string | null>(null);
+const tenantSyncing = ref(false);
+const tenantReady = ref(false);
+const fiscalReady = ref(false);
+const redirectingToNewCompany = ref(false);
+const floatingToasts = ref<BillingFloatingToast[]>([]);
+let toastId = 0;
+const toastTimers: ReturnType<typeof window.setTimeout>[] = [];
+let redirectTimer: ReturnType<typeof window.setTimeout> | null = null;
 const adminPlatformApiBaseUrl = import.meta.env.VITE_PLATFORM_API_BASE_URL || 'https://platform.stelfaro.com/api/v1';
 const platformLoginUrl = 'https://platform.stelfaro.com/login';
 const dteOptions = [
@@ -43,6 +52,13 @@ const hasFacturacion = computed(() => apps.value.some((app) => app.key === 'fact
 
 onMounted(() => {
   void loadPlatformApps();
+});
+
+onBeforeUnmount(() => {
+  toastTimers.forEach((timer) => window.clearTimeout(timer));
+  if (redirectTimer) {
+    window.clearTimeout(redirectTimer);
+  }
 });
 
 async function loadPlatformApps(): Promise<void> {
@@ -119,8 +135,16 @@ function toggleEventType(code: string): void {
 }
 
 async function registerPlatformTenant(response: BillingCompanyResponse): Promise<void> {
-  tenantStatus.value = null;
   tenantError.value = null;
+  tenantSyncing.value = true;
+  tenantReady.value = false;
+  fiscalReady.value = false;
+  redirectingToNewCompany.value = false;
+  showFloatingToast({
+    title: 'Empresa registrada',
+    message: `${response.empresa.razon_social} quedo creada en el core fiscal.`,
+    variant: 'success'
+  });
 
   try {
     const platformResponse = await fetch(`${adminPlatformApiBaseUrl}/admin/platform/tenants`, {
@@ -158,10 +182,64 @@ async function registerPlatformTenant(response: BillingCompanyResponse): Promise
     }
 
     const payload = await platformResponse.json() as { tenant: { name: string; apps: Array<{ name: string }> } };
-    tenantStatus.value = `${payload.tenant.name} quedo habilitado para ${payload.tenant.apps.map((app) => app.name).join(', ')}.`;
+    const message = `${payload.tenant.name} quedo habilitado para ${payload.tenant.apps.map((app) => app.name).join(', ')}.`;
+    showFloatingToast({
+      title: 'Tenant habilitado',
+      message,
+      variant: 'success'
+    });
+    tenantReady.value = true;
+    redirectToNewCompanyWhenComplete();
   } catch (error) {
     tenantError.value = error instanceof Error ? error.message : 'La empresa fiscal se creo, pero no fue posible asignar apps al tenant.';
+    showFloatingToast({
+      title: 'No fue posible habilitar el tenant',
+      message: tenantError.value,
+      variant: 'error'
+    });
+  } finally {
+    tenantSyncing.value = false;
   }
+}
+
+function handleFiscalConfigured(): void {
+  fiscalReady.value = true;
+  redirectToNewCompanyWhenComplete();
+}
+
+function redirectToNewCompanyWhenComplete(): void {
+  if (
+    redirectingToNewCompany.value
+    || tenantSyncing.value
+    || tenantError.value
+    || !tenantReady.value
+    || !fiscalReady.value
+  ) {
+    return;
+  }
+
+  redirectingToNewCompany.value = true;
+  showFloatingToast({
+    title: 'Registro completado',
+    message: 'Abriendo un nuevo registro de empresa.',
+    variant: 'success'
+  });
+
+  redirectTimer = window.setTimeout(() => {
+    void router.replace({
+      name: 'fiscal-onboarding',
+      query: { new: String(Date.now()) }
+    });
+  }, 1200);
+}
+
+function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
+  const id = ++toastId;
+  floatingToasts.value = [...floatingToasts.value, { id, ...toast }];
+  const timer = window.setTimeout(() => {
+    floatingToasts.value = floatingToasts.value.filter((item) => item.id !== id);
+  }, 4300);
+  toastTimers.push(timer);
 }
 </script>
 
@@ -179,20 +257,21 @@ async function registerPlatformTenant(response: BillingCompanyResponse): Promise
         :core-base-url="core.baseUrl"
         :enabled-document-types="selectedDteCodes"
         :enabled-event-types="selectedEventTypes"
+        :show-toasts="false"
         request-credentials="include"
         @company-registered="registerPlatformTenant"
+        @fiscal-configured="handleFiscalConfigured"
       >
         <template #access>
-          <div class="grid gap-6">
-            <section class="grid gap-3 border-b border-slate-100 pb-5">
-              <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div class="grid gap-5">
+            <section class="grid gap-3">
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p class="text-sm font-semibold text-slate-950">Apps habilitadas</p>
-                  <p class="mt-1 text-xs text-slate-500">Facturacion se habilita siempre. Selecciona las apps operativas adicionales para este tenant.</p>
                 </div>
                 <button
                   type="button"
-                  class="rounded-md px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  class="self-start rounded-md px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 sm:self-auto"
                   :disabled="loadingApps"
                   @click="loadPlatformApps"
                 >
@@ -202,31 +281,34 @@ async function registerPlatformTenant(response: BillingCompanyResponse): Promise
 
               <div v-if="loadingApps" class="text-sm text-slate-500">Cargando apps disponibles...</div>
               <p v-else-if="appError" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ appError }}</p>
-              <div v-else class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <label class="flex items-center justify-between gap-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-3">
-                  <span>
-                    <span class="block text-sm font-semibold text-slate-950">Facturacion</span>
-                    <span class="mt-0.5 block text-xs text-slate-500">Eje fiscal central</span>
+              <div v-else class="grid gap-2 md:grid-cols-2">
+                <div class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2">
+                  <span class="min-w-0">
+                    <span class="block truncate text-sm font-semibold text-slate-950">Facturacion</span>
+                    <span class="mt-0.5 block truncate text-xs text-slate-500">Eje fiscal central</span>
                   </span>
-                  <input type="checkbox" class="h-4 w-4 accent-sky-600" checked disabled>
-                </label>
+                  <span class="inline-flex shrink-0 items-center gap-2 text-xs font-semibold text-slate-500">
+                    Siempre activa
+                    <UiToggle :model-value="true" aria-label="Facturacion activa" disabled />
+                  </span>
+                </div>
 
-                <label
+                <div
                   v-for="app in selectableApps"
                   :key="app.key"
-                  class="flex cursor-pointer items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-3 transition hover:border-sky-200 hover:bg-sky-50/50"
+                  class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 transition hover:border-slate-300 hover:bg-slate-50"
                 >
-                  <span>
-                    <span class="block text-sm font-semibold text-slate-950">{{ app.name }}</span>
-                    <span class="mt-0.5 block text-xs text-slate-500">{{ app.host ?? app.key }}</span>
+                  <span class="min-w-0">
+                    <span class="block truncate text-sm font-semibold text-slate-950">{{ app.name }}</span>
+                    <span class="mt-0.5 block truncate text-xs text-slate-500">{{ app.host ?? app.key }}</span>
                   </span>
-                  <input
-                    type="checkbox"
-                    class="h-4 w-4 accent-sky-600"
-                    :checked="selectedAppKeys.includes(app.key)"
-                    @change="toggleApp(app.key)"
-                  >
-                </label>
+                  <UiToggle
+                    class="shrink-0"
+                    :model-value="selectedAppKeys.includes(app.key)"
+                    :aria-label="`Habilitar ${app.name}`"
+                    @update:model-value="toggleApp(app.key)"
+                  />
+                </div>
               </div>
 
               <p v-if="!loadingApps && !appError && !hasFacturacion" class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
@@ -234,65 +316,76 @@ async function registerPlatformTenant(response: BillingCompanyResponse): Promise
               </p>
             </section>
 
-            <section class="grid gap-3 border-b border-slate-100 pb-5">
+            <section class="grid gap-3 border-t border-slate-100 pt-5">
               <div>
                 <p class="text-sm font-semibold text-slate-950">DTE habilitados</p>
                 <p class="mt-1 text-xs text-slate-500">Estos documentos tendran correlativos activos y seran los unicos visibles para el tenant.</p>
               </div>
 
-              <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                <label
+              <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                <div
                   v-for="option in dteOptions"
                   :key="option.code"
-                  class="flex cursor-pointer items-center justify-between gap-3 rounded-md border px-3 py-3 transition"
-                  :class="selectedDteCodes.includes(option.code) ? 'border-sky-200 bg-sky-50' : 'border-slate-200 bg-white hover:border-sky-200 hover:bg-sky-50/50'"
+                  class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 transition hover:border-slate-300 hover:bg-slate-50"
                 >
                   <span class="min-w-0">
-                    <span class="block text-sm font-semibold text-slate-950">{{ option.short }}</span>
+                    <span class="block truncate text-sm font-semibold text-slate-950">{{ option.short }}</span>
                     <span class="mt-0.5 block truncate text-xs text-slate-500">{{ option.label }}</span>
                   </span>
-                  <input
-                    type="checkbox"
-                    class="h-4 w-4 accent-sky-600"
-                    :checked="selectedDteCodes.includes(option.code)"
-                    @change="toggleDte(option.code)"
-                  >
-                </label>
+                  <UiToggle
+                    class="shrink-0"
+                    :model-value="selectedDteCodes.includes(option.code)"
+                    :aria-label="`Habilitar ${option.label}`"
+                    @update:model-value="toggleDte(option.code)"
+                  />
+                </div>
               </div>
             </section>
 
-            <section class="grid gap-3">
+            <section class="grid gap-3 border-t border-slate-100 pt-5">
               <div>
                 <p class="text-sm font-semibold text-slate-950">Eventos habilitados</p>
                 <p class="mt-1 text-xs text-slate-500">Estos eventos MH seran visibles y permitidos para el tenant.</p>
               </div>
 
-              <div class="grid gap-3 md:grid-cols-3">
-                <label
+              <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                <div
                   v-for="option in eventOptions"
                   :key="option.code"
-                  class="flex cursor-pointer items-center justify-between gap-3 rounded-md border px-3 py-3 transition"
-                  :class="selectedEventTypes.includes(option.code) ? 'border-sky-200 bg-sky-50' : 'border-slate-200 bg-white hover:border-sky-200 hover:bg-sky-50/50'"
+                  class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 transition hover:border-slate-300 hover:bg-slate-50"
                 >
                   <span class="min-w-0">
-                    <span class="block text-sm font-semibold text-slate-950">{{ option.short }}</span>
+                    <span class="block truncate text-sm font-semibold text-slate-950">{{ option.short }}</span>
                     <span class="mt-0.5 block truncate text-xs text-slate-500">{{ option.label }}</span>
                   </span>
-                  <input
-                    type="checkbox"
-                    class="h-4 w-4 accent-sky-600"
-                    :checked="selectedEventTypes.includes(option.code)"
-                    @change="toggleEventType(option.code)"
-                  >
-                </label>
+                  <UiToggle
+                    class="shrink-0"
+                    :model-value="selectedEventTypes.includes(option.code)"
+                    :aria-label="`Habilitar ${option.label}`"
+                    @update:model-value="toggleEventType(option.code)"
+                  />
+                </div>
               </div>
             </section>
           </div>
         </template>
       </BillingOnboardingPage>
 
-      <p v-if="tenantStatus" class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{{ tenantStatus }}</p>
-      <p v-if="tenantError" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ tenantError }}</p>
+      <Teleport to="body">
+        <div
+          v-if="tenantSyncing"
+          class="fixed inset-0 z-[9998] grid place-items-center bg-slate-950/25 px-4 backdrop-blur-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <div class="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl shadow-slate-950/20">
+            <UiLoadingMark label="Sincronizando tenant" />
+            <p class="mt-3 text-center text-sm text-slate-600">Asignando apps, permisos y acceso operativo para la empresa.</p>
+          </div>
+        </div>
+      </Teleport>
+
+      <BillingFloatingToastStack :toasts="floatingToasts" />
     </div>
   </section>
 </template>

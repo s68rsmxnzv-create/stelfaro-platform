@@ -7,7 +7,7 @@ import {
   type MhFiscalEventSummary
 } from '@stelfaro/api-client';
 import { currency, fiscalDate, fiscalDateTime } from '@stelfaro/shared';
-import { UiButton, UiCard, UiCloseCircleIcon, UiSearchInput, UiLoadingMark, UiTextarea } from '@stelfaro/ui';
+import { UiButton, UiCard, UiCloseCircleIcon, UiSearchInput, UiLoadingMark, UiSaveIcon, UiTextarea } from '@stelfaro/ui';
 import BillingProcessModal from '../components/BillingProcessModal.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 
@@ -2014,7 +2014,10 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
           </div>
           <div class="flex flex-wrap justify-end gap-3 border-t border-slate-200 px-5 py-4">
             <UiButton type="button" variant="secondary" @click="closeMotivoModal">Cerrar</UiButton>
-            <UiButton type="button" :disabled="!motivoDraft.trim()" @click="saveMotivoModal">Guardar motivo</UiButton>
+            <UiButton type="button" variant="success" :disabled="!motivoDraft.trim()" @click="saveMotivoModal">
+              <UiSaveIcon class="mr-2 h-5 w-5" />
+              <span>Guardar motivo</span>
+            </UiButton>
           </div>
         </section>
       </div>
@@ -2323,7 +2326,10 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
           </div>
           <div class="flex flex-wrap justify-end gap-3 border-t border-slate-200 px-5 py-4">
             <UiButton type="button" variant="secondary" @click="closeMotivoModal">Cerrar</UiButton>
-            <UiButton type="button" :disabled="!motivoDraft.trim()" @click="saveMotivoModal">Guardar motivo</UiButton>
+            <UiButton type="button" variant="success" :disabled="!motivoDraft.trim()" @click="saveMotivoModal">
+              <UiSaveIcon class="mr-2 h-5 w-5" />
+              <span>Guardar motivo</span>
+            </UiButton>
           </div>
         </section>
       </div>

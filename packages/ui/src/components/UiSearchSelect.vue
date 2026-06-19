@@ -13,6 +13,8 @@ const props = defineProps<{
   options: SearchSelectOption[];
   placeholder?: string;
   disabled?: boolean;
+  clearable?: boolean;
+  clearLabel?: string;
 }>();
 
 const emit = defineEmits<{
@@ -42,6 +44,12 @@ function choose(option: SearchSelectOption): void {
   open.value = false;
 }
 
+function clearSelection(): void {
+  emit('update:modelValue', '');
+  query.value = '';
+  open.value = false;
+}
+
 function normalize(value: string): string {
   return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
 }
@@ -54,15 +62,35 @@ function normalize(value: string): string {
       v-model="query"
       :disabled="disabled"
       :placeholder="placeholder"
-      class="mt-1 w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 text-sm shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50"
+      class="mt-1 w-full rounded-md border border-blue-100 bg-white/90 py-2 pl-3 text-sm shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50"
+      :class="clearable && modelValue ? 'pr-10' : 'pr-3'"
       @focus="open = true"
       @input="open = true"
       @keydown.escape="open = false"
     >
+    <button
+      v-if="clearable && modelValue && !disabled"
+      type="button"
+      class="absolute right-1 top-7 grid h-8 w-8 place-items-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+      :aria-label="clearLabel ?? 'Limpiar seleccion'"
+      @click="clearSelection"
+    >
+      <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+      </svg>
+    </button>
     <div
       v-if="open && !disabled"
       class="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-md border border-blue-100 bg-white py-1 text-sm shadow-xl shadow-blue-950/10"
     >
+      <button
+        v-if="clearable"
+        type="button"
+        class="block w-full border-b border-slate-100 px-3 py-2 text-left font-medium text-slate-500 hover:bg-slate-50"
+        @mousedown.prevent="clearSelection"
+      >
+        {{ clearLabel ?? 'Sin seleccionar' }}
+      </button>
       <button
         v-for="option in filtered"
         :key="option.value + option.label"

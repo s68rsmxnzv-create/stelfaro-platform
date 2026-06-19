@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import type { NotificationSenderAlias, NotificationSenderAliasPayload } from '@stelfaro/api-client';
-import { UiEmailInput } from '@stelfaro/ui';
+import { UiButton, UiEmailInput, UiSaveIcon } from '@stelfaro/ui';
 import { useAdminSessionStore } from '../stores/adminSession';
 
 const purposes = [
@@ -222,13 +222,15 @@ function purposeLabel(value: string): string {
           </label>
         </div>
 
-        <button
+        <UiButton
           type="submit"
-          class="mt-5 h-10 w-full rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+          variant="success"
+          class="mt-5 w-full"
           :disabled="saving || !session.isConnected"
         >
-          {{ saving ? 'Guardando...' : selectedAlias ? 'Guardar cambios' : 'Crear alias' }}
-        </button>
+          <UiSaveIcon v-if="!saving" class="mr-2 h-5 w-5" />
+          <span>{{ saving ? 'Guardando...' : selectedAlias ? 'Guardar cambios' : 'Crear alias' }}</span>
+        </UiButton>
       </form>
     </div>
   </section>

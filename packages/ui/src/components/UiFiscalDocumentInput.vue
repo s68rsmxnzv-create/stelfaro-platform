@@ -13,9 +13,11 @@ const props = withDefaults(defineProps<{
   modelValue: string | null | undefined;
   label?: string;
   allowedTypes?: 'dui_or_nit' | 'nit';
+  showMessage?: boolean;
 }>(), {
   label: 'DUI/NIT',
-  allowedTypes: 'dui_or_nit'
+  allowedTypes: 'dui_or_nit',
+  showMessage: true
 });
 
 const emit = defineEmits<{
@@ -117,6 +119,6 @@ function formatFiscalDocument(value: string): string {
         {{ detected.typeLabel }}
       </span>
     </span>
-    <span v-if="!detected.valid" class="mt-1 block text-xs text-slate-500">{{ detected.message }}</span>
+    <span v-if="showMessage && !detected.valid && detected.message" class="mt-1 block text-xs text-slate-500">{{ detected.message }}</span>
   </label>
 </template>

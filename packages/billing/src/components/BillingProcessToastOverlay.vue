@@ -4,7 +4,7 @@ import { UiCloseCircleIcon } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   open: boolean;
-  variant?: 'loading' | 'success' | 'warning';
+  variant?: 'loading' | 'success' | 'warning' | 'error';
   title: string;
   message?: string | null;
   closeLabel?: string;
@@ -21,12 +21,14 @@ defineEmits<{
 const accentClass = computed(() => {
   if (props.variant === 'success') return 'bg-emerald-500';
   if (props.variant === 'warning') return 'bg-amber-400';
+  if (props.variant === 'error') return 'bg-rose-500';
   return 'bg-sky-600';
 });
 
 const titleClass = computed(() => {
   if (props.variant === 'success') return 'text-emerald-600';
   if (props.variant === 'warning') return 'text-amber-600';
+  if (props.variant === 'error') return 'text-rose-600';
   return 'text-sky-600';
 });
 </script>
@@ -59,6 +61,16 @@ const titleClass = computed(() => {
             aria-hidden="true"
           >
             <path d="M20 3.33331C10.8 3.33331 3.33337 10.8 3.33337 20C3.33337 29.2 10.8 36.6666 20 36.6666C29.2 36.6666 36.6667 29.2 36.6667 20C36.6667 10.8 29.2 3.33331 20 3.33331ZM21.6667 28.3333H18.3334V25H21.6667V28.3333ZM21.6667 21.6666H18.3334V11.6666H21.6667V21.6666Z" />
+          </svg>
+
+          <svg
+            v-else-if="variant === 'error'"
+            class="h-6 w-6 fill-current text-white"
+            viewBox="0 0 40 40"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path d="M20 3.33331C10.8 3.33331 3.33337 10.8 3.33337 20C3.33337 29.2 10.8 36.6666 20 36.6666C29.2 36.6666 36.6667 29.2 36.6667 20C36.6667 10.8 29.2 3.33331 20 3.33331ZM27.0667 24.7166L24.7167 27.0666L20 22.35L15.2834 27.0666L12.9334 24.7166L17.65 20L12.9334 15.2833L15.2834 12.9333L20 17.65L24.7167 12.9333L27.0667 15.2833L22.35 20L27.0667 24.7166Z" />
           </svg>
 
           <span v-else class="flex gap-1.5" aria-hidden="true">

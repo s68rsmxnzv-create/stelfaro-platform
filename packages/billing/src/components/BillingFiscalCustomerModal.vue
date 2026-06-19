@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
-import { UiButton, UiCloseCircleIcon, UiEmailInput, UiFiscalDocumentInput, UiInput, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCloseCircleIcon, UiEmailInput, UiFiscalDocumentInput, UiInput, UiPhoneInput, UiSaveIcon, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
 
 type SelectOption = {
   value: string;
@@ -217,7 +217,7 @@ function submit(): void {
 
           <div class="grid gap-4 md:grid-cols-2">
             <UiEmailInput v-model="form.email" label="Correo" />
-            <UiInput v-model="form.phone" label="Telefono" />
+            <UiPhoneInput v-model="form.phone" label="Telefono" />
           </div>
 
           <p v-if="form.document.trim() && !detection.valid" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
@@ -227,7 +227,10 @@ function submit(): void {
 
         <div class="shrink-0 flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
           <UiButton variant="secondary" type="button" @click="emit('close')">Cancelar</UiButton>
-          <UiButton type="submit" :disabled="!canSave">{{ loading ? 'Guardando...' : 'Guardar cliente fiscal' }}</UiButton>
+          <UiButton variant="success" type="submit" :disabled="!canSave">
+            <UiSaveIcon v-if="!loading" class="mr-2 h-5 w-5" />
+            <span>{{ loading ? 'Guardando...' : 'Guardar cliente fiscal' }}</span>
+          </UiButton>
         </div>
       </form>
     </div>
