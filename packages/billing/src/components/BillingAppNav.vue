@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { CoreDteClient } from '@stelfaro/api-client';
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { getBillingContext, peekBillingContext } from '../support/billingDataCache';
 
 const props = defineProps({
@@ -39,6 +39,7 @@ const emit = defineEmits(['navigate']);
 const billingMenuOpen = ref(false);
 const eventMenuOpen = ref(false);
 const responsesMenuOpen = ref(false);
+const navRef = ref(null);
 const documentTypes = ref([]);
 const enabledEventTypes = ref([]);
 
@@ -90,6 +91,16 @@ const visibleEventOptions = computed(() => {
   const enabled = new Set(enabledEventTypes.value);
 
   return eventOptions.filter((option) => enabled.size === 0 || enabled.has(eventTypeBySlug[option.slug]));
+});
+
+onMounted(() => {
+  document.addEventListener('pointerdown', closeMenusOnOutsidePointerDown, true);
+  window.addEventListener('keydown', closeMenusOnEscape);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', closeMenusOnOutsidePointerDown, true);
+  window.removeEventListener('keydown', closeMenusOnEscape);
 });
 
 watch(() => props.authToken, async (token) => {
@@ -147,16 +158,33 @@ function toggleResponsesMenu() {
   eventMenuOpen.value = false;
 }
 
-function navigate(event, href) {
+function closeMenus() {
   billingMenuOpen.value = false;
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
+}
+
+function closeMenusOnOutsidePointerDown(event) {
+  if (!billingMenuOpen.value && !eventMenuOpen.value && !responsesMenuOpen.value) return;
+  if (navRef.value?.contains(event.target)) return;
+
+  closeMenus();
+}
+
+function closeMenusOnEscape(event) {
+  if (event.key === 'Escape') {
+    closeMenus();
+  }
+}
+
+function navigate(event, href) {
+  closeMenus();
   emit('navigate', { event, href });
 }
 </script>
 
 <template>
-  <div class="hidden items-center gap-1 md:flex">
+  <div ref="navRef" class="hidden items-center gap-1 md:flex">
     <div class="relative">
       <button
         class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
