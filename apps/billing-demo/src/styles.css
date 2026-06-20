@@ -1,12 +1,9 @@
-@import "../../../packages/ui/src/styles/theme.css";
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
-  background: var(--sf-color-app);
-  color: var(--sf-color-text);
+  background: #ffffff;
   margin: 0;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
