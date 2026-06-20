@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import { stelfaroTheme } from '../../packages/ui/tailwind-theme.js';
 
 export default {
   content: [
@@ -8,7 +9,7 @@ export default {
     '../../packages/ui/src/**/*.{vue,ts}'
   ],
   theme: {
-    extend: {}
+    extend: stelfaroTheme
   },
   plugins: []
 } satisfies Config;

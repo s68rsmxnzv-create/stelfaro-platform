@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import { stelfaroTheme } from '../../packages/ui/tailwind-theme.js';
 
 export default {
   content: [
@@ -8,6 +9,7 @@ export default {
   ],
   theme: {
     extend: {
+      ...stelfaroTheme,
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
       }
