@@ -5,9 +5,9 @@ import { UiInfoIcon } from '@stelfaro/ui';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingAppNav from '../components/BillingAppNav.vue';
 import BillingModalShell from '../components/BillingModalShell.vue';
+import BillingCompanySettingsPage from './BillingCompanySettingsPage.vue';
 import BillingDashboardPage from './BillingDashboardPage.vue';
 import BillingOperationalPlaceholderPage from './BillingOperationalPlaceholderPage.vue';
-import BillingSettingsPage from './BillingSettingsPage.vue';
 import BillingWorkspace from './BillingWorkspace.vue';
 import DteArtifactsPage from './DteArtifactsPage.vue';
 import MhEventResponsesPage from './MhEventResponsesPage.vue';
@@ -140,7 +140,7 @@ const moduleComponents = {
   'mh-events': MhEventsPage,
   'mh-responses': MhResponsesPage,
   'mh-event-responses': MhEventResponsesPage,
-  settings: BillingSettingsPage
+  settings: BillingCompanySettingsPage
 };
 const eventOptions = [
   { label: 'Invalidacion', slug: 'invalidacion' },
@@ -205,7 +205,7 @@ const pageTitle = computed(() => {
   if (props.module === 'artifacts') return 'Comprobantes';
   if (props.module === 'mh-responses') return 'Respuestas MH';
   if (props.module === 'mh-event-responses') return 'Respuestas MH - Eventos';
-  if (props.module === 'settings') return 'Configuracion fiscal';
+  if (props.module === 'settings') return 'Configuracion';
 
   return props.app.name;
 });
@@ -423,16 +423,16 @@ function navigateFromMenu(event, href) {
                     Panel administrativo
                   </a>
                   <a
-                    :href="`${appBaseUrl || ''}/configuracion-fiscal`"
+                    :href="`${appBaseUrl || ''}/configuracion`"
                     class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950"
                     role="menuitem"
-                    @click="navigateFromMenu($event, `${appBaseUrl || ''}/configuracion-fiscal`)"
+                    @click="navigateFromMenu($event, `${appBaseUrl || ''}/configuracion`)"
                   >
                     <svg class="h-5 w-5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                       <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
                       <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.05.05a2.1 2.1 0 1 1-2.97 2.97l-.05-.05a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.55V21a2.1 2.1 0 0 1-4.2 0v-.08a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.05.05a2.1 2.1 0 1 1-2.97-2.97l.05-.05A1.7 1.7 0 0 0 4.2 15a1.7 1.7 0 0 0-1.55-1H2.6a2.1 2.1 0 0 1 0-4.2h.08a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.05-.05A2.1 2.1 0 1 1 6.8 3.9l.05.05a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1-1.55V2.7a2.1 2.1 0 0 1 4.2 0v.08a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.05-.05a2.1 2.1 0 1 1 2.97 2.97l-.05.05a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.55 1h.08a2.1 2.1 0 0 1 0 4.2H21a1.7 1.7 0 0 0-1.6 1Z" />
                     </svg>
-                    Configuracion fiscal
+                    Configuracion
                   </a>
                 </div>
                 <div class="mt-2 border-t border-slate-200 pt-2">

@@ -2,6 +2,7 @@ export { default as BillingWorkspace } from './pages/BillingWorkspace.vue';
 export { default as BillingDashboardPage } from './pages/BillingDashboardPage.vue';
 export { default as BillingOperationalPlaceholderPage } from './pages/BillingOperationalPlaceholderPage.vue';
 export { default as BillingAppPage } from './pages/BillingAppPage.vue';
+export { default as BillingCompanySettingsPage } from './pages/BillingCompanySettingsPage.vue';
 export { default as BillingAppNav } from './components/BillingAppNav.vue';
 export { default as BillingModalShell } from './components/BillingModalShell.vue';
 export { default as BillingFloatingToastStack, type BillingFloatingToast } from './components/BillingFloatingToastStack.vue';

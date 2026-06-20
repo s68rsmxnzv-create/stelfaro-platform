@@ -24,7 +24,7 @@ const props = withDefaults(defineProps<{
   requestCredentials?: RequestCredentials;
   detailMode?: boolean;
   alwaysShowCompanySearch?: boolean;
-  companyAction?: { action: 'edit' | 'edit-data' | 'edit-fiscal' | 'edit-sucursales' | 'edit-correlativos' | 'toggle-status' | 'delete'; nonce: number } | null;
+  companyAction?: { action: 'summary' | 'edit' | 'edit-data' | 'edit-fiscal' | 'edit-sucursales' | 'edit-correlativos' | 'toggle-status' | 'delete'; nonce: number } | null;
 }>(), {
   coreBaseUrl: '/api/v1',
   authToken: null,
@@ -383,6 +383,15 @@ watch([editingCompany, editingFiscal, editingSucursales, editingCorrelativos], (
 
 watch(() => props.companyAction?.nonce, () => {
   if (!props.companyAction || !selectedEmpresa.value) {
+    return;
+  }
+
+  if (props.companyAction.action === 'summary') {
+    editingCompany.value = false;
+    editingFiscal.value = false;
+    editingSucursales.value = false;
+    editingCorrelativos.value = false;
+    requestAnimationFrame(() => document.getElementById('settings-summary')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     return;
   }
 
@@ -1539,7 +1548,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </div>
 
           <template v-if="props.detailMode && !editingCompany && !editingFiscal && !editingSucursales && !editingCorrelativos">
-            <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
+            <div id="settings-summary" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
               <div class="flex min-w-0 gap-4">
                 <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
                 <div v-else class="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-slate-900 text-lg font-bold text-white">
