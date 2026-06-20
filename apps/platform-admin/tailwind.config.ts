@@ -2,6 +2,7 @@ import type { Config } from 'tailwindcss';
 import { stelfaroTheme } from '../../packages/ui/tailwind-theme.js';
 
 export default {
+  darkMode: 'class',
   content: [
     './index.html',
     './src/**/*.{vue,ts}',
