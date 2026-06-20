@@ -67,60 +67,22 @@ function setCompanyView(view: SettingsCompanyView): void {
         <p v-if="selectedCompany" class="mt-1 truncate text-xs font-semibold text-slate-500">{{ selectedCompany.documentLabel }}</p>
       </div>
 
-      <nav class="flex-1 overflow-y-auto px-4 py-5" aria-label="Navegacion de configuracion">
+      <nav class="flex-1 overflow-y-auto px-4 py-5" aria-label="Opciones de configuracion">
         <div class="space-y-1">
-          <a
-            :href="dashboardUrl || appBaseUrl || '/'"
-            class="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+          <button
+            v-for="item in navItems"
+            :key="item.id"
+            type="button"
+            class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base transition"
+            :class="activeView === item.id ? 'bg-slate-100 font-bold text-slate-950' : 'font-semibold text-slate-800 hover:bg-slate-50 hover:text-slate-950'"
+            @click="openView(item)"
           >
-            <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-              <path d="m4 11 8-7 8 7" />
-              <path d="M6.5 10.5V20h11v-9.5" />
-            </svg>
-            Inicio
-          </a>
-
-          <a
-            :href="`${appBaseUrl || ''}/facturacion`"
-            class="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
-          >
-            <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-              <path d="M4 7h16M4 12h16M4 17h10" />
-              <path d="M17 17h3M18.5 15.5v3" />
-            </svg>
-            Facturar
-          </a>
-
-          <a
-            :href="`${appBaseUrl || ''}/comprobantes`"
-            class="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
-          >
-            <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-              <path d="M6 3h9l3 3v15H6z" />
-              <path d="M14 3v4h4M9 12h6M9 16h6" />
-            </svg>
-            DTE
-          </a>
-        </div>
-
-        <div class="mt-6 border-t border-slate-200 pt-5">
-          <p class="px-3 text-xs font-bold uppercase tracking-wide text-slate-500">Mi configuracion</p>
-          <div class="mt-3 space-y-1">
-            <button
-              v-for="item in navItems"
-              :key="item.id"
-              type="button"
-              class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base transition"
-              :class="activeView === item.id ? 'bg-slate-100 font-bold text-slate-950' : 'font-semibold text-slate-800 hover:bg-slate-50 hover:text-slate-950'"
-              @click="openView(item)"
-            >
-              <span class="h-2 w-2 shrink-0 rounded-full" :class="activeView === item.id ? 'bg-sky-600' : 'bg-slate-300'" />
-              <span class="min-w-0">
-                <span class="block truncate">{{ item.label }}</span>
-                <span class="block truncate text-xs font-medium text-slate-500">{{ item.detail }}</span>
-              </span>
-            </button>
-          </div>
+            <span class="h-2 w-2 shrink-0 rounded-full" :class="activeView === item.id ? 'bg-sky-600' : 'bg-slate-300'" />
+            <span class="min-w-0">
+              <span class="block truncate">{{ item.label }}</span>
+              <span class="block truncate text-xs font-medium text-slate-500">{{ item.detail }}</span>
+            </span>
+          </button>
         </div>
       </nav>
     </aside>
