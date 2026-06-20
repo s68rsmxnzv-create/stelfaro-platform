@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import type { DteDashboardSummary } from '@stelfaro/api-client';
+import { UiRefreshButton } from '@stelfaro/ui';
 import { useAdminSessionStore } from '../stores/adminSession';
 import { useCoreSessionStore } from '../stores/coreSession';
 
@@ -127,14 +128,12 @@ function shortDate(value: string): string {
           <h2 class="text-lg font-bold text-slate-950">DTE globales</h2>
           <p class="mt-1 text-sm text-slate-500">Actividad fiscal consolidada de los ultimos 30 dias.</p>
         </div>
-        <button
-          type="button"
-          class="h-10 rounded-md border border-slate-300 px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+        <UiRefreshButton
+          class="h-10"
+          :loading="loadingSummary"
           :disabled="loadingSummary || !core.isConnected"
           @click="loadSummary"
-        >
-          {{ loadingSummary ? 'Actualizando' : 'Actualizar' }}
-        </button>
+        />
       </div>
 
       <p v-if="summaryError" class="mt-4 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ summaryError }}</p>

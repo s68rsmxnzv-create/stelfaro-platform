@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import type { NotificationSenderAlias, NotificationSenderAliasPayload } from '@stelfaro/api-client';
-import { UiButton, UiEmailInput, UiSaveIcon } from '@stelfaro/ui';
+import { UiButton, UiEmailInput, UiRefreshButton, UiSaveIcon } from '@stelfaro/ui';
 import { useAdminSessionStore } from '../stores/adminSession';
 
 const purposes = [
@@ -120,13 +120,7 @@ function purposeLabel(value: string): string {
         </p>
       </div>
 
-      <button
-        type="button"
-        class="h-10 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700 hover:bg-white"
-        @click="loadAliases"
-      >
-        Actualizar
-      </button>
+      <UiRefreshButton class="h-10" :loading="loading" @click="loadAliases" />
     </div>
 
     <div v-if="!session.isConnected" class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

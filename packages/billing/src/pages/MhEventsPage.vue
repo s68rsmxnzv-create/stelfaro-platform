@@ -7,7 +7,7 @@ import {
   type MhFiscalEventSummary
 } from '@stelfaro/api-client';
 import { currency, fiscalDate, fiscalDateTime } from '@stelfaro/shared';
-import { UiButton, UiCard, UiSearchInput, UiLoadingMark, UiSaveIcon, UiTextarea } from '@stelfaro/ui';
+import { UiButton, UiCard, UiSearchInput, UiLoadingMark, UiRefreshButton, UiSaveIcon, UiTextarea } from '@stelfaro/ui';
 import BillingModalShell from '../components/BillingModalShell.vue';
 import BillingProcessModal from '../components/BillingProcessModal.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
@@ -2012,9 +2012,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 label="Filtrar candidatos"
                 placeholder="Numero de control, codigo, receptor o empresa"
               />
-              <UiButton type="button" variant="secondary" :disabled="contingencyCandidatesLoading" @click="loadContingencyCandidates">
-                Actualizar
-              </UiButton>
+              <UiRefreshButton :loading="contingencyCandidatesLoading" @click="loadContingencyCandidates" />
               <UiButton
                 type="button"
                 :disabled="filteredContingencyCandidates.length === 0"

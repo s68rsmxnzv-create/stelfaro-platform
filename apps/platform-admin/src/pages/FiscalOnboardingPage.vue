@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import type { BillingCompanyResponse } from '@stelfaro/api-client';
 import { BillingFloatingToastStack, BillingOnboardingPage, type BillingFloatingToast } from '@stelfaro/billing';
-import { UiLoadingMark, UiToggle } from '@stelfaro/ui';
+import { UiLoadingMark, UiRefreshButton, UiToggle } from '@stelfaro/ui';
 import { useCoreSessionStore } from '../stores/coreSession';
 
 const core = useCoreSessionStore();
@@ -270,14 +270,11 @@ function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
                 <div>
                   <p class="text-sm font-semibold text-slate-950">Apps habilitadas</p>
                 </div>
-                <button
-                  type="button"
-                  class="self-start rounded-md px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 sm:self-auto"
-                  :disabled="loadingApps"
+                <UiRefreshButton
+                  class="self-start px-3 py-1.5 text-xs sm:self-auto"
+                  :loading="loadingApps"
                   @click="loadPlatformApps"
-                >
-                  Actualizar
-                </button>
+                />
               </div>
 
               <div v-if="loadingApps" class="text-sm text-slate-500">Cargando apps disponibles...</div>

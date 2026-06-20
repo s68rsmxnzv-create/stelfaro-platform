@@ -15,7 +15,7 @@ import {
   type DteDashboardSummary,
   type MhBearerVerification
 } from '@stelfaro/api-client';
-import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiPhoneInput, UiSaveIcon, UiSearchInput, UiSearchSelect, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiPhoneInput, UiRefreshButton, UiSaveIcon, UiSearchInput, UiSearchSelect, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
 import BillingModalShell from '../components/BillingModalShell.vue';
 
 const props = withDefaults(defineProps<{
@@ -1821,7 +1821,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                     <option value="00">Pruebas</option>
                     <option value="01">Produccion</option>
                   </select>
-                  <UiButton variant="secondary" :disabled="correlativosLoading || !form.empresa_id" @click="loadCorrelativos">Actualizar</UiButton>
+                  <UiRefreshButton :loading="correlativosLoading" :disabled="!form.empresa_id" @click="loadCorrelativos" />
                 </div>
               </div>
 
