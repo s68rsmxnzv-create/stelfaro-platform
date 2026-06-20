@@ -166,6 +166,8 @@ const selectedComponentProps = computed(() => {
   const baseProps = {
     authToken: props.authToken,
     coreBaseUrl: props.coreBaseUrl,
+    appBaseUrl: props.appBaseUrl,
+    dashboardUrl: props.dashboardUrl || props.appBaseUrl || '/',
     billingContextCacheScope: billingContextCacheScope.value
   };
 
@@ -315,7 +317,20 @@ function navigateFromMenu(event, href) {
 </script>
 
 <template>
-  <div class="relative min-h-screen overflow-x-hidden bg-white pt-16 text-slate-950">
+  <div v-if="module === 'settings'" class="min-h-screen bg-slate-50 text-slate-950">
+    <div v-if="!authToken" class="mx-auto max-w-3xl px-4 py-8">
+      <div class="rounded-md border border-red-200 bg-red-50 p-5 text-red-700">
+        No fue posible abrir la sesion fiscal.
+      </div>
+    </div>
+    <component
+      :is="selectedComponent"
+      v-else
+      v-bind="selectedComponentProps"
+    />
+  </div>
+
+  <div v-else class="relative min-h-screen overflow-x-hidden bg-white pt-16 text-slate-950">
     <div
       class="pointer-events-none fixed inset-0 z-0"
       style="background: #ffffff; background-image: radial-gradient(circle at top center, rgba(59, 130, 246, 0.28), transparent 42rem);"
@@ -424,9 +439,11 @@ function navigateFromMenu(event, href) {
                   </a>
                   <a
                     :href="`${appBaseUrl || ''}/configuracion`"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950"
                     role="menuitem"
-                    @click="navigateFromMenu($event, `${appBaseUrl || ''}/configuracion`)"
+                    @click="userMenuOpen = false"
                   >
                     <svg class="h-5 w-5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                       <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />

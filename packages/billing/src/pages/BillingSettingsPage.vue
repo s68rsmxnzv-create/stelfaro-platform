@@ -309,8 +309,12 @@ const canSaveSucursal = computed(() => Boolean(
   && sucursalForm.departamento.trim()
   && sucursalForm.municipio.trim()
 ));
+const maxSucursalesPerCompany = 3;
+const isBackofficeUser = computed(() => Boolean(context.value?.user?.is_backoffice));
+const reachedSucursalLimit = computed(() => !isBackofficeUser.value && (selectedEmpresa.value?.sucursales.length ?? 0) >= maxSucursalesPerCompany);
 const canCreateSucursal = computed(() => Boolean(
   selectedEmpresa.value
+  && !reachedSucursalLimit.value
   && newSucursalForm.nombre.trim()
   && newSucursalForm.codigo.trim()
   && newSucursalForm.direccion.trim()
@@ -1692,7 +1696,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 <div class="flex flex-wrap gap-2">
                   <UiButton
                     variant="secondary"
-                    :disabled="loading || isInactive"
+                    :disabled="loading || isInactive || reachedSucursalLimit"
                     @click="resetNewSucursalForm(); creatingSucursal = true"
                   >
                     Nueva sucursal
@@ -1703,6 +1707,10 @@ function markLogoBroken(empresa: BillingEmpresa): void {
 
               <div class="mt-5 grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
                 <div class="space-y-3">
+                  <p v-if="reachedSucursalLimit" class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                    Limite alcanzado: casa matriz y 2 sucursales adicionales.
+                  </p>
+
                   <div class="rounded-md border border-slate-200 bg-white">
                     <button
                       v-for="sucursal in sucursales"
