@@ -2088,14 +2088,14 @@ function updatePaymentCondition(value: string): void {
                 <div v-if="selectedSucursal && selectedPuntoVenta" class="mt-3 flex flex-wrap items-center gap-2">
                   <span
                     v-if="billingStationPreference"
-                    class="rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700"
+                    class="rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-success-soft dark:text-success"
                   >
                     Equipo fijado: {{ billingStationPreference.sucursalId === selectedSucursal.id && billingStationPreference.puntoVentaId === selectedPuntoVenta.id ? `${selectedSucursal.codigo} · ${selectedPuntoVenta.codigo}` : 'otra sucursal' }}
                   </span>
                   <template v-if="canManageBillingStation">
                     <button
                       type="button"
-                      class="rounded px-2 py-1 text-xs font-semibold text-sky-700 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      class="rounded px-2 py-1 text-xs font-semibold text-sky-700 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-primary dark:hover:bg-primary-soft dark:hover:text-white"
                       :disabled="selectedStationIsFixed"
                       @click="saveBillingStationPreference"
                     >
@@ -2113,7 +2113,7 @@ function updatePaymentCondition(value: string): void {
                 </div>
               </div>
               <div class="flex flex-wrap items-end justify-between gap-3 border-t border-slate-200 pt-3 dark:border-line">
-                <p v-if="correlativoLoading" class="inline-flex items-center gap-2 text-sm font-medium text-sky-700">
+                <p v-if="correlativoLoading" class="inline-flex items-center gap-2 text-sm font-medium text-sky-700 dark:text-primary">
                   <span class="h-4 w-4 animate-spin rounded-full border-2 border-sky-200 border-t-sky-700"></span>
                   Consultando correlativo disponible...
                 </p>
@@ -2122,10 +2122,10 @@ function updatePaymentCondition(value: string): void {
                   <span
                     class="inline-flex max-w-full items-center gap-2 rounded px-2 py-1 text-xs font-semibold"
                     :class="correlativoLoading
-                      ? 'bg-sky-100 text-sky-700'
+                      ? 'bg-sky-100 text-sky-700 dark:bg-primary-soft dark:text-white'
                       : correlativoPreview
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-red-100 text-red-700'"
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-success-soft dark:text-success'
+                        : 'bg-red-100 text-red-700 dark:bg-danger-soft dark:text-danger'"
                   >
                     <template v-if="correlativoPreview">
                       <span class="shrink-0">Numero correlativo</span>
@@ -2201,7 +2201,7 @@ function updatePaymentCondition(value: string): void {
               :key="mode.key"
               class="rounded-lg px-4 py-2 text-sm font-semibold tracking-wide transition-colors duration-200 focus:outline-none focus:ring focus:ring-sky-300 focus:ring-opacity-70"
               :class="[
-                customerMode === mode.key ? 'bg-sky-600 text-white hover:bg-sky-500 dark:bg-primary-soft dark:text-primary dark:hover:bg-surface-strong' : 'border border-blue-100 bg-blue-50/45 text-slate-900 shadow-sm shadow-blue-950/5 hover:bg-blue-100/60 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:hover:bg-surface-strong',
+                customerMode === mode.key ? 'bg-sky-600 text-white hover:bg-sky-500 dark:bg-primary-soft dark:text-white dark:hover:bg-primary' : 'border border-blue-100 bg-blue-50/45 text-slate-900 shadow-sm shadow-blue-950/5 hover:bg-blue-100/60 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:hover:bg-surface-strong',
                 mode.key === 'generic' && requiresCustomerIdentificationByAmount ? 'cursor-not-allowed opacity-50 hover:bg-blue-50/45' : ''
               ]"
               :disabled="mode.key === 'generic' && requiresCustomerIdentificationByAmount"
