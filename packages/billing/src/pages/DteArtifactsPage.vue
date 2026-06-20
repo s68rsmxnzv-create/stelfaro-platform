@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { CoreDteClient, type DteDraftSummary, type MhFiscalEventSummary, type PaginationMeta } from '@stelfaro/api-client';
 import { currency, fiscalDateTime } from '@stelfaro/shared';
-import { UiCard, UiCodeBracketIcon, UiDocumentIcon, UiDotsVerticalIcon, UiLoadingMark, UiMailIcon, UiSearchInput } from '@stelfaro/ui';
+import { UiActionDropdown, UiCard, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiMailIcon, UiSearchInput } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -26,7 +26,6 @@ const openingJsonId = ref<number | null>(null);
 const openingEventPdfId = ref<number | null>(null);
 const openingEventJsonId = ref<number | null>(null);
 const resendingEmailId = ref<number | null>(null);
-const openActionMenuId = ref<string | null>(null);
 const error = ref<string | null>(null);
 const success = ref<string | null>(null);
 const query = ref('');
@@ -51,14 +50,7 @@ const resultCount = computed(() => currentMeta.value?.total ?? (activeTab.value 
 const paginationItems = computed<PageItem[]>(() => pageItems(currentMeta.value?.last_page ?? 1, currentPage.value));
 
 onMounted(() => {
-  document.addEventListener('pointerdown', closeActionMenuOnOutsidePointerDown, true);
-  window.addEventListener('keydown', closeActionMenuOnEscape);
   void loadActiveTab();
-});
-
-onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', closeActionMenuOnOutsidePointerDown, true);
-  window.removeEventListener('keydown', closeActionMenuOnEscape);
 });
 
 watch(query, () => {
@@ -187,36 +179,6 @@ function fallbackMeta(total: number, page: number): PaginationMeta {
   };
 }
 
-function actionMenuId(type: ArtifactTab, id: number): string {
-  return `${type}:${id}`;
-}
-
-function toggleActionMenu(type: ArtifactTab, id: number): void {
-  const next = actionMenuId(type, id);
-  openActionMenuId.value = openActionMenuId.value === next ? null : next;
-}
-
-function closeActionMenu(): void {
-  openActionMenuId.value = null;
-}
-
-function closeActionMenuOnOutsidePointerDown(event: PointerEvent): void {
-  if (!openActionMenuId.value) return;
-
-  const target = event.target;
-  if (target instanceof Element && target.closest('[data-dte-action-menu]')) {
-    return;
-  }
-
-  closeActionMenu();
-}
-
-function closeActionMenuOnEscape(event: KeyboardEvent): void {
-  if (event.key === 'Escape') {
-    closeActionMenu();
-  }
-}
-
 async function openPdf(document: DteDraftSummary): Promise<void> {
   if (!supportedTypes.has(document.tipoDte)) return;
 
@@ -323,31 +285,6 @@ async function resendEmail(document: DteDraftSummary): Promise<void> {
   } finally {
     resendingEmailId.value = null;
   }
-}
-
-function openDocumentPdfFromMenu(document: DteDraftSummary): void {
-  closeActionMenu();
-  void openPdf(document);
-}
-
-function openDocumentJsonFromMenu(document: DteDraftSummary): void {
-  closeActionMenu();
-  void openJson(document);
-}
-
-function resendEmailFromMenu(document: DteDraftSummary): void {
-  closeActionMenu();
-  void resendEmail(document);
-}
-
-function openEventPdfFromMenu(event: MhFiscalEventSummary): void {
-  closeActionMenu();
-  void openEventPdf(event);
-}
-
-function openEventJsonFromMenu(event: MhFiscalEventSummary): void {
-  closeActionMenu();
-  void openEventJson(event);
 }
 
 function openBlob(target: Window | null, blob: Blob, label: string): void {
@@ -544,54 +481,39 @@ function formatDate(value?: string | null): string {
               <p class="mt-1 text-sm font-semibold text-slate-900">{{ currency(document.totalPagar ?? 0) }}</p>
             </div>
 
-            <div class="relative flex justify-start md:justify-end" data-dte-action-menu>
+            <UiActionDropdown label="Abrir acciones del comprobante" menu-width="w-52">
               <button
                 type="button"
-                class="grid h-10 w-10 place-items-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-100"
-                :aria-expanded="openActionMenuId === actionMenuId('dte', document.id) ? 'true' : 'false'"
-                aria-label="Abrir acciones del comprobante"
-                @click="toggleActionMenu('dte', document.id)"
+                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="openingPdfId === document.id"
+                @click="openPdf(document)"
               >
-                <UiDotsVerticalIcon class="h-5 w-5" />
+                <UiDocumentIcon class="h-5 w-5 text-sky-600" />
+                <span>{{ openingPdfId === document.id ? 'Abriendo PDF...' : 'Abrir PDF' }}</span>
               </button>
 
-              <div
-                v-if="openActionMenuId === actionMenuId('dte', document.id)"
-                class="absolute right-auto top-11 z-30 w-52 origin-top-left rounded-md border border-slate-200 bg-white py-2 text-sm shadow-xl shadow-slate-950/10 md:right-0 md:origin-top-right"
+              <button
+                type="button"
+                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="openingJsonId === document.id"
+                @click="openJson(document)"
               >
-                <button
-                  type="button"
-                  class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-                  :disabled="openingPdfId === document.id"
-                  @click="openDocumentPdfFromMenu(document)"
-                >
-                  <UiDocumentIcon class="h-5 w-5 text-sky-600" />
-                  <span>{{ openingPdfId === document.id ? 'Abriendo PDF...' : 'Abrir PDF' }}</span>
-                </button>
+                <UiCodeBracketIcon class="h-5 w-5 text-sky-600" />
+                <span>{{ openingJsonId === document.id ? 'Abriendo JSON...' : 'Abrir JSON' }}</span>
+              </button>
 
-                <button
-                  type="button"
-                  class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-                  :disabled="openingJsonId === document.id"
-                  @click="openDocumentJsonFromMenu(document)"
-                >
-                  <UiCodeBracketIcon class="h-5 w-5 text-sky-600" />
-                  <span>{{ openingJsonId === document.id ? 'Abriendo JSON...' : 'Abrir JSON' }}</span>
-                </button>
+              <div class="my-1 border-t border-slate-100"></div>
 
-                <div class="my-1 border-t border-slate-100"></div>
-
-                <button
-                  type="button"
-                  class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-                  :disabled="resendingEmailId === document.id"
-                  @click="resendEmailFromMenu(document)"
-                >
-                  <UiMailIcon class="h-5 w-5 text-sky-600" />
-                  <span>{{ resendingEmailId === document.id ? 'Encolando correo...' : 'Reenviar correo' }}</span>
-                </button>
-              </div>
-            </div>
+              <button
+                type="button"
+                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="resendingEmailId === document.id"
+                @click="resendEmail(document)"
+              >
+                <UiMailIcon class="h-5 w-5 text-sky-600" />
+                <span>{{ resendingEmailId === document.id ? 'Encolando correo...' : 'Reenviar correo' }}</span>
+              </button>
+            </UiActionDropdown>
           </article>
         </div>
 
@@ -612,42 +534,27 @@ function formatDate(value?: string | null): string {
 
             <p class="text-sm text-slate-600">{{ formatDate(event.processed_at ?? event.created_at) }}</p>
 
-            <div class="relative flex justify-start md:justify-end" data-dte-action-menu>
+            <UiActionDropdown label="Abrir acciones del evento" menu-width="w-48">
               <button
                 type="button"
-                class="grid h-10 w-10 place-items-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-100"
-                :aria-expanded="openActionMenuId === actionMenuId('events', event.id) ? 'true' : 'false'"
-                aria-label="Abrir acciones del evento"
-                @click="toggleActionMenu('events', event.id)"
+                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="openingEventPdfId === event.id"
+                @click="openEventPdf(event)"
               >
-                <UiDotsVerticalIcon class="h-5 w-5" />
+                <UiDocumentIcon class="h-5 w-5 text-sky-600" />
+                <span>{{ openingEventPdfId === event.id ? 'Abriendo PDF...' : 'Abrir PDF' }}</span>
               </button>
 
-              <div
-                v-if="openActionMenuId === actionMenuId('events', event.id)"
-                class="absolute right-auto top-11 z-30 w-48 origin-top-left rounded-md border border-slate-200 bg-white py-2 text-sm shadow-xl shadow-slate-950/10 md:right-0 md:origin-top-right"
+              <button
+                type="button"
+                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="openingEventJsonId === event.id"
+                @click="openEventJson(event)"
               >
-                <button
-                  type="button"
-                  class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-                  :disabled="openingEventPdfId === event.id"
-                  @click="openEventPdfFromMenu(event)"
-                >
-                  <UiDocumentIcon class="h-5 w-5 text-sky-600" />
-                  <span>{{ openingEventPdfId === event.id ? 'Abriendo PDF...' : 'Abrir PDF' }}</span>
-                </button>
-
-                <button
-                  type="button"
-                  class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-                  :disabled="openingEventJsonId === event.id"
-                  @click="openEventJsonFromMenu(event)"
-                >
-                  <UiCodeBracketIcon class="h-5 w-5 text-sky-600" />
-                  <span>{{ openingEventJsonId === event.id ? 'Abriendo JSON...' : 'Abrir JSON' }}</span>
-                </button>
-              </div>
-            </div>
+                <UiCodeBracketIcon class="h-5 w-5 text-sky-600" />
+                <span>{{ openingEventJsonId === event.id ? 'Abriendo JSON...' : 'Abrir JSON' }}</span>
+              </button>
+            </UiActionDropdown>
           </article>
         </div>
 
