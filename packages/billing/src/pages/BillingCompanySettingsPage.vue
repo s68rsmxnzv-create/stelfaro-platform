@@ -55,18 +55,25 @@ function setCompanyView(view: SettingsCompanyView): void {
 
 <template>
   <div class="min-h-screen bg-slate-50">
-    <aside class="fixed inset-y-0 left-0 z-30 hidden w-[420px] border-r border-slate-200 bg-white lg:flex">
-      <div class="flex w-24 flex-col border-r border-slate-200">
-        <div class="grid h-16 place-items-center border-b border-slate-200">
-          <span class="text-lg font-black tracking-tight text-slate-950">SF</span>
-        </div>
+    <aside class="fixed inset-y-0 left-0 z-30 hidden w-80 flex-col border-r border-slate-200 bg-white lg:flex">
+      <div class="flex h-16 items-center gap-3 border-b border-slate-200 px-6">
+        <span class="grid h-9 w-9 place-items-center rounded-md bg-slate-950 text-sm font-black tracking-tight text-white">SF</span>
+        <span class="text-sm font-black uppercase tracking-wide text-slate-950">Configuracion</span>
+      </div>
 
-        <nav class="flex-1 overflow-y-auto px-2 py-4" aria-label="Navegacion de configuracion">
+      <div class="border-b border-slate-200 px-6 py-5">
+        <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Empresa</p>
+        <p class="mt-1 truncate text-lg font-bold text-slate-950">{{ companyTitle }}</p>
+        <p v-if="selectedCompany" class="mt-1 truncate text-xs font-semibold text-slate-500">{{ selectedCompany.documentLabel }}</p>
+      </div>
+
+      <nav class="flex-1 overflow-y-auto px-4 py-5" aria-label="Navegacion de configuracion">
+        <div class="space-y-1">
           <a
             :href="dashboardUrl || appBaseUrl || '/'"
-            class="flex flex-col items-center gap-1 rounded-lg px-2 py-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+            class="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
           >
-            <svg class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+            <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
               <path d="m4 11 8-7 8 7" />
               <path d="M6.5 10.5V20h11v-9.5" />
             </svg>
@@ -75,9 +82,9 @@ function setCompanyView(view: SettingsCompanyView): void {
 
           <a
             :href="`${appBaseUrl || ''}/facturacion`"
-            class="mt-1 flex flex-col items-center gap-1 rounded-lg px-2 py-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+            class="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
           >
-            <svg class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+            <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
               <path d="M4 7h16M4 12h16M4 17h10" />
               <path d="M17 17h3M18.5 15.5v3" />
             </svg>
@@ -86,37 +93,19 @@ function setCompanyView(view: SettingsCompanyView): void {
 
           <a
             :href="`${appBaseUrl || ''}/comprobantes`"
-            class="mt-1 flex flex-col items-center gap-1 rounded-lg px-2 py-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+            class="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
           >
-            <svg class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+            <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
               <path d="M6 3h9l3 3v15H6z" />
               <path d="M14 3v4h4M9 12h6M9 16h6" />
             </svg>
             DTE
           </a>
-
-          <button
-            type="button"
-            class="mt-1 flex w-full flex-col items-center gap-1 rounded-lg bg-slate-100 px-2 py-3 text-xs font-bold text-slate-950"
-          >
-            <svg class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-              <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
-              <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.05.05a2.1 2.1 0 1 1-2.97 2.97l-.05-.05a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.55V21a2.1 2.1 0 0 1-4.2 0v-.08a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.05.05a2.1 2.1 0 1 1-2.97-2.97l.05-.05A1.7 1.7 0 0 0 4.2 15a1.7 1.7 0 0 0-1.55-1H2.6a2.1 2.1 0 0 1 0-4.2h.08a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.05-.05A2.1 2.1 0 1 1 6.8 3.9l.05.05a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1-1.55V2.7a2.1 2.1 0 0 1 4.2 0v.08a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.05-.05a2.1 2.1 0 1 1 2.97 2.97l-.05.05a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.55 1h.08a2.1 2.1 0 0 1 0 4.2H21a1.7 1.7 0 0 0-1.6 1Z" />
-            </svg>
-            Config.
-          </button>
-        </nav>
-      </div>
-
-      <div class="flex min-w-0 flex-1 flex-col">
-        <div class="border-b border-slate-200 px-5 py-4">
-          <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Empresa</p>
-          <p class="mt-1 truncate text-lg font-bold text-slate-950">{{ companyTitle }}</p>
-          <p v-if="selectedCompany" class="mt-1 truncate text-xs font-semibold text-slate-500">{{ selectedCompany.documentLabel }}</p>
         </div>
 
-        <nav class="flex-1 overflow-y-auto px-4 py-5" aria-label="Opciones de empresa">
-          <div class="space-y-1">
+        <div class="mt-6 border-t border-slate-200 pt-5">
+          <p class="px-3 text-xs font-bold uppercase tracking-wide text-slate-500">Mi configuracion</p>
+          <div class="mt-3 space-y-1">
             <button
               v-for="item in navItems"
               :key="item.id"
@@ -125,20 +114,18 @@ function setCompanyView(view: SettingsCompanyView): void {
               :class="activeView === item.id ? 'bg-slate-100 font-bold text-slate-950' : 'font-semibold text-slate-800 hover:bg-slate-50 hover:text-slate-950'"
               @click="openView(item)"
             >
-              <span class="grid h-[22px] w-[22px] place-items-center text-xs font-black" :class="activeView === item.id ? 'text-slate-950' : 'text-slate-600'">
-                {{ item.label.slice(0, 2).toUpperCase() }}
-              </span>
+              <span class="h-2 w-2 shrink-0 rounded-full" :class="activeView === item.id ? 'bg-sky-600' : 'bg-slate-300'" />
               <span class="min-w-0">
                 <span class="block truncate">{{ item.label }}</span>
                 <span class="block truncate text-xs font-medium text-slate-500">{{ item.detail }}</span>
               </span>
             </button>
           </div>
-        </nav>
-      </div>
+        </div>
+      </nav>
     </aside>
 
-    <main class="px-4 py-6 sm:px-6 lg:pl-[444px] lg:pr-8">
+    <main class="px-4 py-6 sm:px-6 lg:pl-[344px] lg:pr-8">
       <div class="mb-5 flex items-center overflow-x-auto whitespace-nowrap">
         <a :href="dashboardUrl || appBaseUrl || '/'" class="text-slate-600 transition hover:text-slate-950" aria-label="Inicio">
           <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
