@@ -73,10 +73,12 @@ const props = defineProps({
 const dteHelpModalOpen = ref(false);
 const userMenuOpen = ref(false);
 const userMenuRef = ref(null);
+const darkMode = ref(false);
 const contextLoading = ref(false);
 const documentTypes = ref([]);
 const billingCompanies = ref([]);
 const emit = defineEmits(['logout', 'navigate']);
+const themeStorageKey = 'stelfaro:theme';
 
 const documentTypeBySlug = {
   fe: '01',
@@ -217,6 +219,7 @@ const billingContextCacheScope = computed(() => props.user?.email ?? props.app?.
 const companyLogoUrl = computed(() => activeCompany.value?.logo_url ?? null);
 const displayName = computed(() => props.user?.name ?? props.app?.name ?? 'Stelfaro');
 const firstName = computed(() => displayName.value.split(' ').filter(Boolean)[0] ?? 'Stelfaro');
+const themeLabel = computed(() => (darkMode.value ? 'Modo claro' : 'Modo oscuro'));
 const initials = computed(() => {
   return displayName.value
     .split(' ')
@@ -269,6 +272,7 @@ watch(() => props.user?.email, () => {
 });
 
 onMounted(() => {
+  initializeTheme();
   window.addEventListener('keydown', closeDteHelpOnEscape);
   document.addEventListener('click', closeUserMenuOnOutsideClick);
 });
@@ -306,6 +310,25 @@ function logout() {
   emit('logout');
 }
 
+function initializeTheme() {
+  const storedTheme = window.localStorage.getItem(themeStorageKey);
+  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+
+  darkMode.value = storedTheme ? storedTheme === 'dark' : prefersDark;
+  applyTheme();
+}
+
+function applyTheme() {
+  document.documentElement.classList.toggle('dark', darkMode.value);
+  document.documentElement.dataset.theme = darkMode.value ? 'dark' : 'light';
+}
+
+function toggleTheme() {
+  darkMode.value = !darkMode.value;
+  window.localStorage.setItem(themeStorageKey, darkMode.value ? 'dark' : 'light');
+  applyTheme();
+}
+
 function navigate(event, href) {
   emit('navigate', { event, href });
 }
@@ -317,7 +340,7 @@ function navigateFromMenu(event, href) {
 </script>
 
 <template>
-  <div v-if="module === 'settings'" class="min-h-screen bg-slate-50 text-slate-950">
+  <div v-if="module === 'settings'" class="min-h-screen bg-slate-50 text-slate-950 dark:bg-app dark:text-text">
     <div v-if="!authToken" class="mx-auto max-w-3xl px-4 py-8">
       <div class="rounded-md border border-red-200 bg-red-50 p-5 text-red-700">
         No fue posible abrir la sesion fiscal.
@@ -330,10 +353,10 @@ function navigateFromMenu(event, href) {
     />
   </div>
 
-  <div v-else class="relative min-h-screen overflow-x-hidden bg-white pt-16 text-slate-950">
+  <div v-else class="relative min-h-screen overflow-x-hidden bg-white pt-16 text-slate-950 dark:bg-app dark:text-text">
     <div
       class="pointer-events-none fixed inset-0 z-0"
-      style="background: #ffffff; background-image: radial-gradient(circle at top center, rgba(59, 130, 246, 0.28), transparent 42rem);"
+      :style="darkMode ? 'background: rgb(17 19 24); background-image: radial-gradient(circle at top center, rgb(170 199 255 / 0.16), transparent 42rem);' : 'background: #ffffff; background-image: radial-gradient(circle at top center, rgba(59, 130, 246, 0.28), transparent 42rem);'"
     ></div>
 
     <nav class="fixed inset-x-0 top-0 z-50 bg-slate-900/95 shadow-sm backdrop-blur">
@@ -401,21 +424,21 @@ function navigateFromMenu(event, href) {
 
               <div
                 v-if="userMenuOpen"
-                class="absolute right-0 z-30 mt-3 w-80 origin-top-right rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-xl shadow-slate-950/15"
+                class="absolute right-0 z-30 mt-3 w-80 origin-top-right rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-xl shadow-slate-950/15 dark:border-line dark:bg-surface dark:text-text dark:shadow-black/30"
                 role="menu"
               >
                 <div class="px-1 pb-4">
-                  <p class="truncate text-sm font-semibold text-slate-950">{{ user?.name ?? app.name }}</p>
-                  <p class="mt-1 truncate text-sm text-slate-500">{{ user?.email ?? 'Sesion activa' }}</p>
+                  <p class="truncate text-sm font-semibold text-slate-950 dark:text-text">{{ user?.name ?? app.name }}</p>
+                  <p class="mt-1 truncate text-sm text-slate-500 dark:text-muted">{{ user?.email ?? 'Sesion activa' }}</p>
                 </div>
                 <div class="space-y-1 py-2 text-sm font-semibold">
                   <a
                     :href="dashboardHref"
-                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text"
                     role="menuitem"
                     @click="navigateFromMenu($event, dashboardHref)"
                   >
-                    <svg class="h-5 w-5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <svg class="h-5 w-5 text-slate-500 dark:text-soft" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                       <path d="M4 11.5 12 4l8 7.5" />
                       <path d="M6.5 10.5V20h11v-9.5" />
                     </svg>
@@ -426,11 +449,11 @@ function navigateFromMenu(event, href) {
                     :href="platformAdminUrl"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text"
                     role="menuitem"
                     @click="userMenuOpen = false"
                   >
-                    <svg class="h-5 w-5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <svg class="h-5 w-5 text-slate-500 dark:text-soft" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                       <path d="M4 5h16" />
                       <path d="M4 12h16" />
                       <path d="M4 19h16" />
@@ -441,25 +464,45 @@ function navigateFromMenu(event, href) {
                     :href="`${appBaseUrl || ''}/configuracion`"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text"
                     role="menuitem"
                     @click="userMenuOpen = false"
                   >
-                    <svg class="h-5 w-5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <svg class="h-5 w-5 text-slate-500 dark:text-soft" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                       <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
                       <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.05.05a2.1 2.1 0 1 1-2.97 2.97l-.05-.05a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.55V21a2.1 2.1 0 0 1-4.2 0v-.08a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.05.05a2.1 2.1 0 1 1-2.97-2.97l.05-.05A1.7 1.7 0 0 0 4.2 15a1.7 1.7 0 0 0-1.55-1H2.6a2.1 2.1 0 0 1 0-4.2h.08a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.05-.05A2.1 2.1 0 1 1 6.8 3.9l.05.05a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1-1.55V2.7a2.1 2.1 0 0 1 4.2 0v.08a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.05-.05a2.1 2.1 0 1 1 2.97 2.97l-.05.05a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.55 1h.08a2.1 2.1 0 0 1 0 4.2H21a1.7 1.7 0 0 0-1.6 1Z" />
                     </svg>
                     Configuracion
                   </a>
-                </div>
-                <div class="mt-2 border-t border-slate-200 pt-2">
                   <button
-                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-700"
+                    class="flex w-full items-center justify-between gap-4 rounded-lg px-3 py-3 text-left text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text"
+                    type="button"
+                    role="menuitem"
+                    @click="toggleTheme"
+                  >
+                    <span class="flex items-center gap-4">
+                      <svg v-if="darkMode" class="h-5 w-5 text-slate-500 dark:text-soft" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07l-1.41 1.41M20.48 3.52l-1.41 1.41" />
+                        <path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
+                      </svg>
+                      <svg v-else class="h-5 w-5 text-slate-500 dark:text-soft" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <path d="M21 13.1A8.3 8.3 0 0 1 10.9 3 7.8 7.8 0 1 0 21 13.1Z" />
+                      </svg>
+                      {{ themeLabel }}
+                    </span>
+                    <span class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full bg-slate-200 transition dark:bg-primary-soft">
+                      <span class="inline-block h-5 w-5 transform rounded-full bg-white shadow transition" :class="darkMode ? 'translate-x-5' : 'translate-x-1'" />
+                    </span>
+                  </button>
+                </div>
+                <div class="mt-2 border-t border-slate-200 pt-2 dark:border-line">
+                  <button
+                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-700 dark:text-muted dark:hover:bg-danger-soft dark:hover:text-danger"
                     type="button"
                     role="menuitem"
                     @click="logout"
                   >
-                    <svg class="h-5 w-5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <svg class="h-5 w-5 text-slate-500 dark:text-soft" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                       <path d="M15 17l5-5-5-5" />
                       <path d="M20 12H9" />
                       <path d="M11 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6" />
@@ -474,10 +517,10 @@ function navigateFromMenu(event, href) {
       </div>
     </nav>
 
-    <header class="relative z-10 border-b border-blue-100/70 bg-white/85 shadow-sm shadow-blue-950/5 backdrop-blur">
+    <header class="relative z-10 border-b border-blue-100/70 bg-white/85 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:shadow-black/20">
       <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div class="flex flex-wrap items-center gap-3">
-          <h1 class="text-3xl font-bold tracking-tight text-slate-950">{{ pageTitle }}</h1>
+          <h1 class="text-3xl font-bold tracking-tight text-slate-950 dark:text-text">{{ pageTitle }}</h1>
           <div v-if="currentDteHelp">
             <button
               class="grid h-9 w-9 place-items-center rounded-full border border-sky-200 bg-sky-50 text-sky-700 shadow-sm shadow-sky-950/5 transition hover:border-sky-300 hover:bg-sky-100 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
