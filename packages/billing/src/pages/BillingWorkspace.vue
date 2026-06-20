@@ -236,6 +236,17 @@ const customerModes = computed(() => {
 
   return requiresStructuredCustomer.value ? fiscalCustomerModes : simpleCustomerModes;
 });
+function customerModeButtonClass(mode: { key: CustomerMode }): string[] {
+  const selected = customerMode.value === mode.key;
+  const disabledByAmount = mode.key === 'generic' && requiresCustomerIdentificationByAmount.value;
+
+  return [
+    selected
+      ? 'bg-sky-700 text-white shadow-sm shadow-sky-950/15 hover:bg-sky-600 dark:bg-primary-soft dark:text-white dark:hover:bg-primary'
+      : 'border border-blue-100 bg-blue-50/45 text-slate-900 shadow-sm shadow-blue-950/5 hover:bg-blue-100/60 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:hover:bg-surface-strong',
+    disabledByAmount ? 'cursor-not-allowed opacity-50 hover:bg-blue-50/45' : ''
+  ];
+}
 const items = computed<BillingItem[]>(() => lines.value
   .map((line) => ({
     description: line.description.trim(),
@@ -2200,10 +2211,7 @@ function updatePaymentCondition(value: string): void {
               v-for="mode in customerModes"
               :key="mode.key"
               class="rounded-lg px-4 py-2 text-sm font-semibold tracking-wide transition-colors duration-200 focus:outline-none focus:ring focus:ring-sky-300 focus:ring-opacity-70"
-              :class="[
-                customerMode === mode.key ? 'bg-sky-600 text-white hover:bg-sky-500 dark:bg-primary-soft dark:text-white dark:hover:bg-primary' : 'border border-blue-100 bg-blue-50/45 text-slate-900 shadow-sm shadow-blue-950/5 hover:bg-blue-100/60 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:hover:bg-surface-strong',
-                mode.key === 'generic' && requiresCustomerIdentificationByAmount ? 'cursor-not-allowed opacity-50 hover:bg-blue-50/45' : ''
-              ]"
+              :class="customerModeButtonClass(mode)"
               :disabled="mode.key === 'generic' && requiresCustomerIdentificationByAmount"
               type="button"
               @click="selectCustomerMode(mode.key)"
