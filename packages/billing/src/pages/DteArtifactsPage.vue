@@ -39,6 +39,8 @@ const eventMeta = ref<PaginationMeta | null>(null);
 const floatingToasts = ref<BillingFloatingToast[]>([]);
 let floatingToastId = 0;
 const floatingToastTimers: ReturnType<typeof window.setTimeout>[] = [];
+const deliveryPollTimers: ReturnType<typeof window.setTimeout>[] = [];
+let unmounted = false;
 let searchTimer: ReturnType<typeof window.setTimeout> | null = null;
 
 const emptyState = computed(() => {
@@ -57,7 +59,9 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  unmounted = true;
   floatingToastTimers.forEach((timer) => window.clearTimeout(timer));
+  deliveryPollTimers.forEach((timer) => window.clearTimeout(timer));
   if (searchTimer) window.clearTimeout(searchTimer);
 });
 
@@ -279,17 +283,49 @@ async function resendEmail(document: DteDraftSummary): Promise<void> {
   try {
     const response = await client.value.resendDteEmail(document.id);
     documents.value = documents.value.map((item) => item.id === document.id ? response.document : item);
-    const recipient = response.notification.recipient_email ? ` a ${response.notification.recipient_email}` : ' al correo del cliente';
-    pushFloatingToast({
-      title: 'Correo reencolado',
-      message: `El comprobante quedo en cola para reenviarse${recipient}.`,
-      variant: 'success'
-    });
+    await waitForEmailSent(document.id, response.notification.recipient_email ?? null);
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible reencolar el correo.';
   } finally {
     resendingEmailId.value = null;
   }
+}
+
+async function waitForEmailSent(documentId: number, fallbackRecipient?: string | null): Promise<void> {
+  const sentStatuses = new Set(['sent', 'delivered']);
+  const failedStatuses = new Set(['failed']);
+
+  for (let attempt = 0; attempt < 14 && !unmounted; attempt += 1) {
+    if (attempt > 0) {
+      await wait(1500);
+    }
+
+    const response = await client.value.dteEmailDelivery(documentId);
+    documents.value = documents.value.map((item) => item.id === documentId ? response.document : item);
+
+    const status = String(response.notification?.status ?? '').toLowerCase();
+    if (sentStatuses.has(status)) {
+      const recipient = response.notification?.recipient_email ?? fallbackRecipient;
+      const recipientLabel = recipient ? ` a ${recipient}` : ' al correo del cliente';
+      pushFloatingToast({
+        title: 'Correo enviado',
+        message: `El comprobante fue reenviado${recipientLabel}.`,
+        variant: 'success'
+      });
+      return;
+    }
+
+    if (failedStatuses.has(status)) {
+      throw new Error(response.notification?.error ?? response.notification?.last_error ?? 'No fue posible enviar el correo.');
+    }
+  }
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(resolve, milliseconds);
+    deliveryPollTimers.push(timer);
+  });
 }
 
 function pushFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
@@ -524,9 +560,9 @@ function formatDate(value?: string | null): string {
                 :disabled="resendingEmailId === document.id"
                 @click="resendEmail(document)"
               >
-                <UiMailIcon class="h-5 w-5 text-sky-600" />
-                <span>{{ resendingEmailId === document.id ? 'Encolando correo...' : 'Reenviar correo' }}</span>
-              </button>
+                  <UiMailIcon class="h-5 w-5 text-sky-600" />
+                  <span>{{ resendingEmailId === document.id ? 'Esperando envio...' : 'Reenviar correo' }}</span>
+                </button>
             </UiActionDropdown>
           </article>
         </div>

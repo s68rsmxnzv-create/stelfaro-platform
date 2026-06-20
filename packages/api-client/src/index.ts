@@ -134,6 +134,22 @@ export type DtePreviewResponse = {
   errors: Array<{ field: string; message: string } | string>;
 };
 
+export type DteDeliveryNotification = {
+  status?: string | null;
+  message_id?: number | string | null;
+  queued_at?: string | null;
+  recipient_email?: string | null;
+  error?: string | null;
+  last_error?: string | null;
+  sent_at?: string | null;
+  synced_at?: string | null;
+  provider?: string | null;
+  provider_message_id?: string | null;
+  attempts?: number | null;
+  resent_at?: string | null;
+  resend_count?: number | null;
+};
+
 export type DteDraftSummary = {
   id: number;
   estado: string;
@@ -187,13 +203,7 @@ export type DteDraftSummary = {
   transmission_attempts_count?: number;
   correlativo_retry?: Record<string, unknown> | null;
   notifications?: {
-    dte_delivery?: {
-      status?: string | null;
-      message_id?: number | string | null;
-      queued_at?: string | null;
-      recipient_email?: string | null;
-      error?: string | null;
-    };
+    dte_delivery?: DteDeliveryNotification;
   } | null;
   invalidacion?: {
     eligible: boolean;
@@ -229,6 +239,11 @@ export type DteEmailResendResponse = {
     resent_at?: string | null;
     resend_count?: number | null;
   };
+  document: DteDraftSummary;
+};
+
+export type DteEmailDeliveryResponse = {
+  notification: DteDeliveryNotification | null;
   document: DteDraftSummary;
 };
 
@@ -1246,6 +1261,10 @@ export class CoreDteClient {
 
   resendDteEmail(id: number): Promise<DteEmailResendResponse> {
     return this.http.post(`dte/drafts/${id}/resend-email`).json();
+  }
+
+  dteEmailDelivery(id: number): Promise<DteEmailDeliveryResponse> {
+    return this.http.get(`dte/drafts/${id}/email-delivery`).json();
   }
 
   history(id: number): Promise<DteHistoryEntry[]> {
