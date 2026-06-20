@@ -366,8 +366,8 @@ function navigateFromMenu(event, href) {
             <div class="hidden items-baseline gap-1 md:flex">
               <a
                 :href="dashboardHref"
-                class="rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
-                :class="module === 'dashboard' ? 'bg-slate-950/70 text-white' : ''"
+                class="rounded-md px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
+                :class="module === 'dashboard' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
                 @click="navigate($event, dashboardHref)"
               >
                 Dashboard
@@ -377,8 +377,8 @@ function navigateFromMenu(event, href) {
                 v-for="item in extraNavItems"
                 :key="item.href"
                 :href="item.href"
-                class="rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
-                :class="item.active ? 'bg-slate-950/70 text-white' : ''"
+                class="rounded-md px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
+                :class="item.active ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
                 @click="navigate($event, item.href)"
               >
                 {{ item.label }}

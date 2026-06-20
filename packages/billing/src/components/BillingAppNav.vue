@@ -187,8 +187,8 @@ function navigate(event, href) {
   <div ref="navRef" class="hidden items-center gap-1 md:flex">
     <div class="relative">
       <button
-        class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
-        :class="module === 'billing' ? 'bg-slate-950/70 text-white' : ''"
+        class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
+        :class="module === 'billing' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
         type="button"
         @click="toggleBillingMenu"
       >
@@ -223,8 +223,8 @@ function navigate(event, href) {
 
     <div class="relative">
       <button
-        class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
-        :class="module === 'mh-events' ? 'bg-slate-950/70 text-white' : ''"
+        class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
+        :class="module === 'mh-events' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
         type="button"
         @click="toggleEventMenu"
       >
@@ -255,8 +255,8 @@ function navigate(event, href) {
 
     <div class="relative">
       <button
-        class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
-        :class="responsesMenuActive ? 'bg-slate-950/70 text-white' : ''"
+        class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
+        :class="responsesMenuActive ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
         type="button"
         @click="toggleResponsesMenu"
       >
@@ -287,8 +287,8 @@ function navigate(event, href) {
 
     <a
       :href="hrefFor('/comprobantes')"
-      class="rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
-      :class="module === 'artifacts' ? 'bg-slate-950/70 text-white' : ''"
+      class="rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
+      :class="module === 'artifacts' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
       @click="navigate($event, hrefFor('/comprobantes'))"
     >
       Comprobantes
