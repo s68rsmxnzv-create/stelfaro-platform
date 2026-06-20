@@ -12,8 +12,13 @@ const platform = usePlatformSessionStore();
 const session = useAdminSessionStore();
 const core = useCoreSessionStore();
 const workspace = useAdminWorkspaceStore();
+const darkMode = ref(false);
+const themeStorageKey = 'stelfaro:theme';
+
+const themeLabel = computed(() => (darkMode.value ? 'Modo claro' : 'Modo oscuro'));
 
 onMounted(async () => {
+  initializeTheme();
   await platform.initialize();
 
   if (!platform.canAccessAdmin) {
@@ -38,6 +43,25 @@ async function logout(): Promise<void> {
   }).catch(() => undefined);
 
   window.location.assign(platform.loginUrl);
+}
+
+function initializeTheme(): void {
+  const storedTheme = window.localStorage.getItem(themeStorageKey);
+  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+
+  darkMode.value = storedTheme ? storedTheme === 'dark' : prefersDark;
+  applyTheme();
+}
+
+function applyTheme(): void {
+  document.documentElement.classList.toggle('dark', darkMode.value);
+  document.documentElement.dataset.theme = darkMode.value ? 'dark' : 'light';
+}
+
+function toggleTheme(): void {
+  darkMode.value = !darkMode.value;
+  window.localStorage.setItem(themeStorageKey, darkMode.value ? 'dark' : 'light');
+  applyTheme();
 }
 
 function companyViewButtonClass(view: 'data' | 'fiscal' | 'sucursales' | 'correlativos'): string {
@@ -300,6 +324,9 @@ function groupClass(group: NavGroup): string {
           :name="platform.session?.user.name"
           :email="platform.session?.user.email"
           :service-status="serviceStatus"
+          :dark-mode="darkMode"
+          :theme-label="themeLabel"
+          @toggle-theme="toggleTheme"
           @logout="logout"
         />
       </div>
