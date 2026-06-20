@@ -16,6 +16,7 @@ export { default as UiInfoIcon } from './components/UiInfoIcon.vue';
 export { default as UiCloseCircleIcon } from './components/UiCloseCircleIcon.vue';
 export { default as UiModalShell } from './components/UiModalShell.vue';
 export { default as UiDocumentIcon } from './components/UiDocumentIcon.vue';
+export { default as UiDotsVerticalIcon } from './components/UiDotsVerticalIcon.vue';
 export { default as UiCodeBracketIcon } from './components/UiCodeBracketIcon.vue';
 export { default as UiMailIcon } from './components/UiMailIcon.vue';
 export { default as UiNextIcon } from './components/UiNextIcon.vue';
