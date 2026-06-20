@@ -1953,11 +1953,11 @@ function updatePaymentCondition(value: string): void {
       </div>
 
       <div v-else class="grid gap-6">
-        <section v-if="isAdjustmentNote" class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur">
+        <section v-if="isAdjustmentNote" class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:text-text dark:shadow-surface">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 class="text-base font-semibold text-slate-950">Documento origen</h2>
-              <p class="mt-1 text-sm text-slate-500">
+              <h2 class="text-base font-semibold text-slate-950 dark:text-text">Documento origen</h2>
+              <p class="mt-1 text-sm text-slate-500 dark:text-muted">
                 Selecciona un CCF aceptado para {{ isNotaDebito ? 'incrementar o ajustar cargos' : 'acreditar total o parcialmente' }}.
               </p>
             </div>
@@ -1978,23 +1978,23 @@ function updatePaymentCondition(value: string): void {
               placeholder="Numero de control, codigo de generacion o cliente"
               @search="loadSourceDocuments"
             />
-            <div v-if="sourceDocuments.length" class="mt-2 max-h-56 overflow-y-auto rounded-md border border-slate-200">
+            <div v-if="sourceDocuments.length" class="mt-2 max-h-56 overflow-y-auto rounded-md border border-slate-200 dark:border-line">
               <button
                 v-for="document in sourceDocuments"
                 :key="document.id"
-                class="block w-full border-b border-slate-100 px-3 py-2 text-left text-sm last:border-b-0"
-                :class="document.is_related_by_adjustment ? 'cursor-not-allowed bg-slate-50 opacity-60' : 'hover:bg-sky-50'"
+                class="block w-full border-b border-slate-100 px-3 py-2 text-left text-sm last:border-b-0 dark:border-line"
+                :class="document.is_related_by_adjustment ? 'cursor-not-allowed bg-slate-50 opacity-60 dark:bg-surface-muted' : 'hover:bg-sky-50 dark:hover:bg-surface-muted'"
                 type="button"
                 :disabled="document.is_related_by_adjustment"
                 @click="selectSourceDocument(document)"
               >
-                <span class="flex flex-wrap items-center gap-2 font-semibold text-slate-950">
+                <span class="flex flex-wrap items-center gap-2 font-semibold text-slate-950 dark:text-text">
                   {{ document.numeroControl }}
-                  <span v-if="document.is_related_by_adjustment" class="rounded bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                  <span v-if="document.is_related_by_adjustment" class="rounded bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-warning-soft dark:text-warning">
                     Relacionado
                   </span>
                 </span>
-                <span class="block text-xs text-slate-500">
+                <span class="block text-xs text-slate-500 dark:text-muted">
                   {{ sourceReceptorName(document) }} · {{ currency(Number(document.totalPagar ?? 0)) }}
                   <template v-if="document.related_by_adjustment?.numeroControl">
                     · {{ document.related_by_adjustment.numeroControl }}
@@ -2007,34 +2007,34 @@ function updatePaymentCondition(value: string): void {
             </p>
           </div>
 
-          <div v-if="selectedSourceDocument" class="mt-4 grid gap-3 rounded-md border border-sky-100 bg-sky-50 p-4 text-sm md:grid-cols-4">
+          <div v-if="selectedSourceDocument" class="mt-4 grid gap-3 rounded-md border border-sky-100 bg-sky-50 p-4 text-sm md:grid-cols-4 dark:border-line dark:bg-surface-muted">
             <p>
-              <span class="block text-xs font-semibold uppercase text-slate-500">CCF origen</span>
-              <span class="mt-1 block font-mono text-xs text-slate-950">{{ selectedSourceDocument.numeroControl }}</span>
+              <span class="block text-xs font-semibold uppercase text-slate-500 dark:text-soft">CCF origen</span>
+              <span class="mt-1 block font-mono text-xs text-slate-950 dark:text-text">{{ selectedSourceDocument.numeroControl }}</span>
             </p>
             <p>
-              <span class="block text-xs font-semibold uppercase text-slate-500">Receptor</span>
-              <span class="mt-1 block truncate font-semibold text-slate-950">{{ form.customerName }}</span>
+              <span class="block text-xs font-semibold uppercase text-slate-500 dark:text-soft">Receptor</span>
+              <span class="mt-1 block truncate font-semibold text-slate-950 dark:text-text">{{ form.customerName }}</span>
             </p>
             <p>
-              <span class="block text-xs font-semibold uppercase text-slate-500">Total origen</span>
-              <span class="mt-1 block font-semibold text-slate-950">{{ currency(Number(selectedSourceDocument.totalPagar ?? 0)) }}</span>
+              <span class="block text-xs font-semibold uppercase text-slate-500 dark:text-soft">Total origen</span>
+              <span class="mt-1 block font-semibold text-slate-950 dark:text-text">{{ currency(Number(selectedSourceDocument.totalPagar ?? 0)) }}</span>
             </p>
             <p v-if="notaCreditoHasFiscalAdjustments">
-              <span class="block text-xs font-semibold uppercase text-slate-500">Ajustes IVA</span>
-              <span class="mt-1 block text-xs font-semibold text-slate-950">
+              <span class="block text-xs font-semibold uppercase text-slate-500 dark:text-soft">Ajustes IVA</span>
+              <span class="mt-1 block text-xs font-semibold text-slate-950 dark:text-text">
                 Origen ret. {{ currency(notaCreditoSourceIvaRete) }} · perc. {{ currency(notaCreditoSourceIvaPerci) }}
               </span>
             </p>
             <p>
-              <span class="block text-xs font-semibold uppercase text-slate-500">{{ isNotaDebito ? 'NDE' : 'NCE' }}</span>
+              <span class="block text-xs font-semibold uppercase text-slate-500 dark:text-soft">{{ isNotaDebito ? 'NDE' : 'NCE' }}</span>
               <span
                 class="mt-1 inline-flex items-center gap-2 rounded px-2 py-1 text-xs font-semibold"
                 :class="correlativoLoading
-                  ? 'bg-sky-100 text-sky-700'
+                  ? 'bg-sky-100 text-sky-700 dark:bg-primary-soft dark:text-white'
                   : correlativoPreview
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-red-100 text-red-700'"
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-success-soft dark:text-success'
+                    : 'bg-red-100 text-red-700 dark:bg-danger-soft dark:text-danger'"
               >
                 <span v-if="correlativoLoading" class="h-3 w-3 animate-spin rounded-full border-2 border-sky-200 border-t-sky-700"></span>
                 {{ correlativoLoading ? 'Consultando correlativo' : correlativoPreview ? correlativoPreview.numero_control : 'Sin correlativo' }}
