@@ -219,6 +219,19 @@ export type DteDocumentListResponse = {
   meta?: PaginationMeta;
 };
 
+export type DteEmailResendResponse = {
+  message: string;
+  notification: {
+    status?: string | null;
+    message_id?: number | string | null;
+    recipient_email?: string | null;
+    queued_at?: string | null;
+    resent_at?: string | null;
+    resend_count?: number | null;
+  };
+  document: DteDraftSummary;
+};
+
 export type DteDashboardSummary = {
   generated_at: string;
   totals: {
@@ -1229,6 +1242,10 @@ export class CoreDteClient {
 
   receiveDraft(id: number, result: 'accepted' | 'rejected' = 'accepted'): Promise<DteDraftSummary> {
     return this.http.post(`dte/drafts/${id}/receive`, { json: { result } }).json();
+  }
+
+  resendDteEmail(id: number): Promise<DteEmailResendResponse> {
+    return this.http.post(`dte/drafts/${id}/resend-email`).json();
   }
 
   history(id: number): Promise<DteHistoryEntry[]> {

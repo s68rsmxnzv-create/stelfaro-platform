@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { CoreDteClient, type DteDraftSummary, type MhFiscalEventSummary, type PaginationMeta } from '@stelfaro/api-client';
 import { currency, fiscalDateTime } from '@stelfaro/shared';
-import { UiButton, UiCard, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiSearchInput } from '@stelfaro/ui';
+import { UiButton, UiCard, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiMailIcon, UiSearchInput } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -25,7 +25,9 @@ const openingPdfId = ref<number | null>(null);
 const openingJsonId = ref<number | null>(null);
 const openingEventPdfId = ref<number | null>(null);
 const openingEventJsonId = ref<number | null>(null);
+const resendingEmailId = ref<number | null>(null);
 const error = ref<string | null>(null);
+const success = ref<string | null>(null);
 const query = ref('');
 const tipoDte = ref('');
 const documents = ref<DteDraftSummary[]>([]);
@@ -79,6 +81,7 @@ async function loadActiveTab(): Promise<void> {
 async function loadDocuments(): Promise<void> {
   loading.value = true;
   error.value = null;
+  success.value = null;
 
   try {
     const response = await client.value.documents({
@@ -101,6 +104,7 @@ async function loadDocuments(): Promise<void> {
 async function loadEvents(): Promise<void> {
   loading.value = true;
   error.value = null;
+  success.value = null;
 
   try {
     const response = await client.value.mhEvents({
@@ -181,6 +185,7 @@ async function openPdf(document: DteDraftSummary): Promise<void> {
   const target = window.open('about:blank', '_blank');
   openingPdfId.value = document.id;
   error.value = null;
+  success.value = null;
 
   try {
     const pdf = await client.value.graphicRepresentationPdf(document.id);
@@ -199,6 +204,7 @@ async function openEventPdf(event: MhFiscalEventSummary): Promise<void> {
   const target = window.open('about:blank', '_blank');
   openingEventPdfId.value = event.id;
   error.value = null;
+  success.value = null;
 
   try {
     const pdf = await client.value.mhEventGraphicRepresentationPdf(event.id);
@@ -217,6 +223,7 @@ async function openJson(document: DteDraftSummary): Promise<void> {
   const target = window.open('about:blank', '_blank');
   openingJsonId.value = document.id;
   error.value = null;
+  success.value = null;
 
   try {
     const detail = await client.value.document(document.id);
@@ -243,6 +250,7 @@ async function openEventJson(event: MhFiscalEventSummary): Promise<void> {
   const target = window.open('about:blank', '_blank');
   openingEventJsonId.value = event.id;
   error.value = null;
+  success.value = null;
 
   try {
     const detail = await client.value.mhEvent(event.id);
@@ -259,6 +267,23 @@ async function openEventJson(event: MhFiscalEventSummary): Promise<void> {
     error.value = caught instanceof Error ? caught.message : 'No fue posible abrir el JSON del evento.';
   } finally {
     openingEventJsonId.value = null;
+  }
+}
+
+async function resendEmail(document: DteDraftSummary): Promise<void> {
+  resendingEmailId.value = document.id;
+  error.value = null;
+  success.value = null;
+
+  try {
+    const response = await client.value.resendDteEmail(document.id);
+    documents.value = documents.value.map((item) => item.id === document.id ? response.document : item);
+    const recipient = response.notification.recipient_email ? ` a ${response.notification.recipient_email}` : '';
+    success.value = `Correo reencolado${recipient}.`;
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible reencolar el correo.';
+  } finally {
+    resendingEmailId.value = null;
   }
 }
 
@@ -341,6 +366,7 @@ function formatDate(value?: string | null): string {
 <template>
   <section class="space-y-6">
     <p v-if="error" class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ error }}</p>
+    <p v-if="success" class="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">{{ success }}</p>
 
     <UiCard>
       <div class="space-y-4 p-1">
@@ -411,11 +437,10 @@ function formatDate(value?: string | null): string {
       <div class="overflow-hidden rounded-md border border-slate-200">
         <div
           v-if="activeTab === 'dte'"
-          class="hidden grid-cols-[minmax(0,1.5fr)_160px_160px_160px] gap-4 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase text-slate-500 md:grid"
+          class="hidden grid-cols-[minmax(0,1.5fr)_160px_160px_240px] gap-4 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase text-slate-500 md:grid"
         >
           <span>Documento</span>
           <span>Fecha</span>
-          <span>Total</span>
           <span class="text-right">Accion</span>
         </div>
 
@@ -440,7 +465,7 @@ function formatDate(value?: string | null): string {
           <article
             v-for="document in documents"
             :key="document.id"
-            class="grid grid-cols-1 gap-3 px-4 py-4 md:grid-cols-[minmax(0,1.5fr)_160px_160px_160px] md:items-center"
+            class="grid grid-cols-1 gap-3 px-4 py-4 md:grid-cols-[minmax(0,1.5fr)_160px_160px_240px] md:items-center"
           >
             <div class="min-w-0">
               <p class="flex min-w-0 items-center gap-2 font-semibold text-slate-950">
@@ -451,8 +476,10 @@ function formatDate(value?: string | null): string {
               <p class="mt-2 text-xs font-semibold uppercase text-sky-700">{{ typeLabel(document.tipoDte) }}</p>
             </div>
 
-            <p class="text-sm text-slate-600">{{ formatDate(document.processed_at ?? document.created_at) }}</p>
-            <p class="text-sm font-semibold text-slate-900">{{ currency(document.totalPagar ?? 0) }}</p>
+            <div>
+              <p class="text-sm text-slate-600">{{ formatDate(document.processed_at ?? document.created_at) }}</p>
+              <p class="mt-1 text-sm font-semibold text-slate-900">{{ currency(document.totalPagar ?? 0) }}</p>
+            </div>
 
             <div class="flex flex-wrap justify-start gap-2 md:justify-end">
               <UiButton
@@ -474,6 +501,17 @@ function formatDate(value?: string | null): string {
                 <span class="inline-flex items-center gap-2">
                   <UiCodeBracketIcon class="h-5 w-5" />
                   {{ openingJsonId === document.id ? 'Abriendo...' : 'JSON' }}
+                </span>
+              </UiButton>
+
+              <UiButton
+                variant="secondary"
+                :disabled="resendingEmailId === document.id"
+                @click="resendEmail(document)"
+              >
+                <span class="inline-flex items-center gap-2">
+                  <UiMailIcon class="h-5 w-5" />
+                  {{ resendingEmailId === document.id ? 'Encolando...' : 'Reenviar' }}
                 </span>
               </UiButton>
             </div>
