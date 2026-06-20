@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { CoreDteClient, type DteDraftSummary, type MhFiscalEventSummary, type PaginationMeta } from '@stelfaro/api-client';
 import { currency, fiscalDateTime } from '@stelfaro/shared';
 import { UiActionDropdown, UiCard, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiMailIcon, UiSearchInput } from '@stelfaro/ui';
+import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -27,7 +28,6 @@ const openingEventPdfId = ref<number | null>(null);
 const openingEventJsonId = ref<number | null>(null);
 const resendingEmailId = ref<number | null>(null);
 const error = ref<string | null>(null);
-const success = ref<string | null>(null);
 const query = ref('');
 const tipoDte = ref('');
 const documents = ref<DteDraftSummary[]>([]);
@@ -36,6 +36,9 @@ const dtePage = ref(1);
 const eventPage = ref(1);
 const dteMeta = ref<PaginationMeta | null>(null);
 const eventMeta = ref<PaginationMeta | null>(null);
+const floatingToasts = ref<BillingFloatingToast[]>([]);
+let floatingToastId = 0;
+const floatingToastTimers: ReturnType<typeof window.setTimeout>[] = [];
 let searchTimer: ReturnType<typeof window.setTimeout> | null = null;
 
 const emptyState = computed(() => {
@@ -51,6 +54,11 @@ const paginationItems = computed<PageItem[]>(() => pageItems(currentMeta.value?.
 
 onMounted(() => {
   void loadActiveTab();
+});
+
+onBeforeUnmount(() => {
+  floatingToastTimers.forEach((timer) => window.clearTimeout(timer));
+  if (searchTimer) window.clearTimeout(searchTimer);
 });
 
 watch(query, () => {
@@ -81,7 +89,6 @@ async function loadActiveTab(): Promise<void> {
 async function loadDocuments(): Promise<void> {
   loading.value = true;
   error.value = null;
-  success.value = null;
 
   try {
     const response = await client.value.documents({
@@ -104,7 +111,6 @@ async function loadDocuments(): Promise<void> {
 async function loadEvents(): Promise<void> {
   loading.value = true;
   error.value = null;
-  success.value = null;
 
   try {
     const response = await client.value.mhEvents({
@@ -185,7 +191,6 @@ async function openPdf(document: DteDraftSummary): Promise<void> {
   const target = window.open('about:blank', '_blank');
   openingPdfId.value = document.id;
   error.value = null;
-  success.value = null;
 
   try {
     const pdf = await client.value.graphicRepresentationPdf(document.id);
@@ -204,7 +209,6 @@ async function openEventPdf(event: MhFiscalEventSummary): Promise<void> {
   const target = window.open('about:blank', '_blank');
   openingEventPdfId.value = event.id;
   error.value = null;
-  success.value = null;
 
   try {
     const pdf = await client.value.mhEventGraphicRepresentationPdf(event.id);
@@ -223,7 +227,6 @@ async function openJson(document: DteDraftSummary): Promise<void> {
   const target = window.open('about:blank', '_blank');
   openingJsonId.value = document.id;
   error.value = null;
-  success.value = null;
 
   try {
     const detail = await client.value.document(document.id);
@@ -250,7 +253,6 @@ async function openEventJson(event: MhFiscalEventSummary): Promise<void> {
   const target = window.open('about:blank', '_blank');
   openingEventJsonId.value = event.id;
   error.value = null;
-  success.value = null;
 
   try {
     const detail = await client.value.mhEvent(event.id);
@@ -273,18 +275,30 @@ async function openEventJson(event: MhFiscalEventSummary): Promise<void> {
 async function resendEmail(document: DteDraftSummary): Promise<void> {
   resendingEmailId.value = document.id;
   error.value = null;
-  success.value = null;
 
   try {
     const response = await client.value.resendDteEmail(document.id);
     documents.value = documents.value.map((item) => item.id === document.id ? response.document : item);
-    const recipient = response.notification.recipient_email ? ` a ${response.notification.recipient_email}` : '';
-    success.value = `Correo reencolado${recipient}.`;
+    const recipient = response.notification.recipient_email ? ` a ${response.notification.recipient_email}` : ' al correo del cliente';
+    pushFloatingToast({
+      title: 'Correo reencolado',
+      message: `El comprobante quedo en cola para reenviarse${recipient}.`,
+      variant: 'success'
+    });
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible reencolar el correo.';
   } finally {
     resendingEmailId.value = null;
   }
+}
+
+function pushFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
+  const id = ++floatingToastId;
+  floatingToasts.value = [...floatingToasts.value, { id, ...toast }];
+  const timer = window.setTimeout(() => {
+    floatingToasts.value = floatingToasts.value.filter((item) => item.id !== id);
+  }, toast.variant === 'success' || !toast.variant ? 2000 : 4300);
+  floatingToastTimers.push(timer);
 }
 
 function openBlob(target: Window | null, blob: Blob, label: string): void {
@@ -366,7 +380,7 @@ function formatDate(value?: string | null): string {
 <template>
   <section class="space-y-6">
     <p v-if="error" class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ error }}</p>
-    <p v-if="success" class="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">{{ success }}</p>
+    <BillingFloatingToastStack :toasts="floatingToasts" />
 
     <UiCard>
       <div class="space-y-4 p-1">
