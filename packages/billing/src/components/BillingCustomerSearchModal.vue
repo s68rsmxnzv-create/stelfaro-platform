@@ -40,7 +40,6 @@ function customerDocumentLabel(customer: BillingCustomer): string {
     :open="open"
     eyebrow="Receptor"
     title="Buscar cliente guardado"
-    description="Busca por DUI, NIT, nombre, correo o telefono."
     max-width="max-w-2xl"
     body-class="px-5 py-5"
     @close="emit('close')"
