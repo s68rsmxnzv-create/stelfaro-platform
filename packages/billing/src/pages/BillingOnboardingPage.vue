@@ -438,7 +438,7 @@ function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
   floatingToasts.value = [...floatingToasts.value, { id, ...toast }];
   const timer = window.setTimeout(() => {
     floatingToasts.value = floatingToasts.value.filter((item) => item.id !== id);
-  }, toast.variant === 'success' || !toast.variant ? 2000 : 4300);
+  }, toast.variant === 'success' || !toast.variant ? 4000 : 4300);
   toastTimers.push(timer);
 }
 </script>

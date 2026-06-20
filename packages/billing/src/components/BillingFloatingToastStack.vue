@@ -64,7 +64,7 @@ const visibleToasts = computed(() => props.toasts.slice(-4));
 }
 
 .stelfaro-floating-toast-success {
-  animation: stelfaro-toast-rise-quick 2s ease forwards;
+  animation: stelfaro-toast-rise-quick 4s ease forwards;
 }
 
 @keyframes stelfaro-toast-rise {
@@ -91,11 +91,11 @@ const visibleToasts = computed(() => props.toasts.slice(-4));
     opacity: 0;
     transform: translateY(14px);
   }
-  14% {
+  8% {
     opacity: 1;
     transform: translateY(0);
   }
-  70% {
+  82% {
     opacity: 1;
     transform: translateY(-8px);
   }
