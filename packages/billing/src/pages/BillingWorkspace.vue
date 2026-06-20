@@ -95,6 +95,8 @@ const advancedPaymentMode = ref(false);
 let issueAutoCloseTimer: ReturnType<typeof window.setTimeout> | null = null;
 let floatingToastId = 0;
 const floatingToastTimers: ReturnType<typeof window.setTimeout>[] = [];
+const deliveryPollTimers: ReturnType<typeof window.setTimeout>[] = [];
+let unmounted = false;
 const finalConsumerIdentificationThreshold = 25000;
 
 type InvoiceLine = BillingItem & {
@@ -614,9 +616,11 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  unmounted = true;
   window.removeEventListener('keydown', handleIssueModalKeydown);
   clearIssueAutoClose();
   floatingToastTimers.forEach((timer) => window.clearTimeout(timer));
+  deliveryPollTimers.forEach((timer) => window.clearTimeout(timer));
 });
 
 watch(issueResult, (result) => {
@@ -1015,7 +1019,7 @@ async function issueDocument(): Promise<void> {
     if (result) {
       issueResult.value = result;
       draft.value = result.document;
-      notifyEmailDelivery(result.document);
+      void notifyEmailDelivery(result.document);
       correlativoPreview.value = null;
       preview.value = null;
       history.value = [];
@@ -1081,7 +1085,7 @@ function resetInvoiceForm(): void {
   lines.value = [];
 }
 
-function notifyEmailDelivery(document: DteDraftSummary): void {
+async function notifyEmailDelivery(document: DteDraftSummary): Promise<void> {
   const delivery = document.notifications?.dte_delivery
     ?? (document as DteDraftSummary & { metadata?: { notifications?: DteDraftSummary['notifications'] } }).metadata?.notifications?.dte_delivery;
   if (!delivery) {
@@ -1089,18 +1093,55 @@ function notifyEmailDelivery(document: DteDraftSummary): void {
   }
 
   const status = String(delivery?.status ?? '').toLowerCase();
-  if (!['pending', 'queued', 'waiting_transport', 'sent', 'delivered'].includes(status)) {
+  if (!['pending', 'queued', 'waiting_transport', 'sent', 'delivered', 'failed'].includes(status)) {
     return;
   }
 
-  const wasSent = ['sent', 'delivered'].includes(status);
-  const recipient = delivery.recipient_email ? ` a ${delivery.recipient_email}` : ' al correo del cliente';
+  if (['sent', 'delivered'].includes(status)) {
+    queueEmailSentToast(delivery.recipient_email ?? null);
+    return;
+  }
+
+  if (status === 'failed') {
+    return;
+  }
+
+  try {
+    await waitForEmailSent(document.id, delivery.recipient_email ?? null);
+  } catch {
+    // La emision ya termino; si la consulta de entrega falla, evitamos mostrar un estado no confirmado.
+  }
+}
+
+async function waitForEmailSent(documentId: number, fallbackRecipient?: string | null): Promise<void> {
+  for (let attempt = 0; attempt < 14 && !unmounted; attempt += 1) {
+    if (attempt > 0) {
+      await waitForDeliveryPoll(1500);
+    }
+
+    const response = await client.value.dteEmailDelivery(documentId);
+    if (draft.value?.id === documentId) {
+      draft.value = response.document;
+    }
+
+    const status = String(response.notification?.status ?? '').toLowerCase();
+    if (['sent', 'delivered'].includes(status)) {
+      queueEmailSentToast(response.notification?.recipient_email ?? fallbackRecipient ?? null);
+      return;
+    }
+
+    if (status === 'failed') {
+      return;
+    }
+  }
+}
+
+function queueEmailSentToast(recipientEmail?: string | null): void {
+  const recipient = recipientEmail ? ` a ${recipientEmail}` : ' al correo del cliente';
   const toast = {
-    title: wasSent ? 'Correo enviado' : 'Correo en cola',
-    message: wasSent
-      ? `El comprobante fue enviado${recipient}.`
-      : `El comprobante quedo en cola para enviarse${recipient}.`,
-    variant: wasSent ? 'success' : 'info'
+    title: 'Correo enviado',
+    message: `El comprobante fue enviado${recipient}.`,
+    variant: 'success'
   } satisfies Omit<BillingFloatingToast, 'id'>;
 
   if (issueOverlayOpen.value || issueModalOpen.value) {
@@ -1109,6 +1150,13 @@ function notifyEmailDelivery(document: DteDraftSummary): void {
   }
 
   pushFloatingToast(toast);
+}
+
+function waitForDeliveryPoll(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(resolve, milliseconds);
+    deliveryPollTimers.push(timer);
+  });
 }
 
 function flushPendingEmailToast(): void {
