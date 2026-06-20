@@ -109,6 +109,16 @@
     background-color: var(--sf-color-surface-muted);
   }
 
+  .dark .hover\:bg-white:hover,
+  .dark .hover\:bg-slate-50:hover,
+  .dark .hover\:bg-slate-100:hover,
+  .dark .hover\:bg-slate-200:hover,
+  .dark .hover\:bg-blue-50\/45:hover,
+  .dark .hover\:bg-sky-50:hover,
+  .dark .hover\:bg-sky-50\/70:hover {
+    background-color: var(--sf-color-surface-muted);
+  }
+
   .dark .text-slate-950,
   .dark .text-slate-900,
   .dark .text-slate-800 {

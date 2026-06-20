@@ -18,8 +18,8 @@ withDefaults(defineProps<{
     :class="{
       'bg-sky-600 text-white hover:bg-sky-500 focus:outline-none focus:ring focus:ring-sky-300 focus:ring-opacity-80': variant === 'primary',
       'bg-emerald-600 text-white hover:bg-emerald-500 focus:outline-none focus:ring focus:ring-emerald-300 focus:ring-opacity-80': variant === 'success',
-      'bg-slate-100 text-slate-900 hover:bg-slate-200 focus:outline-none focus:ring focus:ring-slate-300 focus:ring-opacity-80': variant === 'secondary',
-      'text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring focus:ring-slate-300 focus:ring-opacity-70': variant === 'ghost'
+      'bg-slate-100 text-slate-900 hover:bg-slate-200 focus:outline-none focus:ring focus:ring-slate-300 focus:ring-opacity-80 dark:bg-surface-muted dark:text-text dark:hover:bg-surface-strong dark:focus:ring-line': variant === 'secondary',
+      'text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring focus:ring-slate-300 focus:ring-opacity-70 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text dark:focus:ring-line': variant === 'ghost'
     }"
   >
     <slot />
