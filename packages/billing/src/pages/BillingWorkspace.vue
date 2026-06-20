@@ -2044,41 +2044,41 @@ function updatePaymentCondition(value: string): void {
         </section>
 
         <div v-if="!isAdjustmentNote" class="grid gap-4 xl:grid-cols-3">
-          <section class="rounded-md border border-blue-100/80 bg-white/75 px-4 py-3 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:shadow-none">
+          <section class="rounded-md border border-blue-100/80 bg-white/75 px-4 py-3 shadow-sm shadow-blue-950/5 backdrop-blur">
             <div class="flex h-full flex-col justify-between gap-4">
               <div class="min-w-0">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-soft">Emisor activo</p>
-                <p class="mt-1 truncate text-sm font-bold text-slate-950 dark:text-text">{{ selectedEmpresa?.razon_social }}</p>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Emisor activo</p>
+                <p class="mt-1 truncate text-sm font-bold text-slate-950">{{ selectedEmpresa?.razon_social }}</p>
                 <div class="mt-3 grid gap-x-4 gap-y-2 text-[13px] sm:grid-cols-2">
                   <p>
-                    <span class="font-semibold text-slate-500 dark:text-muted">Ambiente:</span>
-                    <span class="ml-1 font-semibold text-slate-950 dark:text-text">{{ selectedEmpresa?.ambiente === '01' ? 'Produccion' : 'Pruebas' }}</span>
+                    <span class="font-semibold text-slate-500">Ambiente:</span>
+                    <span class="ml-1 font-semibold text-slate-950">{{ selectedEmpresa?.ambiente === '01' ? 'Produccion' : 'Pruebas' }}</span>
                   </p>
                   <p>
-                    <span class="font-semibold text-slate-500 dark:text-muted">DTE:</span>
-                    <span class="ml-1 font-semibold text-slate-950 dark:text-text">{{ documentLabel }}</span>
+                    <span class="font-semibold text-slate-500">DTE:</span>
+                    <span class="ml-1 font-semibold text-slate-950">{{ documentLabel }}</span>
                   </p>
                   <p>
-                    <span class="font-semibold text-slate-500 dark:text-muted">Estab.:</span>
-                    <span class="ml-1 font-semibold text-slate-950 dark:text-text">{{ selectedSucursal?.codigo }}</span>
+                    <span class="font-semibold text-slate-500">Estab.:</span>
+                    <span class="ml-1 font-semibold text-slate-950">{{ selectedSucursal?.codigo }}</span>
                   </p>
                   <p class="min-w-0">
-                    <span class="font-semibold text-slate-500 dark:text-muted">Punto venta:</span>
-                    <span class="ml-1 font-semibold text-slate-950 dark:text-text">{{ selectedPuntoVenta?.codigo }}</span>
+                    <span class="font-semibold text-slate-500">Punto venta:</span>
+                    <span class="ml-1 font-semibold text-slate-950">{{ selectedPuntoVenta?.codigo }}</span>
                   </p>
                 </div>
                 <div v-if="sucursales.length > 1 || puntosVenta.length > 1" class="mt-3 grid gap-2 sm:grid-cols-2">
-                  <label v-if="sucursales.length > 1" class="grid gap-1 text-xs font-semibold text-slate-600 dark:text-muted">
+                  <label v-if="sucursales.length > 1" class="grid gap-1 text-xs font-semibold text-slate-600">
                     <span>Sucursal</span>
-                    <select v-model.number="form.sucursalId" class="h-9 rounded-md border border-blue-100 bg-white px-2 text-sm font-semibold text-slate-950 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text">
+                    <select v-model.number="form.sucursalId" class="h-9 rounded-md border border-blue-100 bg-white px-2 text-sm font-semibold text-slate-950 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100">
                       <option v-for="sucursal in sucursales" :key="sucursal.id" :value="sucursal.id">
                         {{ sucursal.codigo }} · {{ sucursal.nombre }}
                       </option>
                     </select>
                   </label>
-                  <label v-if="puntosVenta.length > 1" class="grid gap-1 text-xs font-semibold text-slate-600 dark:text-muted">
+                  <label v-if="puntosVenta.length > 1" class="grid gap-1 text-xs font-semibold text-slate-600">
                     <span>Punto de venta</span>
-                    <select v-model.number="form.puntoVentaId" class="h-9 rounded-md border border-blue-100 bg-white px-2 text-sm font-semibold text-slate-950 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text">
+                    <select v-model.number="form.puntoVentaId" class="h-9 rounded-md border border-blue-100 bg-white px-2 text-sm font-semibold text-slate-950 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100">
                       <option v-for="punto in puntosVenta" :key="punto.id" :value="punto.id">
                         {{ punto.codigo }} · {{ punto.nombre }}
                       </option>
@@ -2104,7 +2104,7 @@ function updatePaymentCondition(value: string): void {
                     <button
                       v-if="billingStationPreference"
                       type="button"
-                      class="rounded px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text"
+                      class="rounded px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
                       @click="clearBillingStationPreference"
                     >
                       Quitar fijacion
@@ -2112,7 +2112,7 @@ function updatePaymentCondition(value: string): void {
                   </template>
                 </div>
               </div>
-              <div class="flex flex-wrap items-end justify-between gap-3 border-t border-slate-200 pt-3 dark:border-line">
+              <div class="flex flex-wrap items-end justify-between gap-3 border-t border-slate-200 pt-3">
                 <p v-if="correlativoLoading" class="inline-flex items-center gap-2 text-sm font-medium text-sky-700">
                   <span class="h-4 w-4 animate-spin rounded-full border-2 border-sky-200 border-t-sky-700"></span>
                   Consultando correlativo disponible...
@@ -2140,46 +2140,46 @@ function updatePaymentCondition(value: string): void {
             </div>
           </section>
 
-          <section class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:shadow-none">
-          <div v-if="hasReceptorCard" class="rounded-md border border-sky-100 bg-sky-50/80 p-3 dark:border-line dark:bg-surface-muted">
+          <section class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur">
+          <div v-if="hasReceptorCard" class="rounded-md border border-sky-100 bg-sky-50/80 p-3">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
-                  <span class="rounded bg-white px-2 py-1 dark:bg-surface-raised dark:text-primary">{{ isAdjustmentNote ? 'Receptor del CCF origen' : isSujetoExcluido ? 'Receptor - Sujeto excluido' : isCreditoFiscal ? 'Receptor - Cliente fiscal' : 'Receptor - Cliente base' }}</span>
+                  <span class="rounded bg-white px-2 py-1">{{ isAdjustmentNote ? 'Receptor del CCF origen' : isSujetoExcluido ? 'Receptor - Sujeto excluido' : isCreditoFiscal ? 'Receptor - Cliente fiscal' : 'Receptor - Cliente base' }}</span>
                 </div>
                 <div class="mt-3 grid gap-x-4 gap-y-3 text-[13px] sm:grid-cols-2">
                   <p class="min-w-0 sm:col-span-2">
-                    <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Nombre</span>
-                    <span class="block truncate font-semibold text-slate-950 dark:text-text">{{ form.customerName }}</span>
+                    <span class="block text-[11px] font-semibold text-slate-500">Nombre</span>
+                    <span class="block truncate font-semibold text-slate-950">{{ form.customerName }}</span>
                   </p>
                   <p>
-                    <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Tipo de documento</span>
-                    <span class="block font-semibold text-slate-950 dark:text-text">{{ customerDocumentTypeLabel }}</span>
+                    <span class="block text-[11px] font-semibold text-slate-500">Tipo de documento</span>
+                    <span class="block font-semibold text-slate-950">{{ customerDocumentTypeLabel }}</span>
                   </p>
                   <p class="min-w-0">
-                    <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Numero</span>
-                    <span class="block truncate font-semibold text-slate-950 dark:text-text">{{ customerDocumentNumberLabel }}</span>
+                    <span class="block text-[11px] font-semibold text-slate-500">Numero</span>
+                    <span class="block truncate font-semibold text-slate-950">{{ customerDocumentNumberLabel }}</span>
                   </p>
                   <p>
-                    <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Telefono</span>
-                    <span class="block font-semibold text-slate-950 dark:text-text">{{ form.customerPhone || 'Sin telefono' }}</span>
+                    <span class="block text-[11px] font-semibold text-slate-500">Telefono</span>
+                    <span class="block font-semibold text-slate-950">{{ form.customerPhone || 'Sin telefono' }}</span>
                   </p>
                   <p class="min-w-0">
-                    <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Correo</span>
-                    <span class="block truncate font-semibold text-slate-950 dark:text-text">{{ form.customerEmail || 'Sin correo' }}</span>
+                    <span class="block text-[11px] font-semibold text-slate-500">Correo</span>
+                    <span class="block truncate font-semibold text-slate-950">{{ form.customerEmail || 'Sin correo' }}</span>
                   </p>
                   <template v-if="requiresStructuredCustomer">
                     <p v-if="!isSujetoExcluido">
-                      <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">NRC</span>
-                      <span class="block font-semibold text-slate-950 dark:text-text">{{ form.customerNrc }}</span>
+                      <span class="block text-[11px] font-semibold text-slate-500">NRC</span>
+                      <span class="block font-semibold text-slate-950">{{ form.customerNrc }}</span>
                     </p>
                     <p>
-                      <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Actividad</span>
-                      <span class="block truncate font-semibold text-slate-950 dark:text-text">{{ form.customerActivityCode }} · {{ form.customerActivityDescription }}</span>
+                      <span class="block text-[11px] font-semibold text-slate-500">Actividad</span>
+                      <span class="block truncate font-semibold text-slate-950">{{ form.customerActivityCode }} · {{ form.customerActivityDescription }}</span>
                     </p>
                     <p class="min-w-0 sm:col-span-2">
-                      <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Direccion</span>
-                      <span class="block truncate font-semibold text-slate-950 dark:text-text">{{ form.customerDepartment }} / {{ form.customerMunicipality }} / {{ form.customerDistrict }} · {{ form.customerAddress }}</span>
+                      <span class="block text-[11px] font-semibold text-slate-500">Direccion</span>
+                      <span class="block truncate font-semibold text-slate-950">{{ form.customerDepartment }} / {{ form.customerMunicipality }} / {{ form.customerDistrict }} · {{ form.customerAddress }}</span>
                     </p>
                   </template>
                 </div>
@@ -2201,7 +2201,7 @@ function updatePaymentCondition(value: string): void {
               :key="mode.key"
               class="rounded-lg px-4 py-2 text-sm font-semibold tracking-wide transition-colors duration-200 focus:outline-none focus:ring focus:ring-sky-300 focus:ring-opacity-70"
               :class="[
-                customerMode === mode.key ? 'bg-sky-600 text-white hover:bg-sky-500' : 'border border-blue-100 bg-blue-50/45 text-slate-900 shadow-sm shadow-blue-950/5 hover:bg-blue-100/60 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:hover:bg-surface-muted',
+                customerMode === mode.key ? 'bg-sky-600 text-white hover:bg-sky-500' : 'border border-blue-100 bg-blue-50/45 text-slate-900 shadow-sm shadow-blue-950/5 hover:bg-blue-100/60',
                 mode.key === 'generic' && requiresCustomerIdentificationByAmount ? 'cursor-not-allowed opacity-50 hover:bg-blue-50/45' : ''
               ]"
               :disabled="mode.key === 'generic' && requiresCustomerIdentificationByAmount"
@@ -2212,11 +2212,11 @@ function updatePaymentCondition(value: string): void {
             </button>
           </div>
 
-          <div v-if="!selectedCustomer && !isAdjustmentNote && (customerMode === 'generic' || customerMode === 'quick' || customerMode === 'new')" class="mt-4 rounded-md border border-blue-100/80 bg-slate-50/80 p-4 dark:border-line dark:bg-surface-muted">
+          <div v-if="!selectedCustomer && !isAdjustmentNote && (customerMode === 'generic' || customerMode === 'quick' || customerMode === 'new')" class="mt-4 rounded-md border border-blue-100/80 bg-slate-50/80 p-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p class="text-sm font-semibold text-slate-950 dark:text-text">{{ form.customerName || 'Consumidor Final' }}</p>
-                <p class="mt-1 text-sm text-slate-600 dark:text-muted">{{ customerSummary }}</p>
+                <p class="text-sm font-semibold text-slate-950">{{ form.customerName || 'Consumidor Final' }}</p>
+                <p class="mt-1 text-sm text-slate-600">{{ customerSummary }}</p>
               </div>
               <UiButton v-if="customerMode === 'quick'" variant="secondary" type="button" @click="customerModalMode = 'quick'">Editar rapido</UiButton>
             </div>
@@ -2230,10 +2230,10 @@ function updatePaymentCondition(value: string): void {
           </p>
           </section>
 
-          <section v-if="!isAdjustmentNote" class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:shadow-none">
+          <section v-if="!isAdjustmentNote" class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur">
             <div>
-              <h2 class="text-base font-semibold text-slate-950 dark:text-text">{{ isSujetoExcluido ? 'Compras frecuentes' : 'Productos rapidos' }}</h2>
-              <p class="mt-1 text-xs text-slate-500 dark:text-muted">{{ isSujetoExcluido ? 'Agrega compras o servicios recibidos.' : 'Agrega servicios frecuentes al detalle.' }}</p>
+              <h2 class="text-base font-semibold text-slate-950">{{ isSujetoExcluido ? 'Compras frecuentes' : 'Productos rapidos' }}</h2>
+              <p class="mt-1 text-xs text-slate-500">{{ isSujetoExcluido ? 'Agrega compras o servicios recibidos.' : 'Agrega servicios frecuentes al detalle.' }}</p>
             </div>
             <UiSearchInput
               v-model="itemTemplateSearch"
@@ -2242,26 +2242,26 @@ function updatePaymentCondition(value: string): void {
               placeholder="Nombre o descripcion"
               @search="loadItemTemplates"
             />
-            <div v-if="itemTemplateSearch.trim()" class="mt-3 max-h-40 overflow-y-auto rounded-md border border-slate-200 dark:border-line">
+            <div v-if="itemTemplateSearch.trim()" class="mt-3 max-h-40 overflow-y-auto rounded-md border border-slate-200">
               <button
                 v-for="template in itemTemplates.slice(0, 8)"
                 :key="template.id"
-                class="block w-full border-b border-slate-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-sky-50 dark:border-line dark:hover:bg-surface-muted"
+                class="block w-full border-b border-slate-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-sky-50"
                 type="button"
                 @click="fillCurrentLineFromTemplate(template)"
               >
-                <span class="block truncate font-semibold text-slate-950 dark:text-text">{{ template.name }}</span>
-                <span class="block text-xs text-slate-500 dark:text-muted">{{ currency(template.default_price) }}</span>
+                <span class="block truncate font-semibold text-slate-950">{{ template.name }}</span>
+                <span class="block text-xs text-slate-500">{{ currency(template.default_price) }}</span>
               </button>
-              <span v-if="itemTemplates.length === 0" class="block px-3 py-3 text-sm text-slate-500 dark:text-muted">Sin resultados.</span>
+              <span v-if="itemTemplates.length === 0" class="block px-3 py-3 text-sm text-slate-500">Sin resultados.</span>
             </div>
           </section>
         </div>
 
-        <section class="rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:shadow-none">
+        <section class="rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5 backdrop-blur">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 class="text-base font-semibold text-slate-950 dark:text-text">{{ isSujetoExcluido ? 'Detalle de compra' : 'Detalle' }}</h2>
+              <h2 class="text-base font-semibold text-slate-950">{{ isSujetoExcluido ? 'Detalle de compra' : 'Detalle' }}</h2>
             </div>
           </div>
           <BillingFiscalOptions
@@ -2270,9 +2270,9 @@ function updatePaymentCondition(value: string): void {
             v-model:retain-iva="ccfRetainIva10"
             class="mt-4"
           />
-          <div class="mt-4 overflow-hidden rounded-md border border-slate-200 dark:border-line">
-            <table class="w-full min-w-[780px] text-left text-sm text-slate-900 dark:text-text">
-              <thead class="bg-blue-50/70 text-xs uppercase text-slate-500 dark:bg-surface-muted dark:text-muted">
+          <div class="mt-4 overflow-hidden rounded-md border border-slate-200">
+            <table class="w-full min-w-[780px] text-left text-sm">
+              <thead class="bg-blue-50/70 text-xs uppercase text-slate-500">
                 <tr>
                   <th class="px-3 py-2">Descripcion</th>
                   <th class="w-28 px-3 py-2">Cantidad</th>
@@ -2282,25 +2282,25 @@ function updatePaymentCondition(value: string): void {
                   <th class="w-32 px-3 py-2"></th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-200 dark:divide-line">
-                <tr v-if="!isAdjustmentNote" class="bg-blue-50/40 dark:bg-surface-muted">
+              <tbody class="divide-y divide-slate-200">
+                <tr v-if="!isAdjustmentNote" class="bg-blue-50/40">
                   <td class="px-3 py-2">
-                    <input v-model="draftLine.description" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised" :placeholder="isSujetoExcluido ? 'Compra o servicio recibido' : 'Producto o servicio'">
+                    <input v-model="draftLine.description" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100" :placeholder="isSujetoExcluido ? 'Compra o servicio recibido' : 'Producto o servicio'">
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="draftLine.quantity" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:focus:bg-surface-raised" min="0.01" step="0.01" type="number">
+                    <input v-model.number="draftLine.quantity" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100" min="0.01" step="0.01" type="number">
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="draftLine.unitPrice" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:focus:bg-surface-raised" min="0" step="0.01" type="number">
+                    <input v-model.number="draftLine.unitPrice" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100" min="0" step="0.01" type="number">
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="draftLine.discountPercent" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:focus:bg-surface-raised" max="100" min="0" step="0.01" type="number">
-                    <p v-if="lineDiscountAmount(draftLine) > 0" class="mt-1 text-[11px] text-slate-500 dark:text-muted">-{{ currency(lineDiscountAmount(draftLine)) }}</p>
+                    <input v-model.number="draftLine.discountPercent" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100" max="100" min="0" step="0.01" type="number">
+                    <p v-if="lineDiscountAmount(draftLine) > 0" class="mt-1 text-[11px] text-slate-500">-{{ currency(lineDiscountAmount(draftLine)) }}</p>
                   </td>
                   <td class="px-3 py-2 text-right">
-                    <p class="font-semibold text-slate-900 dark:text-text">{{ currency(lineNetTotal(draftLine)) }}</p>
-                    <p v-if="isFiscalStyleDocument" class="text-[11px] text-slate-500 dark:text-muted">IVA {{ currency(lineIvaAmount(draftLine)) }}</p>
-                    <p v-if="lineDiscountAmount(draftLine) > 0" class="text-[11px] text-slate-500 dark:text-muted">Bruto {{ currency(lineGrossTotal(draftLine)) }}</p>
+                    <p class="font-semibold text-slate-900">{{ currency(lineNetTotal(draftLine)) }}</p>
+                    <p v-if="isFiscalStyleDocument" class="text-[11px] text-slate-500">IVA {{ currency(lineIvaAmount(draftLine)) }}</p>
+                    <p v-if="lineDiscountAmount(draftLine) > 0" class="text-[11px] text-slate-500">Bruto {{ currency(lineGrossTotal(draftLine)) }}</p>
                   </td>
                   <td class="px-3 py-2 text-right">
                     <UiButton @click="addLine">Agregar</UiButton>
@@ -2308,15 +2308,15 @@ function updatePaymentCondition(value: string): void {
                 </tr>
                 <tr v-for="line in lines" :key="line.id">
                   <td class="px-3 py-2">
-                    <span class="font-medium text-slate-950 dark:text-text">{{ line.description }}</span>
-                    <p v-if="isAdjustmentNote" class="mt-1 text-[11px] text-slate-500 dark:text-muted">
+                    <span class="font-medium text-slate-950">{{ line.description }}</span>
+                    <p v-if="isAdjustmentNote" class="mt-1 text-[11px] text-slate-500">
                       {{ line.sourceLine === false ? 'Linea nueva agregada a la Nota de Debito' : 'Descripcion tomada del CCF origen' }}
                     </p>
                   </td>
                   <td class="px-3 py-2">
                     <template v-if="isAdjustmentNote">
                       <input
-                        class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:focus:bg-surface-raised"
+                        class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100"
                         :max="isNotaCredito ? Number(line.originalQuantity ?? line.quantity ?? 0) : undefined"
                         :min="isNotaDebito && line.sourceLine !== false ? Number(line.originalQuantity ?? line.quantity ?? 0) : 0.01"
                         step="0.01"
@@ -2363,20 +2363,20 @@ function updatePaymentCondition(value: string): void {
                     </template>
                   </td>
                   <td class="px-3 py-2 text-right">
-                    <p class="font-semibold text-slate-900 dark:text-text">{{ currency(lineNetTotal(line)) }}</p>
-                    <p v-if="isFiscalStyleDocument" class="text-[11px] text-slate-500 dark:text-muted">IVA {{ currency(lineIvaAmount(line)) }}</p>
-                    <p v-if="lineDiscountAmount(line) > 0" class="text-[11px] text-slate-500 dark:text-muted">Bruto {{ currency(lineGrossTotal(line)) }}</p>
+                    <p class="font-semibold text-slate-900">{{ currency(lineNetTotal(line)) }}</p>
+                    <p v-if="isFiscalStyleDocument" class="text-[11px] text-slate-500">IVA {{ currency(lineIvaAmount(line)) }}</p>
+                    <p v-if="lineDiscountAmount(line) > 0" class="text-[11px] text-slate-500">Bruto {{ currency(lineGrossTotal(line)) }}</p>
                   </td>
                   <td class="px-3 py-2 text-right">
                     <button v-if="!isAdjustmentNote" class="inline-flex items-center rounded px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50" type="button" @click="saveLineAsTemplate(line)">
                       <UiSaveIcon class="mr-1 h-4 w-4" />
                       <span>Guardar</span>
                     </button>
-                    <button class="rounded px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-red-700 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-red-400" type="button" @click="removeLine(line.id)">Quitar</button>
+                    <button class="rounded px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-red-700" type="button" @click="removeLine(line.id)">Quitar</button>
                   </td>
                 </tr>
                 <tr v-if="lines.length === 0">
-                  <td class="px-3 py-4 text-sm text-slate-500 dark:text-muted" colspan="6">{{ isAdjustmentNote ? `Selecciona un CCF origen para cargar las lineas de ${isNotaDebito ? 'debito' : 'credito'}.` : 'Aun no hay lineas agregadas.' }}</td>
+                  <td class="px-3 py-4 text-sm text-slate-500" colspan="6">{{ isAdjustmentNote ? `Selecciona un CCF origen para cargar las lineas de ${isNotaDebito ? 'debito' : 'credito'}.` : 'Aun no hay lineas agregadas.' }}</td>
                 </tr>
                 <tr v-if="isNotaDebito && selectedSourceDocument" class="border-t-2 border-slate-200 bg-slate-50/70">
                   <td class="px-3 py-2">

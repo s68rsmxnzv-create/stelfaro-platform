@@ -371,7 +371,7 @@ function navigateFromMenu(event, href) {
       style="background: #020617; background-image: radial-gradient(circle at top center, rgba(14, 165, 233, 0.22), transparent 42rem);"
     ></div>
 
-    <nav class="fixed inset-x-0 top-0 z-50 border-b border-slate-800 bg-slate-900/95 shadow-sm backdrop-blur dark:border-slate-700/80">
+    <nav class="fixed inset-x-0 top-0 z-50 bg-slate-900/95 shadow-sm backdrop-blur">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
           <div class="flex items-center">
@@ -529,7 +529,7 @@ function navigateFromMenu(event, href) {
       </div>
     </nav>
 
-    <header class="relative z-10 border-b border-line bg-surface shadow-surface backdrop-blur dark:border-line-strong dark:bg-surface-raised">
+    <header class="relative z-10 border-b border-line bg-surface shadow-surface backdrop-blur">
       <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div class="flex flex-wrap items-center gap-3">
           <h1 class="text-3xl font-bold tracking-tight text-text">{{ pageTitle }}</h1>
