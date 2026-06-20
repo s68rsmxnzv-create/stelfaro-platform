@@ -1552,16 +1552,16 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </div>
 
           <template v-if="props.detailMode && !editingCompany && !editingFiscal && !editingSucursales && !editingCorrelativos">
-            <div id="settings-summary" class="scroll-mt-6 rounded-md border border-line bg-surface p-5 shadow-surface">
+            <div id="settings-summary" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
               <div class="flex min-w-0 gap-4">
-                <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-line bg-surface-muted object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
+                <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
                 <div v-else class="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-slate-900 text-lg font-bold text-white">
                   {{ initials(selectedEmpresa) }}
                 </div>
                 <div class="min-w-0">
                   <div class="flex flex-wrap items-center gap-2">
-                    <h2 class="truncate text-xl font-bold text-text">{{ selectedEmpresa.razon_social }}</h2>
-                    <span class="rounded px-2 py-1 text-xs font-semibold" :class="isInactive ? 'bg-surface-muted text-muted' : 'bg-success-soft text-success'">
+                    <h2 class="truncate text-xl font-bold text-slate-950">{{ selectedEmpresa.razon_social }}</h2>
+                    <span class="rounded px-2 py-1 text-xs font-semibold" :class="isInactive ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-700'">
                       {{ isInactive ? 'Inactiva' : 'Activa' }}
                     </span>
                     <div class="relative">
@@ -1569,114 +1569,114 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                         type="button"
                         class="rounded px-2 py-1 text-xs font-semibold transition hover:brightness-95"
                         :class="{
-                          'bg-success-soft text-success': fiscalHealth.tone === 'success',
+                          'bg-emerald-50 text-emerald-700': fiscalHealth.tone === 'success',
                           'bg-amber-50 text-amber-700': fiscalHealth.tone === 'warning',
-                          'bg-danger-soft text-danger': fiscalHealth.tone === 'danger',
-                          'bg-surface-muted text-muted': fiscalHealth.tone === 'slate'
+                          'bg-red-50 text-red-700': fiscalHealth.tone === 'danger',
+                          'bg-slate-100 text-slate-600': fiscalHealth.tone === 'slate'
                         }"
                         @click="healthOpen = !healthOpen"
                       >
                         {{ fiscalHealth.label }}
                       </button>
-                      <div v-if="healthOpen" class="absolute left-0 z-20 mt-2 w-72 rounded-md border border-line bg-surface-raised p-4 text-sm text-text shadow-lg">
-                        <p class="font-semibold text-text">Salud fiscal</p>
-                        <p class="mt-1 text-xs text-muted">{{ fiscalHealth.detail }}</p>
+                      <div v-if="healthOpen" class="absolute left-0 z-20 mt-2 w-72 rounded-md border border-slate-200 bg-white p-4 text-sm shadow-lg">
+                        <p class="font-semibold text-slate-950">Salud fiscal</p>
+                        <p class="mt-1 text-xs text-slate-500">{{ fiscalHealth.detail }}</p>
                         <div class="mt-4 space-y-3">
                           <div class="flex items-center justify-between gap-3">
-                            <span class="text-muted">Autorizacion MH</span>
-                            <span class="rounded px-2 py-1 text-xs font-semibold" :class="fiscalHealth.authReady ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'">
+                            <span class="text-slate-600">Autorizacion MH</span>
+                            <span class="rounded px-2 py-1 text-xs font-semibold" :class="fiscalHealth.authReady ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'">
                               {{ fiscalHealth.authReady ? 'OK' : 'Pendiente' }}
                             </span>
                           </div>
                           <div class="flex items-center justify-between gap-3">
-                            <span class="text-muted">Firmador</span>
-                            <span class="rounded px-2 py-1 text-xs font-semibold" :class="fiscalHealth.signerReady ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'">
+                            <span class="text-slate-600">Firmador</span>
+                            <span class="rounded px-2 py-1 text-xs font-semibold" :class="fiscalHealth.signerReady ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'">
                               {{ fiscalHealth.signerReady ? 'OK' : 'Error' }}
                             </span>
                           </div>
                         </div>
-                        <p v-if="selectedSignerSync?.message" class="mt-3 rounded bg-danger-soft px-2 py-1 text-xs font-medium text-danger">{{ selectedSignerSync.message }}</p>
-                        <p class="mt-4 text-xs text-muted">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${formatDateTime(selectedMhConfig.last_verified_at)}` : 'Sin verificacion registrada' }}</p>
+                        <p v-if="selectedSignerSync?.message" class="mt-3 rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700">{{ selectedSignerSync.message }}</p>
+                        <p class="mt-4 text-xs text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${formatDateTime(selectedMhConfig.last_verified_at)}` : 'Sin verificacion registrada' }}</p>
                       </div>
                     </div>
                   </div>
-                  <p class="mt-1 text-sm text-muted">{{ selectedEmpresa.nombre_comercial }}</p>
-                  <p class="mt-2 text-sm font-medium text-text">{{ selectedDocumentLabel }}</p>
-                  <p class="mt-1 text-sm text-muted">{{ selectedEmpresa.codigo_actividad }} · {{ selectedEmpresa.desc_actividad }}</p>
+                  <p class="mt-1 text-sm text-slate-600">{{ selectedEmpresa.nombre_comercial }}</p>
+                  <p class="mt-2 text-sm font-medium text-slate-800">{{ selectedDocumentLabel }}</p>
+                  <p class="mt-1 text-sm text-slate-500">{{ selectedEmpresa.codigo_actividad }} · {{ selectedEmpresa.desc_actividad }}</p>
                 </div>
               </div>
             </div>
 
             <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
-              <div class="min-w-0 rounded-md border border-line bg-surface p-4 shadow-surface">
-                <p class="truncate text-[11px] font-bold uppercase text-muted">DTE emitidos</p>
-                <p class="mt-2 text-2xl font-bold text-text">{{ companySummary?.totals.emitted ?? 0 }}</p>
+              <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
+                <p class="truncate text-[11px] font-bold uppercase text-slate-500">DTE emitidos</p>
+                <p class="mt-2 text-2xl font-bold text-slate-950">{{ companySummary?.totals.emitted ?? 0 }}</p>
               </div>
-              <div class="min-w-0 rounded-md border border-line bg-surface p-4 shadow-surface">
-                <p class="truncate text-[11px] font-bold uppercase text-muted">Bien</p>
-                <p class="mt-2 text-2xl font-bold text-success">{{ companySummary?.totals.accepted ?? 0 }}</p>
+              <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
+                <p class="truncate text-[11px] font-bold uppercase text-slate-500">Bien</p>
+                <p class="mt-2 text-2xl font-bold text-emerald-700">{{ companySummary?.totals.accepted ?? 0 }}</p>
               </div>
-              <div class="min-w-0 rounded-md border border-line bg-surface p-4 shadow-surface">
-                <p class="truncate text-[11px] font-bold uppercase text-muted">Rechazos</p>
-                <p class="mt-2 text-2xl font-bold text-danger">{{ companySummary?.totals.rejected ?? 0 }}</p>
+              <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
+                <p class="truncate text-[11px] font-bold uppercase text-slate-500">Rechazos</p>
+                <p class="mt-2 text-2xl font-bold text-red-700">{{ companySummary?.totals.rejected ?? 0 }}</p>
               </div>
-              <div class="min-w-0 rounded-md border border-line bg-surface p-4 shadow-surface">
-                <p class="truncate text-[11px] font-bold uppercase text-muted">Activo desde</p>
-                <p class="mt-2 text-sm font-semibold text-text">{{ formatDate(selectedEmpresa.created_at) }}</p>
+              <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
+                <p class="truncate text-[11px] font-bold uppercase text-slate-500">Activo desde</p>
+                <p class="mt-2 text-sm font-semibold text-slate-950">{{ formatDate(selectedEmpresa.created_at) }}</p>
               </div>
-              <div class="min-w-0 rounded-md border border-line bg-surface p-4 shadow-surface">
-                <p class="truncate text-[11px] font-bold uppercase text-muted">Suscripcion hasta</p>
-                <p class="mt-1 text-sm font-semibold text-text">No registrada</p>
+              <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
+                <p class="truncate text-[11px] font-bold uppercase text-slate-500">Suscripcion hasta</p>
+                <p class="mt-1 text-sm font-semibold text-slate-950">No registrada</p>
               </div>
             </div>
 
-            <div class="rounded-md border border-line bg-surface p-5 shadow-surface">
-              <p class="text-sm font-semibold text-text">Resumen informativo</p>
+            <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
+              <p class="text-sm font-semibold text-slate-950">Resumen informativo</p>
               <div class="mt-4 grid gap-8" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
                 <div class="space-y-4">
                   <div>
-                    <p class="text-xs font-bold uppercase text-muted">Contribuyente</p>
-                    <p class="mt-1 text-sm font-semibold text-text">{{ selectedEmpresa.razon_social }}</p>
+                    <p class="text-xs font-bold uppercase text-slate-500">Contribuyente</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.razon_social }}</p>
                   </div>
                   <div>
-                    <p class="text-xs font-bold uppercase text-muted">Direccion</p>
-                    <p class="mt-1 text-sm font-semibold text-text">{{ selectedSucursal?.direccion ? displayText(selectedSucursal.direccion) : 'Direccion pendiente' }}</p>
-                    <p class="mt-1 text-xs text-muted">{{ branchLocationLabel(selectedSucursal) }}</p>
+                    <p class="text-xs font-bold uppercase text-slate-500">Direccion</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.direccion ? displayText(selectedSucursal.direccion) : 'Direccion pendiente' }}</p>
+                    <p class="mt-1 text-xs text-slate-500">{{ branchLocationLabel(selectedSucursal) }}</p>
                   </div>
                   <div>
-                    <p class="text-xs font-bold uppercase text-muted">Telefono</p>
-                    <p class="mt-1 text-sm font-semibold text-text">{{ selectedSucursal?.telefono ?? 'No registrado' }}</p>
+                    <p class="text-xs font-bold uppercase text-slate-500">Telefono</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.telefono ?? 'No registrado' }}</p>
                   </div>
                   <div>
-                    <p class="text-xs font-bold uppercase text-muted">Correo</p>
-                    <p class="mt-1 text-sm font-semibold text-text">{{ selectedSucursal?.email ?? 'No registrado' }}</p>
+                    <p class="text-xs font-bold uppercase text-slate-500">Correo</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.email ?? 'No registrado' }}</p>
                   </div>
                 </div>
 
                 <div class="space-y-4">
                   <div>
-                    <p class="text-xs font-bold uppercase text-muted">Nombre comercial</p>
-                    <p class="mt-1 text-sm font-semibold text-text">{{ selectedEmpresa.nombre_comercial }}</p>
+                    <p class="text-xs font-bold uppercase text-slate-500">Nombre comercial</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.nombre_comercial }}</p>
                   </div>
                   <div>
-                    <p class="text-xs font-bold uppercase text-muted">Ambiente</p>
-                    <p class="mt-1 text-sm font-semibold text-text">{{ form.ambiente }} · {{ environmentLabel }}</p>
+                    <p class="text-xs font-bold uppercase text-slate-500">Ambiente</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ form.ambiente }} · {{ environmentLabel }}</p>
                   </div>
                   <div>
-                    <p class="text-xs font-bold uppercase text-muted">NIT</p>
-                    <p class="mt-1 text-sm font-semibold text-text">{{ selectedEmpresa.fiscal_document_number ?? selectedEmpresa.nit }}</p>
+                    <p class="text-xs font-bold uppercase text-slate-500">NIT</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.fiscal_document_number ?? selectedEmpresa.nit }}</p>
                   </div>
                   <div>
-                    <p class="text-xs font-bold uppercase text-muted">NRC</p>
-                    <p class="mt-1 text-sm font-semibold text-text">{{ selectedEmpresa.nrc ?? 'No registrado' }}</p>
+                    <p class="text-xs font-bold uppercase text-slate-500">NRC</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.nrc ?? 'No registrado' }}</p>
                   </div>
                   <div>
-                    <p class="text-xs font-bold uppercase text-muted">Actividades economicas</p>
+                    <p class="text-xs font-bold uppercase text-slate-500">Actividades economicas</p>
                     <div class="mt-1 space-y-1">
                       <p
                         v-for="activity in economicActivitiesFor(selectedEmpresa)"
                         :key="activity.codigo"
-                        class="text-sm font-semibold text-text"
+                        class="text-sm font-semibold text-slate-950"
                       >
                         {{ activity.codigo }} · {{ activity.descripcion }}
                       </p>
