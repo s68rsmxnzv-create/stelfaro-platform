@@ -348,7 +348,7 @@ function navigateFromMenu(event, href) {
 </script>
 
 <template>
-  <div v-if="module === 'settings'" class="min-h-screen bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
+  <div v-if="module === 'settings'" class="min-h-screen bg-app text-text">
     <div v-if="!authToken" class="mx-auto max-w-3xl px-4 py-8">
       <div class="rounded-md border border-red-200 bg-red-50 p-5 text-red-700">
         No fue posible abrir la sesion fiscal.
@@ -361,7 +361,7 @@ function navigateFromMenu(event, href) {
     />
   </div>
 
-  <div v-else class="relative min-h-screen overflow-x-hidden bg-white pt-16 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
+  <div v-else class="relative min-h-screen overflow-x-hidden bg-app pt-16 text-text">
     <div
       class="pointer-events-none fixed inset-0 z-0 dark:hidden"
       style="background: #ffffff; background-image: radial-gradient(circle at top center, rgba(59, 130, 246, 0.28), transparent 42rem);"
@@ -436,17 +436,17 @@ function navigateFromMenu(event, href) {
 
               <div
                 v-if="userMenuOpen"
-                class="absolute right-0 z-30 mt-3 w-80 origin-top-right rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-xl shadow-slate-950/15 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                class="absolute right-0 z-30 mt-3 w-80 origin-top-right rounded-2xl border border-line bg-surface-raised p-4 text-text shadow-xl shadow-slate-950/15"
                 role="menu"
               >
                 <div class="px-1 pb-4">
-                  <p class="truncate text-sm font-semibold text-slate-950 dark:text-white">{{ user?.name ?? app.name }}</p>
-                  <p class="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{{ user?.email ?? 'Sesion activa' }}</p>
+                  <p class="truncate text-sm font-semibold text-text">{{ user?.name ?? app.name }}</p>
+                  <p class="mt-1 truncate text-sm text-muted">{{ user?.email ?? 'Sesion activa' }}</p>
                 </div>
                 <div class="space-y-1 py-2 text-sm font-semibold">
                   <a
                     :href="dashboardHref"
-                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
+                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-muted hover:bg-surface-muted hover:text-text"
                     role="menuitem"
                     @click="navigateFromMenu($event, dashboardHref)"
                   >
@@ -461,7 +461,7 @@ function navigateFromMenu(event, href) {
                     :href="platformAdminUrl"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
+                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-muted hover:bg-surface-muted hover:text-text"
                     role="menuitem"
                     @click="userMenuOpen = false"
                   >
@@ -476,7 +476,7 @@ function navigateFromMenu(event, href) {
                     :href="`${appBaseUrl || ''}/configuracion`"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
+                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-muted hover:bg-surface-muted hover:text-text"
                     role="menuitem"
                     @click="userMenuOpen = false"
                   >
@@ -487,29 +487,29 @@ function navigateFromMenu(event, href) {
                     Configuracion
                   </a>
                   <button
-                    class="flex w-full items-center justify-between gap-4 rounded-lg px-3 py-3 text-left text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
+                    class="flex w-full items-center justify-between gap-4 rounded-lg px-3 py-3 text-left text-muted hover:bg-surface-muted hover:text-text"
                     type="button"
                     role="menuitem"
                     @click="toggleDarkMode"
                   >
                     <span class="flex items-center gap-4">
-                      <svg v-if="!darkMode" class="h-5 w-5 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                      <svg v-if="!darkMode" class="h-5 w-5 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.5 6.5 0 0 0 9.8 9.8Z" />
                       </svg>
-                      <svg v-else class="h-5 w-5 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                      <svg v-else class="h-5 w-5 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07l-1.41 1.41M20.48 3.52l-1.41 1.41" />
                         <path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
                       </svg>
                       {{ themeLabel }}
                     </span>
-                    <span class="relative inline-flex h-6 w-11 items-center rounded-full transition" :class="darkMode ? 'bg-sky-600' : 'bg-slate-300 dark:bg-slate-700'">
+                    <span class="relative inline-flex h-6 w-11 items-center rounded-full transition" :class="darkMode ? 'bg-primary' : 'bg-surface-muted'">
                       <span class="inline-block h-5 w-5 transform rounded-full bg-white shadow transition" :class="darkMode ? 'translate-x-5' : 'translate-x-1'" />
                     </span>
                   </button>
                 </div>
-                <div class="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
+                <div class="mt-2 border-t border-line pt-2">
                   <button
-                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-700 dark:text-slate-200 dark:hover:bg-rose-950/30 dark:hover:text-rose-300"
+                    class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-left text-sm font-semibold text-muted hover:bg-danger-soft hover:text-danger"
                     type="button"
                     role="menuitem"
                     @click="logout"
@@ -529,10 +529,10 @@ function navigateFromMenu(event, href) {
       </div>
     </nav>
 
-    <header class="relative z-10 border-b border-blue-100/70 bg-white/85 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80 dark:shadow-none">
+    <header class="relative z-10 border-b border-line bg-surface shadow-surface backdrop-blur">
       <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div class="flex flex-wrap items-center gap-3">
-          <h1 class="text-3xl font-bold tracking-tight text-slate-950 dark:text-white">{{ pageTitle }}</h1>
+          <h1 class="text-3xl font-bold tracking-tight text-text">{{ pageTitle }}</h1>
           <div v-if="currentDteHelp">
             <button
               class="grid h-9 w-9 place-items-center rounded-full border border-sky-200 bg-sky-50 text-sky-700 shadow-sm shadow-sky-950/5 transition hover:border-sky-300 hover:bg-sky-100 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
