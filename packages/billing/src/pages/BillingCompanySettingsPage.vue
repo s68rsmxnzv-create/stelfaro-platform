@@ -2,8 +2,8 @@
 import { computed, ref } from 'vue';
 import BillingSettingsPage from './BillingSettingsPage.vue';
 
-type CompanyAction = 'summary' | 'edit-data' | 'edit-fiscal' | 'edit-sucursales' | 'edit-correlativos';
-type CompanyView = 'summary' | 'data' | 'fiscal' | 'sucursales' | 'correlativos';
+type CompanyView = 'summary' | 'requests' | 'profile' | 'subscription' | 'printer' | 'security' | 'support';
+type SettingsCompanyView = 'summary' | 'data' | 'fiscal' | 'sucursales' | 'correlativos';
 
 defineProps<{
   coreBaseUrl?: string;
@@ -15,30 +15,26 @@ defineProps<{
 
 const selectedCompany = ref<{ name: string; tradeName: string; documentLabel: string; lifecycleStatus: string } | null>(null);
 const activeView = ref<CompanyView>('summary');
-const companyAction = ref<{ action: CompanyAction; nonce: number } | null>(null);
 
 const companyTitle = computed(() => selectedCompany.value?.tradeName || selectedCompany.value?.name || 'Mi empresa');
+const activeItem = computed(() => navItems.find((item) => item.id === activeView.value) ?? navItems[0]);
 
 const navItems: Array<{
   id: CompanyView;
   label: string;
   detail: string;
-  action: CompanyAction;
 }> = [
-  { id: 'summary', label: 'Resumen', detail: 'Estado general', action: 'summary' },
-  { id: 'data', label: 'Empresa', detail: 'Datos, contacto y logo', action: 'edit-data' },
-  { id: 'fiscal', label: 'Fiscalidad', detail: 'MH, certificado y firmador', action: 'edit-fiscal' },
-  { id: 'sucursales', label: 'Sucursales', detail: 'Establecimientos y cajas', action: 'edit-sucursales' },
-  { id: 'correlativos', label: 'Correlativos', detail: 'Series por punto de venta', action: 'edit-correlativos' }
+  { id: 'summary', label: 'Resumen', detail: 'Informacion de empresa' },
+  { id: 'requests', label: 'Solicitudes', detail: 'Cambios sensibles' },
+  { id: 'profile', label: 'Perfil', detail: 'Datos de contacto' },
+  { id: 'subscription', label: 'Suscripcion', detail: 'Plan y vigencia' },
+  { id: 'printer', label: 'Impresora', detail: 'Preferencias locales' },
+  { id: 'security', label: 'Seguridad', detail: 'Contrasena y acceso' },
+  { id: 'support', label: 'Soporte', detail: 'Canales de ayuda' }
 ];
 
 function openView(item: (typeof navItems)[number]): void {
   activeView.value = item.id;
-
-  companyAction.value = {
-    action: item.action,
-    nonce: Date.now()
-  };
 }
 
 function setSelectedCompany(company: { name: string; tradeName: string; documentLabel: string; lifecycleStatus: string }): void {
@@ -48,11 +44,12 @@ function setSelectedCompany(company: { name: string; tradeName: string; document
 function clearSelectedCompany(): void {
   selectedCompany.value = null;
   activeView.value = 'summary';
-  companyAction.value = null;
 }
 
-function setCompanyView(view: CompanyView): void {
-  activeView.value = view;
+function setCompanyView(view: SettingsCompanyView): void {
+  if (view === 'summary') {
+    activeView.value = 'summary';
+  }
 }
 </script>
 
@@ -150,17 +147,96 @@ function setCompanyView(view: CompanyView): void {
         </a>
         <span class="mx-4 text-slate-400">/</span>
         <span class="text-sm font-semibold text-sky-700">Configuracion</span>
+        <span class="mx-4 text-slate-400">/</span>
+        <span class="text-sm font-semibold text-slate-700">{{ activeItem.label }}</span>
       </div>
 
       <BillingSettingsPage
+        v-if="activeView === 'summary'"
         :core-base-url="coreBaseUrl"
         :auth-token="authToken"
         :detail-mode="true"
-        :company-action="companyAction"
         @company-selected="setSelectedCompany"
         @company-cleared="clearSelectedCompany"
         @company-view-changed="setCompanyView"
       />
+
+      <section v-else class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/5">
+        <div class="flex flex-col gap-2 border-b border-slate-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Configuracion</p>
+            <h1 class="mt-1 text-2xl font-bold text-slate-950">{{ activeItem.label }}</h1>
+            <p class="mt-1 text-sm text-slate-500">{{ activeItem.detail }}</p>
+          </div>
+          <span class="rounded-md bg-slate-100 px-3 py-1 text-xs font-bold uppercase text-slate-600">Placeholder</span>
+        </div>
+
+        <div v-if="activeView === 'requests'" class="mt-6 grid gap-4 lg:grid-cols-3">
+          <article class="rounded-md border border-slate-200 bg-slate-50 p-4">
+            <p class="text-sm font-bold text-slate-950">Nueva sucursal</p>
+            <p class="mt-2 text-sm leading-6 text-slate-600">Solicita creacion de sucursales adicionales. El limite operativo para usuarios es casa matriz y 2 sucursales adicionales.</p>
+          </article>
+          <article class="rounded-md border border-slate-200 bg-slate-50 p-4">
+            <p class="text-sm font-bold text-slate-950">Certificados fiscales</p>
+            <p class="mt-2 text-sm leading-6 text-slate-600">Solicita cambio o renovacion de certificado, credenciales MH o firmador.</p>
+          </article>
+          <article class="rounded-md border border-slate-200 bg-slate-50 p-4">
+            <p class="text-sm font-bold text-slate-950">Correlativos</p>
+            <p class="mt-2 text-sm leading-6 text-slate-600">Solicita revision de series o puntos de venta cuando necesites asistencia administrativa.</p>
+          </article>
+        </div>
+
+        <div v-else-if="activeView === 'profile'" class="mt-6 grid gap-4 md:grid-cols-2">
+          <div class="rounded-md border border-slate-200 p-4">
+            <p class="text-sm font-bold text-slate-950">Datos editables</p>
+            <p class="mt-2 text-sm leading-6 text-slate-600">Nombre, nombre comercial visible, telefono, direccion y correo de contacto iran aqui.</p>
+          </div>
+          <div class="rounded-md border border-slate-200 p-4">
+            <p class="text-sm font-bold text-slate-950">Datos protegidos</p>
+            <p class="mt-2 text-sm leading-6 text-slate-600">NIT, NRC, fiscalidad, certificados, sucursales y correlativos se manejaran por solicitud.</p>
+          </div>
+        </div>
+
+        <div v-else-if="activeView === 'subscription'" class="mt-6 grid gap-4 md:grid-cols-3">
+          <div class="rounded-md border border-slate-200 p-4">
+            <p class="text-xs font-bold uppercase text-slate-500">Plan</p>
+            <p class="mt-2 text-lg font-bold text-slate-950">Pendiente</p>
+          </div>
+          <div class="rounded-md border border-slate-200 p-4">
+            <p class="text-xs font-bold uppercase text-slate-500">Dias restantes</p>
+            <p class="mt-2 text-lg font-bold text-slate-950">Pendiente</p>
+          </div>
+          <div class="rounded-md border border-slate-200 p-4">
+            <p class="text-xs font-bold uppercase text-slate-500">Caducidad</p>
+            <p class="mt-2 text-lg font-bold text-slate-950">Pendiente</p>
+          </div>
+        </div>
+
+        <div v-else-if="activeView === 'printer'" class="mt-6 rounded-md border border-slate-200 p-4">
+          <p class="text-sm font-bold text-slate-950">Configuracion de impresora</p>
+          <p class="mt-2 text-sm leading-6 text-slate-600">Aqui configuraremos preferencias locales de impresion, formato y dispositivo predeterminado.</p>
+        </div>
+
+        <div v-else-if="activeView === 'security'" class="mt-6 rounded-md border border-slate-200 p-4">
+          <p class="text-sm font-bold text-slate-950">Cambio de contrasena</p>
+          <p class="mt-2 text-sm leading-6 text-slate-600">Aqui ira el flujo para actualizar contrasena y revisar accesos activos.</p>
+        </div>
+
+        <div v-else class="mt-6 grid gap-4 md:grid-cols-3">
+          <div class="rounded-md border border-slate-200 p-4">
+            <p class="text-sm font-bold text-slate-950">Correo</p>
+            <p class="mt-2 text-sm text-slate-600">soporte@stelfaro.com</p>
+          </div>
+          <div class="rounded-md border border-slate-200 p-4">
+            <p class="text-sm font-bold text-slate-950">WhatsApp</p>
+            <p class="mt-2 text-sm text-slate-600">Pendiente</p>
+          </div>
+          <div class="rounded-md border border-slate-200 p-4">
+            <p class="text-sm font-bold text-slate-950">Horario</p>
+            <p class="mt-2 text-sm text-slate-600">Pendiente</p>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 </template>
