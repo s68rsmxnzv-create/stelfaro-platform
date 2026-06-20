@@ -4,6 +4,7 @@ import BillingSettingsPage from './BillingSettingsPage.vue';
 
 type CompanyView = 'summary' | 'requests' | 'profile' | 'subscription' | 'printer' | 'security' | 'support';
 type SettingsCompanyView = 'summary' | 'data' | 'fiscal' | 'sucursales' | 'correlativos';
+type NavIcon = 'summary' | 'requests' | 'profile' | 'subscription' | 'printer' | 'security' | 'support';
 
 defineProps<{
   coreBaseUrl?: string;
@@ -23,14 +24,15 @@ const navItems: Array<{
   id: CompanyView;
   label: string;
   detail: string;
+  icon: NavIcon;
 }> = [
-  { id: 'summary', label: 'Resumen', detail: 'Informacion de empresa' },
-  { id: 'requests', label: 'Solicitudes', detail: 'Cambios sensibles' },
-  { id: 'profile', label: 'Perfil', detail: 'Datos de contacto' },
-  { id: 'subscription', label: 'Suscripcion', detail: 'Plan y vigencia' },
-  { id: 'printer', label: 'Impresora', detail: 'Preferencias locales' },
-  { id: 'security', label: 'Seguridad', detail: 'Contrasena y acceso' },
-  { id: 'support', label: 'Soporte', detail: 'Canales de ayuda' }
+  { id: 'summary', label: 'Resumen', detail: 'Informacion de empresa', icon: 'summary' },
+  { id: 'requests', label: 'Solicitudes', detail: 'Cambios sensibles', icon: 'requests' },
+  { id: 'profile', label: 'Perfil', detail: 'Datos de contacto', icon: 'profile' },
+  { id: 'subscription', label: 'Suscripcion', detail: 'Plan y vigencia', icon: 'subscription' },
+  { id: 'printer', label: 'Impresora', detail: 'Preferencias locales', icon: 'printer' },
+  { id: 'security', label: 'Seguridad', detail: 'Contrasena y acceso', icon: 'security' },
+  { id: 'support', label: 'Soporte', detail: 'Canales de ayuda', icon: 'support' }
 ];
 
 function openView(item: (typeof navItems)[number]): void {
@@ -73,11 +75,42 @@ function setCompanyView(view: SettingsCompanyView): void {
             v-for="item in navItems"
             :key="item.id"
             type="button"
-            class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base transition"
-            :class="activeView === item.id ? 'bg-slate-100 font-bold text-slate-950' : 'font-semibold text-slate-800 hover:bg-slate-50 hover:text-slate-950'"
+            class="flex min-h-14 w-full items-center gap-3 rounded-lg px-3 text-left text-base transition"
+            :class="activeView === item.id ? 'bg-slate-100 font-bold text-slate-950 shadow-sm shadow-slate-950/5' : 'font-semibold text-slate-800 hover:bg-slate-50 hover:text-slate-950'"
             @click="openView(item)"
           >
-            <span class="h-2 w-2 shrink-0 rounded-full" :class="activeView === item.id ? 'bg-sky-600' : 'bg-slate-300'" />
+            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md" :class="activeView === item.id ? 'bg-white text-sky-700' : 'text-slate-500'">
+              <svg v-if="item.icon === 'summary'" class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                <path d="M4 5h16M4 12h10M4 19h16" />
+                <path d="M17 10h3v4h-3z" />
+              </svg>
+              <svg v-else-if="item.icon === 'requests'" class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                <path d="M6 3h9l3 3v15H6z" />
+                <path d="M14 3v4h4M9 13h6M9 17h4" />
+                <path d="m9 9 1.5 1.5L14 7" />
+              </svg>
+              <svg v-else-if="item.icon === 'profile'" class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+                <path d="M4 21a8 8 0 0 1 16 0" />
+              </svg>
+              <svg v-else-if="item.icon === 'subscription'" class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                <path d="M4 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
+                <path d="M2 11h20M6 16h4" />
+              </svg>
+              <svg v-else-if="item.icon === 'printer'" class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                <path d="M7 8V3h10v5" />
+                <path d="M6 17H5a3 3 0 0 1-3-3v-2a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v2a3 3 0 0 1-3 3h-1" />
+                <path d="M7 14h10v7H7z" />
+              </svg>
+              <svg v-else-if="item.icon === 'security'" class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                <path d="M12 3 5 6v5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V6z" />
+                <path d="M9.5 12.5 11 14l3.5-4" />
+              </svg>
+              <svg v-else class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                <path d="M4 5h16v11H7l-3 3z" />
+                <path d="M9 9h6M9 13h4" />
+              </svg>
+            </span>
             <span class="min-w-0">
               <span class="block truncate">{{ item.label }}</span>
               <span class="block truncate text-xs font-medium text-slate-500">{{ item.detail }}</span>
