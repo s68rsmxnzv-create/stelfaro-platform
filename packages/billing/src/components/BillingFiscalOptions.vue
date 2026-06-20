@@ -11,34 +11,25 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <section class="rounded-md border border-slate-200 bg-slate-50 p-3">
-    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Opciones CCF</p>
-    <div class="mt-3 grid gap-2 sm:grid-cols-2">
-      <label class="flex cursor-pointer items-start gap-3 rounded-md bg-white p-3 text-sm shadow-sm ring-1 ring-slate-200 transition hover:ring-sky-200">
-        <input
-          class="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-          type="checkbox"
-          :checked="priceIncludesIva"
-          @change="emit('update:priceIncludesIva', ($event.target as HTMLInputElement).checked)"
-        >
-        <span>
-          <span class="block font-semibold text-slate-950">Precio incluye IVA</span>
-          <span class="mt-0.5 block text-xs text-slate-500">El precio digitado ya contiene el 13%.</span>
-        </span>
-      </label>
+  <div class="flex flex-wrap items-center gap-3 text-sm">
+    <label class="inline-flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-slate-50/80 px-3 py-2 text-slate-700 transition hover:border-sky-200 hover:bg-sky-50/70 dark:border-line dark:bg-surface-muted dark:text-muted dark:hover:bg-surface-strong">
+      <input
+        class="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 dark:border-line"
+        type="checkbox"
+        :checked="priceIncludesIva"
+        @change="emit('update:priceIncludesIva', ($event.target as HTMLInputElement).checked)"
+      >
+      <span class="font-semibold">Precio incluye IVA</span>
+    </label>
 
-      <label class="flex cursor-pointer items-start gap-3 rounded-md bg-white p-3 text-sm shadow-sm ring-1 ring-slate-200 transition hover:ring-sky-200">
-        <input
-          class="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-          type="checkbox"
-          :checked="retainIva"
-          @change="emit('update:retainIva', ($event.target as HTMLInputElement).checked)"
-        >
-        <span>
-          <span class="block font-semibold text-slate-950">Retener IVA 1%</span>
-          <span class="mt-0.5 block text-xs text-slate-500">Calcula retencion sobre la base gravada.</span>
-        </span>
-      </label>
-    </div>
-  </section>
+    <label class="inline-flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-slate-50/80 px-3 py-2 text-slate-700 transition hover:border-sky-200 hover:bg-sky-50/70 dark:border-line dark:bg-surface-muted dark:text-muted dark:hover:bg-surface-strong">
+      <input
+        class="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 dark:border-line"
+        type="checkbox"
+        :checked="retainIva"
+        @change="emit('update:retainIva', ($event.target as HTMLInputElement).checked)"
+      >
+      <span class="font-semibold">Retener IVA 1%</span>
+    </label>
+  </div>
 </template>

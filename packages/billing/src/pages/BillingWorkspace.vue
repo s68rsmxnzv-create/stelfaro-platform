@@ -2271,13 +2271,12 @@ function updatePaymentCondition(value: string): void {
             <div>
               <h2 class="text-base font-semibold text-slate-950 dark:text-text">{{ isSujetoExcluido ? 'Detalle de compra' : 'Detalle' }}</h2>
             </div>
+            <BillingFiscalOptions
+              v-if="isCreditoFiscal"
+              v-model:price-includes-iva="ccfPriceIncludesIva"
+              v-model:retain-iva="ccfRetainIva10"
+            />
           </div>
-          <BillingFiscalOptions
-            v-if="isCreditoFiscal"
-            v-model:price-includes-iva="ccfPriceIncludesIva"
-            v-model:retain-iva="ccfRetainIva10"
-            class="mt-4"
-          />
           <div class="mt-4 overflow-hidden rounded-md border border-slate-200 dark:border-line">
             <table class="w-full min-w-[780px] text-left text-sm dark:text-text">
               <thead class="bg-blue-50/70 text-xs uppercase text-slate-500 dark:bg-surface-muted dark:text-muted">
