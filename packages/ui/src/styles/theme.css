@@ -86,3 +86,69 @@
   --sf-color-primary-soft: rgb(166 195 252);
   --sf-color-primary-contrast: #000000;
 }
+
+@layer utilities {
+  .dark .bg-white,
+  .dark .bg-white\/90,
+  .dark .bg-white\/85,
+  .dark .bg-white\/75,
+  .dark .bg-white\/70 {
+    background-color: var(--sf-color-surface);
+  }
+
+  .dark .bg-slate-50,
+  .dark .bg-slate-50\/80,
+  .dark .bg-slate-50\/70,
+  .dark .bg-blue-50,
+  .dark .bg-blue-50\/70,
+  .dark .bg-blue-50\/45,
+  .dark .bg-sky-50,
+  .dark .bg-sky-50\/80,
+  .dark .bg-sky-50\/70,
+  .dark .bg-slate-100 {
+    background-color: var(--sf-color-surface-muted);
+  }
+
+  .dark .text-slate-950,
+  .dark .text-slate-900,
+  .dark .text-slate-800 {
+    color: var(--sf-color-text);
+  }
+
+  .dark .text-slate-700,
+  .dark .text-slate-600,
+  .dark .text-slate-500 {
+    color: var(--sf-color-text-muted);
+  }
+
+  .dark .text-slate-400 {
+    color: var(--sf-color-text-soft);
+  }
+
+  .dark .border-slate-300,
+  .dark .border-slate-200,
+  .dark .border-slate-100,
+  .dark .border-blue-100,
+  .dark .border-blue-100\/80,
+  .dark .border-sky-100 {
+    border-color: var(--sf-color-line);
+  }
+
+  .dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+  .dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--sf-color-line);
+  }
+
+  .dark input:not([type='checkbox']):not([type='radio']),
+  .dark select,
+  .dark textarea {
+    border-color: var(--sf-color-line);
+    background-color: var(--sf-color-surface-raised);
+    color: var(--sf-color-text);
+  }
+
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: var(--sf-color-text-soft);
+  }
+}
