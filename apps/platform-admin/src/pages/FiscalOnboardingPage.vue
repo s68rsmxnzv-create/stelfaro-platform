@@ -159,7 +159,8 @@ async function registerPlatformTenant(response: BillingCompanyResponse): Promise
         core_tenant_id: response.tenant.id,
         name: response.empresa.nombre_comercial || response.empresa.razon_social,
         slug: response.tenant.slug,
-        app_keys: selectedAppKeys.value
+        app_keys: selectedAppKeys.value,
+        make_default: true
       })
     });
 
