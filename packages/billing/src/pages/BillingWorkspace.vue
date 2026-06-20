@@ -1089,14 +1089,18 @@ function notifyEmailDelivery(document: DteDraftSummary): void {
   }
 
   const status = String(delivery?.status ?? '').toLowerCase();
-  if (!['queued', 'sent', 'delivered'].includes(status)) {
+  if (!['pending', 'queued', 'waiting_transport', 'sent', 'delivered'].includes(status)) {
     return;
   }
 
+  const wasSent = ['sent', 'delivered'].includes(status);
+  const recipient = delivery.recipient_email ? ` a ${delivery.recipient_email}` : ' al correo del cliente';
   const toast = {
-    title: 'Correo enviado',
-    message: delivery.recipient_email ? `El comprobante fue enviado a ${delivery.recipient_email}.` : 'El comprobante fue enviado al correo del cliente.',
-    variant: 'success'
+    title: wasSent ? 'Correo enviado' : 'Correo en cola',
+    message: wasSent
+      ? `El comprobante fue enviado${recipient}.`
+      : `El comprobante quedo en cola para enviarse${recipient}.`,
+    variant: wasSent ? 'success' : 'info'
   } satisfies Omit<BillingFloatingToast, 'id'>;
 
   if (issueOverlayOpen.value || issueModalOpen.value) {
