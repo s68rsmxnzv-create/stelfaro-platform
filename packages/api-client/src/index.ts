@@ -89,6 +89,18 @@ export type PlatformUserInvitation = {
   } | null;
 };
 
+export type PlatformInvitationDeliveryResponse = {
+  invitation: Pick<PlatformUserInvitation, 'id' | 'tenant_id' | 'email' | 'role' | 'status'>;
+  notification: {
+    id: number | string | null;
+    status: string | null;
+    recipient_email: string | null;
+    attempts: number | null;
+    last_error: string | null;
+    sent_at: string | null;
+  } | null;
+};
+
 export type PlatformTenantUsersResponse = {
   tenant: {
     id: number;
@@ -1066,6 +1078,10 @@ export class PlatformClient {
 
   resendInvitation(invitationId: number): Promise<{ invitation: PlatformUserInvitation; token: string }> {
     return this.http.post(`platform/invitations/${invitationId}/resend`).json();
+  }
+
+  invitationDelivery(invitationId: number): Promise<PlatformInvitationDeliveryResponse> {
+    return this.http.get(`platform/invitations/${invitationId}/delivery`).json();
   }
 
   updateMembershipRole(membershipId: number, role: PlatformInviteTenantUserPayload['role']): Promise<{ membership: PlatformTenantUserMembership }> {

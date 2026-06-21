@@ -37,7 +37,9 @@ const roleOpen = ref(false);
 const selectedMembership = ref<PlatformTenantUserMembership | null>(null);
 const floatingToasts = ref<BillingFloatingToast[]>([]);
 let toastId = 0;
+let unmounted = false;
 const toastTimers: ReturnType<typeof window.setTimeout>[] = [];
+const deliveryPollTimers: ReturnType<typeof window.setTimeout>[] = [];
 
 const inviteForm = reactive({
   email: '',
@@ -61,11 +63,14 @@ const canSubmitInvite = computed(() => Boolean(inviteForm.email.trim() && invite
 const canSubmitRole = computed(() => Boolean(selectedMembership.value && roleForm.role && !saving.value));
 
 onMounted(() => {
+  unmounted = false;
   void load();
 });
 
 onBeforeUnmount(() => {
+  unmounted = true;
   toastTimers.forEach((timer) => window.clearTimeout(timer));
+  deliveryPollTimers.forEach((timer) => window.clearTimeout(timer));
 });
 
 watch(() => props.company.id, () => {
@@ -112,17 +117,19 @@ async function submitInvite(): Promise<void> {
   error.value = null;
 
   try {
-    await platform.client.inviteTenantUser(tenant.value.id, {
+    const response = await platform.client.inviteTenantUser(tenant.value.id, {
       email: inviteForm.email,
       role: inviteForm.role
     });
+    const recipientEmail = response.invitation.email;
     inviteOpen.value = false;
     await load();
     showFloatingToast({
-      title: 'Invitacion enviada',
-      message: `${inviteForm.email} recibira el correo de acceso.`,
-      variant: 'success'
+      title: 'Invitacion creada',
+      message: `Correo en cola para ${recipientEmail}.`,
+      variant: 'info'
     });
+    void waitForInvitationEmailSent(response.invitation.id, recipientEmail);
   } catch (caught) {
     error.value = await errorMessageFromResponse(caught, 'No fue posible enviar la invitacion.');
   } finally {
@@ -182,13 +189,14 @@ async function resendInvitation(invitation: PlatformUserInvitation): Promise<voi
   error.value = null;
 
   try {
-    await platform.client.resendInvitation(invitation.id);
+    const response = await platform.client.resendInvitation(invitation.id);
     await load();
     showFloatingToast({
-      title: 'Invitacion reenviada',
-      message: `${invitation.email} recibira un nuevo enlace de acceso.`,
-      variant: 'success'
+      title: 'Reenvio en cola',
+      message: `Correo en cola para ${response.invitation.email}.`,
+      variant: 'info'
     });
+    void waitForInvitationEmailSent(response.invitation.id, response.invitation.email);
   } catch (caught) {
     error.value = await errorMessageFromResponse(caught, 'No fue posible reenviar la invitacion.');
   } finally {
@@ -212,6 +220,44 @@ async function runMembershipAction(action: () => Promise<unknown>, successMessag
   } finally {
     saving.value = false;
   }
+}
+
+async function waitForInvitationEmailSent(invitationId: number, fallbackRecipient?: string | null): Promise<void> {
+  for (let attempt = 0; attempt < 14 && !unmounted; attempt += 1) {
+    if (attempt > 0) {
+      await waitForDeliveryPoll(1500);
+    }
+
+    const response = await platform.client.invitationDelivery(invitationId);
+    const status = String(response.notification?.status ?? '').toLowerCase();
+
+    if (['sent', 'delivered'].includes(status)) {
+      const recipient = response.notification?.recipient_email ?? fallbackRecipient;
+      const recipientLabel = recipient ? ` a ${recipient}` : '';
+      showFloatingToast({
+        title: 'Correo enviado',
+        message: `La invitacion fue enviada${recipientLabel}.`,
+        variant: 'success'
+      });
+      return;
+    }
+
+    if (status === 'failed') {
+      showFloatingToast({
+        title: 'Correo no enviado',
+        message: response.notification?.last_error ?? 'Notifications no pudo entregar la invitacion.',
+        variant: 'error'
+      });
+      return;
+    }
+  }
+}
+
+function waitForDeliveryPoll(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(resolve, milliseconds);
+    deliveryPollTimers.push(timer);
+  });
 }
 
 function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
