@@ -4,6 +4,7 @@ export { default as UiCard } from './components/UiCard.vue';
 export { default as UiDataTable } from './components/UiDataTable.vue';
 export { default as UiPanel } from './components/UiPanel.vue';
 export { default as UiActionDropdown } from './components/UiActionDropdown.vue';
+export { default as UiActionMenuItem } from './components/UiActionMenuItem.vue';
 export { default as UiFiscalDocumentInput, type FiscalDocumentDetection } from './components/UiFiscalDocumentInput.vue';
 export { default as UiSearchSelect } from './components/UiSearchSelect.vue';
 export { default as UiSearchInput } from './components/UiSearchInput.vue';

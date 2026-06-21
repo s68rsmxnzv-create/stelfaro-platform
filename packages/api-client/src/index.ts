@@ -50,7 +50,16 @@ export type PlatformGlobalUser = {
   id: number;
   name: string;
   email: string;
+  platform_role: string | null;
   memberships: PlatformTenantMembership[];
+};
+
+export type PlatformTenantLookup = {
+  id: number;
+  slug: string;
+  name: string;
+  status: string;
+  core_empresa_id: number;
 };
 
 export type PlatformTenantUserMembership = {
@@ -1041,6 +1050,10 @@ export class PlatformClient {
 
   globalUsers(): Promise<{ users: PlatformGlobalUser[] }> {
     return this.http.get('admin/platform/users').json();
+  }
+
+  tenantByCoreEmpresa(coreEmpresaId: number): Promise<{ tenant: PlatformTenantLookup | null }> {
+    return this.http.get(`admin/platform/tenants/by-core-empresa/${coreEmpresaId}`).json();
   }
 
   tenantUsers(tenantId: number): Promise<PlatformTenantUsersResponse> {

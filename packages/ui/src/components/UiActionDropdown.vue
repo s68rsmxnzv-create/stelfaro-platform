@@ -53,7 +53,7 @@ onBeforeUnmount(() => {
   <div ref="root" class="relative flex justify-start md:justify-end">
     <button
       type="button"
-      class="grid h-10 w-10 place-items-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-100"
+      class="grid h-10 w-10 place-items-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-muted dark:shadow-none dark:hover:border-line-strong dark:hover:bg-surface-muted dark:hover:text-text dark:focus:ring-primary-soft"
       :aria-expanded="open ? 'true' : 'false'"
       :aria-label="label"
       @click="toggle"
@@ -63,7 +63,7 @@ onBeforeUnmount(() => {
 
     <div
       v-if="open"
-      class="absolute right-auto top-11 z-30 origin-top-left rounded-md border border-slate-200 bg-white py-2 text-sm shadow-xl shadow-slate-950/10 md:right-0 md:origin-top-right"
+      class="absolute right-auto top-11 z-30 origin-top-left rounded-md border border-slate-200 bg-white py-2 text-sm shadow-xl shadow-slate-950/10 dark:border-line dark:bg-surface dark:shadow-black/25 md:right-0 md:origin-top-right"
       :class="menuWidth"
       @click="close"
     >
