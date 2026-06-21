@@ -7,6 +7,8 @@
   --sf-color-surface-muted: #f1f5f9;
   --sf-color-surface-raised: #ffffff;
   --sf-color-surface-strong: #e2e8f0;
+  --sf-color-navbar: #0f172a;
+  --sf-color-menu: #0f172a;
   --sf-color-line: #e2e8f0;
   --sf-color-line-strong: #cbd5e1;
   --sf-color-text: #0f172a;
@@ -30,13 +32,15 @@
   color-scheme: dark;
 
   --sf-color-app: #000000;
-  --sf-app-background: radial-gradient(ellipse 80% 60% at 50% 0%, rgb(226 232 240 / 0.15), transparent 70%), #000000;
-  --sf-color-surface: rgb(30 34 39);
-  --sf-color-surface-muted: rgb(36 40 47);
-  --sf-color-surface-raised: rgb(43 48 56);
-  --sf-color-surface-strong: rgb(55 60 69);
-  --sf-color-line: rgb(61 66 75);
-  --sf-color-line-strong: rgb(90 98 111);
+  --sf-app-background: radial-gradient(ellipse 82% 34rem at 50% 5rem, rgb(226 232 240 / 0.17), transparent 72%), #000000;
+  --sf-color-surface: rgb(22 25 30);
+  --sf-color-surface-muted: rgb(28 32 38);
+  --sf-color-surface-raised: rgb(27 31 37);
+  --sf-color-surface-strong: rgb(37 42 50);
+  --sf-color-navbar: rgb(3 6 14);
+  --sf-color-menu: rgb(7 10 18);
+  --sf-color-line: rgb(49 56 66);
+  --sf-color-line-strong: rgb(71 80 93);
   --sf-color-text: rgb(226 226 233);
   --sf-color-text-muted: rgb(196 198 208);
   --sf-color-text-soft: rgb(142 144 153);
@@ -56,13 +60,15 @@
 .dark-medium-contrast,
 [data-theme='dark-medium-contrast'] {
   --sf-color-app: #000000;
-  --sf-app-background: radial-gradient(ellipse 80% 60% at 50% 0%, rgb(226 232 240 / 0.14), transparent 70%), #000000;
-  --sf-color-surface: rgb(27 30 34);
-  --sf-color-surface-muted: rgb(38 40 45);
-  --sf-color-surface-raised: rgb(49 50 56);
-  --sf-color-surface-strong: rgb(60 62 67);
-  --sf-color-line: rgb(142 144 153);
-  --sf-color-line-strong: rgb(175 178 187);
+  --sf-app-background: radial-gradient(ellipse 82% 34rem at 50% 5rem, rgb(226 232 240 / 0.15), transparent 72%), #000000;
+  --sf-color-surface: rgb(20 23 28);
+  --sf-color-surface-muted: rgb(29 33 39);
+  --sf-color-surface-raised: rgb(29 33 39);
+  --sf-color-surface-strong: rgb(40 45 53);
+  --sf-color-navbar: rgb(3 6 14);
+  --sf-color-menu: rgb(7 10 18);
+  --sf-color-line: rgb(72 80 93);
+  --sf-color-line-strong: rgb(130 138 151);
   --sf-color-text: #ffffff;
   --sf-color-text-muted: rgb(218 220 230);
   --sf-color-text-soft: rgb(175 178 187);
@@ -75,11 +81,13 @@
 .dark-high-contrast,
 [data-theme='dark-high-contrast'] {
   --sf-color-app: #000000;
-  --sf-app-background: radial-gradient(ellipse 80% 60% at 50% 0%, rgb(226 232 240 / 0.12), transparent 70%), #000000;
-  --sf-color-surface: rgb(29 32 36);
-  --sf-color-surface-muted: rgb(46 48 54);
-  --sf-color-surface-raised: rgb(57 59 65);
-  --sf-color-surface-strong: rgb(69 71 76);
+  --sf-app-background: radial-gradient(ellipse 82% 34rem at 50% 5rem, rgb(226 232 240 / 0.13), transparent 72%), #000000;
+  --sf-color-surface: rgb(18 21 26);
+  --sf-color-surface-muted: rgb(28 32 38);
+  --sf-color-surface-raised: rgb(29 33 39);
+  --sf-color-surface-strong: rgb(40 45 53);
+  --sf-color-navbar: rgb(3 6 14);
+  --sf-color-menu: rgb(7 10 18);
   --sf-color-line: rgb(192 194 204);
   --sf-color-line-strong: rgb(238 239 249);
   --sf-color-text: #ffffff;
@@ -95,6 +103,14 @@
   .sf-app-background {
     background: var(--sf-app-background);
     background-attachment: fixed;
+  }
+
+  .sf-app-navbar {
+    background-color: var(--sf-color-navbar);
+  }
+
+  .sf-app-menu {
+    background-color: var(--sf-color-menu);
   }
 
   .dark .bg-white,

@@ -202,7 +202,7 @@ function navigate(event, href) {
 
       <div
         v-if="billingMenuOpen"
-        class="absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 bg-slate-900 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+        class="sf-app-menu absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
       >
         <template v-for="option in billingOptions" :key="option.label">
           <a
@@ -238,7 +238,7 @@ function navigate(event, href) {
 
       <div
         v-if="eventMenuOpen"
-        class="absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 bg-slate-900 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+        class="sf-app-menu absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
       >
         <a
           v-for="option in visibleEventOptions"
@@ -270,7 +270,7 @@ function navigate(event, href) {
 
       <div
         v-if="responsesMenuOpen"
-        class="absolute left-0 z-30 mt-2 w-44 rounded-lg border border-white/10 bg-slate-900 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+        class="sf-app-menu absolute left-0 z-30 mt-2 w-44 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
       >
         <a
           v-for="option in responseOptions"

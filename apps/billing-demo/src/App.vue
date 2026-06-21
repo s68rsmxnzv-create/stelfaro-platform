@@ -273,7 +273,7 @@ function initializeTheme(): void {
   <RouterView v-if="isPublicLayout" />
 
   <div v-else class="relative min-h-screen overflow-hidden bg-app text-slate-950 dark:text-text">
-    <nav ref="appNav" class="relative z-50 bg-slate-900 shadow-sm">
+    <nav ref="appNav" class="sf-app-navbar relative z-50 shadow-sm">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
           <div class="flex items-center">
@@ -305,7 +305,7 @@ function initializeTheme(): void {
 
                 <div
                   v-if="billingMenuOpen"
-                  class="absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 bg-slate-900 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+                  class="sf-app-menu absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
                 >
                   <template v-for="option in billingOptions" :key="option.label">
                     <RouterLink
@@ -340,7 +340,7 @@ function initializeTheme(): void {
 
                 <div
                   v-if="eventMenuOpen"
-                  class="absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 bg-slate-900 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+                  class="sf-app-menu absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
                 >
                   <template v-for="option in eventOptions" :key="option.label">
                     <RouterLink
@@ -375,7 +375,7 @@ function initializeTheme(): void {
 
                 <div
                   v-if="responsesMenuOpen"
-                  class="absolute left-0 z-30 mt-2 w-44 rounded-lg border border-white/10 bg-slate-900 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+                  class="sf-app-menu absolute left-0 z-30 mt-2 w-44 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
                 >
                   <RouterLink
                     v-for="option in responseOptions"

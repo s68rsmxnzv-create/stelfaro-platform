@@ -356,7 +356,7 @@ function navigateFromMenu(event, href) {
   <div v-else class="relative min-h-screen overflow-x-hidden bg-app pt-16 text-slate-950 dark:text-text">
     <div class="sf-app-background pointer-events-none fixed inset-x-0 bottom-0 top-16 z-0"></div>
 
-    <nav class="fixed inset-x-0 top-0 z-50 bg-slate-900/95 shadow-sm backdrop-blur">
+    <nav class="sf-app-navbar fixed inset-x-0 top-0 z-50 shadow-sm backdrop-blur">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
           <div class="flex items-center">
@@ -397,7 +397,7 @@ function navigateFromMenu(event, href) {
           <div class="flex items-center gap-4">
             <div ref="userMenuRef" class="relative">
               <button
-                class="inline-flex h-12 items-center gap-3 rounded-full bg-slate-900 px-2 pr-3 text-left text-white transition hover:bg-slate-800 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-400"
+                class="sf-app-menu inline-flex h-12 items-center gap-3 rounded-full px-2 pr-3 text-left text-white transition hover:brightness-125 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-400"
                 type="button"
                 :aria-expanded="userMenuOpen ? 'true' : 'false'"
                 aria-haspopup="menu"
