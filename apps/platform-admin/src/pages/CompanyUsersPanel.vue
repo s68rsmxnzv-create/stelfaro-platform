@@ -223,6 +223,9 @@ async function runMembershipAction(action: () => Promise<unknown>, successMessag
 }
 
 async function waitForInvitationEmailSent(invitationId: number, fallbackRecipient?: string | null): Promise<void> {
+  let lastStatus = '';
+  let lastError: string | null = null;
+
   for (let attempt = 0; attempt < 14 && !unmounted; attempt += 1) {
     if (attempt > 0) {
       await waitForDeliveryPoll(1500);
@@ -230,6 +233,8 @@ async function waitForInvitationEmailSent(invitationId: number, fallbackRecipien
 
     const response = await platform.client.invitationDelivery(invitationId);
     const status = String(response.notification?.status ?? '').toLowerCase();
+    lastStatus = status;
+    lastError = response.notification?.last_error ?? null;
 
     if (['sent', 'delivered'].includes(status)) {
       const recipient = response.notification?.recipient_email ?? fallbackRecipient;
@@ -250,6 +255,17 @@ async function waitForInvitationEmailSent(invitationId: number, fallbackRecipien
       });
       return;
     }
+  }
+
+  if (!unmounted && ['pending', 'queued', 'processing', 'retrying'].includes(lastStatus)) {
+    const recipientLabel = fallbackRecipient ? ` para ${fallbackRecipient}` : '';
+    showFloatingToast({
+      title: 'Correo pendiente',
+      message: lastError
+        ? 'Notifications sigue reintentando la entrega. Revisa la configuracion SMTP si no llega.'
+        : `El correo sigue en cola${recipientLabel}.`,
+      variant: 'warning'
+    });
   }
 }
 
