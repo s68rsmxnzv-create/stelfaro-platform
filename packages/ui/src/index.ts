@@ -9,6 +9,8 @@ export { default as UiSearchSelect } from './components/UiSearchSelect.vue';
 export { default as UiSearchInput } from './components/UiSearchInput.vue';
 export { default as UiLoadingMark } from './components/UiLoadingMark.vue';
 export { default as UiInput } from './components/UiInput.vue';
+export { default as UiSelect } from './components/UiSelect.vue';
+export { default as UiStatusBadge } from './components/UiStatusBadge.vue';
 export { default as UiEmailInput } from './components/UiEmailInput.vue';
 export { default as UiPhoneInput } from './components/UiPhoneInput.vue';
 export { default as UiPasswordInput } from './components/UiPasswordInput.vue';

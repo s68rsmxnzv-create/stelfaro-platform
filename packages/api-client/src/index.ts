@@ -66,9 +66,57 @@ export type NotificationSenderAliasPayload = {
   scope_id?: number | null;
   purpose: string;
   from_email: string;
+  from_name?: string | null;
+  reply_to_email?: string | null;
+  reply_to_name?: string | null;
   is_active?: boolean;
   metadata?: Record<string, unknown> | null;
 };
+
+export type NotificationAction = {
+  id: number;
+  notification_activity_id: number;
+  notification_sender_alias_id: number | null;
+  key: string;
+  name: string;
+  purpose: string;
+  status: 'active' | 'inactive' | string;
+  metadata: Record<string, unknown> | null;
+  sender_alias: Pick<NotificationSenderAlias, 'id' | 'purpose' | 'from_email' | 'from_name' | 'is_active'> | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type NotificationActivity = {
+  id: number;
+  key: string;
+  name: string;
+  description: string | null;
+  status: 'active' | 'inactive' | string;
+  metadata: Record<string, unknown> | null;
+  actions: NotificationAction[];
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type NotificationActivityPayload = {
+  key: string;
+  name: string;
+  description?: string | null;
+  status?: 'active' | 'inactive';
+  metadata?: Record<string, unknown> | null;
+};
+
+export type NotificationActionPayload = {
+  key: string;
+  name: string;
+  purpose: string;
+  notification_sender_alias_id?: number | null;
+  status?: 'active' | 'inactive';
+  metadata?: Record<string, unknown> | null;
+};
+
+export type NotificationActionUpdatePayload = Partial<Pick<NotificationActionPayload, 'name' | 'notification_sender_alias_id' | 'status' | 'metadata'>>;
 
 export type NotificationMailTransport = {
   id: number;
@@ -889,6 +937,22 @@ export class NotificationsClient {
 
   updateSenderAlias(id: number, payload: Partial<NotificationSenderAliasPayload>): Promise<{ data: NotificationSenderAlias }> {
     return this.http.patch(`sender-aliases/${id}`, { json: payload }).json();
+  }
+
+  activities(params: { key?: string; status?: string } = {}): Promise<{ data: NotificationActivity[] }> {
+    return this.http.get('activities', { searchParams: compactParams(params) }).json();
+  }
+
+  saveActivity(payload: NotificationActivityPayload): Promise<{ data: NotificationActivity }> {
+    return this.http.post('activities', { json: payload }).json();
+  }
+
+  saveAction(activityId: number, payload: NotificationActionPayload): Promise<{ data: NotificationAction }> {
+    return this.http.post(`activities/${activityId}/actions`, { json: payload }).json();
+  }
+
+  updateAction(id: number, payload: NotificationActionUpdatePayload): Promise<{ data: NotificationAction }> {
+    return this.http.patch(`actions/${id}`, { json: payload }).json();
   }
 
   mailTransport(): Promise<{ data: NotificationMailTransport | null }> {

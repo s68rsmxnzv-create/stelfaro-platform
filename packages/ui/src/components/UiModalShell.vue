@@ -34,20 +34,20 @@ function closeFromBackdrop(closeOnBackdrop: boolean): void {
       @click.self="closeFromBackdrop(closeOnBackdrop)"
     >
       <section
-        class="w-full rounded-md border border-blue-100 bg-white shadow-2xl shadow-slate-950/25"
+        class="w-full rounded-md border border-blue-100 bg-white text-slate-950 shadow-2xl shadow-slate-950/25 dark:border-line dark:bg-surface dark:text-text dark:shadow-black/30"
         :class="maxWidth"
         role="dialog"
         aria-modal="true"
         :aria-label="title"
       >
-        <header class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+        <header class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-line">
           <div class="min-w-0">
-            <p class="text-lg font-bold text-slate-950">{{ title }}</p>
-            <p v-if="description" class="mt-1 text-sm text-slate-500">{{ description }}</p>
+            <p class="text-lg font-bold text-slate-950 dark:text-text">{{ title }}</p>
+            <p v-if="description" class="mt-1 text-sm text-slate-500 dark:text-muted">{{ description }}</p>
           </div>
           <button
             type="button"
-            class="rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+            class="rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text"
             :aria-label="closeLabel"
             @click="emit('close')"
           >
@@ -59,7 +59,7 @@ function closeFromBackdrop(closeOnBackdrop: boolean): void {
           <slot />
         </div>
 
-        <footer v-if="$slots.footer" class="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">
+        <footer v-if="$slots.footer" class="flex justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-line">
           <slot name="footer" />
         </footer>
       </section>
