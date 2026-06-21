@@ -5,9 +5,11 @@ import UiDotsVerticalIcon from './UiDotsVerticalIcon.vue';
 withDefaults(defineProps<{
   label?: string;
   menuWidth?: string;
+  placement?: 'bottom' | 'top';
 }>(), {
   label: 'Abrir acciones',
-  menuWidth: 'w-52'
+  menuWidth: 'w-52',
+  placement: 'bottom'
 });
 
 const open = ref(false);
@@ -63,8 +65,13 @@ onBeforeUnmount(() => {
 
     <div
       v-if="open"
-      class="absolute right-auto top-11 z-30 origin-top-left rounded-md border border-slate-200 bg-white py-2 text-sm shadow-xl shadow-slate-950/10 dark:border-line dark:bg-surface dark:shadow-black/25 md:right-0 md:origin-top-right"
-      :class="menuWidth"
+      class="absolute right-auto z-30 rounded-md border border-slate-200 bg-white py-2 text-sm shadow-xl shadow-slate-950/10 dark:border-line dark:bg-surface dark:shadow-black/25 md:right-0"
+      :class="[
+        menuWidth,
+        placement === 'top'
+          ? 'bottom-11 origin-bottom-left md:origin-bottom-right'
+          : 'top-11 origin-top-left md:origin-top-right'
+      ]"
       @click="close"
     >
       <slot />

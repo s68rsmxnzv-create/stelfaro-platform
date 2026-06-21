@@ -317,7 +317,7 @@ function formatDate(value: string | null): string {
           </div>
         </div>
 
-        <UiDataTable class="mt-5">
+        <UiDataTable class="mt-5" overflow="visible">
           <thead class="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-surface-muted dark:text-soft">
             <tr>
               <th class="px-4 py-3">Usuario</th>
@@ -343,7 +343,7 @@ function formatDate(value: string | null): string {
                 <UiStatusBadge :tone="statusTone(membership.status)">{{ statusLabel(membership.status) }}</UiStatusBadge>
               </td>
               <td class="px-4 py-4">
-                <UiActionDropdown>
+                <UiActionDropdown placement="top">
                   <UiActionMenuItem v-if="membership.role !== 'owner'" @select="openRoleModal(membership)">Cambiar rol</UiActionMenuItem>
                   <UiActionMenuItem v-if="membership.status === 'active' && membership.role !== 'owner'" @select="suspendMembership(membership)">Suspender</UiActionMenuItem>
                   <UiActionMenuItem v-if="membership.status === 'suspended'" @select="reactivateMembership(membership)">Reactivar</UiActionMenuItem>
