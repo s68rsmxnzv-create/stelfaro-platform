@@ -18,6 +18,7 @@ const appNav = ref<HTMLElement | null>(null);
 const documentTypes = ref<BillingDocumentType[]>([]);
 const billingCompanies = ref<BillingEmpresa[]>([]);
 const companyLogoBroken = ref(false);
+const themeStorageKey = 'stelfaro:theme';
 const platformAdminUrl = import.meta.env.VITE_PLATFORM_ADMIN_URL || 'https://admin.stelfaro.com/';
 const platformAdminEmails = String(import.meta.env.VITE_PLATFORM_ADMIN_EMAILS ?? '')
   .split(',')
@@ -189,6 +190,7 @@ watch(() => auth.token, async () => {
 }, { immediate: true });
 
 onMounted(() => {
+  initializeTheme();
   document.addEventListener('click', closeMenusOnOutsideClick);
   window.addEventListener('keydown', closeDteHelpOnEscape);
 });
@@ -256,17 +258,21 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
     dteHelpModalOpen.value = false;
   }
 }
+
+function initializeTheme(): void {
+  const storedTheme = window.localStorage.getItem(themeStorageKey);
+  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+  const darkMode = storedTheme ? storedTheme === 'dark' : prefersDark;
+
+  document.documentElement.classList.toggle('dark', darkMode);
+  document.documentElement.dataset.theme = darkMode ? 'dark' : 'light';
+}
 </script>
 
 <template>
   <RouterView v-if="isPublicLayout" />
 
-  <div v-else class="relative min-h-screen overflow-hidden bg-white text-slate-950">
-    <div
-      class="pointer-events-none fixed inset-0 z-0"
-      style="background: #ffffff; background-image: radial-gradient(circle at top center, rgba(59, 130, 246, 0.28), transparent 42rem);"
-    ></div>
-
+  <div v-else class="relative min-h-screen overflow-hidden bg-app text-slate-950 dark:text-text">
     <nav ref="appNav" class="relative z-50 bg-slate-900 shadow-sm">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
@@ -577,60 +583,62 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
       </div>
     </nav>
 
-    <header class="relative z-10 border-b border-blue-100/70 bg-white/85 shadow-sm shadow-blue-950/5 backdrop-blur">
-      <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-        <div class="flex flex-wrap items-center gap-3">
-          <h1 class="text-3xl font-bold tracking-tight text-slate-950">{{ pageTitle }}</h1>
-          <div v-if="currentDteHelp">
-            <button
-              class="grid h-9 w-9 place-items-center rounded-full border border-sky-200 bg-sky-50 text-sky-700 shadow-sm shadow-sky-950/5 transition hover:border-sky-300 hover:bg-sky-100 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
-              type="button"
-              :aria-label="`Ayuda sobre ${currentDteHelp.title}`"
-              @click="openDteHelpModal"
-            >
-              <UiInfoIcon class="h-6 w-6" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </header>
-
-    <div
-      v-if="dteHelpModalOpen && currentDteHelp"
-      class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 px-4 py-8 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="`Ayuda sobre ${currentDteHelp.title}`"
-      @click.self="dteHelpModalOpen = false"
-    >
-      <section class="w-full max-w-md rounded-xl border border-sky-100 bg-white p-5 shadow-2xl shadow-slate-950/20">
-        <div class="flex items-start justify-between gap-4">
-          <div class="flex min-w-0 items-start gap-3">
-            <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-700">
-              <UiInfoIcon class="h-7 w-7" />
-            </span>
-            <div class="min-w-0">
-              <p class="text-xs font-semibold uppercase text-sky-700">{{ currentDteHelp.summary }}</p>
-              <h2 class="mt-1 text-xl font-bold text-slate-950">{{ currentDteHelp.title }}</h2>
+    <div class="sf-app-background relative z-10 min-h-[calc(100vh-4rem)]">
+      <header class="relative z-10 border-b border-blue-100/70 bg-white/85 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:shadow-black/20">
+        <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+          <div class="flex flex-wrap items-center gap-3">
+            <h1 class="text-3xl font-bold tracking-tight text-slate-950 dark:text-text">{{ pageTitle }}</h1>
+            <div v-if="currentDteHelp">
+              <button
+                class="grid h-9 w-9 place-items-center rounded-full border border-sky-200 bg-sky-50 text-sky-700 shadow-sm shadow-sky-950/5 transition hover:border-sky-300 hover:bg-sky-100 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
+                type="button"
+                :aria-label="`Ayuda sobre ${currentDteHelp.title}`"
+                @click="openDteHelpModal"
+              >
+                <UiInfoIcon class="h-6 w-6" />
+              </button>
             </div>
           </div>
-          <button
-            class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
-            type="button"
-            aria-label="Cerrar ayuda"
-            @click="dteHelpModalOpen = false"
-          >
-            <UiCloseCircleIcon class="h-6 w-6" />
-          </button>
         </div>
-        <p class="mt-4 text-sm leading-6 text-slate-700">{{ currentDteHelp.use }}</p>
-      </section>
-    </div>
+      </header>
 
-    <main class="relative z-10">
-      <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-        <RouterView />
+      <div
+        v-if="dteHelpModalOpen && currentDteHelp"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 px-4 py-8 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="`Ayuda sobre ${currentDteHelp.title}`"
+        @click.self="dteHelpModalOpen = false"
+      >
+        <section class="w-full max-w-md rounded-xl border border-sky-100 bg-white p-5 shadow-2xl shadow-slate-950/20">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex min-w-0 items-start gap-3">
+              <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-700">
+                <UiInfoIcon class="h-7 w-7" />
+              </span>
+              <div class="min-w-0">
+                <p class="text-xs font-semibold uppercase text-sky-700">{{ currentDteHelp.summary }}</p>
+                <h2 class="mt-1 text-xl font-bold text-slate-950">{{ currentDteHelp.title }}</h2>
+              </div>
+            </div>
+            <button
+              class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
+              type="button"
+              aria-label="Cerrar ayuda"
+              @click="dteHelpModalOpen = false"
+            >
+              <UiCloseCircleIcon class="h-6 w-6" />
+            </button>
+          </div>
+          <p class="mt-4 text-sm leading-6 text-slate-700">{{ currentDteHelp.use }}</p>
+        </section>
       </div>
-    </main>
+
+      <main class="relative z-10">
+        <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+          <RouterView />
+        </div>
+      </main>
+    </div>
   </div>
 </template>

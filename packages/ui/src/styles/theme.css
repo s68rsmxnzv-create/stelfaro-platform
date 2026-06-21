@@ -30,10 +30,7 @@
   color-scheme: dark;
 
   --sf-color-app: #000000;
-  --sf-app-background:
-    radial-gradient(ellipse 80% 50% at 52% -14%, rgb(236 72 153 / 0.30), rgb(168 85 247 / 0.10) 42%, transparent 74%),
-    radial-gradient(ellipse 45% 38% at 88% 8%, rgb(14 165 233 / 0.08), transparent 68%),
-    linear-gradient(180deg, rgb(7 6 14) 0%, rgb(3 5 10) 46%, rgb(2 3 7) 100%);
+  --sf-app-background: radial-gradient(ellipse 80% 60% at 50% 0%, rgb(226 232 240 / 0.15), transparent 70%), #000000;
   --sf-color-surface: rgb(30 34 39);
   --sf-color-surface-muted: rgb(36 40 47);
   --sf-color-surface-raised: rgb(43 48 56);
@@ -58,8 +55,8 @@
 
 .dark-medium-contrast,
 [data-theme='dark-medium-contrast'] {
-  --sf-color-app: rgb(17 19 24);
-  --sf-app-background: radial-gradient(ellipse 80% 60% at 50% 0%, rgb(236 72 153 / 0.18), transparent 70%), rgb(17 19 24);
+  --sf-color-app: #000000;
+  --sf-app-background: radial-gradient(ellipse 80% 60% at 50% 0%, rgb(226 232 240 / 0.14), transparent 70%), #000000;
   --sf-color-surface: rgb(27 30 34);
   --sf-color-surface-muted: rgb(38 40 45);
   --sf-color-surface-raised: rgb(49 50 56);
@@ -77,8 +74,8 @@
 
 .dark-high-contrast,
 [data-theme='dark-high-contrast'] {
-  --sf-color-app: rgb(17 19 24);
-  --sf-app-background: radial-gradient(ellipse 80% 60% at 50% 0%, rgb(236 72 153 / 0.16), transparent 70%), rgb(17 19 24);
+  --sf-color-app: #000000;
+  --sf-app-background: radial-gradient(ellipse 80% 60% at 50% 0%, rgb(226 232 240 / 0.12), transparent 70%), #000000;
   --sf-color-surface: rgb(29 32 36);
   --sf-color-surface-muted: rgb(46 48 54);
   --sf-color-surface-raised: rgb(57 59 65);

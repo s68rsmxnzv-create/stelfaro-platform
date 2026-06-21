@@ -5,7 +5,9 @@
 @tailwind utilities;
 
 body {
-  background: #ffffff;
+  background: var(--sf-app-background, #ffffff);
+  background-attachment: fixed;
+  color: var(--sf-color-text, #0f172a);
   margin: 0;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
