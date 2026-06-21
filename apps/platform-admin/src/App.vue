@@ -213,13 +213,13 @@ function groupClass(group: NavGroup): string {
 </script>
 
 <template>
-  <div v-if="platform.loading" class="grid min-h-screen place-items-center bg-slate-50 px-4">
+  <div v-if="platform.loading" class="sf-app-background grid min-h-screen place-items-center px-4">
     <div class="rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-sm">
       Validando sesion de plataforma...
     </div>
   </div>
 
-  <div v-else-if="platform.lastError || !platform.authenticated" class="grid min-h-screen place-items-center bg-slate-50 px-4">
+  <div v-else-if="platform.lastError || !platform.authenticated" class="sf-app-background grid min-h-screen place-items-center px-4">
     <div class="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <h1 class="text-lg font-semibold text-slate-950">Sesion requerida</h1>
       <p class="mt-2 text-sm text-slate-600">Ingresa desde Stelfaro para abrir el panel administrativo.</p>
@@ -230,14 +230,14 @@ function groupClass(group: NavGroup): string {
     </div>
   </div>
 
-  <div v-else-if="!platform.canAccessAdmin" class="grid min-h-screen place-items-center bg-slate-50 px-4">
+  <div v-else-if="!platform.canAccessAdmin" class="sf-app-background grid min-h-screen place-items-center px-4">
     <div class="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <h1 class="text-lg font-semibold text-slate-950">Acceso reservado</h1>
       <p class="mt-2 text-sm text-slate-600">Tu usuario no tiene permisos para administrar la plataforma.</p>
     </div>
   </div>
 
-  <div v-else class="min-h-screen bg-slate-50">
+  <div v-else class="sf-app-background min-h-screen">
     <aside v-if="!companyDetailActive" class="fixed inset-y-0 left-0 hidden w-72 flex-col border-r border-slate-200 bg-white text-[15.5px] lg:flex">
       <div class="flex h-16 items-center border-b border-slate-200 px-6">
         <div>
