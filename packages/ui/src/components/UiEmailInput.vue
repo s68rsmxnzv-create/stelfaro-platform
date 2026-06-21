@@ -18,11 +18,11 @@ defineEmits<{
   'update:modelValue': [value: string];
 }>();
 
-const labelClass = computed(() => props.variant === 'dark' ? 'text-slate-100' : 'text-slate-700 dark:text-muted');
-const iconClass = computed(() => props.variant === 'dark' ? 'text-slate-500' : 'text-slate-400 dark:text-soft');
+const labelClass = computed(() => props.variant === 'dark' ? 'text-slate-100' : 'text-slate-700');
+const iconClass = computed(() => props.variant === 'dark' ? 'text-slate-500' : 'text-slate-400');
 const inputClass = computed(() => props.variant === 'dark'
   ? 'bg-white/5 pl-10 pr-3 text-white outline outline-1 -outline-offset-1 outline-white/10 placeholder:text-slate-500 focus:outline-2 focus:-outline-offset-2 focus:outline-sky-500 disabled:bg-white/5 disabled:text-slate-500'
-  : 'border border-blue-100 bg-white/90 pl-10 pr-3 text-slate-950 shadow-sm shadow-blue-950/5 placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50 disabled:text-slate-500 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised');
+  : 'border border-blue-100 bg-white/90 pl-10 pr-3 text-slate-950 shadow-sm shadow-blue-950/5 placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50 disabled:text-slate-500');
 </script>
 
 <template>

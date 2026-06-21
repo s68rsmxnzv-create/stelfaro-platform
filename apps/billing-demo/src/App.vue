@@ -18,7 +18,6 @@ const appNav = ref<HTMLElement | null>(null);
 const documentTypes = ref<BillingDocumentType[]>([]);
 const billingCompanies = ref<BillingEmpresa[]>([]);
 const companyLogoBroken = ref(false);
-const themeStorageKey = 'stelfaro:theme';
 const platformAdminUrl = import.meta.env.VITE_PLATFORM_ADMIN_URL || 'https://admin.stelfaro.com/';
 const platformAdminEmails = String(import.meta.env.VITE_PLATFORM_ADMIN_EMAILS ?? '')
   .split(',')
@@ -190,7 +189,6 @@ watch(() => auth.token, async () => {
 }, { immediate: true });
 
 onMounted(() => {
-  initializeTheme();
   document.addEventListener('click', closeMenusOnOutsideClick);
   window.addEventListener('keydown', closeDteHelpOnEscape);
 });
@@ -258,21 +256,17 @@ function closeDteHelpOnEscape(event: KeyboardEvent): void {
     dteHelpModalOpen.value = false;
   }
 }
-
-function initializeTheme(): void {
-  const storedTheme = window.localStorage.getItem(themeStorageKey);
-  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
-  const darkMode = storedTheme ? storedTheme === 'dark' : prefersDark;
-
-  document.documentElement.classList.toggle('dark', darkMode);
-  document.documentElement.dataset.theme = darkMode ? 'dark' : 'light';
-}
 </script>
 
 <template>
   <RouterView v-if="isPublicLayout" />
 
-  <div v-else class="sf-app-background relative min-h-screen overflow-hidden text-slate-950 dark:text-text">
+  <div v-else class="relative min-h-screen overflow-hidden bg-white text-slate-950">
+    <div
+      class="pointer-events-none fixed inset-0 z-0"
+      style="background: #ffffff; background-image: radial-gradient(circle at top center, rgba(59, 130, 246, 0.28), transparent 42rem);"
+    ></div>
+
     <nav ref="appNav" class="relative z-50 bg-slate-900 shadow-sm">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
@@ -583,10 +577,10 @@ function initializeTheme(): void {
       </div>
     </nav>
 
-    <header class="relative z-10 border-b border-blue-100/70 bg-white/85 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:shadow-black/20">
+    <header class="relative z-10 border-b border-blue-100/70 bg-white/85 shadow-sm shadow-blue-950/5 backdrop-blur">
       <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div class="flex flex-wrap items-center gap-3">
-          <h1 class="text-3xl font-bold tracking-tight text-slate-950 dark:text-text">{{ pageTitle }}</h1>
+          <h1 class="text-3xl font-bold tracking-tight text-slate-950">{{ pageTitle }}</h1>
           <div v-if="currentDteHelp">
             <button
               class="grid h-9 w-9 place-items-center rounded-full border border-sky-200 bg-sky-50 text-sky-700 shadow-sm shadow-sky-950/5 transition hover:border-sky-300 hover:bg-sky-100 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"

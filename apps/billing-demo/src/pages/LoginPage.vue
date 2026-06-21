@@ -25,29 +25,29 @@ async function submit(): Promise<void> {
 </script>
 
 <template>
-  <main class="sf-app-background flex min-h-screen flex-col justify-center px-6 py-12 text-slate-950 dark:text-white lg:px-8">
+  <main class="flex min-h-screen flex-col justify-center bg-slate-950 px-6 py-12 text-white lg:px-8">
     <div class="sm:mx-auto sm:w-full sm:max-w-sm">
       <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-sky-500 text-lg font-black text-white shadow-lg shadow-sky-950/40">
         SF
       </div>
       <p class="mt-8 text-center text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">Stelfaro Billing</p>
-      <h1 class="mt-3 text-center text-2xl font-bold tracking-tight text-slate-950 dark:text-white">Inicia sesion en tu cuenta</h1>
+      <h1 class="mt-3 text-center text-2xl font-bold tracking-tight text-white">Inicia sesion en tu cuenta</h1>
     </div>
 
     <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
       <form class="space-y-6" @submit.prevent="submit">
-        <UiEmailInput v-model="form.email" label="Correo" autocomplete="email" required />
+        <UiEmailInput v-model="form.email" label="Correo" variant="dark" autocomplete="email" required />
 
         <label class="block">
           <span class="flex items-center justify-between">
-            <span class="block text-sm font-medium text-slate-700 dark:text-slate-100">Password</span>
+            <span class="block text-sm font-medium text-slate-100">Password</span>
             <button class="text-sm font-semibold text-sky-300 hover:text-sky-200" type="button" @click="form.password = ''">
               Limpiar
             </button>
           </span>
           <input
             v-model="form.password"
-            class="mt-2 block w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 text-base text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-white dark:shadow-none dark:placeholder:text-slate-500 dark:focus:bg-surface-raised dark:focus:ring-primary-soft sm:text-sm"
+            class="mt-2 block w-full rounded-md bg-white/5 px-3 py-2 text-base text-white outline outline-1 -outline-offset-1 outline-white/10 transition placeholder:text-slate-500 focus:outline-2 focus:-outline-offset-2 focus:outline-sky-500 sm:text-sm"
             autocomplete="current-password"
             required
             type="password"
@@ -65,7 +65,7 @@ async function submit(): Promise<void> {
         </button>
       </form>
 
-      <p class="mt-10 text-center text-sm text-slate-500 dark:text-slate-400">
+      <p class="mt-10 text-center text-sm text-slate-400">
         Acceso privado para empresas configuradas en Stelfaro.
       </p>
     </div>
