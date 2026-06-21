@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
+import { PlatformClient } from '@stelfaro/api-client';
 
 type PlatformSession = {
   user: {
@@ -24,6 +25,9 @@ export const usePlatformSessionStore = defineStore('platform-session', () => {
   const lastError = ref<string | null>(null);
   const authenticated = computed(() => Boolean(session.value?.user));
   const canAccessAdmin = computed(() => Boolean(session.value?.can_access_platform_admin));
+  const client = computed(() => new PlatformClient(platformApiBaseUrl, {
+    credentials: 'include'
+  }));
 
   async function initialize(): Promise<void> {
     loading.value = true;
@@ -59,6 +63,7 @@ export const usePlatformSessionStore = defineStore('platform-session', () => {
     lastError,
     authenticated,
     canAccessAdmin,
+    client,
     loginUrl,
     platformApiBaseUrl,
     initialize

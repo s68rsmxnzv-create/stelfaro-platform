@@ -32,6 +32,70 @@ export type NotificationsClientOptions = {
   credentials?: RequestCredentials;
 };
 
+export type PlatformClientOptions = {
+  authToken?: string | null | (() => string | null | undefined);
+  credentials?: RequestCredentials;
+};
+
+export type PlatformTenantMembership = {
+  id: number;
+  tenant_id: number;
+  tenant_name: string | null;
+  role: string;
+  status: string;
+  is_default: boolean;
+};
+
+export type PlatformGlobalUser = {
+  id: number;
+  name: string;
+  email: string;
+  memberships: PlatformTenantMembership[];
+};
+
+export type PlatformTenantUserMembership = {
+  id: number;
+  user: {
+    id: number | null;
+    name: string | null;
+    email: string | null;
+  };
+  role: string;
+  status: string;
+  is_default: boolean;
+};
+
+export type PlatformUserInvitation = {
+  id: number;
+  tenant_id: number;
+  email: string;
+  role: string;
+  status: 'pending' | 'accepted' | 'expired' | 'revoked' | string;
+  expires_at: string | null;
+  accepted_at: string | null;
+  invited_by: {
+    id: number;
+    name: string;
+    email: string;
+  } | null;
+};
+
+export type PlatformTenantUsersResponse = {
+  tenant: {
+    id: number;
+    slug: string;
+    name: string;
+    status: string;
+  };
+  memberships: PlatformTenantUserMembership[];
+  invitations: PlatformUserInvitation[];
+};
+
+export type PlatformInviteTenantUserPayload = {
+  email: string;
+  role: 'company_admin' | 'billing_admin' | 'billing_user' | 'viewer' | string;
+};
+
 export type CoreHealth = {
   status: string;
   service: string;
@@ -961,6 +1025,50 @@ export class NotificationsClient {
 
   saveMailTransport(payload: NotificationMailTransportPayload): Promise<{ data: NotificationMailTransport }> {
     return this.http.post('mail-transport', { json: payload }).json();
+  }
+}
+
+export class PlatformClient {
+  private readonly http: KyInstance;
+
+  constructor(baseUrl: string, options: PlatformClientOptions = {}) {
+    this.http = buildServiceHttp(baseUrl, options.authToken, options.credentials);
+  }
+
+  me(): Promise<unknown> {
+    return this.http.get('me').json();
+  }
+
+  globalUsers(): Promise<{ users: PlatformGlobalUser[] }> {
+    return this.http.get('admin/platform/users').json();
+  }
+
+  tenantUsers(tenantId: number): Promise<PlatformTenantUsersResponse> {
+    return this.http.get(`platform/tenants/${tenantId}/users`).json();
+  }
+
+  inviteTenantUser(tenantId: number, payload: PlatformInviteTenantUserPayload): Promise<{ invitation: PlatformUserInvitation; token: string }> {
+    return this.http.post(`platform/tenants/${tenantId}/invitations`, { json: payload }).json();
+  }
+
+  resendInvitation(invitationId: number): Promise<{ invitation: PlatformUserInvitation; token: string }> {
+    return this.http.post(`platform/invitations/${invitationId}/resend`).json();
+  }
+
+  updateMembershipRole(membershipId: number, role: PlatformInviteTenantUserPayload['role']): Promise<{ membership: PlatformTenantUserMembership }> {
+    return this.http.patch(`platform/memberships/${membershipId}/role`, { json: { role } }).json();
+  }
+
+  suspendMembership(membershipId: number): Promise<{ membership: PlatformTenantUserMembership }> {
+    return this.http.patch(`platform/memberships/${membershipId}/suspend`).json();
+  }
+
+  reactivateMembership(membershipId: number): Promise<{ membership: PlatformTenantUserMembership }> {
+    return this.http.patch(`platform/memberships/${membershipId}/reactivate`).json();
+  }
+
+  removeMembership(membershipId: number): Promise<void> {
+    return this.http.delete(`platform/memberships/${membershipId}`).json();
   }
 }
 

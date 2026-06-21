@@ -74,7 +74,7 @@ function companyViewIconClass(view: 'data' | 'fiscal' | 'sucursales' | 'correlat
   return workspace.activeCompanyView === view ? 'text-slate-950' : 'text-slate-600';
 }
 
-type NavIcon = 'home' | 'building' | 'plus' | 'credit-card' | 'mail' | 'settings';
+type NavIcon = 'home' | 'users' | 'building' | 'plus' | 'credit-card' | 'mail' | 'settings';
 
 type NavLink = {
   label: string;
@@ -95,6 +95,7 @@ const openGroupId = ref<string | null>('companies');
 
 const navEntries: NavEntry[] = [
   { label: 'Inicio', to: '/', icon: 'home' },
+  { label: 'Usuarios', to: '/users', icon: 'users' },
   {
     id: 'companies',
     label: 'Empresas',
@@ -311,6 +312,12 @@ function groupClass(group: NavGroup): string {
                   <path d="M4 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
                   <path d="M2 11h20M6 16h4" />
                 </svg>
+                <svg v-else-if="entry.icon === 'users'" class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                  <path d="M16 20a4 4 0 0 0-8 0" />
+                  <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+                  <path d="M20 19a3.5 3.5 0 0 0-3-3.46" />
+                  <path d="M17 4.5a3.5 3.5 0 0 1 0 6.9" />
+                </svg>
               </span>
               <span class="min-w-0 flex-1 truncate">{{ entry.label }}</span>
             </RouterLink>
@@ -362,6 +369,20 @@ function groupClass(group: NavGroup): string {
               <path d="M9 8h1.5M13.5 8H15M9 12h1.5M13.5 12H15M9 16h1.5M13.5 16H15" />
             </svg>
             Empresas
+          </RouterLink>
+
+          <RouterLink
+            to="/users"
+            class="mt-1 flex flex-col items-center gap-1 rounded-lg px-2 py-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+            :class="route.path.startsWith('/users') ? 'bg-slate-100 text-slate-950' : ''"
+          >
+            <svg class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+              <path d="M16 20a4 4 0 0 0-8 0" />
+              <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+              <path d="M20 19a3.5 3.5 0 0 0-3-3.46" />
+              <path d="M17 4.5a3.5 3.5 0 0 1 0 6.9" />
+            </svg>
+            Usuarios
           </RouterLink>
 
           <RouterLink
