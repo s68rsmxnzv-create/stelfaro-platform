@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import {
   type PlatformTenantLookup,
   type PlatformTenantUserMembership,
   type PlatformUserInvitation
 } from '@stelfaro/api-client';
+import { BillingFloatingToastStack, type BillingFloatingToast } from '@stelfaro/billing';
 import {
   UiActionDropdown,
   UiActionMenuItem,
@@ -31,10 +32,12 @@ const invitations = ref<PlatformUserInvitation[]>([]);
 const loading = ref(false);
 const saving = ref(false);
 const error = ref<string | null>(null);
-const saved = ref<string | null>(null);
 const inviteOpen = ref(false);
 const roleOpen = ref(false);
 const selectedMembership = ref<PlatformTenantUserMembership | null>(null);
+const floatingToasts = ref<BillingFloatingToast[]>([]);
+let toastId = 0;
+const toastTimers: ReturnType<typeof window.setTimeout>[] = [];
 
 const inviteForm = reactive({
   email: '',
@@ -61,6 +64,10 @@ onMounted(() => {
   void load();
 });
 
+onBeforeUnmount(() => {
+  toastTimers.forEach((timer) => window.clearTimeout(timer));
+});
+
 watch(() => props.company.id, () => {
   void load();
 });
@@ -68,7 +75,6 @@ watch(() => props.company.id, () => {
 async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
-  saved.value = null;
   tenant.value = null;
   memberships.value = [];
   invitations.value = [];
@@ -104,7 +110,6 @@ async function submitInvite(): Promise<void> {
 
   saving.value = true;
   error.value = null;
-  saved.value = null;
 
   try {
     await platform.client.inviteTenantUser(tenant.value.id, {
@@ -113,7 +118,11 @@ async function submitInvite(): Promise<void> {
     });
     inviteOpen.value = false;
     await load();
-    saved.value = 'Invitacion enviada.';
+    showFloatingToast({
+      title: 'Invitacion enviada',
+      message: `${inviteForm.email} recibira el correo de acceso.`,
+      variant: 'success'
+    });
   } catch (caught) {
     error.value = await errorMessageFromResponse(caught, 'No fue posible enviar la invitacion.');
   } finally {
@@ -134,14 +143,17 @@ async function submitRole(): Promise<void> {
 
   saving.value = true;
   error.value = null;
-  saved.value = null;
 
   try {
     await platform.client.updateMembershipRole(selectedMembership.value.id, roleForm.role);
     roleOpen.value = false;
     selectedMembership.value = null;
     await load();
-    saved.value = 'Rol actualizado.';
+    showFloatingToast({
+      title: 'Rol actualizado',
+      message: 'El acceso de la empresa quedo actualizado.',
+      variant: 'success'
+    });
   } catch (caught) {
     error.value = await errorMessageFromResponse(caught, 'No fue posible actualizar el rol.');
   } finally {
@@ -168,12 +180,15 @@ async function removeMembership(membership: PlatformTenantUserMembership): Promi
 async function resendInvitation(invitation: PlatformUserInvitation): Promise<void> {
   saving.value = true;
   error.value = null;
-  saved.value = null;
 
   try {
     await platform.client.resendInvitation(invitation.id);
     await load();
-    saved.value = 'Invitacion reenviada.';
+    showFloatingToast({
+      title: 'Invitacion reenviada',
+      message: `${invitation.email} recibira un nuevo enlace de acceso.`,
+      variant: 'success'
+    });
   } catch (caught) {
     error.value = await errorMessageFromResponse(caught, 'No fue posible reenviar la invitacion.');
   } finally {
@@ -184,17 +199,28 @@ async function resendInvitation(invitation: PlatformUserInvitation): Promise<voi
 async function runMembershipAction(action: () => Promise<unknown>, successMessage: string, fallbackMessage: string): Promise<void> {
   saving.value = true;
   error.value = null;
-  saved.value = null;
 
   try {
     await action();
     await load();
-    saved.value = successMessage;
+    showFloatingToast({
+      title: successMessage,
+      variant: 'success'
+    });
   } catch (caught) {
     error.value = await errorMessageFromResponse(caught, fallbackMessage);
   } finally {
     saving.value = false;
   }
+}
+
+function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
+  const id = ++toastId;
+  floatingToasts.value = [...floatingToasts.value, { id, ...toast }];
+  const timer = window.setTimeout(() => {
+    floatingToasts.value = floatingToasts.value.filter((item) => item.id !== id);
+  }, toast.variant === 'success' || !toast.variant ? 4000 : 4300);
+  toastTimers.push(timer);
 }
 
 async function errorMessageFromResponse(caught: unknown, fallback: string): Promise<string> {
@@ -299,7 +325,7 @@ function formatDate(value: string | null): string {
     </div>
 
     <p v-if="error" class="rounded-md bg-rose-700 px-4 py-3 text-sm text-white">{{ error }}</p>
-    <p v-if="saved" class="rounded-md bg-emerald-700 px-4 py-3 text-sm text-white">{{ saved }}</p>
+    <BillingFloatingToastStack :toasts="floatingToasts" />
 
     <UiPanel v-if="!loading && !tenant" variant="raised">
       <p class="text-lg font-bold text-slate-950 dark:text-text">Empresa sin tenant vinculado</p>
