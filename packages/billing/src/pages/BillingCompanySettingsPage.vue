@@ -56,7 +56,7 @@ function setCompanyView(view: SettingsCompanyView): void {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-50">
+  <div class="sf-app-background min-h-screen dark:text-text">
     <aside class="fixed inset-y-0 left-0 z-30 hidden w-80 flex-col border-r border-slate-200 bg-white lg:flex">
       <div class="flex h-16 items-center gap-3 border-b border-slate-200 px-6">
         <span class="grid h-9 w-9 place-items-center rounded-md bg-sky-600 text-white shadow-sm shadow-sky-900/20">

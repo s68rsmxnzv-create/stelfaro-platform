@@ -340,7 +340,7 @@ function navigateFromMenu(event, href) {
 </script>
 
 <template>
-  <div v-if="module === 'settings'" class="min-h-screen bg-slate-50 text-slate-950 dark:bg-app dark:text-text">
+  <div v-if="module === 'settings'" class="sf-app-background min-h-screen text-slate-950 dark:text-text">
     <div v-if="!authToken" class="mx-auto max-w-3xl px-4 py-8">
       <div class="rounded-md border border-red-200 bg-red-50 p-5 text-red-700">
         No fue posible abrir la sesion fiscal.
@@ -353,12 +353,7 @@ function navigateFromMenu(event, href) {
     />
   </div>
 
-  <div v-else class="relative min-h-screen overflow-x-hidden bg-white pt-16 text-slate-950 dark:bg-app dark:text-text">
-    <div
-      class="pointer-events-none fixed inset-0 z-0"
-      :style="darkMode ? 'background: rgb(17 19 24); background-image: radial-gradient(circle at top center, rgb(170 199 255 / 0.16), transparent 42rem);' : 'background: #ffffff; background-image: radial-gradient(circle at top center, rgba(59, 130, 246, 0.28), transparent 42rem);'"
-    ></div>
-
+  <div v-else class="sf-app-background relative min-h-screen overflow-x-hidden pt-16 text-slate-950 dark:text-text">
     <nav class="fixed inset-x-0 top-0 z-50 bg-slate-900/95 shadow-sm backdrop-blur">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
