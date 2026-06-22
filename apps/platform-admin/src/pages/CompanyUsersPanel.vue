@@ -2,8 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import {
   type PlatformTenantLookup,
-  type PlatformTenantUserMembership,
-  type PlatformUserInvitation
+  type PlatformTenantUserMembership
 } from '@stelfaro/api-client';
 import { BillingFloatingToastStack, type BillingFloatingToast } from '@stelfaro/billing';
 import {
@@ -29,7 +28,6 @@ const props = defineProps<{
 const platform = usePlatformSessionStore();
 const tenant = ref<PlatformTenantLookup | null>(null);
 const memberships = ref<PlatformTenantUserMembership[]>([]);
-const invitations = ref<PlatformUserInvitation[]>([]);
 const loading = ref(false);
 const saving = ref(false);
 const error = ref<string | null>(null);
@@ -38,9 +36,7 @@ const roleOpen = ref(false);
 const selectedMembership = ref<PlatformTenantUserMembership | null>(null);
 const floatingToasts = ref<BillingFloatingToast[]>([]);
 let toastId = 0;
-let unmounted = false;
 const toastTimers: ReturnType<typeof window.setTimeout>[] = [];
-const deliveryPollTimers: ReturnType<typeof window.setTimeout>[] = [];
 
 const inviteForm = reactive({
   name: '',
@@ -61,19 +57,17 @@ const roleOptions = [
 ];
 
 const activeMembers = computed(() => memberships.value.filter((membership) => membership.status === 'active'));
-const pendingInvitations = computed(() => invitations.value.filter((invitation) => invitation.status === 'pending'));
+const createdMembers = computed(() => memberships.value.filter((membership) => membership.role !== 'owner'));
+const pendingActivationMembers = computed(() => createdMembers.value.filter((membership) => activationStatus(membership) === 'pending_password'));
 const canSubmitInvite = computed(() => Boolean(inviteForm.name.trim() && inviteForm.email.trim() && inviteForm.role && tenant.value && !saving.value));
 const canSubmitRole = computed(() => Boolean(selectedMembership.value && roleForm.role && !saving.value));
 
 onMounted(() => {
-  unmounted = false;
   void load();
 });
 
 onBeforeUnmount(() => {
-  unmounted = true;
   toastTimers.forEach((timer) => window.clearTimeout(timer));
-  deliveryPollTimers.forEach((timer) => window.clearTimeout(timer));
 });
 
 watch(() => props.company.id, () => {
@@ -85,7 +79,6 @@ async function load(): Promise<void> {
   error.value = null;
   tenant.value = null;
   memberships.value = [];
-  invitations.value = [];
 
   try {
     const lookup = await platform.client.tenantByCoreEmpresa(props.company.id);
@@ -97,7 +90,6 @@ async function load(): Promise<void> {
 
     const response = await platform.client.tenantUsers(lookup.tenant.id);
     memberships.value = response.memberships;
-    invitations.value = response.invitations;
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar usuarios de la empresa.';
   } finally {
@@ -206,26 +198,6 @@ async function removeMembership(membership: PlatformTenantUserMembership): Promi
   await runMembershipAction(() => platform.client.removeMembership(membership.id), 'Acceso removido.', 'No fue posible remover el acceso.');
 }
 
-async function resendInvitation(invitation: PlatformUserInvitation): Promise<void> {
-  saving.value = true;
-  error.value = null;
-
-  try {
-    const response = await platform.client.resendInvitation(invitation.id);
-    await load();
-    showFloatingToast({
-      title: 'Reenvio en cola',
-      message: `Correo en cola para ${response.invitation.email}.`,
-      variant: 'info'
-    });
-    void waitForInvitationEmailSent(response.invitation.id, response.invitation.email);
-  } catch (caught) {
-    error.value = await errorMessageFromResponse(caught, 'No fue posible reenviar la invitacion.');
-  } finally {
-    saving.value = false;
-  }
-}
-
 async function runMembershipAction(action: () => Promise<unknown>, successMessage: string, fallbackMessage: string): Promise<void> {
   saving.value = true;
   error.value = null;
@@ -242,60 +214,6 @@ async function runMembershipAction(action: () => Promise<unknown>, successMessag
   } finally {
     saving.value = false;
   }
-}
-
-async function waitForInvitationEmailSent(invitationId: number, fallbackRecipient?: string | null): Promise<void> {
-  let lastStatus = '';
-  let lastError: string | null = null;
-
-  for (let attempt = 0; attempt < 14 && !unmounted; attempt += 1) {
-    if (attempt > 0) {
-      await waitForDeliveryPoll(1500);
-    }
-
-    const response = await platform.client.invitationDelivery(invitationId);
-    const status = String(response.notification?.status ?? '').toLowerCase();
-    lastStatus = status;
-    lastError = response.notification?.last_error ?? null;
-
-    if (['sent', 'delivered'].includes(status)) {
-      const recipient = response.notification?.recipient_email ?? fallbackRecipient;
-      const recipientLabel = recipient ? ` a ${recipient}` : '';
-      showFloatingToast({
-        title: 'Correo enviado',
-        message: `La invitacion fue enviada${recipientLabel}.`,
-        variant: 'success'
-      });
-      return;
-    }
-
-    if (status === 'failed') {
-      showFloatingToast({
-        title: 'Correo no enviado',
-        message: response.notification?.last_error ?? 'Notifications no pudo entregar la invitacion.',
-        variant: 'error'
-      });
-      return;
-    }
-  }
-
-  if (!unmounted && ['pending', 'queued', 'processing', 'retrying'].includes(lastStatus)) {
-    const recipientLabel = fallbackRecipient ? ` para ${fallbackRecipient}` : '';
-    showFloatingToast({
-      title: 'Correo pendiente',
-      message: lastError
-        ? 'Notifications sigue reintentando la entrega. Revisa la configuracion SMTP si no llega.'
-        : `El correo sigue en cola${recipientLabel}.`,
-      variant: 'warning'
-    });
-  }
-}
-
-function waitForDeliveryPoll(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => {
-    const timer = window.setTimeout(resolve, milliseconds);
-    deliveryPollTimers.push(timer);
-  });
 }
 
 function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
@@ -341,8 +259,8 @@ function roleLabel(role: string): string {
 
 function statusTone(status: string): 'neutral' | 'success' | 'warning' | 'danger' | 'info' {
   if (status === 'active' || status === 'accepted') return 'success';
-  if (status === 'pending') return 'warning';
-  if (status === 'suspended' || status === 'expired') return 'danger';
+  if (status === 'pending' || status === 'pending_password') return 'warning';
+  if (status === 'suspended' || status === 'expired' || status === 'removed') return 'danger';
   return 'neutral';
 }
 
@@ -352,10 +270,26 @@ function statusLabel(status: string): string {
     suspended: 'Suspendido',
     removed: 'Removido',
     pending: 'Pendiente',
+    pending_password: 'Pendiente',
     accepted: 'Aceptada',
     expired: 'Expirada',
     revoked: 'Revocada'
   } as Record<string, string>)[status] ?? status;
+}
+
+function activationStatus(membership: PlatformTenantUserMembership): string {
+  if (membership.status !== 'active') {
+    return membership.status;
+  }
+
+  return membership.user.must_change_password ? 'pending_password' : 'active';
+}
+
+function activationDescription(membership: PlatformTenantUserMembership): string {
+  if (membership.status === 'suspended') return 'Usuario suspendido';
+  if (membership.status === 'removed') return 'Acceso removido';
+  if (membership.user.must_change_password) return 'Debe cambiar su contrasena temporal';
+  return membership.user.password_changed_at ? `Activo desde ${formatDate(membership.user.password_changed_at)}` : 'Contrasena personalizada';
 }
 
 function formatDate(value: string | null): string {
@@ -399,8 +333,8 @@ function formatDate(value: string | null): string {
         <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ activeMembers.length }}</p>
       </UiPanel>
       <UiPanel variant="raised">
-        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Invitaciones semilla</p>
-        <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ pendingInvitations.length }}</p>
+        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Pendientes de activacion</p>
+        <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ pendingActivationMembers.length }}</p>
       </UiPanel>
       <UiPanel variant="raised">
         <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Tenant SaaS</p>
@@ -450,7 +384,7 @@ function formatDate(value: string | null): string {
               </td>
               <td class="px-4 py-4 text-sm font-semibold text-slate-700 dark:text-muted">{{ roleLabel(membership.role) }}</td>
               <td class="px-4 py-4">
-                <UiStatusBadge :tone="statusTone(membership.status)">{{ statusLabel(membership.status) }}</UiStatusBadge>
+                <UiStatusBadge :tone="statusTone(activationStatus(membership))">{{ statusLabel(activationStatus(membership)) }}</UiStatusBadge>
               </td>
               <td class="px-4 py-4">
                 <UiActionDropdown placement="top">
@@ -469,30 +403,28 @@ function formatDate(value: string | null): string {
       <UiPanel variant="raised">
         <div class="flex items-start justify-between gap-3">
           <div>
-            <h2 class="text-xl font-bold text-slate-950 dark:text-text">Invitaciones</h2>
-            <p class="mt-1 text-sm text-slate-600 dark:text-muted">Flujo reservado para afinar mas adelante.</p>
+            <h2 class="text-xl font-bold text-slate-950 dark:text-text">Usuarios creados</h2>
+            <p class="mt-1 text-sm text-slate-600 dark:text-muted">Activacion por cambio de contrasena.</p>
           </div>
         </div>
 
-        <div v-if="invitations.length === 0" class="mt-6 rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-line dark:text-muted">
-          No hay invitaciones registradas.
+        <div v-if="createdMembers.length === 0" class="mt-6 rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-line dark:text-muted">
+          No hay usuarios creados para esta empresa.
         </div>
 
         <div v-else class="mt-5 space-y-3">
           <div
-            v-for="invitation in invitations"
-            :key="invitation.id"
+            v-for="membership in createdMembers"
+            :key="membership.id"
             class="rounded-md border border-slate-200 p-4 dark:border-line dark:bg-surface"
           >
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <p class="truncate text-sm font-bold text-slate-950 dark:text-text">{{ invitation.email }}</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-muted">{{ roleLabel(invitation.role) }} · vence {{ formatDate(invitation.expires_at) }}</p>
+                <p class="truncate text-sm font-bold text-slate-950 dark:text-text">{{ membership.user.name ?? 'Usuario sin nombre' }}</p>
+                <p class="mt-1 truncate text-xs text-slate-500 dark:text-muted">{{ membership.user.email ?? 'Sin correo' }}</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-muted">{{ roleLabel(membership.role) }} · {{ activationDescription(membership) }}</p>
               </div>
-              <UiStatusBadge :tone="statusTone(invitation.status)">{{ statusLabel(invitation.status) }}</UiStatusBadge>
-            </div>
-            <div v-if="invitation.status === 'pending'" class="mt-3 flex justify-end">
-              <UiButton size="sm" variant="secondary" :disabled="saving" @click="resendInvitation(invitation)">Reenviar</UiButton>
+              <UiStatusBadge :tone="statusTone(activationStatus(membership))">{{ statusLabel(activationStatus(membership)) }}</UiStatusBadge>
             </div>
           </div>
         </div>

@@ -68,6 +68,8 @@ export type PlatformTenantUserMembership = {
     id: number | null;
     name: string | null;
     email: string | null;
+    must_change_password?: boolean | null;
+    password_changed_at?: string | null;
   };
   role: string;
   status: string;
