@@ -12,6 +12,7 @@ import {
   UiButton,
   UiDataTable,
   UiEmailInput,
+  UiInput,
   UiModalShell,
   UiPanel,
   UiRefreshButton,
@@ -42,9 +43,11 @@ const toastTimers: ReturnType<typeof window.setTimeout>[] = [];
 const deliveryPollTimers: ReturnType<typeof window.setTimeout>[] = [];
 
 const inviteForm = reactive({
+  name: '',
   email: '',
   role: 'billing_user'
 });
+const createdCredentials = ref<{ email: string; temporaryPassword: string | null } | null>(null);
 
 const roleForm = reactive({
   role: 'billing_user'
@@ -59,7 +62,7 @@ const roleOptions = [
 
 const activeMembers = computed(() => memberships.value.filter((membership) => membership.status === 'active'));
 const pendingInvitations = computed(() => invitations.value.filter((invitation) => invitation.status === 'pending'));
-const canSubmitInvite = computed(() => Boolean(inviteForm.email.trim() && inviteForm.role && tenant.value && !saving.value));
+const canSubmitInvite = computed(() => Boolean(inviteForm.name.trim() && inviteForm.email.trim() && inviteForm.role && tenant.value && !saving.value));
 const canSubmitRole = computed(() => Boolean(selectedMembership.value && roleForm.role && !saving.value));
 
 onMounted(() => {
@@ -103,8 +106,10 @@ async function load(): Promise<void> {
 }
 
 function openInvite(): void {
+  inviteForm.name = '';
   inviteForm.email = '';
   inviteForm.role = 'billing_user';
+  createdCredentials.value = null;
   inviteOpen.value = true;
 }
 
@@ -117,24 +122,41 @@ async function submitInvite(): Promise<void> {
   error.value = null;
 
   try {
-    const response = await platform.client.inviteTenantUser(tenant.value.id, {
+    const response = await platform.client.createTenantUser(tenant.value.id, {
+      name: inviteForm.name,
       email: inviteForm.email,
       role: inviteForm.role
     });
-    const recipientEmail = response.invitation.email;
-    inviteOpen.value = false;
+    createdCredentials.value = {
+      email: response.user.email,
+      temporaryPassword: response.temporary_password
+    };
     await load();
     showFloatingToast({
-      title: 'Invitacion creada',
-      message: `Correo en cola para ${recipientEmail}.`,
-      variant: 'info'
+      title: response.created ? 'Usuario creado' : 'Acceso activado',
+      message: response.created
+        ? `${response.user.email} debe cambiar su contrasena al primer inicio.`
+        : `${response.user.email} ya puede acceder a esta empresa.`,
+      variant: 'success'
     });
-    void waitForInvitationEmailSent(response.invitation.id, recipientEmail);
   } catch (caught) {
-    error.value = await errorMessageFromResponse(caught, 'No fue posible enviar la invitacion.');
+    error.value = await errorMessageFromResponse(caught, 'No fue posible crear el usuario.');
   } finally {
     saving.value = false;
   }
+}
+
+async function copyTemporaryPassword(): Promise<void> {
+  if (!createdCredentials.value?.temporaryPassword) {
+    return;
+  }
+
+  await navigator.clipboard?.writeText(createdCredentials.value.temporaryPassword);
+  showFloatingToast({
+    title: 'Contrasena copiada',
+    message: 'Entrega esta contrasena temporal de forma segura.',
+    variant: 'success'
+  });
 }
 
 function openRoleModal(membership: PlatformTenantUserMembership): void {
@@ -361,13 +383,13 @@ function formatDate(value: string | null): string {
         <p class="text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Usuarios</p>
         <h1 class="mt-1 text-2xl font-bold text-slate-950 dark:text-text">Usuarios de empresa</h1>
         <p class="mt-2 text-sm text-slate-600 dark:text-muted">
-          Administra accesos e invitaciones de {{ company.tradeName }}.
+          Administra accesos directos de {{ company.tradeName }}.
         </p>
       </div>
 
       <div class="flex flex-wrap gap-2">
         <UiRefreshButton :loading="loading" @click="load" />
-        <UiButton :disabled="loading || !tenant" @click="openInvite">Invitar usuario</UiButton>
+        <UiButton :disabled="loading || !tenant" @click="openInvite">Crear usuario</UiButton>
       </div>
     </div>
 
@@ -377,7 +399,7 @@ function formatDate(value: string | null): string {
         <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ activeMembers.length }}</p>
       </UiPanel>
       <UiPanel variant="raised">
-        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Invitaciones pendientes</p>
+        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Invitaciones semilla</p>
         <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ pendingInvitations.length }}</p>
       </UiPanel>
       <UiPanel variant="raised">
@@ -448,7 +470,7 @@ function formatDate(value: string | null): string {
         <div class="flex items-start justify-between gap-3">
           <div>
             <h2 class="text-xl font-bold text-slate-950 dark:text-text">Invitaciones</h2>
-            <p class="mt-1 text-sm text-slate-600 dark:text-muted">Correos enviados y accesos pendientes.</p>
+            <p class="mt-1 text-sm text-slate-600 dark:text-muted">Flujo reservado para afinar mas adelante.</p>
           </div>
         </div>
 
@@ -479,18 +501,32 @@ function formatDate(value: string | null): string {
 
     <UiModalShell
       :open="inviteOpen"
-      title="Invitar usuario"
-      description="El correo se enviara con el alias configurado para invitaciones."
+      title="Crear usuario"
+      description="Se creara el acceso directo con contrasena temporal."
       @close="inviteOpen = false"
     >
       <div class="grid gap-4">
+        <UiInput v-model="inviteForm.name" label="Nombre" placeholder="Nombre completo" />
         <UiEmailInput v-model="inviteForm.email" label="Correo" placeholder="usuario@empresa.com" />
         <UiSelect v-model="inviteForm.role" label="Rol" :options="roleOptions" />
+        <UiPanel v-if="createdCredentials" variant="raised">
+          <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Credenciales temporales</p>
+          <p class="mt-2 text-sm font-semibold text-slate-950 dark:text-text">{{ createdCredentials.email }}</p>
+          <p v-if="createdCredentials.temporaryPassword" class="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-950 dark:border-line dark:bg-surface-muted dark:text-text">
+            {{ createdCredentials.temporaryPassword }}
+          </p>
+          <p v-else class="mt-3 text-sm text-slate-600 dark:text-muted">
+            El usuario ya existia; no se genero una contrasena nueva.
+          </p>
+          <div v-if="createdCredentials.temporaryPassword" class="mt-3 flex justify-end">
+            <UiButton size="sm" variant="secondary" @click="copyTemporaryPassword">Copiar contrasena</UiButton>
+          </div>
+        </UiPanel>
       </div>
 
       <template #footer>
         <UiButton variant="secondary" :disabled="saving" @click="inviteOpen = false">Cancelar</UiButton>
-        <UiButton :disabled="!canSubmitInvite" @click="submitInvite">Enviar invitacion</UiButton>
+        <UiButton :disabled="!canSubmitInvite" @click="submitInvite">Crear usuario</UiButton>
       </template>
     </UiModalShell>
 

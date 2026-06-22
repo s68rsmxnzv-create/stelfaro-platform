@@ -117,6 +117,21 @@ export type PlatformInviteTenantUserPayload = {
   role: 'company_admin' | 'billing_admin' | 'billing_user' | 'viewer' | string;
 };
 
+export type PlatformCreateTenantUserPayload = PlatformInviteTenantUserPayload & {
+  name: string;
+};
+
+export type PlatformCreateTenantUserResponse = {
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    must_change_password: boolean;
+  };
+  temporary_password: string | null;
+  created: boolean;
+};
+
 export type CoreHealth = {
   status: string;
   service: string;
@@ -1070,6 +1085,10 @@ export class PlatformClient {
 
   tenantUsers(tenantId: number): Promise<PlatformTenantUsersResponse> {
     return this.http.get(`platform/tenants/${tenantId}/users`).json();
+  }
+
+  createTenantUser(tenantId: number, payload: PlatformCreateTenantUserPayload): Promise<PlatformCreateTenantUserResponse> {
+    return this.http.post(`platform/tenants/${tenantId}/users`, { json: payload }).json();
   }
 
   inviteTenantUser(tenantId: number, payload: PlatformInviteTenantUserPayload): Promise<{ invitation: PlatformUserInvitation; token: string }> {
