@@ -60,6 +60,7 @@ const fiscalForm = reactive({
 });
 
 const roleOptions = [
+  { value: 'owner', label: 'Owner' },
   { value: 'company_admin', label: 'Admin empresa' },
   { value: 'billing_admin', label: 'Admin facturacion' },
   { value: 'billing_user', label: 'Cajero' },
