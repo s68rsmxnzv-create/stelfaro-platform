@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import {
+  type PlatformFiscalAssignment,
+  type PlatformFiscalScopeResponse,
   type PlatformTenantLookup,
   type PlatformTenantUserMembership
 } from '@stelfaro/api-client';
@@ -28,12 +30,15 @@ const props = defineProps<{
 const platform = usePlatformSessionStore();
 const tenant = ref<PlatformTenantLookup | null>(null);
 const memberships = ref<PlatformTenantUserMembership[]>([]);
+const fiscalScope = ref<PlatformFiscalScopeResponse | null>(null);
 const loading = ref(false);
 const saving = ref(false);
 const error = ref<string | null>(null);
 const inviteOpen = ref(false);
 const roleOpen = ref(false);
+const fiscalOpen = ref(false);
 const selectedMembership = ref<PlatformTenantUserMembership | null>(null);
+const selectedFiscalMembership = ref<PlatformTenantUserMembership | null>(null);
 const floatingToasts = ref<BillingFloatingToast[]>([]);
 let toastId = 0;
 const toastTimers: ReturnType<typeof window.setTimeout>[] = [];
@@ -49,6 +54,11 @@ const roleForm = reactive({
   role: 'billing_user'
 });
 
+const fiscalForm = reactive({
+  sucursalId: '',
+  puntoVentaId: ''
+});
+
 const roleOptions = [
   { value: 'company_admin', label: 'Admin empresa' },
   { value: 'billing_admin', label: 'Admin facturacion' },
@@ -61,6 +71,25 @@ const createdMembers = computed(() => memberships.value.filter((membership) => m
 const pendingActivationMembers = computed(() => createdMembers.value.filter((membership) => activationStatus(membership) === 'pending_password'));
 const canSubmitInvite = computed(() => Boolean(inviteForm.name.trim() && inviteForm.email.trim() && inviteForm.role && tenant.value && !saving.value));
 const canSubmitRole = computed(() => Boolean(selectedMembership.value && roleForm.role && !saving.value));
+const sucursalOptions = computed(() => (fiscalScope.value?.sucursales ?? []).map((sucursal) => ({
+  value: sucursal.id,
+  label: `${sucursal.codigo} · ${sucursal.nombre}`
+})));
+const puntoVentaOptions = computed(() => {
+  const sucursalId = Number(fiscalForm.sucursalId);
+  const sucursal = fiscalScope.value?.sucursales.find((item) => item.id === sucursalId);
+
+  return (sucursal?.puntos_venta ?? []).map((puntoVenta) => ({
+    value: puntoVenta.id,
+    label: `${puntoVenta.codigo} · ${puntoVenta.nombre}`
+  }));
+});
+const canSubmitFiscalAssignment = computed(() => Boolean(
+  selectedFiscalMembership.value
+    && fiscalForm.sucursalId
+    && fiscalForm.puntoVentaId
+    && !saving.value
+));
 
 onMounted(() => {
   void load();
@@ -74,11 +103,21 @@ watch(() => props.company.id, () => {
   void load();
 });
 
+watch(() => fiscalForm.sucursalId, () => {
+  const currentPoint = Number(fiscalForm.puntoVentaId);
+  const availablePoints = puntoVentaOptions.value.map((option) => Number(option.value));
+
+  if (!availablePoints.includes(currentPoint)) {
+    fiscalForm.puntoVentaId = availablePoints[0] ? String(availablePoints[0]) : '';
+  }
+});
+
 async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
   tenant.value = null;
   memberships.value = [];
+  fiscalScope.value = null;
 
   try {
     const lookup = await platform.client.tenantByCoreEmpresa(props.company.id);
@@ -90,6 +129,8 @@ async function load(): Promise<void> {
 
     const response = await platform.client.tenantUsers(lookup.tenant.id);
     memberships.value = response.memberships;
+
+    fiscalScope.value = await platform.client.tenantFiscalScope(lookup.tenant.id);
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar usuarios de la empresa.';
   } finally {
@@ -157,6 +198,17 @@ function openRoleModal(membership: PlatformTenantUserMembership): void {
   roleOpen.value = true;
 }
 
+function openFiscalModal(membership: PlatformTenantUserMembership): void {
+  selectedFiscalMembership.value = membership;
+  const defaultAssignment = defaultFiscalAssignment(membership);
+  const fallbackSucursal = fiscalScope.value?.sucursales[0] ?? null;
+  const fallbackPuntoVenta = fallbackSucursal?.puntos_venta[0] ?? null;
+
+  fiscalForm.sucursalId = String(defaultAssignment?.core_sucursal_id ?? fallbackSucursal?.id ?? '');
+  fiscalForm.puntoVentaId = String(defaultAssignment?.core_punto_venta_id ?? fallbackPuntoVenta?.id ?? '');
+  fiscalOpen.value = true;
+}
+
 async function submitRole(): Promise<void> {
   if (!selectedMembership.value || !canSubmitRole.value) {
     return;
@@ -177,6 +229,35 @@ async function submitRole(): Promise<void> {
     });
   } catch (caught) {
     error.value = await errorMessageFromResponse(caught, 'No fue posible actualizar el rol.');
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function submitFiscalAssignment(): Promise<void> {
+  if (!selectedFiscalMembership.value || !canSubmitFiscalAssignment.value) {
+    return;
+  }
+
+  saving.value = true;
+  error.value = null;
+
+  try {
+    await platform.client.updateMembershipFiscalAssignments(selectedFiscalMembership.value.id, [{
+      sucursal_id: Number(fiscalForm.sucursalId),
+      punto_venta_id: Number(fiscalForm.puntoVentaId),
+      is_default: true
+    }]);
+    fiscalOpen.value = false;
+    selectedFiscalMembership.value = null;
+    await load();
+    showFloatingToast({
+      title: 'Caja fiscal asignada',
+      message: 'El usuario ya tiene sucursal y punto de venta para facturar.',
+      variant: 'success'
+    });
+  } catch (caught) {
+    error.value = await errorMessageFromResponse(caught, 'No fue posible asignar la caja fiscal.');
   } finally {
     saving.value = false;
   }
@@ -292,6 +373,29 @@ function activationDescription(membership: PlatformTenantUserMembership): string
   return membership.user.password_changed_at ? `Activo desde ${formatDate(membership.user.password_changed_at)}` : 'Contrasena personalizada';
 }
 
+function defaultFiscalAssignment(membership: PlatformTenantUserMembership): PlatformFiscalAssignment | null {
+  return membership.fiscal_assignments?.find((assignment) => assignment.is_default)
+    ?? membership.fiscal_assignments?.[0]
+    ?? null;
+}
+
+function fiscalAssignmentLabel(membership: PlatformTenantUserMembership): string {
+  const assignment = defaultFiscalAssignment(membership);
+
+  if (!assignment) {
+    return 'Sin caja fiscal';
+  }
+
+  const sucursal = fiscalScope.value?.sucursales.find((item) => item.id === assignment.core_sucursal_id);
+  const puntoVenta = sucursal?.puntos_venta.find((item) => item.id === assignment.core_punto_venta_id);
+
+  if (!sucursal || !puntoVenta) {
+    return 'Caja asignada';
+  }
+
+  return `${sucursal.codigo} / ${puntoVenta.codigo}`;
+}
+
 function formatDate(value: string | null): string {
   if (!value) {
     return 'No registrado';
@@ -366,16 +470,17 @@ function formatDate(value: string | null): string {
             <tr>
               <th class="px-4 py-3">Usuario</th>
               <th class="px-4 py-3">Rol</th>
+              <th class="px-4 py-3">Caja fiscal</th>
               <th class="px-4 py-3">Estado</th>
               <th class="px-4 py-3 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 dark:divide-line">
             <tr v-if="loading">
-              <td colspan="4" class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted">Cargando usuarios...</td>
+              <td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted">Cargando usuarios...</td>
             </tr>
             <tr v-else-if="memberships.length === 0">
-              <td colspan="4" class="px-4 py-8 text-sm text-slate-600 dark:text-muted">No hay miembros registrados.</td>
+              <td colspan="5" class="px-4 py-8 text-sm text-slate-600 dark:text-muted">No hay miembros registrados.</td>
             </tr>
             <tr v-for="membership in memberships" v-else :key="membership.id" class="hover:bg-slate-50 dark:hover:bg-surface-muted">
               <td class="px-4 py-4">
@@ -383,11 +488,13 @@ function formatDate(value: string | null): string {
                 <p class="mt-1 text-xs text-slate-500 dark:text-muted">{{ membership.user.email ?? 'Sin correo' }}</p>
               </td>
               <td class="px-4 py-4 text-sm font-semibold text-slate-700 dark:text-muted">{{ roleLabel(membership.role) }}</td>
+              <td class="px-4 py-4 text-sm font-semibold text-slate-700 dark:text-muted">{{ fiscalAssignmentLabel(membership) }}</td>
               <td class="px-4 py-4">
                 <UiStatusBadge :tone="statusTone(activationStatus(membership))">{{ statusLabel(activationStatus(membership)) }}</UiStatusBadge>
               </td>
               <td class="px-4 py-4">
                 <UiActionDropdown placement="top">
+                  <UiActionMenuItem v-if="membership.status === 'active'" @select="openFiscalModal(membership)">Asignar caja fiscal</UiActionMenuItem>
                   <UiActionMenuItem v-if="membership.role !== 'owner'" @select="openRoleModal(membership)">Cambiar rol</UiActionMenuItem>
                   <UiActionMenuItem v-if="membership.status === 'active' && membership.role !== 'owner'" @select="suspendMembership(membership)">Suspender</UiActionMenuItem>
                   <UiActionMenuItem v-if="membership.status === 'suspended'" @select="reactivateMembership(membership)">Reactivar</UiActionMenuItem>
@@ -423,6 +530,7 @@ function formatDate(value: string | null): string {
                 <p class="truncate text-sm font-bold text-slate-950 dark:text-text">{{ membership.user.name ?? 'Usuario sin nombre' }}</p>
                 <p class="mt-1 truncate text-xs text-slate-500 dark:text-muted">{{ membership.user.email ?? 'Sin correo' }}</p>
                 <p class="mt-1 text-xs text-slate-500 dark:text-muted">{{ roleLabel(membership.role) }} · {{ activationDescription(membership) }}</p>
+                <p class="mt-1 text-xs font-semibold text-slate-600 dark:text-soft">{{ fiscalAssignmentLabel(membership) }}</p>
               </div>
               <UiStatusBadge :tone="statusTone(activationStatus(membership))">{{ statusLabel(activationStatus(membership)) }}</UiStatusBadge>
             </div>
@@ -473,6 +581,40 @@ function formatDate(value: string | null): string {
       <template #footer>
         <UiButton variant="secondary" :disabled="saving" @click="roleOpen = false">Cancelar</UiButton>
         <UiButton :disabled="!canSubmitRole" @click="submitRole">Guardar rol</UiButton>
+      </template>
+    </UiModalShell>
+
+    <UiModalShell
+      :open="fiscalOpen"
+      title="Asignar caja fiscal"
+      :description="selectedFiscalMembership?.user.email ?? null"
+      @close="fiscalOpen = false"
+    >
+      <div class="grid gap-4">
+        <UiPanel variant="raised">
+          <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Alcance de facturacion</p>
+          <p class="mt-2 text-sm text-slate-600 dark:text-muted">
+            Esta sucursal y punto de venta se enviaran a la sesion fiscal del usuario.
+          </p>
+        </UiPanel>
+        <UiSelect
+          v-model="fiscalForm.sucursalId"
+          label="Sucursal"
+          :options="sucursalOptions"
+          placeholder="Selecciona una sucursal"
+        />
+        <UiSelect
+          v-model="fiscalForm.puntoVentaId"
+          label="Punto de venta"
+          :options="puntoVentaOptions"
+          placeholder="Selecciona un punto de venta"
+          :disabled="!fiscalForm.sucursalId"
+        />
+      </div>
+
+      <template #footer>
+        <UiButton variant="secondary" :disabled="saving" @click="fiscalOpen = false">Cancelar</UiButton>
+        <UiButton :disabled="!canSubmitFiscalAssignment" @click="submitFiscalAssignment">Guardar caja</UiButton>
       </template>
     </UiModalShell>
   </section>

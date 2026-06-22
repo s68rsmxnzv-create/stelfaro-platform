@@ -74,6 +74,46 @@ export type PlatformTenantUserMembership = {
   role: string;
   status: string;
   is_default: boolean;
+  fiscal_assignments: PlatformFiscalAssignment[];
+};
+
+export type PlatformFiscalAssignment = {
+  id: number;
+  core_empresa_id: number;
+  core_sucursal_id: number;
+  core_punto_venta_id: number;
+  is_default: boolean;
+  status: string;
+};
+
+export type PlatformFiscalPoint = {
+  id: number;
+  sucursal_id: number;
+  nombre: string;
+  codigo: string;
+  tipo: string | null;
+};
+
+export type PlatformFiscalSucursal = {
+  id: number;
+  nombre: string;
+  codigo: string;
+  puntos_venta: PlatformFiscalPoint[];
+};
+
+export type PlatformFiscalScopeResponse = {
+  empresa: {
+    id: number;
+    nombre_comercial: string | null;
+    razon_social: string | null;
+  };
+  sucursales: PlatformFiscalSucursal[];
+};
+
+export type PlatformFiscalAssignmentPayload = {
+  sucursal_id: number;
+  punto_venta_id: number;
+  is_default?: boolean;
 };
 
 export type PlatformUserInvitation = {
@@ -1089,6 +1129,10 @@ export class PlatformClient {
     return this.http.get(`platform/tenants/${tenantId}/users`).json();
   }
 
+  tenantFiscalScope(tenantId: number): Promise<PlatformFiscalScopeResponse> {
+    return this.http.get(`platform/tenants/${tenantId}/fiscal-scope`).json();
+  }
+
   createTenantUser(tenantId: number, payload: PlatformCreateTenantUserPayload): Promise<PlatformCreateTenantUserResponse> {
     return this.http.post(`platform/tenants/${tenantId}/users`, { json: payload }).json();
   }
@@ -1107,6 +1151,10 @@ export class PlatformClient {
 
   updateMembershipRole(membershipId: number, role: PlatformInviteTenantUserPayload['role']): Promise<{ membership: PlatformTenantUserMembership }> {
     return this.http.patch(`platform/memberships/${membershipId}/role`, { json: { role } }).json();
+  }
+
+  updateMembershipFiscalAssignments(membershipId: number, assignments: PlatformFiscalAssignmentPayload[]): Promise<{ assignments: PlatformFiscalAssignment[] }> {
+    return this.http.put(`platform/memberships/${membershipId}/fiscal-assignments`, { json: { assignments } }).json();
   }
 
   suspendMembership(membershipId: number): Promise<{ membership: PlatformTenantUserMembership }> {
