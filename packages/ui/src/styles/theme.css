@@ -1,8 +1,8 @@
 :root {
   color-scheme: light;
 
-  --sf-color-app: #f8fafc;
-  --sf-app-background: #f8fafc;
+  --sf-color-app: #ffffff;
+  --sf-app-background: #ffffff radial-gradient(circle at top center, rgb(59 130 246 / 0.28), transparent 42rem);
   --sf-color-surface: #ffffff;
   --sf-color-surface-muted: #f1f5f9;
   --sf-color-surface-raised: #ffffff;
