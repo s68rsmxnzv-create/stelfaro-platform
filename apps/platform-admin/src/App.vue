@@ -95,7 +95,6 @@ const openGroupId = ref<string | null>('companies');
 
 const navEntries: NavEntry[] = [
   { label: 'Inicio', to: '/', icon: 'home' },
-  { label: 'Usuarios', to: '/users', icon: 'users' },
   {
     id: 'companies',
     label: 'Empresas',
@@ -372,20 +371,6 @@ function groupClass(group: NavGroup): string {
           </RouterLink>
 
           <RouterLink
-            to="/users"
-            class="mt-1 flex flex-col items-center gap-1 rounded-lg px-2 py-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
-            :class="route.path.startsWith('/users') ? 'bg-slate-100 text-slate-950' : ''"
-          >
-            <svg class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-              <path d="M16 20a4 4 0 0 0-8 0" />
-              <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
-              <path d="M20 19a3.5 3.5 0 0 0-3-3.46" />
-              <path d="M17 4.5a3.5 3.5 0 0 1 0 6.9" />
-            </svg>
-            Usuarios
-          </RouterLink>
-
-          <RouterLink
             to="/subscriptions"
             class="mt-1 flex flex-col items-center gap-1 rounded-lg px-2 py-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
             :class="route.path.startsWith('/subscriptions') ? 'bg-slate-100 text-slate-950' : ''"
@@ -455,7 +440,7 @@ function groupClass(group: NavGroup): string {
                 <path d="M20 19a3.5 3.5 0 0 0-3-3.46" />
                 <path d="M17 4.5a3.5 3.5 0 0 1 0 6.9" />
               </svg>
-              Usuarios
+              Accesos
             </button>
             <template v-if="workspace.companyEditMode">
               <button

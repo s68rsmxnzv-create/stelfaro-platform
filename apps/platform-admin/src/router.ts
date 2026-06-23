@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router';
 import AdminHomePage from './pages/AdminHomePage.vue';
 import FiscalCompaniesPage from './pages/FiscalCompaniesPage.vue';
 import FiscalOnboardingPage from './pages/FiscalOnboardingPage.vue';
-import GlobalUsersPage from './pages/GlobalUsersPage.vue';
 import MailTransportPage from './pages/MailTransportPage.vue';
 import SenderAliasesPage from './pages/SenderAliasesPage.vue';
 import SubscriptionsPage from './pages/SubscriptionsPage.vue';
@@ -11,7 +10,7 @@ export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', name: 'home', component: AdminHomePage },
-    { path: '/users', name: 'global-users', component: GlobalUsersPage },
+    { path: '/users', redirect: '/empresas' },
     { path: '/empresas', name: 'companies', component: FiscalCompaniesPage },
     { path: '/tenants', redirect: '/empresas' },
     { path: '/subscriptions', name: 'subscriptions', component: SubscriptionsPage },
