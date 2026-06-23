@@ -49,7 +49,11 @@ const inviteForm = reactive({
   email: '',
   role: 'billing_user'
 });
-const createdCredentials = ref<{ email: string; temporaryPassword: string | null } | null>(null);
+const createdCredentials = ref<{
+  email: string;
+  temporaryPassword: string | null;
+  temporaryPasswordDelivery: { id: number | string | null; status: string | null; recipient_email: string | null } | null;
+} | null>(null);
 const resetCredentials = ref<{ email: string; temporaryPassword: string } | null>(null);
 
 const roleForm = reactive({
@@ -165,12 +169,15 @@ async function submitInvite(): Promise<void> {
     });
     createdCredentials.value = {
       email: response.user.email,
-      temporaryPassword: response.temporary_password
+      temporaryPassword: response.temporary_password,
+      temporaryPasswordDelivery: response.temporary_password_delivery ?? null
     };
     await load();
     showFloatingToast({
       title: response.created ? 'Usuario creado' : 'Acceso activado',
-      message: response.created
+      message: response.temporary_password_delivery
+        ? `La contrasena temporal fue enviada a ${response.user.email}.`
+        : response.created
         ? `${response.user.email} debe cambiar su contrasena al primer inicio.`
         : `${response.user.email} ya puede acceder a esta empresa.`,
       variant: 'success'
@@ -599,6 +606,9 @@ function formatDate(value: string | null): string {
           <p class="mt-2 text-sm font-semibold text-slate-950 dark:text-text">{{ createdCredentials.email }}</p>
           <p v-if="createdCredentials.temporaryPassword" class="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-950 dark:border-line dark:bg-surface-muted dark:text-text">
             {{ createdCredentials.temporaryPassword }}
+          </p>
+          <p v-else-if="createdCredentials.temporaryPasswordDelivery" class="mt-3 text-sm text-slate-600 dark:text-muted">
+            La contrasena temporal fue enviada a {{ createdCredentials.temporaryPasswordDelivery.recipient_email || createdCredentials.email }}.
           </p>
           <p v-else class="mt-3 text-sm text-slate-600 dark:text-muted">
             El usuario ya existia; no se genero una contrasena nueva.

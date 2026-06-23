@@ -26,7 +26,13 @@ const tenantSyncing = ref(false);
 const tenantReady = ref(false);
 const fiscalReady = ref(false);
 const redirectingToNewCompany = ref(false);
-const ownerCredentials = ref<{ email: string; name: string; temporaryPassword: string | null; created: boolean } | null>(null);
+const ownerCredentials = ref<{
+  email: string;
+  name: string;
+  temporaryPassword: string | null;
+  temporaryPasswordDelivery: { id: number | string | null; status: string | null; recipient_email: string | null } | null;
+  created: boolean;
+} | null>(null);
 const floatingToasts = ref<BillingFloatingToast[]>([]);
 let toastId = 0;
 const toastTimers: ReturnType<typeof window.setTimeout>[] = [];
@@ -191,7 +197,13 @@ async function registerPlatformTenant(response: BillingCompanyResponse): Promise
       tenant: {
         name: string;
         apps: Array<{ name: string }>;
-        owner?: { email: string; name: string; temporary_password: string | null; created: boolean } | null;
+        owner?: {
+          email: string;
+          name: string;
+          temporary_password: string | null;
+          temporary_password_delivery?: { id: number | string | null; status: string | null; recipient_email: string | null } | null;
+          created: boolean;
+        } | null;
       };
     };
     if (payload.tenant.owner) {
@@ -199,6 +211,7 @@ async function registerPlatformTenant(response: BillingCompanyResponse): Promise
         email: payload.tenant.owner.email,
         name: payload.tenant.owner.name,
         temporaryPassword: payload.tenant.owner.temporary_password,
+        temporaryPasswordDelivery: payload.tenant.owner.temporary_password_delivery ?? null,
         created: payload.tenant.owner.created
       };
     }
@@ -294,6 +307,9 @@ async function copyOwnerPassword(): Promise<void> {
             <p class="mt-1 text-sm text-slate-600 dark:text-muted">Debe cambiar su contrasena temporal en el primer inicio de sesion.</p>
             <p v-if="ownerCredentials.temporaryPassword" class="mt-3 rounded-md border border-blue-100 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-950 dark:border-line dark:bg-surface-muted dark:text-text">
               {{ ownerCredentials.temporaryPassword }}
+            </p>
+            <p v-else-if="ownerCredentials.temporaryPasswordDelivery" class="mt-2 text-sm text-slate-600 dark:text-muted">
+              La contrasena temporal fue enviada a {{ ownerCredentials.temporaryPasswordDelivery.recipient_email || ownerCredentials.email }}.
             </p>
             <p v-else class="mt-2 text-sm text-slate-600 dark:text-muted">El usuario ya existia; conserva sus credenciales actuales.</p>
           </div>

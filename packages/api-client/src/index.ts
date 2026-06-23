@@ -171,6 +171,12 @@ export type PlatformCreateTenantUserResponse = {
     must_change_password: boolean;
   };
   temporary_password: string | null;
+  temporary_password_delivery?: {
+    id: number | string | null;
+    status: string | null;
+    purpose: string | null;
+    recipient_email: string | null;
+  } | null;
   created: boolean;
 };
 
