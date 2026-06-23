@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { BillingProcessToastOverlay, BillingSettingsPage } from '@stelfaro/billing';
+import CompanySubscriptionPanel from './CompanySubscriptionPanel.vue';
 import CompanyUsersPanel from './CompanyUsersPanel.vue';
 import { useCoreSessionStore } from '../stores/coreSession';
 import { useAdminWorkspaceStore } from '../stores/adminWorkspace';
@@ -28,6 +29,11 @@ const billingCompanyAction = computed<BillingCompanyAction | null>(() => {
   <section class="mx-auto max-w-7xl">
     <CompanyUsersPanel
       v-if="workspace.activeCompanyView === 'users' && workspace.selectedCompany"
+      :company="workspace.selectedCompany"
+    />
+
+    <CompanySubscriptionPanel
+      v-else-if="workspace.activeCompanyView === 'subscription' && workspace.selectedCompany"
       :company="workspace.selectedCompany"
     />
 

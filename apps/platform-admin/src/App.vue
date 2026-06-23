@@ -64,13 +64,13 @@ function toggleTheme(): void {
   applyTheme();
 }
 
-function companyViewButtonClass(view: 'data' | 'fiscal' | 'sucursales' | 'correlativos' | 'users'): string {
+function companyViewButtonClass(view: 'data' | 'fiscal' | 'sucursales' | 'correlativos' | 'users' | 'subscription'): string {
   return workspace.activeCompanyView === view
     ? 'bg-slate-100 text-slate-950'
     : 'text-slate-800 hover:bg-slate-50 hover:text-slate-950';
 }
 
-function companyViewIconClass(view: 'data' | 'fiscal' | 'sucursales' | 'correlativos' | 'users'): string {
+function companyViewIconClass(view: 'data' | 'fiscal' | 'sucursales' | 'correlativos' | 'users' | 'subscription'): string {
   return workspace.activeCompanyView === view ? 'text-slate-950' : 'text-slate-600';
 }
 
@@ -441,6 +441,18 @@ function groupClass(group: NavGroup): string {
                 <path d="M17 4.5a3.5 3.5 0 0 1 0 6.9" />
               </svg>
               Accesos
+            </button>
+            <button
+              type="button"
+              class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold transition"
+              :class="companyViewButtonClass('subscription')"
+              @click="workspace.requestCompanyAction('subscription')"
+            >
+              <svg class="h-[22px] w-[22px]" :class="companyViewIconClass('subscription')" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                <path d="M4 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
+                <path d="M2 11h20M6 16h4" />
+              </svg>
+              Suscripcion
             </button>
             <template v-if="workspace.companyEditMode">
               <button

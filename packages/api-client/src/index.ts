@@ -62,6 +62,68 @@ export type PlatformTenantLookup = {
   core_empresa_id: number;
 };
 
+export type PlatformSubscriptionPlan = {
+  id: number;
+  key: string;
+  name: string;
+  description: string | null;
+  price_cents: number;
+  currency: string;
+  billing_cycle: string;
+  included_app_keys: string[];
+  limits: Record<string, number | null>;
+  status: string;
+};
+
+export type PlatformTenantSubscription = {
+  id: number;
+  tenant_id: number;
+  plan: PlatformSubscriptionPlan | null;
+  status: string;
+  billing_cycle: string;
+  price_cents: number;
+  currency: string;
+  starts_at: string | null;
+  trial_ends_at: string | null;
+  current_period_ends_at: string | null;
+  canceled_at: string | null;
+  limits: Record<string, number | null> | null;
+};
+
+export type PlatformSubscriptionTenantRow = {
+  tenant: {
+    id: number;
+    name: string;
+    slug: string;
+    status: string;
+  };
+  subscription: PlatformTenantSubscription | null;
+  apps: Array<{
+    key: string | null;
+    name: string | null;
+    status: string;
+    is_default: boolean;
+  }>;
+};
+
+export type PlatformSubscriptionsResponse = {
+  plans: PlatformSubscriptionPlan[];
+  subscriptions: PlatformSubscriptionTenantRow[];
+};
+
+export type PlatformSubscriptionUpdatePayload = {
+  plan_id: number;
+  status: 'trialing' | 'active' | 'past_due' | 'suspended' | 'canceled' | string;
+  billing_cycle?: 'monthly' | 'annual' | 'manual' | string | null;
+  price_cents?: number | null;
+  currency?: string | null;
+  starts_at?: string | null;
+  trial_ends_at?: string | null;
+  current_period_ends_at?: string | null;
+  duration_days?: number | null;
+  limits?: Record<string, number | null> | null;
+};
+
 export type PlatformTenantUserMembership = {
   id: number;
   user: {
@@ -1125,6 +1187,22 @@ export class PlatformClient {
 
   globalUsers(): Promise<{ users: PlatformGlobalUser[] }> {
     return this.http.get('admin/platform/users').json();
+  }
+
+  subscriptions(): Promise<PlatformSubscriptionsResponse> {
+    return this.http.get('admin/platform/subscriptions').json();
+  }
+
+  tenantSubscriptionByCoreEmpresa(coreEmpresaId: number): Promise<{ plans: PlatformSubscriptionPlan[]; row: PlatformSubscriptionTenantRow | null }> {
+    return this.http.get(`admin/platform/tenants/by-core-empresa/${coreEmpresaId}/subscription`).json();
+  }
+
+  updateTenantSubscription(tenantId: number, payload: PlatformSubscriptionUpdatePayload): Promise<{ subscription: PlatformTenantSubscription }> {
+    return this.http.put(`admin/platform/tenants/${tenantId}/subscription`, { json: payload }).json();
+  }
+
+  updateTenantSubscriptionByCoreEmpresa(coreEmpresaId: number, payload: PlatformSubscriptionUpdatePayload): Promise<{ subscription: PlatformTenantSubscription }> {
+    return this.http.put(`admin/platform/tenants/by-core-empresa/${coreEmpresaId}/subscription`, { json: payload }).json();
   }
 
   tenantByCoreEmpresa(coreEmpresaId: number): Promise<{ tenant: PlatformTenantLookup | null }> {

@@ -9,8 +9,8 @@ export type SelectedAdminCompany = {
   lifecycleStatus: 'active' | 'inactive' | string;
 };
 
-export type AdminCompanyAction = 'edit' | 'edit-data' | 'edit-fiscal' | 'edit-sucursales' | 'edit-correlativos' | 'users' | 'toggle-status' | 'delete';
-export type AdminCompanyView = 'summary' | 'data' | 'fiscal' | 'sucursales' | 'correlativos' | 'users';
+export type AdminCompanyAction = 'edit' | 'edit-data' | 'edit-fiscal' | 'edit-sucursales' | 'edit-correlativos' | 'users' | 'subscription' | 'toggle-status' | 'delete';
+export type AdminCompanyView = 'summary' | 'data' | 'fiscal' | 'sucursales' | 'correlativos' | 'users' | 'subscription';
 
 export const useAdminWorkspaceStore = defineStore('admin-workspace', () => {
   const selectedCompany = ref<SelectedAdminCompany | null>(null);
@@ -64,6 +64,11 @@ export const useAdminWorkspaceStore = defineStore('admin-workspace', () => {
     if (action === 'users') {
       companyEditMode.value = false;
       activeCompanyView.value = 'users';
+    }
+
+    if (action === 'subscription') {
+      companyEditMode.value = false;
+      activeCompanyView.value = 'subscription';
     }
 
     companyActionRequest.value = {
