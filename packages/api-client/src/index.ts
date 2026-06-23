@@ -1425,7 +1425,7 @@ export class CoreDteClient {
   }
 
   deleteBillingCompany(empresaId: number): Promise<void> {
-    return this.http.delete(`billing/companies/${empresaId}`).then(() => undefined);
+    return this.http.post(`billing/companies/${empresaId}/purge`).then(() => undefined);
   }
 
   billingSettings(empresaId: number, ambiente: '00' | '01'): Promise<{ config: BillingSettings | null }> {

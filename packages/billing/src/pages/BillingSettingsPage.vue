@@ -16,7 +16,7 @@ import {
   type DteDashboardSummary,
   type MhBearerVerification
 } from '@stelfaro/api-client';
-import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiPhoneInput, UiRefreshButton, UiSaveIcon, UiSearchInput, UiSearchSelect, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiPhoneInput, UiRefreshButton, UiSaveIcon, UiSearchInput, UiSearchSelect, UiStatusBadge, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
 import BillingModalShell from '../components/BillingModalShell.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 
@@ -1399,6 +1399,14 @@ function matchesCompany(empresa: BillingEmpresa, query: string): boolean {
   return normalizedText.includes(query) || (queryDigits.length > 0 && normalizedDigits.includes(queryDigits));
 }
 
+function companyEnvironmentLabel(empresa: BillingEmpresa): string {
+  return empresa.ambiente === '01' ? 'Produccion' : 'Pruebas';
+}
+
+function companyEnvironmentTone(empresa: BillingEmpresa): 'success' | 'warning' {
+  return empresa.ambiente === '01' ? 'success' : 'warning';
+}
+
 function hasLogo(empresa: BillingEmpresa): boolean {
   return Boolean(empresa.logo_url) && !brokenLogoIds.value.has(empresa.id);
 }
@@ -1448,9 +1456,12 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                   <div class="min-w-0 flex-1">
                     <div class="flex items-start justify-between gap-2">
                       <p class="truncate text-sm font-semibold text-slate-950">{{ empresa.nombre_comercial }}</p>
-                      <span class="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-slate-600" :class="empresa.lifecycle_status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
-                        {{ empresa.lifecycle_status === 'active' ? 'Activa' : 'Inactiva' }}
-                      </span>
+                      <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                        <UiStatusBadge :tone="companyEnvironmentTone(empresa)">{{ companyEnvironmentLabel(empresa) }}</UiStatusBadge>
+                        <UiStatusBadge :tone="empresa.lifecycle_status === 'active' ? 'success' : 'neutral'">
+                          {{ empresa.lifecycle_status === 'active' ? 'Activa' : 'Inactiva' }}
+                        </UiStatusBadge>
+                      </div>
                     </div>
                     <p class="mt-1 truncate text-xs text-slate-500">{{ empresa.razon_social }}</p>
                     <p class="mt-2 text-xs font-medium text-slate-700">{{ documentLabel(empresa) }}</p>
