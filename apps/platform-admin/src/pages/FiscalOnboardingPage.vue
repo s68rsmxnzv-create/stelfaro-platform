@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import type { BillingCompanyResponse } from '@stelfaro/api-client';
 import { BillingFloatingToastStack, BillingOnboardingPage, type BillingFloatingToast } from '@stelfaro/billing';
-import { UiLoadingMark, UiRefreshButton, UiToggle } from '@stelfaro/ui';
+import { UiButton, UiCard, UiLoadingMark, UiRefreshButton, UiToggle } from '@stelfaro/ui';
 import { useCoreSessionStore } from '../stores/coreSession';
 
 const core = useCoreSessionStore();
@@ -26,6 +26,7 @@ const tenantSyncing = ref(false);
 const tenantReady = ref(false);
 const fiscalReady = ref(false);
 const redirectingToNewCompany = ref(false);
+const ownerCredentials = ref<{ email: string; name: string; temporaryPassword: string | null; created: boolean } | null>(null);
 const floatingToasts = ref<BillingFloatingToast[]>([]);
 let toastId = 0;
 const toastTimers: ReturnType<typeof window.setTimeout>[] = [];
@@ -140,6 +141,7 @@ async function registerPlatformTenant(response: BillingCompanyResponse): Promise
   tenantReady.value = false;
   fiscalReady.value = false;
   redirectingToNewCompany.value = false;
+  ownerCredentials.value = null;
   showFloatingToast({
     title: 'Empresa registrada',
     message: `${response.empresa.razon_social} quedo creada en el core fiscal.`,
@@ -160,7 +162,10 @@ async function registerPlatformTenant(response: BillingCompanyResponse): Promise
         name: response.empresa.nombre_comercial || response.empresa.razon_social,
         slug: response.tenant.slug,
         app_keys: selectedAppKeys.value,
-        make_default: true
+        make_default: false,
+        owner_name: response.empresa.razon_social || response.empresa.nombre_comercial,
+        owner_email: response.empresa.sucursales?.[0]?.email,
+        environment: response.empresa.ambiente
       })
     });
 
@@ -182,7 +187,21 @@ async function registerPlatformTenant(response: BillingCompanyResponse): Promise
       throw new Error(`platform-api devolvio ${contentType || 'una respuesta no JSON'} desde ${adminPlatformApiBaseUrl}.`);
     }
 
-    const payload = await platformResponse.json() as { tenant: { name: string; apps: Array<{ name: string }> } };
+    const payload = await platformResponse.json() as {
+      tenant: {
+        name: string;
+        apps: Array<{ name: string }>;
+        owner?: { email: string; name: string; temporary_password: string | null; created: boolean } | null;
+      };
+    };
+    if (payload.tenant.owner) {
+      ownerCredentials.value = {
+        email: payload.tenant.owner.email,
+        name: payload.tenant.owner.name,
+        temporaryPassword: payload.tenant.owner.temporary_password,
+        created: payload.tenant.owner.created
+      };
+    }
     const message = `${payload.tenant.name} quedo habilitado para ${payload.tenant.apps.map((app) => app.name).join(', ')}.`;
     showFloatingToast({
       title: 'Tenant habilitado',
@@ -242,6 +261,19 @@ function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
   }, 4300);
   toastTimers.push(timer);
 }
+
+async function copyOwnerPassword(): Promise<void> {
+  if (!ownerCredentials.value?.temporaryPassword) {
+    return;
+  }
+
+  await navigator.clipboard?.writeText(ownerCredentials.value.temporaryPassword);
+  showFloatingToast({
+    title: 'Contrasena copiada',
+    message: ownerCredentials.value.email,
+    variant: 'success'
+  });
+}
 </script>
 
 <template>
@@ -254,6 +286,23 @@ function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
     </div>
 
     <div v-else class="grid gap-4">
+      <UiCard v-if="ownerCredentials">
+        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Owner creado</p>
+            <h2 class="mt-1 text-lg font-black">{{ ownerCredentials.email }}</h2>
+            <p class="mt-1 text-sm text-slate-600 dark:text-muted">Debe cambiar su contrasena temporal en el primer inicio de sesion.</p>
+            <p v-if="ownerCredentials.temporaryPassword" class="mt-3 rounded-md border border-blue-100 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-950 dark:border-line dark:bg-surface-muted dark:text-text">
+              {{ ownerCredentials.temporaryPassword }}
+            </p>
+            <p v-else class="mt-2 text-sm text-slate-600 dark:text-muted">El usuario ya existia; conserva sus credenciales actuales.</p>
+          </div>
+          <UiButton v-if="ownerCredentials.temporaryPassword" variant="secondary" class="shrink-0" @click="copyOwnerPassword">
+            Copiar contrasena
+          </UiButton>
+        </div>
+      </UiCard>
+
       <BillingOnboardingPage
         :core-base-url="core.baseUrl"
         :enabled-document-types="selectedDteCodes"

@@ -37,6 +37,7 @@ const error = ref<string | null>(null);
 const inviteOpen = ref(false);
 const roleOpen = ref(false);
 const fiscalOpen = ref(false);
+const temporaryPasswordOpen = ref(false);
 const selectedMembership = ref<PlatformTenantUserMembership | null>(null);
 const selectedFiscalMembership = ref<PlatformTenantUserMembership | null>(null);
 const floatingToasts = ref<BillingFloatingToast[]>([]);
@@ -49,6 +50,7 @@ const inviteForm = reactive({
   role: 'billing_user'
 });
 const createdCredentials = ref<{ email: string; temporaryPassword: string | null } | null>(null);
+const resetCredentials = ref<{ email: string; temporaryPassword: string } | null>(null);
 
 const roleForm = reactive({
   role: 'billing_user'
@@ -68,8 +70,8 @@ const roleOptions = [
 ];
 
 const activeMembers = computed(() => memberships.value.filter((membership) => membership.status === 'active'));
-const createdMembers = computed(() => memberships.value.filter((membership) => membership.role !== 'owner'));
-const pendingActivationMembers = computed(() => createdMembers.value.filter((membership) => activationStatus(membership) === 'pending_password'));
+const createdMembers = computed(() => memberships.value.filter((membership) => membership.user.email));
+const pendingActivationMembers = computed(() => memberships.value.filter((membership) => activationStatus(membership) === 'pending_password'));
 const canSubmitInvite = computed(() => Boolean(inviteForm.name.trim() && inviteForm.email.trim() && inviteForm.role && tenant.value && !saving.value));
 const canSubmitRole = computed(() => Boolean(selectedMembership.value && roleForm.role && !saving.value));
 const sucursalOptions = computed(() => (fiscalScope.value?.sucursales ?? []).map((sucursal) => ({
@@ -193,6 +195,19 @@ async function copyTemporaryPassword(): Promise<void> {
   });
 }
 
+async function copyResetTemporaryPassword(): Promise<void> {
+  if (!resetCredentials.value?.temporaryPassword) {
+    return;
+  }
+
+  await navigator.clipboard?.writeText(resetCredentials.value.temporaryPassword);
+  showFloatingToast({
+    title: 'Contrasena copiada',
+    message: resetCredentials.value.email,
+    variant: 'success'
+  });
+}
+
 function openRoleModal(membership: PlatformTenantUserMembership): void {
   selectedMembership.value = membership;
   roleForm.role = membership.role;
@@ -270,6 +285,34 @@ async function suspendMembership(membership: PlatformTenantUserMembership): Prom
 
 async function reactivateMembership(membership: PlatformTenantUserMembership): Promise<void> {
   await runMembershipAction(() => platform.client.reactivateMembership(membership.id), 'Usuario reactivado.', 'No fue posible reactivar el usuario.');
+}
+
+async function resetTemporaryPassword(membership: PlatformTenantUserMembership): Promise<void> {
+  if (!window.confirm(`Generar una nueva contrasena temporal para ${membership.user.email ?? 'este usuario'}?`)) {
+    return;
+  }
+
+  saving.value = true;
+  error.value = null;
+
+  try {
+    const response = await platform.client.resetMembershipTemporaryPassword(membership.id);
+    resetCredentials.value = {
+      email: response.user.email ?? membership.user.email ?? 'usuario',
+      temporaryPassword: response.temporary_password
+    };
+    temporaryPasswordOpen.value = true;
+    await load();
+    showFloatingToast({
+      title: 'Clave temporal generada',
+      message: resetCredentials.value.email,
+      variant: 'success'
+    });
+  } catch (caught) {
+    error.value = await errorMessageFromResponse(caught, 'No fue posible generar la contrasena temporal.');
+  } finally {
+    saving.value = false;
+  }
 }
 
 async function removeMembership(membership: PlatformTenantUserMembership): Promise<void> {
@@ -496,6 +539,7 @@ function formatDate(value: string | null): string {
               <td class="px-4 py-4">
                 <UiActionDropdown placement="top">
                   <UiActionMenuItem v-if="membership.status === 'active'" @select="openFiscalModal(membership)">Asignar caja fiscal</UiActionMenuItem>
+                  <UiActionMenuItem v-if="activationStatus(membership) === 'pending_password'" @select="resetTemporaryPassword(membership)">Regenerar clave</UiActionMenuItem>
                   <UiActionMenuItem v-if="membership.role !== 'owner'" @select="openRoleModal(membership)">Cambiar rol</UiActionMenuItem>
                   <UiActionMenuItem v-if="membership.status === 'active' && membership.role !== 'owner'" @select="suspendMembership(membership)">Suspender</UiActionMenuItem>
                   <UiActionMenuItem v-if="membership.status === 'suspended'" @select="reactivateMembership(membership)">Reactivar</UiActionMenuItem>
@@ -582,6 +626,28 @@ function formatDate(value: string | null): string {
       <template #footer>
         <UiButton variant="secondary" :disabled="saving" @click="roleOpen = false">Cancelar</UiButton>
         <UiButton :disabled="!canSubmitRole" @click="submitRole">Guardar rol</UiButton>
+      </template>
+    </UiModalShell>
+
+    <UiModalShell
+      :open="temporaryPasswordOpen"
+      title="Clave temporal"
+      :description="resetCredentials?.email ?? null"
+      @close="temporaryPasswordOpen = false"
+    >
+      <UiPanel v-if="resetCredentials" variant="raised">
+        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Entrega esta clave al usuario</p>
+        <p class="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-950 dark:border-line dark:bg-surface-muted dark:text-text">
+          {{ resetCredentials.temporaryPassword }}
+        </p>
+        <p class="mt-3 text-sm text-slate-600 dark:text-muted">
+          El usuario debera cambiarla al primer inicio de sesion.
+        </p>
+      </UiPanel>
+
+      <template #footer>
+        <UiButton variant="secondary" @click="temporaryPasswordOpen = false">Cerrar</UiButton>
+        <UiButton @click="copyResetTemporaryPassword">Copiar contrasena</UiButton>
       </template>
     </UiModalShell>
 

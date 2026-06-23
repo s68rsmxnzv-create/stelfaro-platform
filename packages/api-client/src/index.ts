@@ -1125,6 +1125,10 @@ export class PlatformClient {
     return this.http.get(`admin/platform/tenants/by-core-empresa/${coreEmpresaId}`).json();
   }
 
+  purgeTenantByCoreEmpresa(coreEmpresaId: number): Promise<{ deleted: boolean }> {
+    return this.http.post(`admin/platform/tenants/by-core-empresa/${coreEmpresaId}/purge`).json();
+  }
+
   tenantUsers(tenantId: number): Promise<PlatformTenantUsersResponse> {
     return this.http.get(`platform/tenants/${tenantId}/users`).json();
   }
@@ -1151,6 +1155,10 @@ export class PlatformClient {
 
   updateMembershipRole(membershipId: number, role: PlatformInviteTenantUserPayload['role']): Promise<{ membership: PlatformTenantUserMembership }> {
     return this.http.patch(`platform/memberships/${membershipId}/role`, { json: { role } }).json();
+  }
+
+  resetMembershipTemporaryPassword(membershipId: number): Promise<{ user: PlatformTenantUserMembership['user']; temporary_password: string }> {
+    return this.http.post(`platform/memberships/${membershipId}/temporary-password`).json();
   }
 
   updateMembershipFiscalAssignments(membershipId: number, assignments: PlatformFiscalAssignmentPayload[]): Promise<{ assignments: PlatformFiscalAssignment[] }> {

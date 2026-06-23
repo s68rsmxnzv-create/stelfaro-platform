@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import {
   CoreDteClient,
+  PlatformClient,
   type BillingCatalogs,
   type BillingContext,
   type BillingCertificate,
@@ -17,9 +18,11 @@ import {
 } from '@stelfaro/api-client';
 import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiPhoneInput, UiRefreshButton, UiSaveIcon, UiSearchInput, UiSearchSelect, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
 import BillingModalShell from '../components/BillingModalShell.vue';
+import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
+  platformBaseUrl?: string | null;
   authToken?: string | null;
   requestCredentials?: RequestCredentials;
   detailMode?: boolean;
@@ -27,6 +30,7 @@ const props = withDefaults(defineProps<{
   companyAction?: { action: 'summary' | 'edit' | 'edit-data' | 'edit-fiscal' | 'edit-sucursales' | 'edit-correlativos' | 'toggle-status' | 'delete'; nonce: number } | null;
 }>(), {
   coreBaseUrl: '/api/v1',
+  platformBaseUrl: null,
   authToken: null,
   requestCredentials: undefined,
   detailMode: false,
@@ -44,9 +48,19 @@ const client = computed(() => new CoreDteClient(props.coreBaseUrl, {
   authToken: props.authToken,
   credentials: props.requestCredentials
 }));
+const platformClient = computed(() => props.platformBaseUrl
+  ? new PlatformClient(props.platformBaseUrl, {
+    authToken: props.authToken,
+    credentials: props.requestCredentials
+  })
+  : null);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const saved = ref<string | null>(null);
+const deleteOverlayOpen = ref(false);
+const deleteOverlayVariant = ref<'loading' | 'success' | 'warning' | 'error'>('loading');
+const deleteOverlayTitle = ref('Eliminando empresa');
+const deleteOverlayMessage = ref('Preparando borrado definitivo.');
 const searchQuery = ref('');
 const signerStatus = ref<BillingSignerVerification | null>(null);
 const bearerStatus = ref<MhBearerVerification | null>(null);
@@ -1164,23 +1178,46 @@ async function updateCompanyStatus(status: 'active' | 'inactive'): Promise<void>
 }
 
 async function deleteCompany(): Promise<void> {
-  if (!selectedEmpresa.value || !window.confirm('Confirma que deseas borrar esta empresa. Se ocultara del modulo, pero quedara como borrado logico en el core.')) {
+  if (!selectedEmpresa.value || !window.confirm('Confirma que deseas borrar esta empresa definitivamente. Se eliminaran configuracion fiscal, accesos SaaS, archivos y relaciones asociadas.')) {
     return;
   }
 
+  const empresaId = selectedEmpresa.value.id;
   loading.value = true;
   error.value = null;
   saved.value = null;
+  deleteOverlayOpen.value = true;
+  deleteOverlayVariant.value = 'loading';
+  deleteOverlayTitle.value = 'Eliminando empresa fiscal';
+  deleteOverlayMessage.value = 'Borrando configuracion fiscal, documentos, certificados, logo, sucursales y puntos de venta.';
 
   try {
-    await client.value.deleteBillingCompany(selectedEmpresa.value.id);
+    await client.value.deleteBillingCompany(empresaId);
+
+    if (platformClient.value) {
+      deleteOverlayTitle.value = 'Limpiando acceso SaaS';
+      deleteOverlayMessage.value = 'Eliminando tenant, membresias, asignaciones fiscales e invitaciones vinculadas.';
+      await platformClient.value.purgeTenantByCoreEmpresa(empresaId);
+    }
+
+    deleteOverlayTitle.value = 'Actualizando empresas';
+    deleteOverlayMessage.value = 'Preparando el buscador para seleccionar otra empresa.';
     form.empresa_id = 0;
     emit('companyCleared');
     emit('companyViewChanged', 'summary');
-    saved.value = 'Empresa borrada.';
     await loadContext();
+    saved.value = 'Empresa borrada.';
+    deleteOverlayVariant.value = 'success';
+    deleteOverlayTitle.value = 'Empresa eliminada';
+    deleteOverlayMessage.value = 'La limpieza termino correctamente. Ya puedes buscar otra empresa.';
+    window.setTimeout(() => {
+      deleteOverlayOpen.value = false;
+    }, 900);
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible borrar la empresa.';
+    deleteOverlayVariant.value = 'error';
+    deleteOverlayTitle.value = 'No fue posible completar el borrado';
+    deleteOverlayMessage.value = error.value;
   } finally {
     loading.value = false;
   }
@@ -2136,5 +2173,13 @@ function markLogoBroken(empresa: BillingEmpresa): void {
 
       <p v-if="error" class="mt-4 whitespace-pre-wrap rounded-md bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
     </UiCard>
+
+    <BillingProcessToastOverlay
+      :open="deleteOverlayOpen"
+      :variant="deleteOverlayVariant"
+      :title="deleteOverlayTitle"
+      :message="deleteOverlayMessage"
+      @close="deleteOverlayOpen = false"
+    />
   </div>
 </template>
