@@ -7,7 +7,7 @@ import {
   type BillingCompanyResponse,
   type BillingSettingsPayload
 } from '@stelfaro/api-client';
-import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLoadingMark, UiLogoUpload, UiNextIcon, UiPasswordInput, UiPhoneInput, UiPreviousIcon, UiSaveIcon, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLoadingMark, UiLogoUpload, UiNextIcon, UiPasswordInput, UiPhoneInput, UiPreviousIcon, UiSaveIcon, UiSearchSelect, UiSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 
@@ -119,6 +119,10 @@ const actividadOptions = computed(() => actividadesEconomicas.value.map((item) =
   label: item.label,
   hint: item.code
 })));
+const environmentOptions = [
+  { value: '00', label: '00 · Pruebas' },
+  { value: '01', label: '01 · Produccion' }
+];
 const hasAccessStep = computed(() => Boolean(slots.access));
 const steps = computed(() => [
   'Empresa',
@@ -490,6 +494,14 @@ function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
       </div>
 
       <div v-if="step === 0" class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div class="md:col-span-2 xl:col-span-3">
+          <UiSelect
+            v-model="companyForm.ambiente"
+            label="Ambiente fiscal"
+            :options="environmentOptions"
+            :disabled="Boolean(company)"
+          />
+        </div>
         <div class="grid gap-4 md:col-span-2 xl:col-span-3" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
           <UiInput v-model="companyForm.razon_social" label="Nombre del contribuyente" />
           <UiInput v-model="companyForm.nombre_comercial" label="Nombre comercial" />
@@ -560,13 +572,12 @@ function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
       </div>
 
       <div v-else-if="step === credentialsStepIndex" class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <label class="block">
-          <span class="text-sm font-medium text-slate-700">Ambiente</span>
-          <select v-model="companyForm.ambiente" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-            <option value="00">00 · Pruebas</option>
-            <option value="01">01 · Produccion</option>
-          </select>
-        </label>
+        <UiSelect
+          :model-value="ambiente"
+          label="Ambiente fiscal"
+          :options="environmentOptions"
+          disabled
+        />
         <UiInput v-model="fiscalForm.mh_user" label="MH Usuario API" />
         <UiPasswordInput v-model="fiscalForm.mh_password" label="MH Password API" />
         <div class="grid gap-4 md:col-span-2 md:grid-cols-2 xl:col-span-2">

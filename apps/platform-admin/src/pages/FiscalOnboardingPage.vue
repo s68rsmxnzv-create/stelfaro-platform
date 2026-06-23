@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import type { BillingCompanyResponse } from '@stelfaro/api-client';
 import { BillingFloatingToastStack, BillingOnboardingPage, type BillingFloatingToast } from '@stelfaro/billing';
-import { UiButton, UiCard, UiLoadingMark, UiRefreshButton, UiToggle } from '@stelfaro/ui';
+import { UiLoadingMark, UiRefreshButton, UiToggle } from '@stelfaro/ui';
 import { useCoreSessionStore } from '../stores/coreSession';
 
 const core = useCoreSessionStore();
@@ -26,13 +26,7 @@ const tenantSyncing = ref(false);
 const tenantReady = ref(false);
 const fiscalReady = ref(false);
 const redirectingToNewCompany = ref(false);
-const ownerCredentials = ref<{
-  email: string;
-  name: string;
-  temporaryPassword: string | null;
-  temporaryPasswordDelivery: { id: number | string | null; status: string | null; recipient_email: string | null } | null;
-  created: boolean;
-} | null>(null);
+const pendingCompany = ref<BillingCompanyResponse | null>(null);
 const floatingToasts = ref<BillingFloatingToast[]>([]);
 let toastId = 0;
 const toastTimers: ReturnType<typeof window.setTimeout>[] = [];
@@ -145,14 +139,7 @@ async function registerPlatformTenant(response: BillingCompanyResponse): Promise
   tenantError.value = null;
   tenantSyncing.value = true;
   tenantReady.value = false;
-  fiscalReady.value = false;
   redirectingToNewCompany.value = false;
-  ownerCredentials.value = null;
-  showFloatingToast({
-    title: 'Empresa registrada',
-    message: `${response.empresa.razon_social} quedo creada en el core fiscal.`,
-    variant: 'success'
-  });
 
   try {
     const platformResponse = await fetch(`${adminPlatformApiBaseUrl}/admin/platform/tenants`, {
@@ -206,23 +193,15 @@ async function registerPlatformTenant(response: BillingCompanyResponse): Promise
         } | null;
       };
     };
-    if (payload.tenant.owner) {
-      ownerCredentials.value = {
-        email: payload.tenant.owner.email,
-        name: payload.tenant.owner.name,
-        temporaryPassword: payload.tenant.owner.temporary_password,
-        temporaryPasswordDelivery: payload.tenant.owner.temporary_password_delivery ?? null,
-        created: payload.tenant.owner.created
-      };
-    }
     const message = `${payload.tenant.name} quedo habilitado para ${payload.tenant.apps.map((app) => app.name).join(', ')}.`;
     showFloatingToast({
       title: 'Tenant habilitado',
       message,
       variant: 'success'
     });
+    notifyOwnerCredentials(payload.tenant.owner ?? null);
     tenantReady.value = true;
-    redirectToNewCompanyWhenComplete();
+    pendingCompany.value = null;
   } catch (error) {
     tenantError.value = error instanceof Error ? error.message : 'La empresa fiscal se creo, pero no fue posible asignar apps al tenant.';
     showFloatingToast({
@@ -232,12 +211,32 @@ async function registerPlatformTenant(response: BillingCompanyResponse): Promise
     });
   } finally {
     tenantSyncing.value = false;
+    redirectToNewCompanyWhenComplete();
   }
 }
 
-function handleFiscalConfigured(): void {
+function handleCompanyRegistered(response: BillingCompanyResponse): void {
+  pendingCompany.value = response;
+  tenantError.value = null;
+  tenantReady.value = false;
+  fiscalReady.value = false;
+  redirectingToNewCompany.value = false;
+  showFloatingToast({
+    title: 'Empresa fiscal registrada',
+    message: 'Valida certificado, clave privada y MH para enviar accesos al usuario.',
+    variant: 'success'
+  });
+}
+
+async function handleFiscalConfigured(): Promise<void> {
   fiscalReady.value = true;
-  redirectToNewCompanyWhenComplete();
+
+  if (!pendingCompany.value) {
+    redirectToNewCompanyWhenComplete();
+    return;
+  }
+
+  await registerPlatformTenant(pendingCompany.value);
 }
 
 function redirectToNewCompanyWhenComplete(): void {
@@ -275,15 +274,41 @@ function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
   toastTimers.push(timer);
 }
 
-async function copyOwnerPassword(): Promise<void> {
-  if (!ownerCredentials.value?.temporaryPassword) {
+async function notifyOwnerCredentials(owner: {
+  email: string;
+  name: string;
+  temporary_password: string | null;
+  temporary_password_delivery?: { id: number | string | null; status: string | null; recipient_email: string | null } | null;
+  created: boolean;
+} | null): Promise<void> {
+  if (!owner) {
     return;
   }
 
-  await navigator.clipboard?.writeText(ownerCredentials.value.temporaryPassword);
+  if (owner.temporary_password) {
+    await navigator.clipboard?.writeText(owner.temporary_password);
+    showFloatingToast({
+      title: 'Usuario owner creado',
+      message: `Clave temporal copiada para ${owner.email}. Debe cambiarla en el primer inicio de sesion.`,
+      variant: 'success'
+    });
+
+    return;
+  }
+
+  if (owner.temporary_password_delivery) {
+    showFloatingToast({
+      title: 'Correo de acceso enviado',
+      message: `La clave temporal fue enviada a ${owner.temporary_password_delivery.recipient_email || owner.email}.`,
+      variant: 'success'
+    });
+
+    return;
+  }
+
   showFloatingToast({
-    title: 'Contrasena copiada',
-    message: ownerCredentials.value.email,
+    title: 'Usuario owner vinculado',
+    message: `${owner.email} conserva sus credenciales actuales.`,
     variant: 'success'
   });
 }
@@ -299,33 +324,13 @@ async function copyOwnerPassword(): Promise<void> {
     </div>
 
     <div v-else class="grid gap-4">
-      <UiCard v-if="ownerCredentials">
-        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p class="text-xs font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Owner creado</p>
-            <h2 class="mt-1 text-lg font-black">{{ ownerCredentials.email }}</h2>
-            <p class="mt-1 text-sm text-slate-600 dark:text-muted">Debe cambiar su contrasena temporal en el primer inicio de sesion.</p>
-            <p v-if="ownerCredentials.temporaryPassword" class="mt-3 rounded-md border border-blue-100 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-950 dark:border-line dark:bg-surface-muted dark:text-text">
-              {{ ownerCredentials.temporaryPassword }}
-            </p>
-            <p v-else-if="ownerCredentials.temporaryPasswordDelivery" class="mt-2 text-sm text-slate-600 dark:text-muted">
-              La contrasena temporal fue enviada a {{ ownerCredentials.temporaryPasswordDelivery.recipient_email || ownerCredentials.email }}.
-            </p>
-            <p v-else class="mt-2 text-sm text-slate-600 dark:text-muted">El usuario ya existia; conserva sus credenciales actuales.</p>
-          </div>
-          <UiButton v-if="ownerCredentials.temporaryPassword" variant="secondary" class="shrink-0" @click="copyOwnerPassword">
-            Copiar contrasena
-          </UiButton>
-        </div>
-      </UiCard>
-
       <BillingOnboardingPage
         :core-base-url="core.baseUrl"
         :enabled-document-types="selectedDteCodes"
         :enabled-event-types="selectedEventTypes"
         :show-toasts="false"
         request-credentials="include"
-        @company-registered="registerPlatformTenant"
+        @company-registered="handleCompanyRegistered"
         @fiscal-configured="handleFiscalConfigured"
       >
         <template #access>
