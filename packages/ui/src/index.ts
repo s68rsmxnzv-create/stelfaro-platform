@@ -3,6 +3,7 @@ export { default as UiRefreshButton } from './components/UiRefreshButton.vue';
 export { default as UiCard } from './components/UiCard.vue';
 export { default as UiDataTable } from './components/UiDataTable.vue';
 export { default as UiPanel } from './components/UiPanel.vue';
+export { default as UiSubscriptionPlanCard } from './components/UiSubscriptionPlanCard.vue';
 export { default as UiActionDropdown } from './components/UiActionDropdown.vue';
 export { default as UiActionMenuItem } from './components/UiActionMenuItem.vue';
 export { default as UiFiscalDocumentInput, type FiscalDocumentDetection } from './components/UiFiscalDocumentInput.vue';

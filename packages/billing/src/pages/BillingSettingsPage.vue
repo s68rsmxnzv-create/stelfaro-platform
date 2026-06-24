@@ -39,7 +39,7 @@ const props = withDefaults(defineProps<{
 });
 
 const emit = defineEmits<{
-  companySelected: [company: { id: number; name: string; tradeName: string; documentLabel: string; lifecycleStatus: string }];
+  companySelected: [company: { id: number; coreEmpresaId: number; name: string; tradeName: string; documentLabel: string; lifecycleStatus: string; ambiente: '00' | '01' }];
   companyCleared: [];
   companyViewChanged: [view: 'summary' | 'data' | 'fiscal' | 'sucursales' | 'correlativos'];
 }>();
@@ -722,10 +722,12 @@ function selectEmpresa(empresa: BillingEmpresa): void {
 function emitSelectedCompany(empresa: BillingEmpresa): void {
   emit('companySelected', {
     id: empresa.id,
+    coreEmpresaId: empresa.id,
     name: empresa.razon_social,
     tradeName: empresa.nombre_comercial,
     documentLabel: documentLabel(empresa),
-    lifecycleStatus: empresa.lifecycle_status
+    lifecycleStatus: empresa.lifecycle_status,
+    ambiente: empresa.ambiente
   });
 }
 

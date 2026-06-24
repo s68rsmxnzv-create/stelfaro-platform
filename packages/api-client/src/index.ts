@@ -96,6 +96,8 @@ export type PlatformSubscriptionTenantRow = {
     name: string;
     slug: string;
     status: string;
+    environment?: '00' | '01' | string | null;
+    core_empresa_id?: number | string | null;
   };
   subscription: PlatformTenantSubscription | null;
   apps: Array<{
@@ -1195,6 +1197,14 @@ export class PlatformClient {
 
   tenantSubscriptionByCoreEmpresa(coreEmpresaId: number): Promise<{ plans: PlatformSubscriptionPlan[]; row: PlatformSubscriptionTenantRow | null }> {
     return this.http.get(`admin/platform/tenants/by-core-empresa/${coreEmpresaId}/subscription`).json();
+  }
+
+  tenantSubscription(tenantId: number): Promise<{ row: PlatformSubscriptionTenantRow }> {
+    return this.http.get(`platform/tenants/${tenantId}/subscription`).json();
+  }
+
+  tenantSubscriptionByCoreEmpresaForTenant(coreEmpresaId: number): Promise<{ row: PlatformSubscriptionTenantRow }> {
+    return this.http.get(`platform/tenants/by-core-empresa/${coreEmpresaId}/subscription`).json();
   }
 
   updateTenantSubscription(tenantId: number, payload: PlatformSubscriptionUpdatePayload): Promise<{ subscription: PlatformTenantSubscription }> {
