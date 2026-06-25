@@ -65,6 +65,12 @@ const fiscalEnvironment = computed(() => selectedCompany.value?.ambiente ?? subs
 const isFiscalTesting = computed(() => fiscalEnvironment.value === '00');
 const subscriptionEndsAt = computed(() => subscription.value?.current_period_ends_at ?? subscription.value?.trial_ends_at ?? null);
 const remainingDays = computed(() => daysUntil(subscriptionEndsAt.value));
+const hasBillableSubscription = computed(() => {
+  if (isFiscalTesting.value || !subscription.value) return false;
+  if (!['trialing', 'active', 'past_due'].includes(subscription.value.status)) return false;
+
+  return typeof remainingDays.value !== 'number' || remainingDays.value >= 0;
+});
 const status = computed(() => {
   if (isFiscalTesting.value) return 'testing';
   if (!subscription.value) return 'none';
@@ -176,7 +182,9 @@ function setCompanyView(view: SettingsCompanyView): void {
 watch([activeView, selectedCompany], () => {
   if (activeView.value === 'subscription' && selectedCompany.value) {
     void loadSubscription();
-    void loadWompiWidget();
+    if (!hasBillableSubscription.value) {
+      void loadWompiWidget();
+    }
   }
 }, { immediate: true });
 
@@ -205,6 +213,7 @@ async function loadSubscription(): Promise<void> {
 
 function requestPlan(plan: MarketingPlanCard): void {
   if (currentPlanKey.value === plan.key) return;
+  if (hasBillableSubscription.value) return;
   if (wompiCheckoutUrls[plan.key]) return;
 
   subscriptionRequestMessage.value = `Para activar ${plan.title}, solicita el cambio al platform owner. Esta pantalla no modifica planes directamente.`;
@@ -476,7 +485,7 @@ function daysUntil(value: string | null | undefined): number | null {
                 </template>
 
                 <template #actions>
-                  <div v-if="wompiCheckoutUrl(plan)" class="space-y-3">
+                  <div v-if="wompiCheckoutUrl(plan) && !hasBillableSubscription && !isFiscalTesting" class="space-y-3">
                     <div
                       class="wompi_button_widget flex justify-center"
                       :data-url-pago="wompiWidgetUrl(plan)"
@@ -491,8 +500,14 @@ function daysUntil(value: string | null | undefined): number | null {
                       Abrir checkout
                     </a>
                   </div>
+                  <p
+                    v-else-if="hasBillableSubscription && currentPlanKey === plan.key"
+                    class="rounded-md bg-success-soft px-4 py-3 text-sm font-semibold text-success"
+                  >
+                    Suscripción activa
+                  </p>
                   <UiButton
-                    v-else
+                    v-else-if="!hasBillableSubscription && !isFiscalTesting"
                     :variant="plan.featured ? 'primary' : 'secondary'"
                     size="md"
                     class="w-full"
@@ -504,6 +519,12 @@ function daysUntil(value: string | null | undefined): number | null {
                 </template>
               </UiSubscriptionPlanCard>
             </div>
+
+            <UiPanel v-if="hasBillableSubscription" variant="muted">
+              <p class="text-sm font-semibold text-slate-700 dark:text-muted">
+                Tu suscripción está activa. No es necesario realizar otro pago por ahora.
+              </p>
+            </UiPanel>
 
             <UiPanel v-if="subscriptionRequestMessage" variant="muted">
               <p class="text-sm font-semibold text-slate-700 dark:text-muted">{{ subscriptionRequestMessage }}</p>
