@@ -19,12 +19,14 @@ import {
 import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiPhoneInput, UiRefreshButton, UiSaveIcon, UiSearchInput, UiSearchSelect, UiStatusBadge, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
 import BillingModalShell from '../components/BillingModalShell.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
+import { clearBillingDataCache } from '../support/billingDataCache';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
   platformBaseUrl?: string | null;
   authToken?: string | null;
   requestCredentials?: RequestCredentials;
+  billingContextCacheScope?: string;
   detailMode?: boolean;
   alwaysShowCompanySearch?: boolean;
   companyAction?: { action: 'summary' | 'edit' | 'edit-data' | 'edit-fiscal' | 'edit-sucursales' | 'edit-correlativos' | 'toggle-status' | 'delete'; nonce: number } | null;
@@ -33,6 +35,7 @@ const props = withDefaults(defineProps<{
   platformBaseUrl: null,
   authToken: null,
   requestCredentials: undefined,
+  billingContextCacheScope: 'default',
   detailMode: false,
   alwaysShowCompanySearch: false,
   companyAction: null
@@ -707,6 +710,17 @@ function resetSettings(): void {
   });
 }
 
+function clearDeletedCompanyState(): void {
+  form.empresa_id = 0;
+  companySummary.value = null;
+  correlativos.value = [];
+  correlativoDrafts.value = {};
+  selectedSucursalId.value = null;
+  selectedPuntoVentaId.value = null;
+  healthOpen.value = false;
+  resetSettings();
+}
+
 function selectEmpresa(empresa: BillingEmpresa): void {
   form.empresa_id = empresa.id;
   form.ambiente = empresa.ambiente;
@@ -1204,17 +1218,28 @@ async function deleteCompany(): Promise<void> {
 
     deleteOverlayTitle.value = 'Actualizando empresas';
     deleteOverlayMessage.value = 'Preparando el buscador para seleccionar otra empresa.';
-    form.empresa_id = 0;
+    clearBillingDataCache(props.coreBaseUrl, props.billingContextCacheScope || 'default');
+    clearDeletedCompanyState();
     emit('companyCleared');
     emit('companyViewChanged', 'summary');
-    await loadContext();
-    saved.value = 'Empresa borrada.';
-    deleteOverlayVariant.value = 'success';
-    deleteOverlayTitle.value = 'Empresa eliminada';
-    deleteOverlayMessage.value = 'La limpieza termino correctamente. Ya puedes buscar otra empresa.';
-    window.setTimeout(() => {
-      deleteOverlayOpen.value = false;
-    }, 900);
+
+    try {
+      context.value = await client.value.billingContext();
+      ensureSelectedEmpresa();
+      saved.value = 'Empresa borrada.';
+      deleteOverlayVariant.value = 'success';
+      deleteOverlayTitle.value = 'Empresa eliminada';
+      deleteOverlayMessage.value = 'La limpieza termino correctamente. Ya puedes buscar otra empresa.';
+      window.setTimeout(() => {
+        deleteOverlayOpen.value = false;
+      }, 900);
+    } catch (refreshError) {
+      error.value = refreshError instanceof Error ? refreshError.message : 'No fue posible actualizar la lista de empresas.';
+      saved.value = 'Empresa borrada.';
+      deleteOverlayVariant.value = 'warning';
+      deleteOverlayTitle.value = 'Empresa eliminada';
+      deleteOverlayMessage.value = 'El borrado termino correctamente, pero no pudimos refrescar el listado. Recarga la pantalla si aun ves informacion anterior.';
+    }
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible borrar la empresa.';
     deleteOverlayVariant.value = 'error';

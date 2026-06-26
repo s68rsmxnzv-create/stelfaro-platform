@@ -170,6 +170,9 @@ function setSelectedCompany(company: SelectedCompany): void {
 
 function clearSelectedCompany(): void {
   selectedCompany.value = null;
+  subscriptionRow.value = null;
+  subscriptionError.value = null;
+  subscriptionRequestMessage.value = null;
   activeView.value = 'summary';
 }
 
@@ -395,6 +398,7 @@ function daysUntil(value: string | null | undefined): number | null {
         :platform-base-url="platformBaseUrl"
         :auth-token="authToken"
         :request-credentials="requestCredentials"
+        :billing-context-cache-scope="billingContextCacheScope || 'default'"
         :detail-mode="true"
         @company-selected="setSelectedCompany"
         @company-cleared="clearSelectedCompany"
