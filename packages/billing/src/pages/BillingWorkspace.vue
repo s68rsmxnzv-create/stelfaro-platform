@@ -96,6 +96,7 @@ let issueAutoCloseTimer: ReturnType<typeof window.setTimeout> | null = null;
 let floatingToastId = 0;
 const floatingToastTimers: ReturnType<typeof window.setTimeout>[] = [];
 const deliveryPollTimers: ReturnType<typeof window.setTimeout>[] = [];
+let currentIssueIdempotencyKey: string | null = null;
 let unmounted = false;
 const finalConsumerIdentificationThreshold = 25000;
 
@@ -996,9 +997,12 @@ async function issueDocument(): Promise<void> {
     });
     if (!payload) {
       error.value = 'Completa emisor, punto de venta, receptor e item antes de emitir.';
+      currentIssueIdempotencyKey = null;
       return;
     }
 
+    currentIssueIdempotencyKey ??= issueIdempotencyKey();
+    payload.idempotency_key = currentIssueIdempotencyKey;
     currentStep.value = 'sent';
     const result = await client.value.issueProgress(payload, (event) => {
       if (event.type === 'stage') {
@@ -1034,6 +1038,7 @@ async function issueDocument(): Promise<void> {
       correlativoPreview.value = null;
       preview.value = null;
       history.value = [];
+      currentIssueIdempotencyKey = null;
       await previewNextCorrelativo();
     }
   } catch (caught) {
@@ -1042,6 +1047,14 @@ async function issueDocument(): Promise<void> {
   } finally {
     issuing.value = false;
   }
+}
+
+function issueIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `issue-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function closeIssueModal(): void {

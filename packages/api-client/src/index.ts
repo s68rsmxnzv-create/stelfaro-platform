@@ -379,6 +379,7 @@ export type DtePreviewRequest = {
   codigoEstablecimiento?: string;
   codigoPuntoVenta?: string;
   correlativo?: number;
+  idempotency_key?: string;
   emisor: Record<string, unknown>;
   receptor: Record<string, unknown>;
   documentoRelacionado?: Array<Record<string, unknown>>;
@@ -830,9 +831,9 @@ export type BillingItemTemplate = {
 export type DteIssueProgressEvent =
   | { type: 'stage'; stage: string; progress: number; message: string; attempt?: number; max_attempts?: number; numero_control?: string; correlativo?: number }
   | { type: 'retry'; stage: string; progress: number; message: string; attempt: number; next_attempt: number; max_attempts?: number; numero_control?: string; correlativo?: number; conflict?: boolean }
-  | { type: 'completed'; ok: boolean; progress?: number; message: string; document_id?: number; attempts?: DteIssueResponse['attempts'] }
+  | { type: 'completed'; ok: boolean; progress?: number; message: string; document_id?: number; attempts?: DteIssueResponse['attempts']; status?: string }
   | ({ type: 'result'; ok: true } & DteIssueResponse)
-  | { type: 'result'; ok: false; message: string; errors?: string[] };
+  | { type: 'result'; ok: false; message: string; status?: string; errors?: string[]; issue_request_id?: number };
 
 export type BillingContext = {
   user: Pick<AuthUser, 'id' | 'name' | 'email' | 'role' | 'is_backoffice'> | null;
@@ -1001,6 +1002,7 @@ export type CorrelativoReservation = {
 
 export type DteIssueResponse = {
   document: DteDraftSummary;
+  idempotent?: boolean;
   attempts: Array<{
     attempt: number;
     document_id: number;
@@ -1559,7 +1561,7 @@ export class CoreDteClient {
             const event = JSON.parse(line) as DteIssueProgressEvent;
             onEvent(event);
             if (event.type === 'result') {
-              if (event.ok) finalResult = { document: event.document, attempts: event.attempts };
+              if (event.ok) finalResult = { document: event.document, attempts: event.attempts, idempotent: event.idempotent };
               else throw new Error(event.message);
             }
           }
