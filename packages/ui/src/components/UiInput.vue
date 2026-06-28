@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
+defineOptions({
+  inheritAttrs: false
+});
+
 const props = defineProps<{
   label: string;
   modelValue: string | number | null | undefined;
@@ -23,6 +27,7 @@ const canReveal = computed(() => props.type === 'password' && props.revealable);
     <span class="text-sm font-medium text-slate-700 dark:text-muted">{{ label }}</span>
     <span class="relative mt-1 block">
       <input
+        v-bind="$attrs"
         :type="inputType"
         :value="modelValue ?? ''"
         :placeholder="placeholder"

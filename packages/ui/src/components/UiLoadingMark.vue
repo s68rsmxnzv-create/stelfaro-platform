@@ -14,7 +14,7 @@ withDefaults(defineProps<{
         <span class="size-3 animate-ping rounded-full bg-sky-600 [animation-delay:0.2s]"></span>
         <span class="size-3 animate-ping rounded-full bg-sky-600 [animation-delay:0.4s]"></span>
       </div>
-      <p class="text-sm font-medium text-slate-500">{{ label }}</p>
+      <p class="text-sm font-medium text-slate-500 dark:text-muted">{{ label }}</p>
     </div>
   </div>
 </template>
