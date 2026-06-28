@@ -6,6 +6,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingAppNav from '../components/BillingAppNav.vue';
 import BillingModalShell from '../components/BillingModalShell.vue';
 import BillingCompanySettingsPage from './BillingCompanySettingsPage.vue';
+import CatalogPage from './CatalogPage.vue';
 import BillingDashboardPage from './BillingDashboardPage.vue';
 import BillingOperationalPlaceholderPage from './BillingOperationalPlaceholderPage.vue';
 import BillingWorkspace from './BillingWorkspace.vue';
@@ -67,6 +68,14 @@ const props = defineProps({
   operationalPage: {
     type: Object,
     default: null
+  },
+  platformSession: {
+    type: Object,
+    default: null
+  },
+  platformBaseUrl: {
+    type: String,
+    default: '/api/v1'
   }
 });
 
@@ -138,6 +147,7 @@ const moduleComponents = {
   dashboard: BillingDashboardPage,
   'operational-placeholder': BillingOperationalPlaceholderPage,
   billing: BillingWorkspace,
+  catalog: CatalogPage,
   artifacts: DteArtifactsPage,
   'mh-events': MhEventsPage,
   'mh-responses': MhResponsesPage,
@@ -151,6 +161,7 @@ const eventOptions = [
 ];
 
 const selectedComponent = computed(() => moduleComponents[props.module] || BillingWorkspace);
+const requiresFiscalSession = computed(() => !['catalog', 'operational-placeholder'].includes(props.module));
 const selectedDocumentType = computed(() => documentTypeBySlug[props.documentSlug] || '01');
 const selectedEventType = computed(() => eventTypeBySlug[props.eventSlug] || 'invalidacion');
 const billingOptions = computed(() => {
@@ -191,6 +202,13 @@ const selectedComponentProps = computed(() => {
     return props.operationalPage ?? {};
   }
 
+  if (props.module === 'catalog') {
+    return {
+      platformSession: props.platformSession,
+      platformBaseUrl: props.platformBaseUrl
+    };
+  }
+
   return baseProps;
 });
 const dashboardHref = computed(() => props.dashboardUrl || props.appBaseUrl || '/');
@@ -201,6 +219,8 @@ const pageTitle = computed(() => {
   if (props.module === 'billing') {
     return billingOptions.value.find((item) => item.slug === props.documentSlug)?.label ?? 'Facturacion';
   }
+
+  if (props.module === 'catalog') return 'Catálogo';
 
   if (props.module === 'mh-events') {
     return eventOptions.find((item) => item.slug === props.eventSlug)?.label ?? 'Eventos MH';
@@ -552,7 +572,7 @@ function navigateFromMenu(event, href) {
 
     <main class="relative z-10">
       <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-        <div v-if="!authToken" class="rounded-md border border-red-200 bg-red-50 p-5 text-red-700">
+        <div v-if="requiresFiscalSession && !authToken" class="rounded-md border border-red-200 bg-red-50 p-5 text-red-700">
           No fue posible abrir la sesion fiscal.
         </div>
         <slot
@@ -561,7 +581,7 @@ function navigateFromMenu(event, href) {
         />
         <component
           :is="selectedComponent"
-          v-if="authToken"
+          v-if="!requiresFiscalSession || authToken"
           v-bind="selectedComponentProps"
         />
       </div>

@@ -218,6 +218,66 @@ export type PlatformTenantUsersResponse = {
   invitations: PlatformUserInvitation[];
 };
 
+export type PlatformCatalogCategory = {
+  id: number;
+  tenant_id: number;
+  name: string;
+  kind: 'product' | 'service' | 'mixed' | string;
+  status: 'active' | 'inactive' | string;
+  items_count: number | null;
+  legacy_reference: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type PlatformCatalogItem = {
+  id: number;
+  tenant_id: number;
+  catalog_category_id: number | null;
+  category: Pick<PlatformCatalogCategory, 'id' | 'name' | 'kind'> | null;
+  legacy_item_id: number | null;
+  sku: string | null;
+  name: string;
+  description: string | null;
+  item_type: 'product' | 'service' | 'part' | 'labor' | 'other' | string;
+  unit_code: string;
+  unit_name: string | null;
+  units_per_package: number;
+  taxable: boolean;
+  controls_inventory: boolean;
+  base_price: number;
+  base_price_includes_tax: boolean;
+  reference_cost: number | null;
+  cost_source: 'none' | 'reference' | 'real' | string;
+  stock_quantity: number;
+  status: 'active' | 'inactive' | string;
+  metadata: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type PlatformCatalogItemPayload = {
+  catalog_category_id?: number | null;
+  sku?: string | null;
+  name: string;
+  description?: string | null;
+  item_type: 'product' | 'service' | 'part' | 'labor' | 'other' | string;
+  unit_code?: string | null;
+  unit_name?: string | null;
+  units_per_package?: number | null;
+  taxable?: boolean;
+  controls_inventory?: boolean;
+  base_price?: number | null;
+  base_price_includes_tax?: boolean;
+  reference_cost?: number | null;
+  status?: 'active' | 'inactive' | string;
+};
+
+export type PlatformCatalogItemsResponse = {
+  data: PlatformCatalogItem[];
+  meta?: PaginationMeta;
+};
+
 export type PlatformInviteTenantUserPayload = {
   email: string;
   role: 'company_admin' | 'billing_admin' | 'billing_user' | 'viewer' | string;
@@ -1227,6 +1287,34 @@ export class PlatformClient {
 
   tenantUsers(tenantId: number): Promise<PlatformTenantUsersResponse> {
     return this.http.get(`platform/tenants/${tenantId}/users`).json();
+  }
+
+  catalogCategories(tenantId: number, params: { status?: string } = {}): Promise<{ data: PlatformCatalogCategory[] }> {
+    return this.http.get(`platform/tenants/${tenantId}/catalog/categories`, { searchParams: compactParams(params) }).json();
+  }
+
+  createCatalogCategory(tenantId: number, payload: { name: string; kind?: string; status?: string }): Promise<{ data: PlatformCatalogCategory }> {
+    return this.http.post(`platform/tenants/${tenantId}/catalog/categories`, { json: payload }).json();
+  }
+
+  updateCatalogCategory(tenantId: number, categoryId: number, payload: { name?: string; kind?: string; status?: string }): Promise<{ data: PlatformCatalogCategory }> {
+    return this.http.patch(`platform/tenants/${tenantId}/catalog/categories/${categoryId}`, { json: payload }).json();
+  }
+
+  catalogItems(tenantId: number, params: { q?: string; status?: string; item_type?: string; controls_inventory?: boolean; category_id?: number; page?: number; per_page?: number } = {}): Promise<PlatformCatalogItemsResponse> {
+    return this.http.get(`platform/tenants/${tenantId}/catalog/items`, { searchParams: compactParams(params) }).json();
+  }
+
+  createCatalogItem(tenantId: number, payload: PlatformCatalogItemPayload): Promise<{ data: PlatformCatalogItem }> {
+    return this.http.post(`platform/tenants/${tenantId}/catalog/items`, { json: payload }).json();
+  }
+
+  updateCatalogItem(tenantId: number, itemId: number, payload: Partial<PlatformCatalogItemPayload>): Promise<{ data: PlatformCatalogItem }> {
+    return this.http.patch(`platform/tenants/${tenantId}/catalog/items/${itemId}`, { json: payload }).json();
+  }
+
+  deactivateCatalogItem(tenantId: number, itemId: number): Promise<{ data: PlatformCatalogItem }> {
+    return this.http.delete(`platform/tenants/${tenantId}/catalog/items/${itemId}`).json();
   }
 
   tenantFiscalScope(tenantId: number): Promise<PlatformFiscalScopeResponse> {

@@ -3,6 +3,7 @@ export { default as BillingDashboardPage } from './pages/BillingDashboardPage.vu
 export { default as BillingOperationalPlaceholderPage } from './pages/BillingOperationalPlaceholderPage.vue';
 export { default as BillingAppPage } from './pages/BillingAppPage.vue';
 export { default as BillingCompanySettingsPage } from './pages/BillingCompanySettingsPage.vue';
+export { default as CatalogPage } from './pages/CatalogPage.vue';
 export { default as BillingAppNav } from './components/BillingAppNav.vue';
 export { default as BillingModalShell } from './components/BillingModalShell.vue';
 export { default as BillingProcessToastOverlay } from './components/BillingProcessToastOverlay.vue';
