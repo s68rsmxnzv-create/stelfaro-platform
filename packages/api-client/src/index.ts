@@ -333,14 +333,66 @@ export type PlatformInventoryMovement = {
 export type PlatformInventoryPurchasePayload = {
   inventory_supplier_id?: number | null;
   document_type?: string | null;
+  document_mode?: 'manual' | 'dte' | 'physical' | string | null;
   document_number?: string | null;
+  payment_condition?: 'cash' | 'credit' | 'contado' | 'credito' | string | null;
+  document_total?: number | null;
+  is_consumable?: boolean;
+  apply_tax_perceived?: boolean;
+  tax_perceived_mode?: 'auto' | 'manual' | string | null;
+  tax_perceived_rate?: number | null;
+  apply_fuel_charges?: boolean;
+  fovial_per_unit?: number | null;
+  cotrans_per_unit?: number | null;
+  fiscal_profile?: string | null;
+  fiscal_sector?: number | null;
+  supplier_snapshot?: Record<string, unknown> | null;
+  import_metadata?: Record<string, unknown> | null;
   purchase_date: string;
   lines: Array<{
     catalog_item_id: number;
+    description?: string | null;
+    unit_code?: string | null;
+    unit_name?: string | null;
     quantity: number;
     unit_cost: number;
-    tax_amount?: number | null;
+    price_includes_tax?: boolean;
+    no_inventory?: boolean;
   }>;
+};
+
+export type PlatformInventoryPurchaseImportPreview = {
+  document: {
+    document_type: string | null;
+    document_mode: string;
+    document_number: string | null;
+    purchase_date: string;
+    payment_condition: string;
+    document_total: number;
+    apply_fuel_charges: boolean;
+    fovial_per_unit: number;
+    cotrans_per_unit: number;
+  };
+  supplier: {
+    matched: Pick<PlatformInventorySupplier, 'id' | 'name' | 'tax_id' | 'nrc'> | null;
+    from_json: {
+      name: string | null;
+      tax_id: string | null;
+      nrc: string | null;
+      phone: string | null;
+      email: string | null;
+      address: string | null;
+    };
+  };
+  lines: Array<{
+    description: string;
+    quantity: number;
+    unit_cost: number;
+    unit_code: string;
+    no_inventory: boolean;
+    matched_catalog_item: Pick<PlatformCatalogItem, 'id' | 'sku' | 'name' | 'item_type' | 'controls_inventory'> | null;
+  }>;
+  import_metadata: Record<string, unknown>;
 };
 
 export type PlatformInventoryReservation = {
@@ -1432,6 +1484,10 @@ export class PlatformClient {
 
   createInventoryPurchase(tenantId: number, payload: PlatformInventoryPurchasePayload): Promise<{ data: unknown }> {
     return this.http.post(`platform/tenants/${tenantId}/inventory/purchases`, { json: payload }).json();
+  }
+
+  importInventoryPurchaseDteJson(tenantId: number, payload: Record<string, unknown>): Promise<{ data: PlatformInventoryPurchaseImportPreview }> {
+    return this.http.post(`platform/tenants/${tenantId}/inventory/purchases/import-dte-json`, { json: { payload } }).json();
   }
 
   inventoryLots(tenantId: number, params: { catalog_item_id?: number; available_only?: boolean; page?: number; per_page?: number } = {}): Promise<PlatformPaginatedResponse<PlatformInventoryLot>> {

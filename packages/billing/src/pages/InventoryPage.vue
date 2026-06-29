@@ -26,6 +26,8 @@ const activeTab = ref('overview');
 const loading = ref(false);
 const saving = ref(false);
 const items = ref([]);
+const catalogItems = ref([]);
+const categories = ref([]);
 const lots = ref([]);
 const movements = ref([]);
 const suppliers = ref([]);
@@ -57,6 +59,32 @@ const supplierForm = ref({
   email: '',
   address: ''
 });
+const purchaseImport = ref({
+  fileName: '',
+  preview: null,
+  supplier_id: '',
+  create_supplier: false,
+  supplier: { name: '', tax_id: '', nrc: '', phone: '', email: '', address: '' },
+  document: {
+    document_type: 'dte_ccf',
+    document_mode: 'dte',
+    document_number: '',
+    purchase_date: new Date().toISOString().slice(0, 10),
+    payment_condition: 'cash',
+    document_total: 0,
+    is_consumable: false,
+    apply_tax_perceived: false,
+    tax_perceived_mode: 'auto',
+    tax_perceived_rate: 1,
+    apply_fuel_charges: false,
+    fovial_per_unit: 0,
+    cotrans_per_unit: 0,
+    fiscal_profile: '',
+    fiscal_sector: ''
+  },
+  lines: [],
+  import_metadata: null
+});
 
 const tabs = [
   { key: 'overview', label: 'Resumen', detail: 'Estado general', icon: 'summary' },
@@ -72,6 +100,21 @@ const inventoryOptions = computed(() => items.value.map((item) => ({
   value: String(item.id),
   label: item.name,
   hint: item.sku || 'Sin código'
+})));
+const catalogOptions = computed(() => catalogItems.value.map((item) => ({
+  value: String(item.id),
+  label: item.name,
+  hint: `${item.sku || 'Sin código'} · ${item.controls_inventory ? 'Inventario' : 'Catálogo'}`
+})));
+const categoryOptions = computed(() => categories.value.map((category) => ({
+  value: String(category.id),
+  label: category.name,
+  hint: category.kind || 'mixta'
+})));
+const supplierOptions = computed(() => suppliers.value.map((supplier) => ({
+  value: String(supplier.id),
+  label: supplier.name,
+  hint: supplier.tax_id || supplier.nrc || 'Sin documento'
 })));
 const visibleItems = computed(() => {
   const term = filters.value.q.trim().toLowerCase();
@@ -97,16 +140,20 @@ async function loadInventory(): Promise<void> {
 
   loading.value = true;
   try {
-    const [itemResponse, lotResponse, movementResponse, supplierResponse] = await Promise.all([
+    const [inventoryItemResponse, catalogItemResponse, lotResponse, movementResponse, supplierResponse, categoryResponse] = await Promise.all([
       client.value.catalogItems(tenantId.value, { status: 'active', controls_inventory: true, per_page: 100 }),
+      client.value.catalogItems(tenantId.value, { status: 'active', per_page: 100 }),
       client.value.inventoryLots(tenantId.value, { available_only: false, per_page: 100 }),
       client.value.inventoryMovements(tenantId.value, { per_page: 100 }),
-      client.value.inventorySuppliers(tenantId.value, { status: 'active', per_page: 100 })
+      client.value.inventorySuppliers(tenantId.value, { status: 'active', per_page: 100 }),
+      client.value.catalogCategories(tenantId.value, { status: 'active' })
     ]);
-    items.value = itemResponse.data ?? [];
+    items.value = inventoryItemResponse.data ?? [];
+    catalogItems.value = catalogItemResponse.data ?? [];
     lots.value = lotResponse.data ?? [];
     movements.value = movementResponse.data ?? [];
     suppliers.value = supplierResponse.data ?? [];
+    categories.value = categoryResponse.data ?? [];
   } catch (error) {
     notify('No se pudo cargar inventario', messageFromError(error), 'error');
   } finally {
@@ -200,6 +247,181 @@ async function saveSupplier(): Promise<void> {
   } finally {
     saving.value = false;
   }
+}
+
+async function importPurchaseJson(event): Promise<void> {
+  const file = event?.target?.files?.[0] ?? null;
+  if (!tenantId.value || !file) return;
+
+  saving.value = true;
+  try {
+    const payload = JSON.parse(await file.text());
+    const response = await client.value.importInventoryPurchaseDteJson(tenantId.value, payload);
+    const preview = response.data;
+    purchaseImport.value.fileName = file.name;
+    purchaseImport.value.preview = preview;
+    purchaseImport.value.supplier_id = preview.supplier.matched ? String(preview.supplier.matched.id) : '';
+    purchaseImport.value.create_supplier = !preview.supplier.matched;
+    purchaseImport.value.supplier = {
+      name: preview.supplier.from_json.name || '',
+      tax_id: preview.supplier.from_json.tax_id || '',
+      nrc: preview.supplier.from_json.nrc || '',
+      phone: preview.supplier.from_json.phone || '',
+      email: preview.supplier.from_json.email || '',
+      address: preview.supplier.from_json.address || ''
+    };
+    purchaseImport.value.document = {
+      ...purchaseImport.value.document,
+      ...preview.document,
+      is_consumable: false,
+      apply_tax_perceived: false,
+      tax_perceived_mode: 'auto',
+      tax_perceived_rate: 1,
+      fiscal_profile: '',
+      fiscal_sector: ''
+    };
+    purchaseImport.value.lines = preview.lines.map((line) => ({
+      description: line.description,
+      quantity: line.quantity,
+      unit_cost: line.unit_cost,
+      unit_code: line.unit_code,
+      no_inventory: line.no_inventory,
+      catalog_item_id: line.matched_catalog_item ? String(line.matched_catalog_item.id) : '',
+      create_item: !line.matched_catalog_item,
+      new_item_name: line.description,
+      category_id: '',
+      new_category_name: '',
+      controls_inventory: !line.no_inventory
+    }));
+    purchaseImport.value.import_metadata = preview.import_metadata;
+    notify('JSON cargado', 'Revisa proveedor y líneas antes de registrar.', 'success');
+  } catch (error) {
+    notify('No se pudo importar JSON', messageFromError(error), 'error');
+  } finally {
+    saving.value = false;
+    if (event?.target) event.target.value = '';
+  }
+}
+
+async function registerImportedPurchase(): Promise<void> {
+  if (!tenantId.value || !purchaseImport.value.preview) return;
+
+  saving.value = true;
+  try {
+    const supplierId = await resolvePurchaseSupplier();
+    const lines = [];
+    for (const line of purchaseImport.value.lines) {
+      const catalogItemId = await resolvePurchaseLineItem(line);
+      lines.push({
+        catalog_item_id: catalogItemId,
+        description: line.description,
+        unit_code: line.unit_code || '59',
+        quantity: Number(line.quantity || 0),
+        unit_cost: Number(line.unit_cost || 0),
+        no_inventory: Boolean(line.no_inventory),
+        price_includes_tax: false
+      });
+    }
+
+    await client.value.createInventoryPurchase(tenantId.value, {
+      inventory_supplier_id: supplierId,
+      document_type: purchaseImport.value.document.document_type || null,
+      document_mode: purchaseImport.value.document.document_mode || 'dte',
+      document_number: purchaseImport.value.document.document_number || null,
+      payment_condition: purchaseImport.value.document.payment_condition || 'cash',
+      document_total: Number(purchaseImport.value.document.document_total || 0),
+      purchase_date: purchaseImport.value.document.purchase_date,
+      is_consumable: Boolean(purchaseImport.value.document.is_consumable),
+      apply_tax_perceived: Boolean(purchaseImport.value.document.apply_tax_perceived),
+      tax_perceived_mode: purchaseImport.value.document.tax_perceived_mode || 'auto',
+      tax_perceived_rate: Number(purchaseImport.value.document.tax_perceived_rate || 1),
+      apply_fuel_charges: Boolean(purchaseImport.value.document.apply_fuel_charges),
+      fovial_per_unit: Number(purchaseImport.value.document.fovial_per_unit || 0),
+      cotrans_per_unit: Number(purchaseImport.value.document.cotrans_per_unit || 0),
+      fiscal_profile: purchaseImport.value.document.fiscal_profile || null,
+      fiscal_sector: purchaseImport.value.document.fiscal_sector ? Number(purchaseImport.value.document.fiscal_sector) : null,
+      supplier_snapshot: purchaseImport.value.supplier,
+      import_metadata: purchaseImport.value.import_metadata,
+      lines
+    });
+
+    notify('Compra registrada', 'Se crearon lotes y kardex para las líneas inventariables.', 'success');
+    clearPurchaseImport();
+    await loadInventory();
+  } catch (error) {
+    notify('No se pudo registrar compra', messageFromError(error), 'error');
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function resolvePurchaseSupplier(): Promise<number | null> {
+  if (!purchaseImport.value.create_supplier) {
+    return purchaseImport.value.supplier_id ? Number(purchaseImport.value.supplier_id) : null;
+  }
+
+  if (!purchaseImport.value.supplier.name.trim()) {
+    throw new Error('Debes ingresar el nombre del proveedor.');
+  }
+
+  const response = await client.value.createInventorySupplier(tenantId.value, {
+    name: purchaseImport.value.supplier.name.trim(),
+    tax_id: purchaseImport.value.supplier.tax_id.trim() || null,
+    nrc: purchaseImport.value.supplier.nrc.trim() || null,
+    phone: purchaseImport.value.supplier.phone.trim() || null,
+    email: purchaseImport.value.supplier.email.trim() || null,
+    address: purchaseImport.value.supplier.address.trim() || null
+  });
+
+  return response.data.id;
+}
+
+async function resolvePurchaseLineItem(line): Promise<number> {
+  if (!line.create_item && line.catalog_item_id) {
+    return Number(line.catalog_item_id);
+  }
+
+  const categoryId = await resolvePurchaseCategory(line);
+  const response = await client.value.createCatalogItem(tenantId.value, {
+    catalog_category_id: categoryId,
+    name: line.new_item_name.trim() || line.description,
+    item_type: line.no_inventory ? 'service' : 'part',
+    unit_code: line.unit_code || '59',
+    controls_inventory: !line.no_inventory && Boolean(line.controls_inventory),
+    reference_cost: Number(line.unit_cost || 0),
+    base_price: 0,
+    status: 'active'
+  });
+
+  return response.data.id;
+}
+
+async function resolvePurchaseCategory(line): Promise<number | null> {
+  if (line.category_id) {
+    return Number(line.category_id);
+  }
+
+  const name = line.new_category_name.trim();
+  if (!name) {
+    return null;
+  }
+
+  const response = await client.value.createCatalogCategory(tenantId.value, {
+    name,
+    kind: line.no_inventory ? 'service' : 'product',
+    status: 'active'
+  });
+
+  return response.data.id;
+}
+
+function clearPurchaseImport(): void {
+  purchaseImport.value.fileName = '';
+  purchaseImport.value.preview = null;
+  purchaseImport.value.supplier_id = '';
+  purchaseImport.value.create_supplier = false;
+  purchaseImport.value.lines = [];
+  purchaseImport.value.import_metadata = null;
 }
 
 function formatMoney(value): string {
@@ -336,12 +558,125 @@ function messageFromError(error): string {
             </div>
           </div>
 
-          <div v-if="activeTab === 'entries'" class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
-            <div class="flex items-center justify-between gap-3">
-              <h3 class="text-base font-bold text-slate-950 dark:text-text">Entradas</h3>
-              <UiButton :disabled="items.length === 0" @click="openEntry(null)">Nueva entrada</UiButton>
+          <div v-if="activeTab === 'entries'" class="space-y-4">
+            <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 class="text-base font-bold text-slate-950 dark:text-text">Compras y entradas</h3>
+                  <p class="mt-1 text-sm text-slate-600 dark:text-muted">Registra entradas rápidas o importa el JSON DTE recibido del proveedor.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <label class="inline-flex cursor-pointer items-center justify-center rounded-md bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-200 dark:bg-surface-muted dark:text-text dark:hover:bg-surface-raised">
+                    Importar JSON
+                    <input class="sr-only" type="file" accept=".json,application/json" :disabled="saving" @change="importPurchaseJson" />
+                  </label>
+                  <UiButton :disabled="items.length === 0" @click="openEntry(null)">Entrada rápida</UiButton>
+                </div>
+              </div>
             </div>
-            <p class="mt-4 text-sm text-slate-600 dark:text-muted">Las entradas crean lotes y registran kardex a costo real.</p>
+
+            <div v-if="purchaseImport.preview" class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 class="text-base font-bold text-slate-950 dark:text-text">Compra desde JSON</h3>
+                  <p class="mt-1 text-sm text-slate-600 dark:text-muted">{{ purchaseImport.fileName }}</p>
+                </div>
+                <UiButton variant="ghost" @click="clearPurchaseImport">Limpiar</UiButton>
+              </div>
+
+              <div class="mt-5 grid gap-4 lg:grid-cols-4">
+                <UiInput v-model="purchaseImport.document.purchase_date" label="Fecha" type="date" />
+                <UiSelect v-model="purchaseImport.document.document_type" label="Documento" :options="[{ value: 'dte_ccf', label: 'DTE CCF' }, { value: 'dte_fcf', label: 'DTE FC' }, { value: 'ccf', label: 'CCF físico' }, { value: 'fcf', label: 'FC física' }, { value: 'fse', label: 'FSE' }, { value: 'nota_envio', label: 'Nota de envío' }]" />
+                <UiInput v-model="purchaseImport.document.document_number" label="Código generación" />
+                <UiInput v-model="purchaseImport.document.document_total" label="Total DTE" type="number" min="0" step="0.01" />
+                <UiSelect v-model="purchaseImport.document.payment_condition" label="Condición" :options="[{ value: 'cash', label: 'Contado' }, { value: 'credit', label: 'Crédito' }]" />
+                <UiSelect v-model="purchaseImport.document.fiscal_profile" label="Tipo fiscal" :options="[{ value: '', label: 'Sin clasificar' }, { value: 'sales_expense', label: 'Gasto de venta' }, { value: 'administrative_expense', label: 'Gasto administración' }, { value: 'financial_expense', label: 'Gasto financiero' }, { value: 'import_cost', label: 'Costo importación' }, { value: 'internal_cost', label: 'Costo interno' }, { value: 'manufacturing_overhead', label: 'Costo indirecto' }, { value: 'labor_cost', label: 'Mano de obra' }]" />
+                <UiSelect v-model="purchaseImport.document.fiscal_sector" label="Sector" :options="[{ value: '', label: 'Sin sector' }, { value: '1', label: 'Industria' }, { value: '2', label: 'Comercio' }, { value: '3', label: 'Agropecuaria' }, { value: '4', label: 'Servicios' }]" />
+                <div class="flex items-end gap-3">
+                  <label class="flex min-h-10 items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
+                    <input v-model="purchaseImport.document.is_consumable" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
+                    Consumible
+                  </label>
+                </div>
+              </div>
+
+              <div class="mt-4 grid gap-4 lg:grid-cols-4">
+                <label class="flex min-h-10 items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
+                  <input v-model="purchaseImport.document.apply_tax_perceived" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
+                  IVA percibido
+                </label>
+                <UiSelect v-model="purchaseImport.document.tax_perceived_mode" label="Modo IVA percibido" :options="[{ value: 'auto', label: 'Auto 1%' }, { value: 'manual', label: 'Manual' }]" />
+                <UiInput v-model="purchaseImport.document.tax_perceived_rate" label="% percibido" type="number" min="0" max="100" step="0.01" />
+                <label class="flex min-h-10 items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
+                  <input v-model="purchaseImport.document.apply_fuel_charges" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
+                  Combustible
+                </label>
+                <UiInput v-model="purchaseImport.document.fovial_per_unit" label="FOVIAL por galón" type="number" min="0" step="0.0001" />
+                <UiInput v-model="purchaseImport.document.cotrans_per_unit" label="COTRANS por galón" type="number" min="0" step="0.0001" />
+              </div>
+
+              <div class="mt-5 rounded-md border border-slate-200 p-4 dark:border-line">
+                <div class="grid gap-4 lg:grid-cols-3">
+                  <UiSelect v-if="!purchaseImport.create_supplier" v-model="purchaseImport.supplier_id" label="Proveedor" :options="supplierOptions" />
+                  <label class="flex min-h-10 items-end gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
+                    <input v-model="purchaseImport.create_supplier" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
+                    Crear proveedor
+                  </label>
+                  <UiInput v-if="purchaseImport.create_supplier" v-model="purchaseImport.supplier.name" label="Nombre proveedor" />
+                  <UiInput v-if="purchaseImport.create_supplier" v-model="purchaseImport.supplier.tax_id" label="NIT" />
+                  <UiInput v-if="purchaseImport.create_supplier" v-model="purchaseImport.supplier.nrc" label="NRC" />
+                  <UiInput v-if="purchaseImport.create_supplier" v-model="purchaseImport.supplier.phone" label="Teléfono" />
+                </div>
+              </div>
+
+              <div class="mt-5 rounded-md border border-slate-200 dark:border-line">
+                <UiDataTable overflow="auto" min-width="min-w-[1180px]">
+                  <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
+                    <tr>
+                      <th class="px-4 py-3">Descripción</th>
+                      <th class="px-4 py-3">Producto</th>
+                      <th class="px-4 py-3">Crear</th>
+                      <th class="px-4 py-3">Categoría</th>
+                      <th class="px-4 py-3">Cant.</th>
+                      <th class="px-4 py-3">Costo</th>
+                      <th class="px-4 py-3">No inv.</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 dark:divide-line">
+                    <tr v-for="(line, idx) in purchaseImport.lines" :key="`${line.description}-${idx}`" class="text-sm">
+                      <td class="px-4 py-3">
+                        <UiInput v-model="line.description" label=" " />
+                      </td>
+                      <td class="px-4 py-3">
+                        <UiSelect v-if="!line.create_item" v-model="line.catalog_item_id" label=" " :options="catalogOptions" />
+                        <UiInput v-else v-model="line.new_item_name" label=" " />
+                      </td>
+                      <td class="px-4 py-3">
+                        <label class="flex items-center gap-2 font-semibold text-slate-700 dark:text-muted">
+                          <input v-model="line.create_item" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
+                          Nuevo
+                        </label>
+                      </td>
+                      <td class="px-4 py-3">
+                        <div v-if="line.create_item" class="grid min-w-52 gap-2">
+                          <UiSelect v-model="line.category_id" label=" " :options="categoryOptions" />
+                          <UiInput v-model="line.new_category_name" label=" " placeholder="Nueva categoría" />
+                        </div>
+                      </td>
+                      <td class="px-4 py-3"><UiInput v-model="line.quantity" label=" " type="number" min="0.001" step="0.001" /></td>
+                      <td class="px-4 py-3"><UiInput v-model="line.unit_cost" label=" " type="number" min="0" step="0.0001" /></td>
+                      <td class="px-4 py-3">
+                        <input v-model="line.no_inventory" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
+                      </td>
+                    </tr>
+                  </tbody>
+                </UiDataTable>
+              </div>
+
+              <div class="mt-5 flex justify-end">
+                <UiButton :disabled="saving || purchaseImport.lines.length === 0" @click="registerImportedPurchase">Registrar compra</UiButton>
+              </div>
+            </div>
           </div>
 
           <div v-if="activeTab === 'lots'" class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
