@@ -4,6 +4,7 @@ import { PlatformClient } from '@stelfaro/api-client';
 import { UiButton, UiDataTable, UiInput, UiLoadingMark, UiModalShell, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import { computed, onMounted, ref, watch } from 'vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
+import BillingSectionLayout from '../components/BillingSectionLayout.vue';
 
 const props = withDefaults(defineProps<{
   platformSession?: Record<string, unknown> | null;
@@ -66,7 +67,7 @@ const tabs = [
   { key: 'adjustments', label: 'Ajustes', detail: 'Correcciones', icon: 'adjustments' },
   { key: 'suppliers', label: 'Proveedores', detail: 'Compras', icon: 'suppliers' }
 ];
-const activeItem = computed(() => tabs.find((tab) => tab.key === activeTab.value) ?? tabs[0]);
+const sectionNavItems = computed(() => tabs.map((tab) => ({ ...tab, id: tab.key })));
 const inventoryOptions = computed(() => items.value.map((item) => ({
   value: String(item.id),
   label: item.name,
@@ -213,20 +214,6 @@ function movementTone(type): string {
   return type === 'entry' ? 'success' : 'neutral';
 }
 
-function iconPath(icon: string): string {
-  const paths = {
-    summary: 'M4 5h16M4 12h10M4 19h16M17 10h3v4h-3z',
-    stock: 'M4 7l8-4 8 4-8 4-8-4ZM4 7v10l8 4 8-4V7M12 11v10',
-    entries: 'M12 3v12M8 7l4-4 4 4M5 21h14M6 15h12v6H6z',
-    lots: 'M4 6h16v5H4zM4 13h16v5H4zM8 8h.01M8 15h.01',
-    kardex: 'M5 5h14M5 12h14M5 19h14M9 3v18',
-    adjustments: 'M12 3v18M3 12h18M6 6l12 12',
-    suppliers: 'M4 7h11v10H4zM15 10h3l2 3v4h-5zM7 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM17 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z'
-  };
-
-  return paths[icon] ?? paths.summary;
-}
-
 function notify(title: string, message?: string | null, variant = 'info'): void {
   const id = `${Date.now()}-${Math.random()}`;
   toasts.value.push({ id, title, message, variant });
@@ -241,68 +228,23 @@ function messageFromError(error): string {
 </script>
 
 <template>
-  <section class="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
+  <BillingSectionLayout
+    title="Inventario"
+    icon="inventory"
+    :entity-title="tenantName"
+    :entity-detail="`${stats.products} productos inventariables`"
+    :nav-items="sectionNavItems"
+    :active-id="activeTab"
+    :home-href="homeHref"
+    @select="activeTab = $event"
+  >
     <BillingFloatingToastStack :toasts="toasts" />
 
-    <div class="grid gap-5 lg:grid-cols-[320px_1fr]">
-      <aside class="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-none">
-        <div class="flex h-16 items-center gap-3 border-b border-slate-200 px-5 dark:border-line">
-          <span class="grid h-10 w-10 place-items-center rounded-md bg-sky-600 text-white shadow-sm shadow-sky-900/20 dark:bg-primary">
-            <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-              <path d="M4 7l8-4 8 4-8 4-8-4Z" />
-              <path d="M4 7v10l8 4 8-4V7" />
-              <path d="M12 11v10" />
-            </svg>
-          </span>
-          <span class="text-sm font-black uppercase tracking-wide text-slate-950 dark:text-text">Inventario</span>
-        </div>
-
-        <div class="border-b border-slate-200 px-5 py-5 dark:border-line">
-          <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Empresa</p>
-          <p class="mt-1 truncate text-lg font-bold text-slate-950 dark:text-text">{{ tenantName }}</p>
-          <p class="mt-1 text-xs font-semibold text-slate-500 dark:text-soft">{{ stats.products }} productos inventariables</p>
-        </div>
-
-        <nav class="space-y-1 px-3 py-4" aria-label="Opciones de inventario">
-          <button
-            v-for="tab in tabs"
-            :key="tab.key"
-            type="button"
-            class="flex min-h-14 w-full items-center gap-3 rounded-md px-3 text-left text-base transition"
-            :class="activeTab === tab.key ? 'bg-slate-100 font-bold text-slate-950 shadow-sm shadow-slate-950/5 dark:bg-surface-muted dark:text-text' : 'font-semibold text-slate-800 hover:bg-slate-50 hover:text-slate-950 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text'"
-            @click="activeTab = tab.key"
-          >
-            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md" :class="activeTab === tab.key ? 'bg-white text-sky-700 dark:bg-surface-raised dark:text-primary' : 'text-slate-500 dark:text-soft'">
-              <svg class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path :d="iconPath(tab.icon)" />
-              </svg>
-            </span>
-            <span class="min-w-0">
-              <span class="block truncate">{{ tab.label }}</span>
-              <span class="block truncate text-xs font-medium text-slate-500 dark:text-soft">{{ tab.detail }}</span>
-            </span>
-          </button>
-        </nav>
-      </aside>
-
-      <main class="min-w-0 space-y-5">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="flex min-w-0 items-center gap-3 text-sm">
-            <a :href="homeHref" class="text-slate-500 transition hover:text-slate-950 dark:text-soft dark:hover:text-text" aria-label="Inicio">
-              <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path d="M10.707 2.293a1 1 0 0 0-1.414 0l-7 7a1 1 0 0 0 1.414 1.414L4 10.414V17a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-6.586l.293.293a1 1 0 0 0 1.414-1.414l-7-7Z" />
-              </svg>
-            </a>
-            <span class="text-slate-400 dark:text-soft">/</span>
-            <span class="font-semibold text-sky-700 dark:text-primary">Inventario</span>
-            <span class="text-slate-400 dark:text-soft">/</span>
-            <span class="font-semibold text-slate-700 dark:text-muted">{{ activeItem.label }}</span>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <UiButton variant="secondary" :disabled="loading" @click="loadInventory">Actualizar</UiButton>
-            <UiButton :disabled="items.length === 0" @click="openEntry(null)">Entrada</UiButton>
-          </div>
-        </div>
+    <div class="space-y-5">
+      <div class="flex flex-wrap justify-end gap-2">
+        <UiButton variant="secondary" :disabled="loading" @click="loadInventory">Actualizar</UiButton>
+        <UiButton :disabled="items.length === 0" @click="openEntry(null)">Entrada</UiButton>
+      </div>
 
         <div v-if="loading" class="rounded-md border border-slate-200 bg-white p-10 dark:border-line dark:bg-surface">
           <UiLoadingMark label="Cargando inventario" />
@@ -488,7 +430,6 @@ function messageFromError(error): string {
             </div>
           </div>
         </template>
-      </main>
     </div>
 
     <UiModalShell
@@ -540,5 +481,5 @@ function messageFromError(error): string {
         </div>
       </form>
     </UiModalShell>
-  </section>
+  </BillingSectionLayout>
 </template>
