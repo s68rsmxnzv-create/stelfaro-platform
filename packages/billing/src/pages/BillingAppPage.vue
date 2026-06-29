@@ -187,7 +187,9 @@ const selectedComponentProps = computed(() => {
   if (props.module === 'billing') {
     return {
       ...baseProps,
-      initialDocumentType: selectedDocumentType.value
+      initialDocumentType: selectedDocumentType.value,
+      platformSession: props.platformSession,
+      platformBaseUrl: props.platformBaseUrl
     };
   }
 

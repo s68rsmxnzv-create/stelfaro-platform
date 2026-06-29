@@ -9,6 +9,10 @@ export type BillingItem = {
   discount?: Money;
   ivaAmount?: Money;
   priceIncludesIva?: boolean;
+  unitMeasure?: string | number | null;
+  code?: string | null;
+  catalogItemId?: number | null;
+  lineOrigin?: 'free' | 'catalog' | 'inventory' | string;
 };
 
 export type ApiState<T> = {

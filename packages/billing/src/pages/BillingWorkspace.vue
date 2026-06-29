@@ -15,7 +15,9 @@ import {
   type DteHistoryEntry,
   type DteIssueProgressEvent,
   type DteIssueResponse,
-  type DtePreviewResponse
+  type DtePreviewResponse,
+  PlatformClient,
+  type PlatformCatalogItem
 } from '@stelfaro/api-client';
 import { currency, type BillingItem, type DocumentType } from '@stelfaro/shared';
 import { UiButton, UiCard, UiSearchInput, UiLoadingMark, UiSaveIcon, UiToggle } from '@stelfaro/ui';
@@ -40,14 +42,26 @@ const props = withDefaults(defineProps<{
   authToken?: string | null;
   initialDocumentType?: DocumentType;
   billingContextCacheScope?: string;
+  platformSession?: Record<string, unknown> | null;
+  platformBaseUrl?: string;
 }>(), {
   coreBaseUrl: '/api/v1',
   authToken: null,
   initialDocumentType: '01',
-  billingContextCacheScope: 'default'
+  billingContextCacheScope: 'default',
+  platformSession: null,
+  platformBaseUrl: '/api/v1'
 });
 
+type PlatformSessionProp = {
+  tenant?: {
+    id?: number | string | null;
+  } | null;
+} | null;
+
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
+const platformClient = computed(() => new PlatformClient(props.platformBaseUrl, { credentials: 'same-origin' }));
+const platformTenantId = computed(() => Number((props.platformSession as PlatformSessionProp)?.tenant?.id || 0));
 const loading = ref(false);
 const contextLoading = ref(false);
 const correlativoLoading = ref(false);
@@ -83,6 +97,9 @@ const sourceDocuments = ref<DteDraftSummary[]>([]);
 const selectedSourceDocument = ref<DteDraftSummary | null>(null);
 const itemTemplates = ref<BillingItemTemplate[]>([]);
 const itemTemplateSearch = ref('');
+const catalogLineSuggestions = ref<PlatformCatalogItem[]>([]);
+const catalogLineSuggestionsOpen = ref(false);
+const catalogLineLoading = ref(false);
 const customerModalMode = ref<'new' | 'quick' | null>(null);
 const fiscalCustomerModalOpen = ref(false);
 const sujetoExcluidoModalOpen = ref(false);
@@ -97,12 +114,20 @@ let floatingToastId = 0;
 const floatingToastTimers: ReturnType<typeof window.setTimeout>[] = [];
 const deliveryPollTimers: ReturnType<typeof window.setTimeout>[] = [];
 let currentIssueIdempotencyKey: string | null = null;
+let catalogLineSearchTimer: ReturnType<typeof window.setTimeout> | null = null;
 let unmounted = false;
 const finalConsumerIdentificationThreshold = 25000;
 
 type InvoiceLine = BillingItem & {
   id: number;
   discountPercent: number;
+  catalogItemId?: number | null;
+  catalogSku?: string | null;
+  lineOrigin?: 'free' | 'catalog' | 'inventory';
+  unitCode?: string | null;
+  taxable?: boolean;
+  controlsInventory?: boolean;
+  itemPriceIncludesIva?: boolean;
   originalQuantity?: number;
   originalUnitPrice?: number;
   originalIva?: number;
@@ -255,7 +280,11 @@ const items = computed<BillingItem[]>(() => lines.value
     unitPrice: isNotaDebito.value ? notaDebitoPayloadUnitPrice(line) : Number(line.unitPrice),
     discount: isNotaDebito.value ? 0 : lineDiscountAmount(line),
     ivaAmount: isNotaCredito.value ? lineIvaAmount(line) : undefined,
-    priceIncludesIva: isCreditoFiscal.value ? ccfPriceIncludesIva.value : false
+    priceIncludesIva: isCreditoFiscal.value ? ccfPriceIncludesIva.value : false,
+    unitMeasure: line.unitCode ?? 59,
+    code: line.catalogSku ?? null,
+    catalogItemId: line.catalogItemId ?? null,
+    lineOrigin: line.lineOrigin ?? 'free'
   }))
   .filter((line) => line.description !== '' && line.quantity > 0 && (isNotaDebito.value ? line.unitPrice > 0 : line.unitPrice >= 0)));
 const subtotal = computed(() => items.value.reduce((sum, item) => sum + lineGrossTotal(item), 0));
@@ -350,6 +379,11 @@ const canBuild = computed(() => Boolean(
   && (!isFiscalStyleDocument.value || canBuildCreditoFiscal.value)
   && (!isSujetoExcluido.value || canBuildSujetoExcluido.value)
   && (!isAdjustmentNote.value || selectedSourceDocument.value)
+));
+const canUseCatalogLineSearch = computed(() => Boolean(
+  platformTenantId.value
+  && !isAdjustmentNote.value
+  && !isSujetoExcluido.value
 ));
 const canBuildCreditoFiscal = computed(() => Boolean(
   form.customerDocument.trim()
@@ -601,6 +635,13 @@ function newInvoiceLine(): InvoiceLine {
     unitPrice: 0,
     discount: 0,
     discountPercent: 0,
+    catalogItemId: null,
+    catalogSku: null,
+    lineOrigin: 'free',
+    unitCode: '59',
+    taxable: true,
+    controlsInventory: false,
+    itemPriceIncludesIva: false,
   };
 }
 
@@ -631,6 +672,7 @@ onBeforeUnmount(() => {
   unmounted = true;
   window.removeEventListener('keydown', handleIssueModalKeydown);
   clearIssueAutoClose();
+  clearCatalogLineSearchTimer();
   floatingToastTimers.forEach((timer) => window.clearTimeout(timer));
   deliveryPollTimers.forEach((timer) => window.clearTimeout(timer));
 });
@@ -1766,8 +1808,109 @@ function fillCurrentLineFromTemplate(template: BillingItemTemplate): void {
     quantity: Number(template.default_quantity || 1),
     unitPrice: Number(template.default_price || 0),
     discount: 0,
-    discountPercent: 0
+    discountPercent: 0,
+    catalogItemId: null,
+    catalogSku: null,
+    lineOrigin: 'free',
+    controlsInventory: false,
   };
+  catalogLineSuggestions.value = [];
+  catalogLineSuggestionsOpen.value = false;
+}
+
+function onDraftLineDescriptionInput(value: string): void {
+  const selectedCatalogId = draftLine.value.catalogItemId;
+  draftLine.value.description = value;
+
+  if (selectedCatalogId) {
+    draftLine.value.catalogItemId = null;
+    draftLine.value.catalogSku = null;
+    draftLine.value.lineOrigin = 'free';
+    draftLine.value.controlsInventory = false;
+  }
+
+  scheduleCatalogLineSearch(value);
+}
+
+function scheduleCatalogLineSearch(value: string): void {
+  clearCatalogLineSearchTimer();
+
+  if (!canUseCatalogLineSearch.value || value.trim().length < 2) {
+    catalogLineSuggestions.value = [];
+    catalogLineSuggestionsOpen.value = false;
+    return;
+  }
+
+  catalogLineSearchTimer = window.setTimeout(() => {
+    void loadCatalogLineSuggestions(value);
+  }, 220);
+}
+
+function clearCatalogLineSearchTimer(): void {
+  if (catalogLineSearchTimer) {
+    window.clearTimeout(catalogLineSearchTimer);
+    catalogLineSearchTimer = null;
+  }
+}
+
+async function loadCatalogLineSuggestions(value: string): Promise<void> {
+  const query = value.trim();
+  if (!platformTenantId.value || query.length < 2) return;
+
+  catalogLineLoading.value = true;
+  try {
+    const response = await platformClient.value.catalogItems(platformTenantId.value, {
+      q: query,
+      status: 'active',
+      per_page: 8,
+    });
+    catalogLineSuggestions.value = response.data;
+    catalogLineSuggestionsOpen.value = true;
+  } catch {
+    catalogLineSuggestions.value = [];
+    catalogLineSuggestionsOpen.value = false;
+  } finally {
+    catalogLineLoading.value = false;
+  }
+}
+
+function selectCatalogItemForDraft(item: PlatformCatalogItem): void {
+  draftLine.value = {
+    ...draftLine.value,
+    description: item.name,
+    unitPrice: Number(item.base_price || 0),
+    discount: 0,
+    discountPercent: 0,
+    catalogItemId: item.id,
+    catalogSku: item.sku,
+    lineOrigin: item.controls_inventory ? 'inventory' : 'catalog',
+    unitCode: item.unit_code,
+    taxable: item.taxable,
+    controlsInventory: item.controls_inventory,
+    itemPriceIncludesIva: item.base_price_includes_tax,
+  };
+  catalogLineSuggestions.value = [];
+  catalogLineSuggestionsOpen.value = false;
+}
+
+function closeCatalogLineSuggestions(): void {
+  window.setTimeout(() => {
+    catalogLineSuggestionsOpen.value = false;
+  }, 140);
+}
+
+function lineOriginLabel(line: InvoiceLine): string {
+  if (line.lineOrigin === 'inventory') return 'Inventario';
+  if (line.lineOrigin === 'catalog') return 'Catálogo';
+
+  return 'Libre';
+}
+
+function lineOriginClass(line: InvoiceLine): string {
+  if (line.lineOrigin === 'inventory') return 'bg-emerald-50 text-emerald-700 dark:bg-success-soft dark:text-success';
+  if (line.lineOrigin === 'catalog') return 'bg-sky-50 text-sky-700 dark:bg-primary-soft dark:text-primary';
+
+  return 'bg-slate-100 text-slate-500 dark:bg-surface-muted dark:text-muted';
 }
 
 async function saveLineAsTemplate(line: InvoiceLine): Promise<void> {
@@ -2279,7 +2422,10 @@ function updatePaymentCondition(value: string): void {
           </section>
         </div>
 
-        <section class="rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:text-text dark:shadow-surface">
+        <section
+          class="relative rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:text-text dark:shadow-surface"
+          :class="catalogLineSuggestionsOpen ? 'z-40' : 'z-10'"
+        >
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 class="text-base font-semibold text-slate-950 dark:text-text">{{ isSujetoExcluido ? 'Detalle de compra' : 'Detalle' }}</h2>
@@ -2290,7 +2436,7 @@ function updatePaymentCondition(value: string): void {
               v-model:retain-iva="ccfRetainIva10"
             />
           </div>
-          <div class="mt-4 overflow-hidden rounded-md border border-slate-200 dark:border-line">
+          <div class="mt-4 overflow-visible rounded-md border border-slate-200 dark:border-line">
             <table class="w-full min-w-[780px] text-left text-sm dark:text-text">
               <thead class="bg-blue-50/70 text-xs uppercase text-slate-500 dark:bg-surface-muted dark:text-muted">
                 <tr>
@@ -2305,7 +2451,45 @@ function updatePaymentCondition(value: string): void {
               <tbody class="divide-y divide-slate-200 dark:divide-line">
                 <tr v-if="!isAdjustmentNote" class="bg-blue-50/40 dark:bg-surface-muted">
                   <td class="px-3 py-2">
-                    <input v-model="draftLine.description" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised" :placeholder="isSujetoExcluido ? 'Compra o servicio recibido' : 'Producto o servicio'">
+                    <div class="relative">
+                      <input
+                        :value="draftLine.description"
+                        class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised"
+                        :placeholder="isSujetoExcluido ? 'Compra o servicio recibido' : 'Buscar catalogo o escribir descripcion libre'"
+                        @blur="closeCatalogLineSuggestions"
+                        @focus="scheduleCatalogLineSearch(draftLine.description)"
+                        @input="onDraftLineDescriptionInput(($event.target as HTMLInputElement).value)"
+                      >
+                      <div
+                        v-if="catalogLineSuggestionsOpen && canUseCatalogLineSearch"
+                        class="absolute z-[100] mt-1 max-h-36 w-full overflow-y-auto rounded-md border border-blue-100 bg-white py-1 text-sm shadow-xl shadow-blue-950/10 dark:border-line dark:bg-surface-raised dark:shadow-black/30"
+                      >
+                        <div v-if="catalogLineLoading" class="px-3 py-2 text-xs font-medium text-slate-500 dark:text-muted">Buscando catalogo...</div>
+                        <button
+                          v-for="item in catalogLineSuggestions"
+                          :key="item.id"
+                          class="block w-full px-3 py-2 text-left hover:bg-sky-50 dark:hover:bg-primary-soft"
+                          type="button"
+                          @mousedown.prevent="selectCatalogItemForDraft(item)"
+                        >
+                          <span class="block font-semibold text-slate-950 dark:text-text">{{ item.name }}</span>
+                          <span class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-soft">
+                            <span>{{ item.sku || 'Sin codigo' }}</span>
+                            <span>{{ currency(item.base_price) }}</span>
+                            <span>{{ item.controls_inventory ? 'Inventario' : 'Catalogo' }}</span>
+                          </span>
+                        </button>
+                        <p v-if="!catalogLineLoading && catalogLineSuggestions.length === 0" class="px-3 py-2 text-slate-500 dark:text-muted">
+                          Sin resultados. Se agregara como descripcion libre.
+                        </p>
+                      </div>
+                    </div>
+                    <div v-if="draftLine.description.trim()" class="mt-1 flex flex-wrap items-center gap-2">
+                      <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold" :class="lineOriginClass(draftLine)">
+                        {{ lineOriginLabel(draftLine) }}
+                      </span>
+                      <span v-if="draftLine.catalogSku" class="text-[11px] text-slate-500 dark:text-muted">{{ draftLine.catalogSku }}</span>
+                    </div>
                   </td>
                   <td class="px-3 py-2">
                     <input v-model.number="draftLine.quantity" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:focus:bg-surface-raised" min="0.01" step="0.01" type="number">
@@ -2329,6 +2513,14 @@ function updatePaymentCondition(value: string): void {
                 <tr v-for="line in lines" :key="line.id">
                   <td class="px-3 py-2">
                     <span class="font-medium text-slate-950 dark:text-text">{{ line.description }}</span>
+                    <span
+                      v-if="!isAdjustmentNote"
+                      class="ml-2 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                      :class="lineOriginClass(line)"
+                    >
+                      {{ lineOriginLabel(line) }}
+                    </span>
+                    <p v-if="line.catalogSku" class="mt-1 text-[11px] text-slate-500 dark:text-muted">{{ line.catalogSku }}</p>
                     <p v-if="isAdjustmentNote" class="mt-1 text-[11px] text-slate-500 dark:text-muted">
                       {{ line.sourceLine === false ? 'Linea nueva agregada a la Nota de Debito' : 'Descripcion tomada del CCF origen' }}
                     </p>

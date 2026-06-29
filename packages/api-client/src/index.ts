@@ -1769,10 +1769,13 @@ export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewReques
     : 0;
   const items: Array<Record<string, unknown>> = input.items.map((item) => {
     const discount = lineDiscount(item);
+    const unitMeasure = Number(item.unitMeasure ?? 59);
 
     return {
       descripcion: item.description,
       cantidad: item.quantity,
+      uniMedida: Number.isFinite(unitMeasure) ? unitMeasure : 59,
+      codigo: item.code || null,
       precioUni: item.unitPrice,
       montoDescu: discount,
       ...(isFiscalStyle ? { tributos: ['20'], precioIncluyeIva: priceIncludesIva } : {}),
