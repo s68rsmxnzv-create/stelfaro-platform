@@ -278,6 +278,123 @@ export type PlatformCatalogItemsResponse = {
   meta?: PaginationMeta;
 };
 
+export type PlatformInventorySupplier = {
+  id: number;
+  tenant_id: number;
+  name: string;
+  tax_id: string | null;
+  nrc: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  status: 'active' | 'inactive' | string;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type PlatformInventoryLot = {
+  id: number;
+  tenant_id: number;
+  catalog_item_id: number;
+  inventory_supplier_id: number | null;
+  inventory_purchase_id: number | null;
+  inventory_purchase_line_id: number | null;
+  lot_code: string;
+  received_date: string | null;
+  unit_cost: number;
+  initial_quantity: number;
+  available_quantity: number;
+  status: string;
+  catalog_item?: Pick<PlatformCatalogItem, 'id' | 'sku' | 'name' | 'unit_code' | 'unit_name'> | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type PlatformInventoryMovement = {
+  id: number;
+  tenant_id: number;
+  catalog_item_id: number;
+  inventory_lot_id: number | null;
+  movement_type: 'entry' | 'exit' | string;
+  reason: string;
+  quantity: number;
+  unit_cost: number | null;
+  balance_after: number | null;
+  reference_type: string | null;
+  reference_id: string | null;
+  reference_number: string | null;
+  notes: string | null;
+  catalog_item?: Pick<PlatformCatalogItem, 'id' | 'sku' | 'name'> | null;
+  lot?: Pick<PlatformInventoryLot, 'id' | 'lot_code'> | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type PlatformInventoryPurchasePayload = {
+  inventory_supplier_id?: number | null;
+  document_type?: string | null;
+  document_number?: string | null;
+  purchase_date: string;
+  lines: Array<{
+    catalog_item_id: number;
+    quantity: number;
+    unit_cost: number;
+    tax_amount?: number | null;
+  }>;
+};
+
+export type PlatformInventoryReservation = {
+  id: number;
+  tenant_id: number;
+  idempotency_key: string;
+  status: 'reserved' | 'confirmed' | 'released' | 'reversed' | string;
+  source_type: string | null;
+  source_id: string | null;
+  source_number: string | null;
+  metadata: Record<string, unknown> | null;
+  confirmed_at: string | null;
+  released_at: string | null;
+  lines?: Array<{
+    id: number;
+    catalog_item_id: number;
+    quantity: number;
+    description_snapshot: string | null;
+    catalog_item?: Pick<PlatformCatalogItem, 'id' | 'sku' | 'name'> | null;
+    allocations?: Array<{
+      id: number;
+      inventory_lot_id: number;
+      quantity: number;
+      unit_cost: number;
+      lot?: Pick<PlatformInventoryLot, 'id' | 'lot_code'> | null;
+    }>;
+  }>;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type PlatformInventoryReservationPayload = {
+  idempotency_key: string;
+  source_type?: string | null;
+  source_id?: string | null;
+  source_number?: string | null;
+  metadata?: Record<string, unknown> | null;
+  lines: Array<{
+    catalog_item_id: number;
+    quantity: number;
+    description?: string | null;
+  }>;
+};
+
+export type PlatformPaginatedResponse<T> = {
+  data: T[];
+  meta?: PaginationMeta;
+  links?: Record<string, string | null>;
+  current_page?: number;
+  per_page?: number;
+  total?: number;
+  last_page?: number;
+};
+
 export type PlatformInviteTenantUserPayload = {
   email: string;
   role: 'company_admin' | 'billing_admin' | 'billing_user' | 'viewer' | string;
@@ -1303,6 +1420,46 @@ export class PlatformClient {
 
   deactivateCatalogItem(tenantId: number, itemId: number): Promise<{ data: PlatformCatalogItem }> {
     return this.http.delete(`platform/tenants/${tenantId}/catalog/items/${itemId}`).json();
+  }
+
+  inventorySuppliers(tenantId: number, params: { q?: string; status?: string; per_page?: number } = {}): Promise<{ data: PlatformInventorySupplier[] }> {
+    return this.http.get(`platform/tenants/${tenantId}/inventory/suppliers`, { searchParams: compactParams(params) }).json();
+  }
+
+  createInventorySupplier(tenantId: number, payload: Partial<PlatformInventorySupplier>): Promise<{ data: PlatformInventorySupplier }> {
+    return this.http.post(`platform/tenants/${tenantId}/inventory/suppliers`, { json: payload }).json();
+  }
+
+  createInventoryPurchase(tenantId: number, payload: PlatformInventoryPurchasePayload): Promise<{ data: unknown }> {
+    return this.http.post(`platform/tenants/${tenantId}/inventory/purchases`, { json: payload }).json();
+  }
+
+  inventoryLots(tenantId: number, params: { catalog_item_id?: number; available_only?: boolean; page?: number; per_page?: number } = {}): Promise<PlatformPaginatedResponse<PlatformInventoryLot>> {
+    return this.http.get(`platform/tenants/${tenantId}/inventory/lots`, { searchParams: compactParams(params) }).json();
+  }
+
+  inventoryMovements(tenantId: number, params: { catalog_item_id?: number; movement_type?: string; reason?: string; page?: number; per_page?: number } = {}): Promise<PlatformPaginatedResponse<PlatformInventoryMovement>> {
+    return this.http.get(`platform/tenants/${tenantId}/inventory/movements`, { searchParams: compactParams(params) }).json();
+  }
+
+  createInventoryAdjustment(tenantId: number, payload: { catalog_item_id: number; direction: 'entry' | 'exit'; quantity: number; unit_cost?: number | null; notes?: string | null }): Promise<{ data: PlatformInventoryMovement }> {
+    return this.http.post(`platform/tenants/${tenantId}/inventory/adjustments`, { json: payload }).json();
+  }
+
+  createInventoryReservation(tenantId: number, payload: PlatformInventoryReservationPayload): Promise<{ data: PlatformInventoryReservation }> {
+    return this.http.post(`platform/tenants/${tenantId}/inventory/reservations`, { json: payload }).json();
+  }
+
+  confirmInventoryReservation(tenantId: number, reservationId: number, payload: { source_type?: string | null; source_id?: string | null; source_number?: string | null } = {}): Promise<{ data: PlatformInventoryReservation }> {
+    return this.http.post(`platform/tenants/${tenantId}/inventory/reservations/${reservationId}/confirm`, { json: payload }).json();
+  }
+
+  releaseInventoryReservation(tenantId: number, reservationId: number): Promise<{ data: PlatformInventoryReservation }> {
+    return this.http.post(`platform/tenants/${tenantId}/inventory/reservations/${reservationId}/release`).json();
+  }
+
+  reverseInventoryReservation(tenantId: number, reservationId: number, payload: { source_type?: string | null; source_id?: string | null; source_number?: string | null; notes?: string | null } = {}): Promise<{ data: PlatformInventoryReservation }> {
+    return this.http.post(`platform/tenants/${tenantId}/inventory/reservations/${reservationId}/reverse`, { json: payload }).json();
   }
 
   tenantFiscalScope(tenantId: number): Promise<PlatformFiscalScopeResponse> {

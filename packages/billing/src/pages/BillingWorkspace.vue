@@ -16,7 +16,8 @@ import {
   type DteIssueResponse,
   type DtePreviewResponse,
   PlatformClient,
-  type PlatformCatalogItem
+  type PlatformCatalogItem,
+  type PlatformInventoryReservation
 } from '@stelfaro/api-client';
 import { currency, type BillingItem, type DocumentType } from '@stelfaro/shared';
 import { UiButton, UiCard, UiSearchInput, UiLoadingMark } from '@stelfaro/ui';
@@ -336,6 +337,13 @@ function normalizedPaymentReference(payment: PaymentLine): string | null {
 
   return reference === '' ? null : reference;
 }
+const inventoryIssueLines = computed(() => items.value
+  .filter((line) => line.lineOrigin === 'inventory' && Number(line.catalogItemId || 0) > 0)
+  .map((line) => ({
+    catalog_item_id: Number(line.catalogItemId),
+    quantity: Number(line.quantity),
+    description: line.description
+  })));
 const notaCreditoSourceTotalGravada = computed(() => {
   if (!selectedSourceDocument.value) return 0;
 
@@ -1047,6 +1055,8 @@ async function issueDocument(): Promise<void> {
   issueLiveMessage.value = 'Preparando emision del documento...';
   issueLog.value = [];
   issuePhaseIndex.value = 0;
+  let inventoryReservation: PlatformInventoryReservation | null = null;
+  let keepInventoryReservation = false;
 
   try {
     const payload = buildPayloadOrNull(correlativoPreview.value ?? {
@@ -1062,6 +1072,7 @@ async function issueDocument(): Promise<void> {
     }
 
     currentIssueIdempotencyKey ??= issueIdempotencyKey();
+    inventoryReservation = await reserveInventoryForIssue(currentIssueIdempotencyKey);
     payload.idempotency_key = currentIssueIdempotencyKey;
     currentStep.value = 'sent';
     const result = await client.value.issueProgress(payload, (event) => {
@@ -1092,6 +1103,15 @@ async function issueDocument(): Promise<void> {
       }
     });
     if (result) {
+      const rejected = isIssueResponseRejected(result);
+      if (inventoryReservation) {
+        if (rejected) {
+          await releaseInventoryReservation(inventoryReservation);
+        } else {
+          keepInventoryReservation = true;
+          inventoryReservation = await confirmInventoryReservation(inventoryReservation, result);
+        }
+      }
       issueResult.value = result;
       draft.value = result.document;
       void notifyEmailDelivery(result.document);
@@ -1102,6 +1122,9 @@ async function issueDocument(): Promise<void> {
       await previewNextCorrelativo();
     }
   } catch (caught) {
+    if (inventoryReservation && !keepInventoryReservation) {
+      await releaseInventoryReservation(inventoryReservation);
+    }
     error.value = caught instanceof Error ? caught.message : 'No fue posible emitir el DTE.';
     pushIssueLog(error.value, 'error');
   } finally {
@@ -1115,6 +1138,53 @@ function issueIdempotencyKey(): string {
   }
 
   return `issue-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+async function reserveInventoryForIssue(idempotencyKey: string): Promise<PlatformInventoryReservation | null> {
+  if (!platformTenantId.value || inventoryIssueLines.value.length === 0) return null;
+
+  pushIssueLog('Reservando inventario FIFO...');
+  const response = await platformClient.value.createInventoryReservation(platformTenantId.value, {
+    idempotency_key: `dte-${idempotencyKey}`,
+    source_type: 'dte',
+    metadata: {
+      document_type: form.documentType,
+      total: totalLabel.value,
+    },
+    lines: inventoryIssueLines.value
+  });
+  pushIssueLog('Inventario reservado.', 'ok');
+
+  return response.data;
+}
+
+async function confirmInventoryReservation(reservation: PlatformInventoryReservation, result: DteIssueResponse): Promise<PlatformInventoryReservation> {
+  if (!platformTenantId.value) return reservation;
+
+  pushIssueLog('Confirmando salida de inventario...');
+  const response = await platformClient.value.confirmInventoryReservation(platformTenantId.value, reservation.id, {
+    source_type: 'dte',
+    source_id: String(result.document.id),
+    source_number: result.document.numeroControl || result.document.codigoGeneracion || null,
+  });
+  pushIssueLog('Salida de inventario registrada.', 'ok');
+
+  return response.data;
+}
+
+async function releaseInventoryReservation(reservation: PlatformInventoryReservation): Promise<void> {
+  if (!platformTenantId.value || reservation.status !== 'reserved') return;
+
+  try {
+    await platformClient.value.releaseInventoryReservation(platformTenantId.value, reservation.id);
+    pushIssueLog('Inventario liberado.', 'ok');
+  } catch {
+    pushIssueLog('No se pudo liberar la reserva de inventario automaticamente.', 'error');
+  }
+}
+
+function isIssueResponseRejected(result: DteIssueResponse): boolean {
+  return result.document.transmission?.status === 'REJECTED' || result.document.estado === 'rejected';
 }
 
 function closeIssueModal(): void {

@@ -177,10 +177,6 @@ function skuSegment(value: string): string {
       </label>
     </div>
 
-    <div class="rounded-md border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-800 dark:border-line dark:bg-primary-soft dark:text-primary">
-      El stock no se edita desde catálogo. Cuando activemos compras e inventario, las entradas, salidas, lotes y costos reales quedarán trazados por kardex.
-    </div>
-
     <div class="flex justify-end gap-2">
       <UiButton type="button" variant="ghost" @click="emit('cancel')">Cancelar</UiButton>
       <UiButton type="submit" :disabled="busy">{{ item ? 'Guardar cambios' : 'Crear ítem' }}</UiButton>
