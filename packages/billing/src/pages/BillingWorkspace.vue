@@ -103,6 +103,7 @@ const fiscalCustomerModalOpen = ref(false);
 const sujetoExcluidoModalOpen = ref(false);
 const customerSearchModalOpen = ref(false);
 const paymentModalOpen = ref(false);
+const observationsModalOpen = ref(false);
 const fiscalModalDepartamento = ref('');
 const fiscalModalMunicipio = ref('');
 const ccfPriceIncludesIva = ref(true);
@@ -193,6 +194,7 @@ const form = reactive({
   customerAddress: '',
   customerPhone: '',
   customerEmail: '',
+  observations: '',
   itemDescription: '',
   itemQuantity: 1,
   itemUnitPrice: 0
@@ -322,6 +324,18 @@ const hasValidAdvancedPayments = computed(() => {
     return hasAmount && hasMethod && hasTermPair && conditionTermIsValid;
   });
 });
+
+function paymentReferenceDisabled(payment: PaymentLine): boolean {
+  return paymentCondition.value === 2 || payment.codigo === '01';
+}
+
+function normalizedPaymentReference(payment: PaymentLine): string | null {
+  if (paymentReferenceDisabled(payment)) return null;
+
+  const reference = payment.referencia.trim();
+
+  return reference === '' ? null : reference;
+}
 const notaCreditoSourceTotalGravada = computed(() => {
   if (!selectedSourceDocument.value) return 0;
 
@@ -1139,6 +1153,7 @@ function resetInvoiceForm(): void {
   customerSearchModalOpen.value = false;
   fiscalModalDepartamento.value = '';
   fiscalModalMunicipio.value = '';
+  form.observations = '';
   selectedSourceDocument.value = null;
   sourceDocumentSearch.value = '';
   sourceDocuments.value = [];
@@ -1330,13 +1345,13 @@ function buildPayloadOrNull(reservation: CorrelativoReservation | null = correla
     relatedDocument: isAdjustmentNote.value ? selectedSourceDocument.value : null,
     observations: isAdjustmentNote.value && selectedSourceDocument.value
       ? `${adjustmentNoteLabel.value} relacionada a ${selectedSourceDocument.value.numeroControl}`
-      : null,
+      : form.observations.trim() === '' ? null : form.observations.trim(),
     paymentCondition: supportsAdvancedPayments.value ? paymentCondition.value : undefined,
     payments: supportsAdvancedPayments.value
       ? paymentLines.value.map((payment) => ({
         codigo: payment.codigo,
         montoPago: Number(payment.montoPago || 0),
-        referencia: payment.referencia.trim() === '' ? null : payment.referencia.trim(),
+        referencia: normalizedPaymentReference(payment),
         plazo: payment.plazo || null,
         periodo: payment.plazo ? Number(payment.periodo || 0) : null,
       }))
@@ -1970,6 +1985,7 @@ function updatePaymentCondition(value: string): void {
   if (paymentCondition.value === 2) {
     paymentLines.value = paymentLines.value.map((payment) => ({
       ...payment,
+      referencia: '',
       plazo: payment.plazo || '02',
       periodo: Number(payment.periodo || 0) > 0 ? payment.periodo : 1,
     }));
@@ -2084,7 +2100,13 @@ function updatePaymentCondition(value: string): void {
                   <button class="mt-1 text-[11px] font-semibold text-sky-700 hover:text-sky-900" type="button" @click="fillRemainingPayment(payment)">Usar saldo</button>
                 </td>
                 <td class="px-3 py-2">
-                  <input v-model="payment.referencia" class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" maxlength="50" placeholder="Opcional">
+                  <input
+                    v-model="payment.referencia"
+                    class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:bg-slate-100 disabled:text-slate-400"
+                    :disabled="paymentReferenceDisabled(payment)"
+                    maxlength="50"
+                    :placeholder="paymentReferenceDisabled(payment) ? 'No aplica' : 'Opcional'"
+                  >
                 </td>
                 <td class="px-3 py-2">
                   <select v-model="payment.plazo" class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100">
@@ -2110,6 +2132,30 @@ function updatePaymentCondition(value: string): void {
       <template #footer>
         <UiButton variant="secondary" type="button" @click="addPaymentLine">Agregar forma de pago</UiButton>
         <UiButton type="button" @click="paymentModalOpen = false">Listo</UiButton>
+      </template>
+    </BillingModalShell>
+
+    <BillingModalShell
+      :open="observationsModalOpen"
+      title="Observaciones"
+      eyebrow="Informacion adicional"
+      max-width="max-w-2xl"
+      @close="observationsModalOpen = false"
+    >
+      <label class="block">
+        <span class="text-sm font-semibold text-slate-700">Detalle</span>
+        <textarea
+          v-model="form.observations"
+          class="mt-1 w-full resize-y rounded-md border border-blue-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+          maxlength="3000"
+          placeholder="Ej. Compra patrocinada para cliente B"
+          rows="5"
+        />
+      </label>
+
+      <template #footer>
+        <UiButton variant="secondary" type="button" @click="form.observations = ''">Limpiar</UiButton>
+        <UiButton type="button" @click="observationsModalOpen = false">Listo</UiButton>
       </template>
     </BillingModalShell>
 
@@ -2474,6 +2520,20 @@ function updatePaymentCondition(value: string): void {
                 <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Condicion</p>
                 <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ paymentConditionLabel }}</p>
                 <p class="mt-1 truncate text-xs text-slate-500 dark:text-muted">{{ paymentSummaryLabel }}</p>
+              </div>
+
+              <div class="w-full min-w-0 overflow-hidden rounded-md border border-slate-200 bg-slate-50/80 p-3 dark:border-line dark:bg-surface-muted">
+                <div class="flex min-w-0 items-center justify-between gap-3">
+                  <div class="min-w-0 flex-1 overflow-hidden">
+                    <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Observaciones</p>
+                    <p class="mt-1 max-w-full truncate text-xs text-slate-500 dark:text-muted">
+                      {{ form.observations.trim() || 'Sin observaciones' }}
+                    </p>
+                  </div>
+                  <UiButton class="shrink-0" variant="secondary" type="button" @click="observationsModalOpen = true">
+                    {{ form.observations.trim() ? 'Editar' : 'Agregar' }}
+                  </UiButton>
+                </div>
               </div>
 
               <div class="grid grid-cols-2 gap-2">
