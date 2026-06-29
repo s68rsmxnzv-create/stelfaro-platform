@@ -34,6 +34,7 @@ const suppliers = ref([]);
 const toasts = ref([]);
 const stockEntryOpen = ref(false);
 const supplierOpen = ref(false);
+const resolveLineIndex = ref(null);
 const selectedItem = ref(null);
 const filters = ref({ q: '' });
 const entryForm = ref({
@@ -131,6 +132,52 @@ const stats = computed(() => ({
   lots: lots.value.length,
   movements: movements.value.length
 }));
+const activeResolveLine = computed(() => {
+  if (resolveLineIndex.value === null) return null;
+
+  return purchaseImport.value.lines[resolveLineIndex.value] ?? null;
+});
+const purchaseDocumentLabel = computed(() => ({
+  dte_ccf: 'DTE CCF',
+  dte_fcf: 'DTE FC',
+  ccf: 'CCF físico',
+  fcf: 'FC física',
+  fse: 'FSE',
+  nota_envio: 'Nota de envío'
+}[purchaseImport.value.document.document_type] ?? (purchaseImport.value.document.document_type || 'Documento')));
+const purchasePaymentLabel = computed(() => purchaseImport.value.document.payment_condition === 'credit' ? 'Crédito' : 'Contado');
+const purchaseImportSubtotal = computed(() => purchaseImport.value.lines.reduce((sum, line) => sum + (Number(line.quantity || 0) * Number(line.unit_cost || 0)), 0));
+const purchaseImportTax = computed(() => ['nota_envio', 'manual'].includes(String(purchaseImport.value.document.document_type || '')) ? 0 : purchaseImportSubtotal.value * 0.13);
+const purchaseImportFuel = computed(() => {
+  if (!purchaseImport.value.document.apply_fuel_charges) return 0;
+
+  const quantity = purchaseImport.value.lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0);
+  return quantity * (Number(purchaseImport.value.document.fovial_per_unit || 0) + Number(purchaseImport.value.document.cotrans_per_unit || 0));
+});
+const purchaseImportPerceived = computed(() => {
+  if (!purchaseImport.value.document.apply_tax_perceived) return 0;
+
+  const rate = purchaseImport.value.document.tax_perceived_mode === 'manual'
+    ? Number(purchaseImport.value.document.tax_perceived_rate || 0) / 100
+    : 0.01;
+
+  return purchaseImportSubtotal.value * rate;
+});
+const purchaseImportCalculatedTotal = computed(() => purchaseImportSubtotal.value + purchaseImportTax.value + purchaseImportFuel.value + purchaseImportPerceived.value);
+const purchaseImportDifference = computed(() => Number(purchaseImport.value.document.document_total || 0) - purchaseImportCalculatedTotal.value);
+const purchaseImportTotalsOk = computed(() => Math.abs(purchaseImportDifference.value) <= 0.02);
+const purchaseImportResolvedLines = computed(() => purchaseImport.value.lines.filter((line) => lineResolved(line)).length);
+const purchaseImportCanRegister = computed(() => {
+  const supplierReady = purchaseImport.value.create_supplier
+    ? purchaseImport.value.supplier.name.trim() !== ''
+    : purchaseImport.value.supplier_id !== '';
+
+  return Boolean(purchaseImport.value.preview)
+    && supplierReady
+    && purchaseImport.value.lines.length > 0
+    && purchaseImport.value.lines.every((line) => lineResolved(line))
+    && purchaseImportTotalsOk.value;
+});
 
 watch(tenantId, loadInventory);
 onMounted(loadInventory);
@@ -424,6 +471,37 @@ function clearPurchaseImport(): void {
   purchaseImport.value.import_metadata = null;
 }
 
+function openLineResolver(index: number): void {
+  resolveLineIndex.value = index;
+}
+
+function closeLineResolver(): void {
+  resolveLineIndex.value = null;
+}
+
+function lineResolved(line): boolean {
+  if (line.create_item) {
+    return Boolean((line.new_item_name || line.description || '').trim());
+  }
+
+  return Boolean(line.catalog_item_id);
+}
+
+function lineLinkedItemName(line): string {
+  const item = catalogItems.value.find((candidate) => String(candidate.id) === String(line.catalog_item_id));
+
+  return item?.name ?? 'Pendiente';
+}
+
+function lineModeLabel(line): string {
+  if (purchaseImport.value.document.is_consumable || line.no_inventory) return 'No inventario';
+  if (line.create_item) return line.controls_inventory ? 'Nuevo inventariable' : 'Nuevo catálogo';
+
+  const item = catalogItems.value.find((candidate) => String(candidate.id) === String(line.catalog_item_id));
+
+  return item?.controls_inventory ? 'Inventario' : 'Catálogo';
+}
+
 function formatMoney(value): string {
   return new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(Number(value || 0));
 }
@@ -575,106 +653,178 @@ function messageFromError(error): string {
               </div>
             </div>
 
-            <div v-if="purchaseImport.preview" class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
-              <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 class="text-base font-bold text-slate-950 dark:text-text">Compra desde JSON</h3>
-                  <p class="mt-1 text-sm text-slate-600 dark:text-muted">{{ purchaseImport.fileName }}</p>
+            <div v-if="purchaseImport.preview" class="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-none">
+              <div class="border-b border-slate-200 px-5 py-4 dark:border-line">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                  <div class="min-w-0">
+                    <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Compra importada</p>
+                    <h3 class="mt-1 text-xl font-black text-slate-950 dark:text-text">{{ purchaseDocumentLabel }}</h3>
+                    <p class="mt-1 max-w-full truncate text-sm text-slate-600 dark:text-muted">{{ purchaseImport.document.document_number || 'Sin código de generación' }}</p>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <UiStatusBadge :tone="purchaseImportTotalsOk ? 'success' : 'warning'">{{ purchaseImportTotalsOk ? 'Totales OK' : 'Revisar total' }}</UiStatusBadge>
+                    <UiStatusBadge :tone="purchaseImportResolvedLines === purchaseImport.lines.length ? 'success' : 'warning'">{{ purchaseImportResolvedLines }}/{{ purchaseImport.lines.length }} líneas</UiStatusBadge>
+                    <UiButton variant="ghost" @click="clearPurchaseImport">Limpiar</UiButton>
+                  </div>
                 </div>
-                <UiButton variant="ghost" @click="clearPurchaseImport">Limpiar</UiButton>
-              </div>
 
-              <div class="mt-5 grid gap-4 lg:grid-cols-4">
-                <UiInput v-model="purchaseImport.document.purchase_date" label="Fecha" type="date" />
-                <UiSelect v-model="purchaseImport.document.document_type" label="Documento" :options="[{ value: 'dte_ccf', label: 'DTE CCF' }, { value: 'dte_fcf', label: 'DTE FC' }, { value: 'ccf', label: 'CCF físico' }, { value: 'fcf', label: 'FC física' }, { value: 'fse', label: 'FSE' }, { value: 'nota_envio', label: 'Nota de envío' }]" />
-                <UiInput v-model="purchaseImport.document.document_number" label="Código generación" />
-                <UiInput v-model="purchaseImport.document.document_total" label="Total DTE" type="number" min="0" step="0.01" />
-                <UiSelect v-model="purchaseImport.document.payment_condition" label="Condición" :options="[{ value: 'cash', label: 'Contado' }, { value: 'credit', label: 'Crédito' }]" />
-                <UiSelect v-model="purchaseImport.document.fiscal_profile" label="Tipo fiscal" :options="[{ value: '', label: 'Sin clasificar' }, { value: 'sales_expense', label: 'Gasto de venta' }, { value: 'administrative_expense', label: 'Gasto administración' }, { value: 'financial_expense', label: 'Gasto financiero' }, { value: 'import_cost', label: 'Costo importación' }, { value: 'internal_cost', label: 'Costo interno' }, { value: 'manufacturing_overhead', label: 'Costo indirecto' }, { value: 'labor_cost', label: 'Mano de obra' }]" />
-                <UiSelect v-model="purchaseImport.document.fiscal_sector" label="Sector" :options="[{ value: '', label: 'Sin sector' }, { value: '1', label: 'Industria' }, { value: '2', label: 'Comercio' }, { value: '3', label: 'Agropecuaria' }, { value: '4', label: 'Servicios' }]" />
-                <div class="flex items-end gap-3">
-                  <label class="flex min-h-10 items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
-                    <input v-model="purchaseImport.document.is_consumable" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
-                    Consumible
-                  </label>
-                </div>
-              </div>
-
-              <div class="mt-4 grid gap-4 lg:grid-cols-4">
-                <label class="flex min-h-10 items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
-                  <input v-model="purchaseImport.document.apply_tax_perceived" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
-                  IVA percibido
-                </label>
-                <UiSelect v-model="purchaseImport.document.tax_perceived_mode" label="Modo IVA percibido" :options="[{ value: 'auto', label: 'Auto 1%' }, { value: 'manual', label: 'Manual' }]" />
-                <UiInput v-model="purchaseImport.document.tax_perceived_rate" label="% percibido" type="number" min="0" max="100" step="0.01" />
-                <label class="flex min-h-10 items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
-                  <input v-model="purchaseImport.document.apply_fuel_charges" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
-                  Combustible
-                </label>
-                <UiInput v-model="purchaseImport.document.fovial_per_unit" label="FOVIAL por galón" type="number" min="0" step="0.0001" />
-                <UiInput v-model="purchaseImport.document.cotrans_per_unit" label="COTRANS por galón" type="number" min="0" step="0.0001" />
-              </div>
-
-              <div class="mt-5 rounded-md border border-slate-200 p-4 dark:border-line">
-                <div class="grid gap-4 lg:grid-cols-3">
-                  <UiSelect v-if="!purchaseImport.create_supplier" v-model="purchaseImport.supplier_id" label="Proveedor" :options="supplierOptions" />
-                  <label class="flex min-h-10 items-end gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
-                    <input v-model="purchaseImport.create_supplier" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
-                    Crear proveedor
-                  </label>
-                  <UiInput v-if="purchaseImport.create_supplier" v-model="purchaseImport.supplier.name" label="Nombre proveedor" />
-                  <UiInput v-if="purchaseImport.create_supplier" v-model="purchaseImport.supplier.tax_id" label="NIT" />
-                  <UiInput v-if="purchaseImport.create_supplier" v-model="purchaseImport.supplier.nrc" label="NRC" />
-                  <UiInput v-if="purchaseImport.create_supplier" v-model="purchaseImport.supplier.phone" label="Teléfono" />
+                <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                  <div class="rounded-md border border-slate-200 px-4 py-3 dark:border-line">
+                    <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Fecha</p>
+                    <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ purchaseImport.document.purchase_date || 'N/D' }}</p>
+                  </div>
+                  <div class="rounded-md border border-slate-200 px-4 py-3 dark:border-line">
+                    <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Condición</p>
+                    <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ purchasePaymentLabel }}</p>
+                  </div>
+                  <div class="rounded-md border border-slate-200 px-4 py-3 dark:border-line">
+                    <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Archivo</p>
+                    <p class="mt-1 truncate font-semibold text-slate-950 dark:text-text">{{ purchaseImport.fileName }}</p>
+                  </div>
+                  <div class="rounded-md border border-slate-200 px-4 py-3 dark:border-line">
+                    <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Documento</p>
+                    <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ purchaseDocumentLabel }}</p>
+                  </div>
+                  <div class="rounded-md border border-slate-200 px-4 py-3 dark:border-line">
+                    <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Total DTE</p>
+                    <p class="mt-1 text-lg font-black text-slate-950 dark:text-text">{{ formatMoney(purchaseImport.document.document_total) }}</p>
+                  </div>
                 </div>
               </div>
 
-              <div class="mt-5 rounded-md border border-slate-200 dark:border-line">
-                <UiDataTable overflow="auto" min-width="min-w-[1180px]">
-                  <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
-                    <tr>
-                      <th class="px-4 py-3">Descripción</th>
-                      <th class="px-4 py-3">Producto</th>
-                      <th class="px-4 py-3">Crear</th>
-                      <th class="px-4 py-3">Categoría</th>
-                      <th class="px-4 py-3">Cant.</th>
-                      <th class="px-4 py-3">Costo</th>
-                      <th class="px-4 py-3">No inv.</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-slate-100 dark:divide-line">
-                    <tr v-for="(line, idx) in purchaseImport.lines" :key="`${line.description}-${idx}`" class="text-sm">
-                      <td class="px-4 py-3">
-                        <UiInput v-model="line.description" label=" " />
-                      </td>
-                      <td class="px-4 py-3">
-                        <UiSelect v-if="!line.create_item" v-model="line.catalog_item_id" label=" " :options="catalogOptions" />
-                        <UiInput v-else v-model="line.new_item_name" label=" " />
-                      </td>
-                      <td class="px-4 py-3">
-                        <label class="flex items-center gap-2 font-semibold text-slate-700 dark:text-muted">
-                          <input v-model="line.create_item" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
-                          Nuevo
-                        </label>
-                      </td>
-                      <td class="px-4 py-3">
-                        <div v-if="line.create_item" class="grid min-w-52 gap-2">
-                          <UiSelect v-model="line.category_id" label=" " :options="categoryOptions" />
-                          <UiInput v-model="line.new_category_name" label=" " placeholder="Nueva categoría" />
+              <div class="grid gap-0 lg:grid-cols-[1fr_320px]">
+                <div class="min-w-0 px-5 py-5">
+                  <section class="rounded-md border border-slate-200 dark:border-line">
+                    <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-line">
+                      <div>
+                        <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Proveedor</p>
+                        <p class="mt-1 text-base font-bold text-slate-950 dark:text-text">{{ purchaseImport.supplier.name || 'Proveedor pendiente' }}</p>
+                        <p class="mt-1 text-sm text-slate-600 dark:text-muted">{{ purchaseImport.supplier.tax_id || 'Sin NIT' }}<span v-if="purchaseImport.supplier.nrc"> · NRC {{ purchaseImport.supplier.nrc }}</span></p>
+                      </div>
+                      <UiStatusBadge :tone="purchaseImport.create_supplier ? 'warning' : 'success'">{{ purchaseImport.create_supplier ? 'Nuevo proveedor' : 'Proveedor vinculado' }}</UiStatusBadge>
+                    </div>
+                    <div class="grid gap-4 px-4 py-4 md:grid-cols-2">
+                      <UiSelect v-if="!purchaseImport.create_supplier" v-model="purchaseImport.supplier_id" label="Proveedor existente" :options="supplierOptions" />
+                      <label class="flex min-h-10 items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
+                        <input v-model="purchaseImport.create_supplier" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
+                        Crear proveedor desde JSON
+                      </label>
+                      <template v-if="purchaseImport.create_supplier">
+                        <UiInput v-model="purchaseImport.supplier.name" label="Nombre proveedor" />
+                        <UiInput v-model="purchaseImport.supplier.tax_id" label="NIT" />
+                        <UiInput v-model="purchaseImport.supplier.nrc" label="NRC" />
+                        <UiInput v-model="purchaseImport.supplier.phone" label="Teléfono" />
+                      </template>
+                    </div>
+                  </section>
+
+                  <section class="mt-5 rounded-md border border-slate-200 dark:border-line">
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-line">
+                      <div>
+                        <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Detalle</p>
+                        <p class="mt-1 text-base font-bold text-slate-950 dark:text-text">Líneas del documento</p>
+                      </div>
+                      <UiStatusBadge :tone="purchaseImportResolvedLines === purchaseImport.lines.length ? 'success' : 'warning'">
+                        {{ purchaseImportResolvedLines }} resueltas
+                      </UiStatusBadge>
+                    </div>
+                    <UiDataTable overflow="auto" min-width="min-w-[940px]">
+                      <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
+                        <tr>
+                          <th class="px-4 py-3">Descripción DTE</th>
+                          <th class="px-4 py-3">Resolución</th>
+                          <th class="px-4 py-3">Modo</th>
+                          <th class="px-4 py-3 text-right">Cantidad</th>
+                          <th class="px-4 py-3 text-right">Costo</th>
+                          <th class="px-4 py-3 text-right">Total</th>
+                          <th class="px-4 py-3 text-right">Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-slate-100 dark:divide-line">
+                        <tr v-for="(line, idx) in purchaseImport.lines" :key="`${line.description}-${idx}`" class="text-sm">
+                          <td class="px-4 py-3">
+                            <p class="max-w-[320px] truncate font-semibold text-slate-950 dark:text-text">{{ line.description }}</p>
+                            <p class="text-xs text-slate-500 dark:text-soft">Unidad {{ line.unit_code || '59' }}</p>
+                          </td>
+                          <td class="px-4 py-3">
+                            <p class="max-w-[240px] truncate font-semibold text-slate-950 dark:text-text">{{ line.create_item ? (line.new_item_name || 'Nuevo ítem') : lineLinkedItemName(line) }}</p>
+                            <p class="text-xs text-slate-500 dark:text-soft">{{ lineResolved(line) ? 'Lista para registrar' : 'Pendiente de resolver' }}</p>
+                          </td>
+                          <td class="px-4 py-3">
+                            <UiStatusBadge :tone="line.no_inventory || purchaseImport.document.is_consumable ? 'neutral' : 'success'">{{ lineModeLabel(line) }}</UiStatusBadge>
+                          </td>
+                          <td class="px-4 py-3 text-right font-semibold">{{ formatQuantity(line.quantity) }}</td>
+                          <td class="px-4 py-3 text-right">{{ formatMoney(line.unit_cost) }}</td>
+                          <td class="px-4 py-3 text-right font-semibold">{{ formatMoney(Number(line.quantity || 0) * Number(line.unit_cost || 0)) }}</td>
+                          <td class="px-4 py-3 text-right">
+                            <UiButton size="sm" variant="secondary" @click="openLineResolver(idx)">Resolver</UiButton>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </UiDataTable>
+                  </section>
+                </div>
+
+                <aside class="border-t border-slate-200 px-5 py-5 dark:border-line lg:border-l lg:border-t-0">
+                  <div class="rounded-md border border-slate-200 p-4 dark:border-line">
+                    <p class="text-sm font-black text-slate-950 dark:text-text">Resumen</p>
+                    <div class="mt-4 space-y-2 text-sm">
+                      <div class="flex justify-between gap-4">
+                        <span class="text-slate-600 dark:text-muted">Subtotal</span>
+                        <strong>{{ formatMoney(purchaseImportSubtotal) }}</strong>
+                      </div>
+                      <div class="flex justify-between gap-4">
+                        <span class="text-slate-600 dark:text-muted">IVA estimado</span>
+                        <strong>{{ formatMoney(purchaseImportTax) }}</strong>
+                      </div>
+                      <div v-if="purchaseImport.document.apply_tax_perceived" class="flex justify-between gap-4">
+                        <span class="text-slate-600 dark:text-muted">IVA percibido</span>
+                        <strong>{{ formatMoney(purchaseImportPerceived) }}</strong>
+                      </div>
+                      <div v-if="purchaseImport.document.apply_fuel_charges" class="flex justify-between gap-4">
+                        <span class="text-slate-600 dark:text-muted">FOVIAL/COTRANS</span>
+                        <strong>{{ formatMoney(purchaseImportFuel) }}</strong>
+                      </div>
+                      <div class="border-t border-slate-200 pt-3 dark:border-line">
+                        <div class="flex justify-between gap-4">
+                          <span class="font-bold text-slate-950 dark:text-text">Calculado</span>
+                          <strong>{{ formatMoney(purchaseImportCalculatedTotal) }}</strong>
                         </div>
-                      </td>
-                      <td class="px-4 py-3"><UiInput v-model="line.quantity" label=" " type="number" min="0.001" step="0.001" /></td>
-                      <td class="px-4 py-3"><UiInput v-model="line.unit_cost" label=" " type="number" min="0" step="0.0001" /></td>
-                      <td class="px-4 py-3">
-                        <input v-model="line.no_inventory" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
-                      </td>
-                    </tr>
-                  </tbody>
-                </UiDataTable>
-              </div>
+                        <div class="mt-2 flex justify-between gap-4">
+                          <span class="font-bold text-slate-950 dark:text-text">Total DTE</span>
+                          <strong>{{ formatMoney(purchaseImport.document.document_total) }}</strong>
+                        </div>
+                        <div class="mt-2 flex justify-between gap-4" :class="purchaseImportTotalsOk ? 'text-emerald-700 dark:text-success' : 'text-amber-700 dark:text-warning'">
+                          <span class="font-bold">Diferencia</span>
+                          <strong>{{ formatMoney(purchaseImportDifference) }}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-              <div class="mt-5 flex justify-end">
-                <UiButton :disabled="saving || purchaseImport.lines.length === 0" @click="registerImportedPurchase">Registrar compra</UiButton>
+                  <div class="mt-4 rounded-md border border-slate-200 p-4 dark:border-line">
+                    <p class="text-sm font-black text-slate-950 dark:text-text">Ajustes</p>
+                    <div class="mt-3 space-y-3">
+                      <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
+                        <input v-model="purchaseImport.document.is_consumable" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
+                        Compra consumible
+                      </label>
+                      <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
+                        <input v-model="purchaseImport.document.apply_tax_perceived" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
+                        IVA percibido
+                      </label>
+                      <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
+                        <input v-model="purchaseImport.document.apply_fuel_charges" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
+                        FOVIAL/COTRANS
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="mt-4 flex flex-col gap-2">
+                    <UiButton :disabled="saving || !purchaseImportCanRegister" @click="registerImportedPurchase">Registrar compra</UiButton>
+                    <p v-if="!purchaseImportCanRegister" class="text-xs text-slate-500 dark:text-soft">Resuelve proveedor, líneas y diferencia de totales antes de registrar.</p>
+                  </div>
+                </aside>
               </div>
             </div>
           </div>
@@ -766,6 +916,66 @@ function messageFromError(error): string {
           </div>
         </template>
     </div>
+
+    <UiModalShell
+      :open="Boolean(activeResolveLine)"
+      title="Resolver línea"
+      :description="activeResolveLine?.description || ''"
+      max-width="max-w-2xl"
+      @close="closeLineResolver"
+    >
+      <div v-if="activeResolveLine" class="space-y-5">
+        <div class="rounded-md border border-slate-200 p-4 dark:border-line">
+          <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Línea DTE</p>
+          <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ activeResolveLine.description }}</p>
+          <div class="mt-3 grid gap-3 md:grid-cols-3">
+            <UiInput v-model="activeResolveLine.quantity" label="Cantidad" type="number" min="0.001" step="0.001" />
+            <UiInput v-model="activeResolveLine.unit_cost" label="Costo unitario" type="number" min="0" step="0.0001" />
+            <UiInput v-model="activeResolveLine.unit_code" label="Unidad" />
+          </div>
+        </div>
+
+        <div class="rounded-md border border-slate-200 p-4 dark:border-line">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-sm font-black text-slate-950 dark:text-text">Resolución operativa</p>
+              <p class="mt-1 text-sm text-slate-600 dark:text-muted">Define cómo quedará relacionada esta línea con el catálogo.</p>
+            </div>
+            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
+              <input v-model="activeResolveLine.create_item" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
+              Crear ítem
+            </label>
+          </div>
+
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <UiSelect
+              v-if="!activeResolveLine.create_item"
+              v-model="activeResolveLine.catalog_item_id"
+              label="Producto existente"
+              :options="catalogOptions"
+            />
+            <template v-else>
+              <UiInput v-model="activeResolveLine.new_item_name" label="Nombre nuevo" />
+              <UiSelect v-model="activeResolveLine.category_id" label="Categoría" :options="categoryOptions" />
+              <UiInput v-model="activeResolveLine.new_category_name" label="Nueva categoría" placeholder="Opcional" />
+              <label class="flex min-h-10 items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
+                <input v-model="activeResolveLine.controls_inventory" type="checkbox" class="h-4 w-4 rounded border-slate-300" :disabled="activeResolveLine.no_inventory" />
+                Afecta inventario
+              </label>
+            </template>
+
+            <label class="flex min-h-10 items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
+              <input v-model="activeResolveLine.no_inventory" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
+              No ingresa a inventario
+            </label>
+          </div>
+        </div>
+
+        <div class="flex justify-end">
+          <UiButton :disabled="!lineResolved(activeResolveLine)" @click="closeLineResolver">Aplicar</UiButton>
+        </div>
+      </div>
+    </UiModalShell>
 
     <UiModalShell
       :open="stockEntryOpen"
