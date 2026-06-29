@@ -236,7 +236,7 @@ function messageFromError(error): string {
 </script>
 
 <template>
-  <section class="space-y-5">
+  <section class="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
     <BillingFloatingToastStack :toasts="toasts" />
 
     <div class="grid gap-5 lg:grid-cols-[320px_1fr]">

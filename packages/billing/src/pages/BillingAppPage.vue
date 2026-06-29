@@ -385,6 +385,13 @@ function navigateFromMenu(event, href) {
     />
   </div>
 
+  <div v-else-if="module === 'inventory'" class="sf-app-background min-h-screen text-slate-950 dark:text-text">
+    <component
+      :is="selectedComponent"
+      v-bind="selectedComponentProps"
+    />
+  </div>
+
   <div v-else class="relative min-h-screen overflow-x-hidden bg-app pt-16 text-slate-950 dark:text-text">
     <div class="sf-app-background pointer-events-none fixed inset-x-0 bottom-0 top-16 z-0"></div>
 
