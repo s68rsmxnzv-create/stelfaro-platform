@@ -7,7 +7,6 @@ import {
   type BillingCustomer,
   type BillingContext,
   type BillingEmpresa,
-  type BillingItemTemplate,
   type BillingPuntoVenta,
   type BillingSucursal,
   type CorrelativoReservation,
@@ -20,13 +19,14 @@ import {
   type PlatformCatalogItem
 } from '@stelfaro/api-client';
 import { currency, type BillingItem, type DocumentType } from '@stelfaro/shared';
-import { UiButton, UiCard, UiSearchInput, UiLoadingMark, UiSaveIcon, UiToggle } from '@stelfaro/ui';
+import { UiButton, UiCard, UiSearchInput, UiLoadingMark } from '@stelfaro/ui';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import BillingFiscalCustomerModal, { type BillingFiscalCustomerModalPayload } from '../components/BillingFiscalCustomerModal.vue';
 import BillingSujetoExcluidoModal, { type BillingSujetoExcluidoModalPayload } from '../components/BillingSujetoExcluidoModal.vue';
 import BillingFiscalOptions from '../components/BillingFiscalOptions.vue';
 import BillingCustomerSearchModal from '../components/BillingCustomerSearchModal.vue';
 import BillingInvoiceSummaryBar from '../components/BillingInvoiceSummaryBar.vue';
+import BillingModalShell from '../components/BillingModalShell.vue';
 import BillingProcessModal from '../components/BillingProcessModal.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
@@ -95,8 +95,6 @@ const selectedCustomerRecord = ref<BillingCustomer | null>(null);
 const sourceDocumentSearch = ref('');
 const sourceDocuments = ref<DteDraftSummary[]>([]);
 const selectedSourceDocument = ref<DteDraftSummary | null>(null);
-const itemTemplates = ref<BillingItemTemplate[]>([]);
-const itemTemplateSearch = ref('');
 const catalogLineSuggestions = ref<PlatformCatalogItem[]>([]);
 const catalogLineSuggestionsOpen = ref(false);
 const catalogLineLoading = ref(false);
@@ -104,11 +102,11 @@ const customerModalMode = ref<'new' | 'quick' | null>(null);
 const fiscalCustomerModalOpen = ref(false);
 const sujetoExcluidoModalOpen = ref(false);
 const customerSearchModalOpen = ref(false);
+const paymentModalOpen = ref(false);
 const fiscalModalDepartamento = ref('');
 const fiscalModalMunicipio = ref('');
 const ccfPriceIncludesIva = ref(true);
 const ccfRetainIva10 = ref(false);
-const advancedPaymentMode = ref(false);
 let issueAutoCloseTimer: ReturnType<typeof window.setTimeout> | null = null;
 let floatingToastId = 0;
 const floatingToastTimers: ReturnType<typeof window.setTimeout>[] = [];
@@ -123,6 +121,7 @@ type InvoiceLine = BillingItem & {
   discountPercent: number;
   catalogItemId?: number | null;
   catalogSku?: string | null;
+  catalogName?: string | null;
   lineOrigin?: 'free' | 'catalog' | 'inventory';
   unitCode?: string | null;
   taxable?: boolean;
@@ -295,8 +294,20 @@ const taxableBase = computed(() => isFiscalStyleDocument.value ? items.value.red
 const ivaRetention = computed(() => isCreditoFiscal.value && ccfRetainIva10.value ? roundMoney(taxableBase.value * 0.01) : 0);
 const paymentTotal = computed(() => roundMoney(paymentLines.value.reduce((sum, payment) => sum + Number(payment.montoPago || 0), 0)));
 const paymentTotalMatches = computed(() => Math.abs(paymentTotal.value - roundMoney(totalLabel.value)) <= 0.01);
+const paymentConditionLabel = computed(() => paymentConditionOptions.find((option) => option.value === paymentCondition.value)?.label ?? '1 - Contado');
+const primaryPaymentLabel = computed(() => {
+  const payment = paymentLines.value[0];
+  if (!payment) return 'Sin forma de pago';
+
+  return paymentMethodOptions.find((option) => option.value === payment.codigo)?.label ?? payment.codigo;
+});
+const paymentSummaryLabel = computed(() => {
+  if (paymentLines.value.length <= 1) return primaryPaymentLabel.value;
+
+  return `${paymentLines.value.length} formas de pago`;
+});
 const hasValidAdvancedPayments = computed(() => {
-  if (!advancedPaymentMode.value || !supportsAdvancedPayments.value) return true;
+  if (!supportsAdvancedPayments.value) return true;
   if (paymentLines.value.length === 0 || !paymentTotalMatches.value) return false;
 
   return paymentLines.value.every((payment) => {
@@ -479,8 +490,8 @@ const customerIdentificationByAmountMessage = computed(() => (
 ));
 const issueDisabledReason = computed(() => {
   if (!requiresCustomerIdentificationByAmount.value || hasRequiredCustomerIdentification.value) {
-    if (advancedPaymentMode.value && supportsAdvancedPayments.value && !hasValidAdvancedPayments.value) {
-      return 'Revisa las formas de pago avanzadas.';
+    if (supportsAdvancedPayments.value && !hasValidAdvancedPayments.value) {
+      return 'Revisa las formas de pago.';
     }
 
     return null;
@@ -637,12 +648,24 @@ function newInvoiceLine(): InvoiceLine {
     discountPercent: 0,
     catalogItemId: null,
     catalogSku: null,
+    catalogName: null,
     lineOrigin: 'free',
     unitCode: '59',
     taxable: true,
     controlsInventory: false,
     itemPriceIncludesIva: false,
   };
+}
+
+function clearCatalogMetadata(line: InvoiceLine): void {
+  line.catalogItemId = null;
+  line.catalogSku = null;
+  line.catalogName = null;
+  line.lineOrigin = 'free';
+  line.unitCode = '59';
+  line.taxable = true;
+  line.controlsInventory = false;
+  line.itemPriceIncludesIva = false;
 }
 
 function newPaymentLine(amount = 0): PaymentLine {
@@ -656,11 +679,10 @@ function newPaymentLine(amount = 0): PaymentLine {
   };
 }
 
-function resetAdvancedPayments(): void {
-  advancedPaymentMode.value = false;
+function resetPayments(): void {
   paymentCondition.value = 1;
   paymentLineId = 1;
-  paymentLines.value = [];
+  paymentLines.value = supportsAdvancedPayments.value ? [newPaymentLine(roundMoney(totalLabel.value))] : [];
 }
 
 onMounted(() => {
@@ -729,7 +751,7 @@ watch(() => form.documentType, () => {
   } else {
     setGenericCustomer();
   }
-  resetAdvancedPayments();
+  resetPayments();
 });
 
 watch([
@@ -738,13 +760,6 @@ watch([
   customerSearch,
 ], () => {
   void loadCustomers();
-});
-
-watch([
-  () => form.empresaId,
-  itemTemplateSearch,
-], () => {
-  void loadItemTemplates();
 });
 
 watch([
@@ -789,7 +804,7 @@ async function loadContext(): Promise<void> {
       getBillingCatalogs(client.value, props.coreBaseUrl, props.billingContextCacheScope)
     ]);
     applyInitialContext(contextResult, catalogsResult);
-    await Promise.all([loadCustomers(), loadItemTemplates()]);
+    await loadCustomers();
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar la configuracion de facturacion.';
   } finally {
@@ -931,7 +946,7 @@ watch(() => form.documentType, (documentType) => {
   selectedSourceDocument.value = null;
   sourceDocumentSearch.value = '';
   sourceDocuments.value = [];
-  resetAdvancedPayments();
+  resetPayments();
 
   if (documentType === '03' || documentType === '05' || documentType === '06' || documentType === '14') {
     customerMode.value = 'base';
@@ -944,25 +959,14 @@ watch(() => form.documentType, (documentType) => {
 });
 
 watch(totalLabel, () => {
-  if (advancedPaymentMode.value && paymentLines.value.length === 1) {
+  if (supportsAdvancedPayments.value && paymentLines.value.length === 1) {
     paymentLines.value[0].montoPago = roundMoney(totalLabel.value);
   }
 });
 
-watch(advancedPaymentMode, (enabled) => {
-  if (!enabled) {
-    return;
-  }
-
-  if (!supportsAdvancedPayments.value) {
-    advancedPaymentMode.value = false;
-    return;
-  }
-
-  if (paymentLines.value.length === 0) {
-    paymentLines.value = [newPaymentLine(roundMoney(totalLabel.value))];
-  }
-});
+watch(supportsAdvancedPayments, () => {
+  resetPayments();
+}, { immediate: true });
 
 watch(requiresCustomerIdentificationByAmount, (required) => {
   if (!required || customerMode.value !== 'generic') {
@@ -1135,11 +1139,10 @@ function resetInvoiceForm(): void {
   customerSearchModalOpen.value = false;
   fiscalModalDepartamento.value = '';
   fiscalModalMunicipio.value = '';
-  itemTemplateSearch.value = '';
   selectedSourceDocument.value = null;
   sourceDocumentSearch.value = '';
   sourceDocuments.value = [];
-  resetAdvancedPayments();
+  resetPayments();
   customerMode.value = requiresStructuredCustomer.value ? 'base' : 'generic';
   if (requiresStructuredCustomer.value) {
     clearCustomerFields('');
@@ -1328,8 +1331,8 @@ function buildPayloadOrNull(reservation: CorrelativoReservation | null = correla
     observations: isAdjustmentNote.value && selectedSourceDocument.value
       ? `${adjustmentNoteLabel.value} relacionada a ${selectedSourceDocument.value.numeroControl}`
       : null,
-    paymentCondition: advancedPaymentMode.value && supportsAdvancedPayments.value ? paymentCondition.value : undefined,
-    payments: advancedPaymentMode.value && supportsAdvancedPayments.value
+    paymentCondition: supportsAdvancedPayments.value ? paymentCondition.value : undefined,
+    payments: supportsAdvancedPayments.value
       ? paymentLines.value.map((payment) => ({
         codigo: payment.codigo,
         montoPago: Number(payment.montoPago || 0),
@@ -1562,23 +1565,6 @@ function normalizeCustomerDocument(documentType: string | null | undefined, valu
   };
 }
 
-async function loadItemTemplates(): Promise<void> {
-  if (!selectedEmpresa.value) {
-    itemTemplates.value = [];
-    return;
-  }
-
-  try {
-    const response = await client.value.itemTemplates({
-      empresa_id: selectedEmpresa.value.id,
-      q: itemTemplateSearch.value.trim()
-    });
-    itemTemplates.value = response.data;
-  } catch {
-    itemTemplates.value = [];
-  }
-}
-
 async function loadSourceDocuments(): Promise<void> {
   if (selectedSourceDocument.value && sourceDocumentSearch.value.includes(selectedSourceDocument.value.numeroControl)) {
     sourceDocuments.value = [];
@@ -1801,35 +1787,36 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
-function fillCurrentLineFromTemplate(template: BillingItemTemplate): void {
-  draftLine.value = {
-    ...draftLine.value,
-    description: template.description,
-    quantity: Number(template.default_quantity || 1),
-    unitPrice: Number(template.default_price || 0),
-    discount: 0,
-    discountPercent: 0,
-    catalogItemId: null,
-    catalogSku: null,
-    lineOrigin: 'free',
-    controlsInventory: false,
-  };
-  catalogLineSuggestions.value = [];
-  catalogLineSuggestionsOpen.value = false;
-}
-
 function onDraftLineDescriptionInput(value: string): void {
-  const selectedCatalogId = draftLine.value.catalogItemId;
   draftLine.value.description = value;
 
-  if (selectedCatalogId) {
-    draftLine.value.catalogItemId = null;
-    draftLine.value.catalogSku = null;
-    draftLine.value.lineOrigin = 'free';
-    draftLine.value.controlsInventory = false;
+  if (value.trim() === '') {
+    clearCatalogMetadata(draftLine.value);
+  } else if (draftLine.value.catalogItemId && !descriptionMatchesCatalog(value, draftLine.value.catalogName)) {
+    clearCatalogMetadata(draftLine.value);
   }
 
   scheduleCatalogLineSearch(value);
+}
+
+function descriptionMatchesCatalog(value: string, catalogName: string | null | undefined): boolean {
+  const current = normalizedLineSearchText(value);
+  const selected = normalizedLineSearchText(catalogName ?? '');
+  if (!current || !selected) return false;
+  if (current.includes(selected) || selected.includes(current)) return true;
+
+  const currentTokens = new Set(current.split(' ').filter((token) => token.length >= 4));
+
+  return selected.split(' ').some((token) => token.length >= 4 && currentTokens.has(token));
+}
+
+function normalizedLineSearchText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 }
 
 function scheduleCatalogLineSearch(value: string): void {
@@ -1883,6 +1870,7 @@ function selectCatalogItemForDraft(item: PlatformCatalogItem): void {
     discountPercent: 0,
     catalogItemId: item.id,
     catalogSku: item.sku,
+    catalogName: item.name,
     lineOrigin: item.controls_inventory ? 'inventory' : 'catalog',
     unitCode: item.unit_code,
     taxable: item.taxable,
@@ -1913,27 +1901,6 @@ function lineOriginClass(line: InvoiceLine): string {
   return 'bg-slate-100 text-slate-500 dark:bg-surface-muted dark:text-muted';
 }
 
-async function saveLineAsTemplate(line: InvoiceLine): Promise<void> {
-  if (!selectedEmpresa.value || !line.description.trim()) {
-    error.value = 'La linea debe tener descripcion para guardarla como producto rapido.';
-    return;
-  }
-
-  const response = await run(() => client.value.saveItemTemplate({
-    empresa_id: selectedEmpresa.value!.id,
-    name: line.description.trim().slice(0, 160),
-    description: line.description.trim(),
-    default_price: Number(line.unitPrice || 0),
-    default_quantity: Number(line.quantity || 1),
-    item_type: 1,
-    unit_measure: 59,
-  }));
-
-  if (response) {
-    await loadItemTemplates();
-  }
-}
-
 function addLine(): void {
   const line = draftLine.value;
   if (!line.description.trim() || Number(line.quantity) <= 0 || Number(line.unitPrice) < 0 || (isNotaDebito.value && Number(line.unitPrice) <= 0)) {
@@ -1962,9 +1929,23 @@ function addPaymentLine(): void {
   paymentLines.value = [...paymentLines.value, newPaymentLine(0)];
 }
 
+function setCashPayment(): void {
+  paymentCondition.value = 1;
+  paymentLineId = 1;
+  paymentLines.value = [newPaymentLine(roundMoney(totalLabel.value))];
+}
+
+function openPaymentModal(): void {
+  if (paymentLines.value.length === 0) {
+    paymentLines.value = [newPaymentLine(roundMoney(totalLabel.value))];
+  }
+
+  paymentModalOpen.value = true;
+}
+
 function removePaymentLine(id: number): void {
   paymentLines.value = paymentLines.value.filter((payment) => payment.id !== id);
-  if (advancedPaymentMode.value && paymentLines.value.length === 0) {
+  if (supportsAdvancedPayments.value && paymentLines.value.length === 0) {
     paymentLines.value = [newPaymentLine(roundMoney(totalLabel.value))];
   }
 }
@@ -2050,6 +2031,87 @@ function updatePaymentCondition(value: string): void {
       @select="applyCustomer"
       @update:search="updateCustomerSearch"
     />
+
+    <BillingModalShell
+      :open="paymentModalOpen"
+      title="Pago"
+      eyebrow="Resumen DTE"
+      description="Ajusta condicion, formas de pago, referencias y plazo cuando aplique."
+      max-width="max-w-5xl"
+      body-class="px-5 py-5"
+      @close="paymentModalOpen = false"
+    >
+      <div class="grid gap-4">
+        <div class="grid gap-3 md:grid-cols-[260px_minmax(0,1fr)] md:items-end">
+          <label class="text-sm font-semibold text-slate-700">
+            <span class="mb-1 block text-xs uppercase text-slate-500">Condicion de la operacion</span>
+            <select
+              class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+              :value="paymentCondition"
+              @change="updatePaymentCondition(($event.target as HTMLSelectElement).value)"
+            >
+              <option v-for="option in paymentConditionOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+            </select>
+          </label>
+          <div class="rounded-md bg-slate-50 px-3 py-2 text-sm">
+            <span class="font-semibold text-slate-500">Total formas de pago:</span>
+            <span class="ml-2 font-bold" :class="paymentTotalMatches ? 'text-emerald-700' : 'text-red-700'">{{ currency(paymentTotal) }}</span>
+            <span class="ml-2 text-slate-500">de {{ currency(totalLabel) }}</span>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-md border border-slate-200">
+          <table class="w-full min-w-[960px] text-left text-sm">
+            <thead class="bg-blue-50/70 text-xs uppercase text-slate-500">
+              <tr>
+                <th class="px-3 py-2">Forma</th>
+                <th class="w-32 px-3 py-2">Monto</th>
+                <th class="w-48 px-3 py-2">Referencia</th>
+                <th class="w-36 px-3 py-2">Plazo</th>
+                <th class="w-28 px-3 py-2">Periodo</th>
+                <th class="w-28 px-3 py-2"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+              <tr v-for="payment in paymentLines" :key="payment.id">
+                <td class="px-3 py-2">
+                  <select v-model="payment.codigo" class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100">
+                    <option v-for="option in paymentMethodOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                  </select>
+                </td>
+                <td class="px-3 py-2">
+                  <input v-model.number="payment.montoPago" class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0" step="0.01" type="number">
+                  <button class="mt-1 text-[11px] font-semibold text-sky-700 hover:text-sky-900" type="button" @click="fillRemainingPayment(payment)">Usar saldo</button>
+                </td>
+                <td class="px-3 py-2">
+                  <input v-model="payment.referencia" class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" maxlength="50" placeholder="Opcional">
+                </td>
+                <td class="px-3 py-2">
+                  <select v-model="payment.plazo" class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100">
+                    <option v-for="option in paymentTermOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                  </select>
+                </td>
+                <td class="px-3 py-2">
+                  <input v-model.number="payment.periodo" class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="1" step="1" type="number" :disabled="!payment.plazo">
+                </td>
+                <td class="px-3 py-2 text-right">
+                  <button class="rounded px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-red-700" type="button" @click="removePaymentLine(payment.id)">Quitar</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p v-if="!hasValidAdvancedPayments" class="text-sm font-medium text-red-700">
+          Las formas de pago deben sumar el total y completar plazo/periodo cuando aplique.
+        </p>
+      </div>
+
+      <template #footer>
+        <UiButton variant="secondary" type="button" @click="addPaymentLine">Agregar forma de pago</UiButton>
+        <UiButton type="button" @click="paymentModalOpen = false">Listo</UiButton>
+      </template>
+    </BillingModalShell>
 
     <BillingProcessToastOverlay
       :open="issueOverlayOpen"
@@ -2394,30 +2456,35 @@ function updatePaymentCondition(value: string): void {
           </p>
           </section>
 
-          <section v-if="!isAdjustmentNote" class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:text-text dark:shadow-surface">
-            <div>
-              <h2 class="text-base font-semibold text-slate-950 dark:text-text">{{ isSujetoExcluido ? 'Compras frecuentes' : 'Productos rapidos' }}</h2>
-              <p class="mt-1 text-xs text-slate-500 dark:text-muted">{{ isSujetoExcluido ? 'Agrega compras o servicios recibidos.' : 'Agrega servicios frecuentes al detalle.' }}</p>
-            </div>
-            <UiSearchInput
-              v-model="itemTemplateSearch"
-              class="mt-4"
-              label="Buscar producto o servicio"
-              placeholder="Nombre o descripcion"
-              @search="loadItemTemplates"
-            />
-            <div v-if="itemTemplateSearch.trim()" class="mt-3 max-h-40 overflow-y-auto rounded-md border border-slate-200 dark:border-line">
-              <button
-                v-for="template in itemTemplates.slice(0, 8)"
-                :key="template.id"
-                class="block w-full border-b border-slate-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-sky-50 dark:border-line dark:hover:bg-surface-muted"
-                type="button"
-                @click="fillCurrentLineFromTemplate(template)"
+          <section v-if="supportsAdvancedPayments" class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:text-text dark:shadow-surface">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 class="text-base font-semibold text-slate-950 dark:text-text">Pago</h2>
+              </div>
+              <span
+                class="rounded-full px-2.5 py-1 text-xs font-semibold"
+                :class="paymentTotalMatches ? 'bg-emerald-50 text-emerald-700 dark:bg-success-soft dark:text-success' : 'bg-red-50 text-red-700 dark:bg-danger-soft dark:text-danger'"
               >
-                <span class="block truncate font-semibold text-slate-950 dark:text-text">{{ template.name }}</span>
-                <span class="block text-xs text-slate-500 dark:text-muted">{{ currency(template.default_price) }}</span>
-              </button>
-              <span v-if="itemTemplates.length === 0" class="block px-3 py-3 text-sm text-slate-500 dark:text-muted">Sin resultados.</span>
+                {{ currency(paymentTotal) }}
+              </span>
+            </div>
+
+            <div class="mt-4 grid gap-3 text-sm">
+              <div class="rounded-md border border-slate-200 bg-slate-50/80 p-3 dark:border-line dark:bg-surface-muted">
+                <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Condicion</p>
+                <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ paymentConditionLabel }}</p>
+                <p class="mt-1 truncate text-xs text-slate-500 dark:text-muted">{{ paymentSummaryLabel }}</p>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <button class="rounded-md border border-blue-100 bg-blue-50/60 px-3 py-2 text-sm font-semibold text-slate-900 transition hover:bg-blue-100/70 dark:border-line dark:bg-surface-raised dark:text-text dark:hover:bg-surface-strong" type="button" @click="setCashPayment">
+                  Contado
+                </button>
+                <UiButton variant="secondary" type="button" @click="openPaymentModal">Editar pago</UiButton>
+              </div>
+              <p v-if="!hasValidAdvancedPayments" class="text-xs font-medium text-red-700">
+                Las formas de pago deben sumar {{ currency(totalLabel) }}.
+              </p>
             </div>
           </section>
         </div>
@@ -2488,7 +2555,6 @@ function updatePaymentCondition(value: string): void {
                       <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold" :class="lineOriginClass(draftLine)">
                         {{ lineOriginLabel(draftLine) }}
                       </span>
-                      <span v-if="draftLine.catalogSku" class="text-[11px] text-slate-500 dark:text-muted">{{ draftLine.catalogSku }}</span>
                     </div>
                   </td>
                   <td class="px-3 py-2">
@@ -2520,7 +2586,6 @@ function updatePaymentCondition(value: string): void {
                     >
                       {{ lineOriginLabel(line) }}
                     </span>
-                    <p v-if="line.catalogSku" class="mt-1 text-[11px] text-slate-500 dark:text-muted">{{ line.catalogSku }}</p>
                     <p v-if="isAdjustmentNote" class="mt-1 text-[11px] text-slate-500 dark:text-muted">
                       {{ line.sourceLine === false ? 'Linea nueva agregada a la Nota de Debito' : 'Descripcion tomada del CCF origen' }}
                     </p>
@@ -2580,10 +2645,6 @@ function updatePaymentCondition(value: string): void {
                     <p v-if="lineDiscountAmount(line) > 0" class="text-[11px] text-slate-500 dark:text-muted">Bruto {{ currency(lineGrossTotal(line)) }}</p>
                   </td>
                   <td class="px-3 py-2 text-right">
-                    <button v-if="!isAdjustmentNote" class="inline-flex items-center rounded px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50" type="button" @click="saveLineAsTemplate(line)">
-                      <UiSaveIcon class="mr-1 h-4 w-4" />
-                      <span>Guardar</span>
-                    </button>
                     <button class="rounded px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-red-700 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-danger" type="button" @click="removeLine(line.id)">Quitar</button>
                   </td>
                 </tr>
@@ -2614,89 +2675,6 @@ function updatePaymentCondition(value: string): void {
                 </tr>
               </tbody>
             </table>
-          </div>
-        </section>
-
-        <section v-if="supportsAdvancedPayments" class="rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:text-text dark:shadow-surface">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 class="text-base font-semibold text-slate-950 dark:text-text">Pago</h2>
-              <p class="mt-1 text-xs text-slate-500 dark:text-muted">Por defecto se emite contado con una forma de pago.</p>
-            </div>
-            <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-700 dark:text-muted">
-              <span>Modo avanzado</span>
-              <UiToggle v-model="advancedPaymentMode" aria-label="Activar modo avanzado de pago" />
-            </label>
-          </div>
-
-          <div v-if="advancedPaymentMode" class="mt-4 grid gap-4">
-            <div class="grid gap-3 md:grid-cols-[260px_minmax(0,1fr)] md:items-end">
-              <label class="text-sm font-semibold text-slate-700 dark:text-muted">
-                <span class="mb-1 block text-xs uppercase text-slate-500 dark:text-soft">Condicion de la operacion</span>
-                <select
-                  class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none"
-                  :value="paymentCondition"
-                  @change="updatePaymentCondition(($event.target as HTMLSelectElement).value)"
-                >
-                  <option v-for="option in paymentConditionOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                </select>
-              </label>
-              <div class="rounded-md bg-slate-50 px-3 py-2 text-sm dark:bg-surface-muted">
-                <span class="font-semibold text-slate-500 dark:text-muted">Total formas de pago:</span>
-                <span class="ml-2 font-bold" :class="paymentTotalMatches ? 'text-emerald-700' : 'text-red-700'">{{ currency(paymentTotal) }}</span>
-                <span class="ml-2 text-slate-500 dark:text-muted">de {{ currency(totalLabel) }}</span>
-              </div>
-            </div>
-
-            <div class="overflow-hidden rounded-md border border-slate-200 dark:border-line">
-              <table class="w-full min-w-[960px] text-left text-sm dark:text-text">
-                <thead class="bg-blue-50/70 text-xs uppercase text-slate-500 dark:bg-surface-muted dark:text-muted">
-                  <tr>
-                    <th class="px-3 py-2">Forma</th>
-                    <th class="w-32 px-3 py-2">Monto</th>
-                    <th class="w-48 px-3 py-2">Referencia</th>
-                    <th class="w-36 px-3 py-2">Plazo</th>
-                    <th class="w-28 px-3 py-2">Periodo</th>
-                    <th class="w-28 px-3 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-200 dark:divide-line">
-                  <tr v-for="payment in paymentLines" :key="payment.id">
-                    <td class="px-3 py-2">
-                      <select v-model="payment.codigo" class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text">
-                        <option v-for="option in paymentMethodOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                      </select>
-                    </td>
-                    <td class="px-3 py-2">
-                      <input v-model.number="payment.montoPago" class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text" min="0" step="0.01" type="number">
-                      <button class="mt-1 text-[11px] font-semibold text-sky-700 hover:text-sky-900" type="button" @click="fillRemainingPayment(payment)">Usar saldo</button>
-                    </td>
-                    <td class="px-3 py-2">
-                      <input v-model="payment.referencia" class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft" maxlength="50" placeholder="Opcional">
-                    </td>
-                    <td class="px-3 py-2">
-                      <select v-model="payment.plazo" class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text">
-                        <option v-for="option in paymentTermOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                      </select>
-                    </td>
-                    <td class="px-3 py-2">
-                      <input v-model.number="payment.periodo" class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text" min="1" step="1" type="number" :disabled="!payment.plazo">
-                    </td>
-                    <td class="px-3 py-2 text-right">
-                      <button class="rounded px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-red-700 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-danger" type="button" @click="removePaymentLine(payment.id)">Quitar</button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <p v-if="!hasValidAdvancedPayments" class="text-sm font-medium text-red-700">
-                Las formas de pago deben sumar el total y completar plazo/periodo cuando aplique.
-              </p>
-              <span v-else class="text-sm text-slate-500 dark:text-muted">Estos campos se enviaran en el resumen del DTE.</span>
-              <UiButton variant="secondary" type="button" @click="addPaymentLine">Agregar forma de pago</UiButton>
-            </div>
           </div>
         </section>
 
