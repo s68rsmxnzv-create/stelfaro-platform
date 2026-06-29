@@ -11,6 +11,7 @@ import BillingDashboardPage from './BillingDashboardPage.vue';
 import BillingOperationalPlaceholderPage from './BillingOperationalPlaceholderPage.vue';
 import BillingWorkspace from './BillingWorkspace.vue';
 import DteArtifactsPage from './DteArtifactsPage.vue';
+import InventoryPage from './InventoryPage.vue';
 import MhEventResponsesPage from './MhEventResponsesPage.vue';
 import MhEventsPage from './MhEventsPage.vue';
 import MhResponsesPage from './MhResponsesPage.vue';
@@ -148,6 +149,7 @@ const moduleComponents = {
   'operational-placeholder': BillingOperationalPlaceholderPage,
   billing: BillingWorkspace,
   catalog: CatalogPage,
+  inventory: InventoryPage,
   artifacts: DteArtifactsPage,
   'mh-events': MhEventsPage,
   'mh-responses': MhResponsesPage,
@@ -161,7 +163,7 @@ const eventOptions = [
 ];
 
 const selectedComponent = computed(() => moduleComponents[props.module] || BillingWorkspace);
-const requiresFiscalSession = computed(() => !['catalog', 'operational-placeholder'].includes(props.module));
+const requiresFiscalSession = computed(() => !['catalog', 'inventory', 'operational-placeholder'].includes(props.module));
 const selectedDocumentType = computed(() => documentTypeBySlug[props.documentSlug] || '01');
 const selectedEventType = computed(() => eventTypeBySlug[props.eventSlug] || 'invalidacion');
 const billingOptions = computed(() => {
@@ -211,6 +213,13 @@ const selectedComponentProps = computed(() => {
     };
   }
 
+  if (props.module === 'inventory') {
+    return {
+      platformSession: props.platformSession,
+      platformBaseUrl: props.platformBaseUrl
+    };
+  }
+
   return baseProps;
 });
 const dashboardHref = computed(() => props.dashboardUrl || props.appBaseUrl || '/');
@@ -223,6 +232,7 @@ const pageTitle = computed(() => {
   }
 
   if (props.module === 'catalog') return 'Catálogo';
+  if (props.module === 'inventory') return 'Inventario';
 
   if (props.module === 'mh-events') {
     return eventOptions.find((item) => item.slug === props.eventSlug)?.label ?? 'Eventos MH';

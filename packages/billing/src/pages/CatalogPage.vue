@@ -25,21 +25,7 @@ const loading = ref(false);
 const saving = ref(false);
 const modalOpen = ref(false);
 const editingItem = ref(null);
-const stockEntryOpen = ref(false);
-const inventoryDetailOpen = ref(false);
-const stockItem = ref(null);
-const inventoryDetailItem = ref(null);
-const lots = ref([]);
-const movements = ref([]);
-const inventoryLoading = ref(false);
 const categoryName = ref('');
-const stockEntryForm = ref({
-  purchase_date: new Date().toISOString().slice(0, 10),
-  document_type: '',
-  document_number: '',
-  quantity: 1,
-  unit_cost: 0
-});
 const filters = ref({
   q: '',
   status: 'active',
@@ -72,8 +58,7 @@ const inventoryOptions = [
 const stats = computed(() => ({
   total: items.value.length,
   inventory: items.value.filter((item) => item.controls_inventory).length,
-  catalogOnly: items.value.filter((item) => !item.controls_inventory).length,
-  units: items.value.filter((item) => item.controls_inventory).reduce((sum, item) => sum + Number(item.stock_quantity || 0), 0)
+  catalogOnly: items.value.filter((item) => !item.controls_inventory).length
 }));
 
 watch(tenantId, () => {
@@ -118,38 +103,6 @@ function openCreate(): void {
 function openEdit(item): void {
   editingItem.value = item;
   modalOpen.value = true;
-}
-
-function openStockEntry(item): void {
-  stockItem.value = item;
-  stockEntryForm.value = {
-    purchase_date: new Date().toISOString().slice(0, 10),
-    document_type: '',
-    document_number: '',
-    quantity: 1,
-    unit_cost: Number(item.reference_cost || 0)
-  };
-  stockEntryOpen.value = true;
-}
-
-async function openInventoryDetail(item): Promise<void> {
-  if (!tenantId.value) return;
-
-  inventoryDetailItem.value = item;
-  inventoryDetailOpen.value = true;
-  inventoryLoading.value = true;
-  try {
-    const [lotResponse, movementResponse] = await Promise.all([
-      client.value.inventoryLots(tenantId.value, { catalog_item_id: item.id, available_only: false, per_page: 50 }),
-      client.value.inventoryMovements(tenantId.value, { catalog_item_id: item.id, per_page: 50 })
-    ]);
-    lots.value = lotResponse.data ?? [];
-    movements.value = movementResponse.data ?? [];
-  } catch (error) {
-    notify('No se pudo cargar inventario', messageFromError(error), 'error');
-  } finally {
-    inventoryLoading.value = false;
-  }
 }
 
 async function saveItem(payload): Promise<void> {
@@ -222,37 +175,8 @@ async function deactivateItem(item): Promise<void> {
   }
 }
 
-async function saveStockEntry(): Promise<void> {
-  if (!tenantId.value || !stockItem.value) return;
-
-  saving.value = true;
-  try {
-    await client.value.createInventoryPurchase(tenantId.value, {
-      document_type: stockEntryForm.value.document_type || null,
-      document_number: stockEntryForm.value.document_number || null,
-      purchase_date: stockEntryForm.value.purchase_date,
-      lines: [{
-        catalog_item_id: stockItem.value.id,
-        quantity: Number(stockEntryForm.value.quantity || 0),
-        unit_cost: Number(stockEntryForm.value.unit_cost || 0)
-      }]
-    });
-    notify('Entrada registrada', 'Stock, lote y kardex quedaron actualizados.', 'success');
-    stockEntryOpen.value = false;
-    await loadCatalog();
-  } catch (error) {
-    notify('No se pudo registrar entrada', messageFromError(error), 'error');
-  } finally {
-    saving.value = false;
-  }
-}
-
 function formatMoney(value): string {
   return new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(Number(value || 0));
-}
-
-function formatQuantity(value): string {
-  return new Intl.NumberFormat('es-SV', { maximumFractionDigits: 3 }).format(Number(value || 0));
 }
 
 function notify(title: string, message?: string | null, variant = 'info'): void {
@@ -281,7 +205,7 @@ function messageFromError(error): string {
         <UiButton @click="openCreate">Nuevo ítem</UiButton>
       </div>
 
-      <div class="mt-6 grid gap-3 md:grid-cols-4">
+      <div class="mt-6 grid gap-3 md:grid-cols-3">
         <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 dark:border-line dark:bg-surface-muted">
           <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Activos visibles</p>
           <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ stats.total }}</p>
@@ -293,10 +217,6 @@ function messageFromError(error): string {
         <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 dark:border-line dark:bg-surface-muted">
           <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Solo catálogo</p>
           <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ stats.catalogOnly }}</p>
-        </div>
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 dark:border-line dark:bg-surface-muted">
-          <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Unidades en stock</p>
-          <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ formatQuantity(stats.units) }}</p>
         </div>
       </div>
     </div>
@@ -315,13 +235,12 @@ function messageFromError(error): string {
 
     <div class="grid gap-5 xl:grid-cols-[1fr_320px]">
       <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-none">
-        <UiDataTable overflow="auto" min-width="min-w-[1040px]">
+        <UiDataTable overflow="auto" min-width="min-w-[940px]">
           <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
             <tr>
               <th class="px-4 py-3">Ítem</th>
               <th class="px-4 py-3">Tipo</th>
               <th class="px-4 py-3">Modo</th>
-              <th class="px-4 py-3">Stock</th>
               <th class="px-4 py-3">Precio</th>
               <th class="px-4 py-3">Costo ref.</th>
               <th class="px-4 py-3">Estado</th>
@@ -330,12 +249,12 @@ function messageFromError(error): string {
           </thead>
           <tbody class="divide-y divide-slate-100 dark:divide-line">
             <tr v-if="loading">
-              <td class="px-4 py-8" colspan="8">
+              <td class="px-4 py-8" colspan="7">
                 <UiLoadingMark label="Cargando catálogo" />
               </td>
             </tr>
             <tr v-else-if="items.length === 0">
-              <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="8">Aún no hay ítems con estos filtros.</td>
+              <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="7">Aún no hay ítems con estos filtros.</td>
             </tr>
             <tr v-for="item in items" v-else :key="item.id" class="text-sm">
               <td class="px-4 py-3">
@@ -344,17 +263,6 @@ function messageFromError(error): string {
               </td>
               <td class="px-4 py-3 text-slate-700 dark:text-muted">{{ typeLabels[item.item_type] || item.item_type }}</td>
               <td class="px-4 py-3"><CatalogModeBadge :controls-inventory="item.controls_inventory" /></td>
-              <td class="px-4 py-3">
-                <button
-                  v-if="item.controls_inventory"
-                  type="button"
-                  class="text-left font-semibold text-slate-950 underline-offset-2 hover:underline dark:text-text"
-                  @click="openInventoryDetail(item)"
-                >
-                  {{ formatQuantity(item.stock_quantity) }}
-                </button>
-                <span v-else class="text-slate-400 dark:text-soft">No aplica</span>
-              </td>
               <td class="px-4 py-3 font-semibold text-slate-950 dark:text-text">{{ formatMoney(item.base_price) }}</td>
               <td class="px-4 py-3 text-slate-700 dark:text-muted">{{ item.reference_cost === null ? 'Sin costo' : formatMoney(item.reference_cost) }}</td>
               <td class="px-4 py-3">
@@ -362,7 +270,6 @@ function messageFromError(error): string {
               </td>
               <td class="px-4 py-3">
                 <div class="flex justify-end gap-2">
-                  <UiButton v-if="item.controls_inventory" size="sm" variant="secondary" @click="openStockEntry(item)">Entrada</UiButton>
                   <UiButton size="sm" variant="secondary" @click="openEdit(item)">Editar</UiButton>
                   <UiButton v-if="item.status === 'active'" size="sm" variant="ghost" :disabled="saving" @click="deactivateItem(item)">Desactivar</UiButton>
                 </div>
@@ -387,9 +294,9 @@ function messageFromError(error): string {
         </div>
 
         <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-none">
-          <h3 class="text-base font-bold text-slate-950 dark:text-text">Inventario</h3>
+          <h3 class="text-base font-bold text-slate-950 dark:text-text">Modo de venta</h3>
           <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-muted">
-            Los ítems inventariables usan entradas con lote y salida FIFO al emitir. Los ítems solo catálogo siguen vendiéndose sin descontar stock.
+            Catálogo define qué se puede vender. Inventario administra existencias, lotes, costos y kardex en su propia pantalla.
           </p>
         </div>
       </aside>
@@ -411,82 +318,5 @@ function messageFromError(error): string {
       />
     </UiModalShell>
 
-    <UiModalShell
-      :open="stockEntryOpen"
-      title="Entrada de inventario"
-      :description="stockItem ? stockItem.name : ''"
-      max-width="max-w-xl"
-      @close="stockEntryOpen = false"
-    >
-      <form class="space-y-4" @submit.prevent="saveStockEntry">
-        <div class="grid gap-4 md:grid-cols-2">
-          <UiInput v-model="stockEntryForm.purchase_date" label="Fecha" type="date" required />
-          <UiInput v-model="stockEntryForm.document_number" label="Documento" placeholder="Factura, CCF o referencia" />
-          <UiInput v-model="stockEntryForm.quantity" label="Cantidad" type="number" min="0.001" step="0.001" required />
-          <UiInput v-model="stockEntryForm.unit_cost" label="Costo unitario" type="number" min="0" step="0.0001" required />
-        </div>
-        <UiInput v-model="stockEntryForm.document_type" label="Tipo de documento" placeholder="Opcional" />
-        <div class="flex justify-end gap-2">
-          <UiButton type="button" variant="ghost" @click="stockEntryOpen = false">Cancelar</UiButton>
-          <UiButton type="submit" :disabled="saving">Registrar entrada</UiButton>
-        </div>
-      </form>
-    </UiModalShell>
-
-    <UiModalShell
-      :open="inventoryDetailOpen"
-      title="Inventario"
-      :description="inventoryDetailItem ? inventoryDetailItem.name : ''"
-      max-width="max-w-4xl"
-      @close="inventoryDetailOpen = false"
-    >
-      <div v-if="inventoryLoading" class="py-8">
-        <UiLoadingMark label="Cargando inventario" />
-      </div>
-      <div v-else class="grid gap-5 lg:grid-cols-2">
-        <div>
-          <h3 class="text-sm font-bold uppercase text-slate-500 dark:text-soft">Lotes</h3>
-          <div class="mt-3 overflow-hidden rounded-md border border-slate-200 dark:border-line">
-            <table class="w-full text-sm">
-              <tbody class="divide-y divide-slate-100 dark:divide-line">
-                <tr v-for="lot in lots" :key="lot.id">
-                  <td class="px-3 py-2">
-                    <p class="font-semibold text-slate-950 dark:text-text">{{ lot.lot_code }}</p>
-                    <p class="text-xs text-slate-500 dark:text-soft">{{ lot.received_date || 'Sin fecha' }}</p>
-                  </td>
-                  <td class="px-3 py-2 text-right">{{ formatQuantity(lot.available_quantity) }}</td>
-                  <td class="px-3 py-2 text-right">{{ formatMoney(lot.unit_cost) }}</td>
-                </tr>
-                <tr v-if="lots.length === 0">
-                  <td class="px-3 py-6 text-center text-slate-500 dark:text-muted" colspan="3">Sin lotes registrados.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div>
-          <h3 class="text-sm font-bold uppercase text-slate-500 dark:text-soft">Kardex reciente</h3>
-          <div class="mt-3 overflow-hidden rounded-md border border-slate-200 dark:border-line">
-            <table class="w-full text-sm">
-              <tbody class="divide-y divide-slate-100 dark:divide-line">
-                <tr v-for="movement in movements" :key="movement.id">
-                  <td class="px-3 py-2">
-                    <p class="font-semibold text-slate-950 dark:text-text">{{ movement.reason }}</p>
-                    <p class="text-xs text-slate-500 dark:text-soft">{{ movement.reference_number || movement.created_at }}</p>
-                  </td>
-                  <td class="px-3 py-2 text-right" :class="movement.movement_type === 'entry' ? 'text-emerald-700 dark:text-success' : 'text-slate-700 dark:text-muted'">
-                    {{ movement.movement_type === 'entry' ? '+' : '-' }}{{ formatQuantity(movement.quantity) }}
-                  </td>
-                  <td class="px-3 py-2 text-right">{{ movement.unit_cost === null ? '' : formatMoney(movement.unit_cost) }}</td>
-                </tr>
-                <tr v-if="movements.length === 0">
-                  <td class="px-3 py-6 text-center text-slate-500 dark:text-muted" colspan="3">Sin movimientos registrados.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </UiModalShell>
   </section>
 </template>
