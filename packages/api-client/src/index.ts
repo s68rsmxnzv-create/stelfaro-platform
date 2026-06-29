@@ -876,18 +876,6 @@ export type BillingCustomer = {
   is_active: boolean;
 };
 
-export type BillingItemTemplate = {
-  id: number;
-  empresa_id: number;
-  name: string;
-  description: string;
-  default_price: number;
-  default_quantity: number;
-  item_type: number;
-  unit_measure: number;
-  item_code: string | null;
-};
-
 export type DteIssueProgressEvent =
   | { type: 'stage'; stage: string; progress: number; message: string; attempt?: number; max_attempts?: number; numero_control?: string; correlativo?: number }
   | { type: 'retry'; stage: string; progress: number; message: string; attempt: number; next_attempt: number; max_attempts?: number; numero_control?: string; correlativo?: number; conflict?: boolean }
@@ -1566,25 +1554,6 @@ export class CoreDteClient {
 
   saveCustomer(payload: Partial<BillingCustomer> & { empresa_id: number; name: string }): Promise<{ customer: BillingCustomer }> {
     return this.http.post('billing/customers', { json: payload }).json();
-  }
-
-  itemTemplates(params: { empresa_id: number; q?: string }): Promise<{ data: BillingItemTemplate[] }> {
-    return this.http.get('billing/item-templates', {
-      searchParams: compactParams(params)
-    }).json();
-  }
-
-  saveItemTemplate(payload: {
-    empresa_id: number;
-    name: string;
-    description: string;
-    default_price: number;
-    default_quantity?: number;
-    item_type?: number;
-    unit_measure?: number;
-    item_code?: string | null;
-  }): Promise<{ template: BillingItemTemplate }> {
-    return this.http.post('billing/item-templates', { json: payload }).json();
   }
 
   previewCorrelativo(payload: CorrelativoRequest): Promise<CorrelativoReservation> {
