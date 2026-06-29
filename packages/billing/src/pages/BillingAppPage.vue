@@ -215,6 +215,7 @@ const selectedComponentProps = computed(() => {
 
   if (props.module === 'inventory') {
     return {
+      ...baseProps,
       platformSession: props.platformSession,
       platformBaseUrl: props.platformBaseUrl
     };

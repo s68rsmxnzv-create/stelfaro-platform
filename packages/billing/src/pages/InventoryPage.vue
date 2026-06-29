@@ -8,14 +8,19 @@ import BillingFloatingToastStack from '../components/BillingFloatingToastStack.v
 const props = withDefaults(defineProps<{
   platformSession?: Record<string, unknown> | null;
   platformBaseUrl?: string;
+  appBaseUrl?: string;
+  dashboardUrl?: string;
 }>(), {
   platformSession: null,
-  platformBaseUrl: '/api/v1'
+  platformBaseUrl: '/api/v1',
+  appBaseUrl: '',
+  dashboardUrl: ''
 });
 
 const client = computed(() => new PlatformClient(props.platformBaseUrl, { credentials: 'same-origin' }));
 const tenantId = computed(() => Number(props.platformSession?.tenant?.id || 0));
 const tenantName = computed(() => props.platformSession?.tenant?.name ?? 'Empresa');
+const homeHref = computed(() => props.dashboardUrl || props.appBaseUrl || '/');
 const activeTab = ref('overview');
 const loading = ref(false);
 const saving = ref(false);
@@ -283,6 +288,12 @@ function messageFromError(error): string {
       <main class="min-w-0 space-y-5">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="flex min-w-0 items-center gap-3 text-sm">
+            <a :href="homeHref" class="text-slate-500 transition hover:text-slate-950 dark:text-soft dark:hover:text-text" aria-label="Inicio">
+              <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M10.707 2.293a1 1 0 0 0-1.414 0l-7 7a1 1 0 0 0 1.414 1.414L4 10.414V17a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-6.586l.293.293a1 1 0 0 0 1.414-1.414l-7-7Z" />
+              </svg>
+            </a>
+            <span class="text-slate-400 dark:text-soft">/</span>
             <span class="font-semibold text-sky-700 dark:text-primary">Inventario</span>
             <span class="text-slate-400 dark:text-soft">/</span>
             <span class="font-semibold text-slate-700 dark:text-muted">{{ activeItem.label }}</span>
