@@ -898,8 +898,9 @@ function messageFromError(error): string {
                         <input v-model="purchaseImport.document.is_consumable" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
                         Compra consumible
                       </label>
-                      <div v-if="Number(purchaseImport.document.tax_perceived_amount || 0) > 0" class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 dark:border-success/30 dark:bg-success/10 dark:text-success">
-                        IVA percibido detectado: {{ formatMoney(purchaseImport.document.tax_perceived_amount) }}
+                      <div v-if="Number(purchaseImport.document.tax_perceived_amount || 0) > 0" class="flex items-center justify-between gap-3 rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-success/50 dark:bg-surface-2">
+                        <span class="font-semibold text-slate-800 dark:text-text">IVA percibido detectado</span>
+                        <span class="shrink-0 rounded bg-emerald-100 px-2 py-1 font-black text-emerald-800 dark:bg-success-soft dark:text-success">{{ formatMoney(purchaseImport.document.tax_perceived_amount) }}</span>
                       </div>
                       <label v-else class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
                         <input v-model="purchaseImport.document.apply_tax_perceived" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
