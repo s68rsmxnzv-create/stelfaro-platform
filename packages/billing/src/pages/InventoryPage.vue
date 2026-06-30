@@ -4,6 +4,7 @@ import { PlatformClient } from '@stelfaro/api-client';
 import { UiButton, UiDataTable, UiInput, UiLoadingMark, UiModalShell, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import { computed, onMounted, ref, watch } from 'vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
+import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 import BillingSectionLayout from '../components/BillingSectionLayout.vue';
 
 const props = withDefaults(defineProps<{
@@ -25,6 +26,7 @@ const homeHref = computed(() => props.dashboardUrl || props.appBaseUrl || '/');
 const activeTab = ref('overview');
 const loading = ref(false);
 const saving = ref(false);
+const savingAction = ref('');
 const items = ref([]);
 const catalogItems = ref([]);
 const categories = ref([]);
@@ -177,6 +179,7 @@ const purchaseImportCanRegister = computed(() => {
     && purchaseImport.value.lines.every((line) => lineResolved(line))
     && purchaseImportTotalsOk.value;
 });
+const processOverlayOpen = computed(() => saving.value && savingAction.value === 'purchase');
 
 watch(tenantId, loadInventory);
 onMounted(loadInventory);
@@ -355,6 +358,7 @@ async function registerImportedPurchase(): Promise<void> {
   if (!tenantId.value || !purchaseImport.value.preview) return;
 
   saving.value = true;
+  savingAction.value = 'purchase';
   try {
     const supplierId = await resolvePurchaseSupplier();
     const lines = [];
@@ -401,6 +405,7 @@ async function registerImportedPurchase(): Promise<void> {
     notify('No se pudo registrar compra', messageFromError(error), 'error');
   } finally {
     saving.value = false;
+    savingAction.value = '';
   }
 }
 
@@ -586,6 +591,11 @@ function messageFromError(error): string {
     @select="activeTab = $event"
   >
     <BillingFloatingToastStack :toasts="toasts" />
+    <BillingProcessToastOverlay
+      :open="processOverlayOpen"
+      title="Registrando compra"
+      message="Creando proveedor, productos, lotes y kardex según corresponda."
+    />
 
     <div class="space-y-5">
       <div class="flex flex-wrap justify-end gap-2">
