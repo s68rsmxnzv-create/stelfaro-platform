@@ -112,11 +112,6 @@ const categoryOptions = computed(() => categories.value.map((category) => ({
   label: category.name,
   hint: category.kind || 'mixta'
 })));
-const supplierOptions = computed(() => suppliers.value.map((supplier) => ({
-  value: String(supplier.id),
-  label: supplier.name,
-  hint: supplier.tax_id || supplier.nrc || 'Sin documento'
-})));
 const visibleItems = computed(() => {
   const term = filters.value.q.trim().toLowerCase();
   if (!term) return items.value;
@@ -305,15 +300,16 @@ async function importPurchaseJson(event): Promise<void> {
     const payload = JSON.parse(await file.text());
     const response = await client.value.importInventoryPurchaseDteJson(tenantId.value, payload);
     const preview = response.data;
+    const supplierSource = preview.supplier.matched ?? preview.supplier.from_json;
     purchaseImport.value.fileName = file.name;
     purchaseImport.value.preview = preview;
     purchaseImport.value.supplier_id = preview.supplier.matched ? String(preview.supplier.matched.id) : '';
     purchaseImport.value.create_supplier = !preview.supplier.matched;
     purchaseImport.value.supplier = {
-      name: preview.supplier.from_json.name || '',
-      tax_id: preview.supplier.from_json.tax_id || '',
-      nrc: preview.supplier.from_json.nrc || '',
-      phone: preview.supplier.from_json.phone || '',
+      name: normalizeSupplierName(supplierSource.name || ''),
+      tax_id: formatNit(supplierSource.tax_id || ''),
+      nrc: formatNrc(supplierSource.nrc || ''),
+      phone: formatPhone(preview.supplier.from_json.phone || ''),
       email: preview.supplier.from_json.email || '',
       address: preview.supplier.from_json.address || ''
     };
@@ -500,6 +496,51 @@ function lineModeLabel(line): string {
   const item = catalogItems.value.find((candidate) => String(candidate.id) === String(line.catalog_item_id));
 
   return item?.controls_inventory ? 'Inventario' : 'Catálogo';
+}
+
+function normalizeSupplierName(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').toUpperCase();
+}
+
+function onlyDigits(value: string): string {
+  return String(value || '').replace(/\D/g, '');
+}
+
+function formatNit(value: string): string {
+  const digits = onlyDigits(value);
+  if (digits.length !== 14) return value.trim();
+
+  return `${digits.slice(0, 4)}-${digits.slice(4, 10)}-${digits.slice(10, 13)}-${digits.slice(13)}`;
+}
+
+function formatNrc(value: string): string {
+  const digits = onlyDigits(value);
+  if (digits.length <= 1) return value.trim();
+
+  return `${digits.slice(0, -1)}-${digits.slice(-1)}`;
+}
+
+function formatPhone(value: string): string {
+  const digits = onlyDigits(value);
+  if (digits.length !== 8) return value.trim();
+
+  return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+}
+
+function updateImportedSupplierName(value: string): void {
+  purchaseImport.value.supplier.name = normalizeSupplierName(value);
+}
+
+function updateImportedSupplierNit(value: string): void {
+  purchaseImport.value.supplier.tax_id = formatNit(value);
+}
+
+function updateImportedSupplierNrc(value: string): void {
+  purchaseImport.value.supplier.nrc = formatNrc(value);
+}
+
+function updateImportedSupplierPhone(value: string): void {
+  purchaseImport.value.supplier.phone = formatPhone(value);
 }
 
 function formatMoney(value): string {
@@ -699,21 +740,52 @@ function messageFromError(error): string {
                       <div>
                         <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Proveedor</p>
                         <p class="mt-1 text-base font-bold text-slate-950 dark:text-text">{{ purchaseImport.supplier.name || 'Proveedor pendiente' }}</p>
-                        <p class="mt-1 text-sm text-slate-600 dark:text-muted">{{ purchaseImport.supplier.tax_id || 'Sin NIT' }}<span v-if="purchaseImport.supplier.nrc"> · NRC {{ purchaseImport.supplier.nrc }}</span></p>
+                        <p class="mt-1 text-sm text-slate-600 dark:text-muted">
+                          {{ purchaseImport.supplier.tax_id || 'Sin NIT' }}
+                          <span v-if="purchaseImport.supplier.nrc"> · NRC {{ purchaseImport.supplier.nrc }}</span>
+                          <span v-if="purchaseImport.supplier.phone"> · {{ purchaseImport.supplier.phone }}</span>
+                        </p>
                       </div>
                       <UiStatusBadge :tone="purchaseImport.create_supplier ? 'warning' : 'success'">{{ purchaseImport.create_supplier ? 'Nuevo proveedor' : 'Proveedor vinculado' }}</UiStatusBadge>
                     </div>
-                    <div class="grid gap-4 px-4 py-4 md:grid-cols-2">
-                      <UiSelect v-if="!purchaseImport.create_supplier" v-model="purchaseImport.supplier_id" label="Proveedor existente" :options="supplierOptions" />
-                      <label class="flex min-h-10 items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
-                        <input v-model="purchaseImport.create_supplier" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
-                        Crear proveedor desde JSON
-                      </label>
+                    <div class="px-4 py-4">
+                      <div v-if="!purchaseImport.create_supplier" class="grid gap-3 md:grid-cols-3">
+                        <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
+                          <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Nombre</p>
+                          <p class="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-text">{{ purchaseImport.supplier.name }}</p>
+                        </div>
+                        <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
+                          <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">NIT / NRC</p>
+                          <p class="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-text">{{ purchaseImport.supplier.tax_id || 'Sin NIT' }}<span v-if="purchaseImport.supplier.nrc"> · {{ purchaseImport.supplier.nrc }}</span></p>
+                        </div>
+                        <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
+                          <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Origen</p>
+                          <p class="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-text">Base de proveedores</p>
+                        </div>
+                      </div>
                       <template v-if="purchaseImport.create_supplier">
-                        <UiInput v-model="purchaseImport.supplier.name" label="Nombre proveedor" />
-                        <UiInput v-model="purchaseImport.supplier.tax_id" label="NIT" />
-                        <UiInput v-model="purchaseImport.supplier.nrc" label="NRC" />
-                        <UiInput v-model="purchaseImport.supplier.phone" label="Teléfono" />
+                        <div class="grid gap-4 md:grid-cols-2">
+                          <UiInput
+                            :model-value="purchaseImport.supplier.name"
+                            label="Nombre proveedor"
+                            @update:model-value="updateImportedSupplierName"
+                          />
+                          <UiInput
+                            :model-value="purchaseImport.supplier.tax_id"
+                            label="NIT"
+                            @update:model-value="updateImportedSupplierNit"
+                          />
+                          <UiInput
+                            :model-value="purchaseImport.supplier.nrc"
+                            label="NRC"
+                            @update:model-value="updateImportedSupplierNrc"
+                          />
+                          <UiInput
+                            :model-value="purchaseImport.supplier.phone"
+                            label="Teléfono"
+                            @update:model-value="updateImportedSupplierPhone"
+                          />
+                        </div>
                       </template>
                     </div>
                   </section>
