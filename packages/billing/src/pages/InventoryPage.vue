@@ -336,6 +336,7 @@ async function importPurchaseJson(event): Promise<void> {
       quantity: line.quantity,
       unit_cost: line.unit_cost,
       unit_code: line.unit_code,
+      supplier_code: line.supplier_code || '',
       no_inventory: line.no_inventory,
       catalog_item_id: line.matched_catalog_item ? String(line.matched_catalog_item.id) : '',
       create_item: !line.matched_catalog_item,
@@ -438,6 +439,7 @@ async function resolvePurchaseLineItem(line): Promise<number> {
   const categoryId = await resolvePurchaseCategory(line);
   const response = await client.value.createCatalogItem(tenantId.value, {
     catalog_category_id: categoryId,
+    sku: line.supplier_code || null,
     name: line.new_item_name.trim() || line.description,
     item_type: line.no_inventory ? 'service' : 'part',
     unit_code: line.unit_code || '59',

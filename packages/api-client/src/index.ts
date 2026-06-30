@@ -394,6 +394,7 @@ export type PlatformInventoryPurchaseImportPreview = {
     quantity: number;
     unit_cost: number;
     unit_code: string;
+    supplier_code: string | null;
     no_inventory: boolean;
     matched_catalog_item: Pick<PlatformCatalogItem, 'id' | 'sku' | 'name' | 'item_type' | 'controls_inventory'> | null;
   }>;
