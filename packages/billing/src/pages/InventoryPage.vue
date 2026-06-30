@@ -77,6 +77,7 @@ const purchaseImport = ref({
     apply_tax_perceived: false,
     tax_perceived_mode: 'auto',
     tax_perceived_rate: 1,
+    tax_perceived_amount: 0,
     apply_fuel_charges: false,
     fovial_per_unit: 0,
     cotrans_per_unit: 0,
@@ -151,6 +152,9 @@ const purchaseImportFuel = computed(() => {
 });
 const purchaseImportPerceived = computed(() => {
   if (!purchaseImport.value.document.apply_tax_perceived) return 0;
+
+  const detectedAmount = Number(purchaseImport.value.document.tax_perceived_amount || 0);
+  if (detectedAmount > 0) return detectedAmount;
 
   const rate = purchaseImport.value.document.tax_perceived_mode === 'manual'
     ? Number(purchaseImport.value.document.tax_perceived_rate || 0) / 100
@@ -317,9 +321,10 @@ async function importPurchaseJson(event): Promise<void> {
       ...purchaseImport.value.document,
       ...preview.document,
       is_consumable: false,
-      apply_tax_perceived: false,
-      tax_perceived_mode: 'auto',
-      tax_perceived_rate: 1,
+      apply_tax_perceived: Boolean(preview.document.apply_tax_perceived),
+      tax_perceived_mode: preview.document.tax_perceived_mode || 'auto',
+      tax_perceived_rate: Number(preview.document.tax_perceived_rate || 1),
+      tax_perceived_amount: Number(preview.document.tax_perceived_amount || 0),
       fiscal_profile: '',
       fiscal_sector: ''
     };
@@ -378,6 +383,7 @@ async function registerImportedPurchase(): Promise<void> {
       apply_tax_perceived: Boolean(purchaseImport.value.document.apply_tax_perceived),
       tax_perceived_mode: purchaseImport.value.document.tax_perceived_mode || 'auto',
       tax_perceived_rate: Number(purchaseImport.value.document.tax_perceived_rate || 1),
+      tax_perceived_amount: Number(purchaseImport.value.document.tax_perceived_amount || 0),
       apply_fuel_charges: Boolean(purchaseImport.value.document.apply_fuel_charges),
       fovial_per_unit: Number(purchaseImport.value.document.fovial_per_unit || 0),
       cotrans_per_unit: Number(purchaseImport.value.document.cotrans_per_unit || 0),
@@ -881,7 +887,10 @@ function messageFromError(error): string {
                         <input v-model="purchaseImport.document.is_consumable" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
                         Compra consumible
                       </label>
-                      <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
+                      <div v-if="Number(purchaseImport.document.tax_perceived_amount || 0) > 0" class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 dark:border-success/30 dark:bg-success/10 dark:text-success">
+                        IVA percibido detectado: {{ formatMoney(purchaseImport.document.tax_perceived_amount) }}
+                      </div>
+                      <label v-else class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
                         <input v-model="purchaseImport.document.apply_tax_perceived" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
                         IVA percibido
                       </label>

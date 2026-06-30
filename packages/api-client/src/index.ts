@@ -339,8 +339,9 @@ export type PlatformInventoryPurchasePayload = {
   document_total?: number | null;
   is_consumable?: boolean;
   apply_tax_perceived?: boolean;
-  tax_perceived_mode?: 'auto' | 'manual' | string | null;
+  tax_perceived_mode?: 'auto' | 'manual' | 'dte' | string | null;
   tax_perceived_rate?: number | null;
+  tax_perceived_amount?: number | null;
   apply_fuel_charges?: boolean;
   fovial_per_unit?: number | null;
   cotrans_per_unit?: number | null;
@@ -369,6 +370,10 @@ export type PlatformInventoryPurchaseImportPreview = {
     purchase_date: string;
     payment_condition: string;
     document_total: number;
+    apply_tax_perceived: boolean;
+    tax_perceived_mode: string | null;
+    tax_perceived_rate: number;
+    tax_perceived_amount: number;
     apply_fuel_charges: boolean;
     fovial_per_unit: number;
     cotrans_per_unit: number;
