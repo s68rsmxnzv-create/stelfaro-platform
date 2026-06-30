@@ -439,7 +439,6 @@ async function resolvePurchaseLineItem(line): Promise<number> {
   const categoryId = await resolvePurchaseCategory(line);
   const response = await client.value.createCatalogItem(tenantId.value, {
     catalog_category_id: categoryId,
-    sku: line.supplier_code || null,
     name: line.new_item_name.trim() || line.description,
     item_type: line.no_inventory ? 'service' : 'part',
     unit_code: line.unit_code || '59',
