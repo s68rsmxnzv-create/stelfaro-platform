@@ -336,6 +336,7 @@ export type PlatformInventoryPurchasePayload = {
   document_mode?: 'manual' | 'dte' | 'physical' | string | null;
   document_number?: string | null;
   payment_condition?: 'cash' | 'credit' | 'contado' | 'credito' | string | null;
+  tax_amount?: number | null;
   document_total?: number | null;
   is_consumable?: boolean;
   apply_tax_perceived?: boolean;
@@ -357,6 +358,7 @@ export type PlatformInventoryPurchasePayload = {
     unit_name?: string | null;
     quantity: number;
     unit_cost: number;
+    subtotal?: number | null;
     price_includes_tax?: boolean;
     no_inventory?: boolean;
   }>;
@@ -369,6 +371,8 @@ export type PlatformInventoryPurchaseImportPreview = {
     document_number: string | null;
     purchase_date: string;
     payment_condition: string;
+    subtotal: number;
+    tax_amount: number;
     document_total: number;
     apply_tax_perceived: boolean;
     tax_perceived_mode: string | null;
@@ -393,6 +397,7 @@ export type PlatformInventoryPurchaseImportPreview = {
     description: string;
     quantity: number;
     unit_cost: number;
+    subtotal: number;
     unit_code: string;
     supplier_code: string | null;
     no_inventory: boolean;

@@ -74,6 +74,8 @@ const purchaseImport = ref({
     document_number: '',
     purchase_date: new Date().toISOString().slice(0, 10),
     payment_condition: 'cash',
+    subtotal: 0,
+    tax_amount: 0,
     document_total: 0,
     is_consumable: false,
     apply_tax_perceived: false,
@@ -144,13 +146,25 @@ const purchaseDocumentLabel = computed(() => ({
   nota_envio: 'Nota de envío'
 }[purchaseImport.value.document.document_type] ?? (purchaseImport.value.document.document_type || 'Documento')));
 const purchasePaymentLabel = computed(() => purchaseImport.value.document.payment_condition === 'credit' ? 'Crédito' : 'Contado');
-const purchaseImportSubtotal = computed(() => purchaseImport.value.lines.reduce((sum, line) => sum + (Number(line.quantity || 0) * Number(line.unit_cost || 0)), 0));
-const purchaseImportTax = computed(() => ['nota_envio', 'manual'].includes(String(purchaseImport.value.document.document_type || '')) ? 0 : purchaseImportSubtotal.value * 0.13);
+const purchaseImportSubtotal = computed(() => {
+  const dteSubtotal = Number(purchaseImport.value.document.subtotal ?? 0);
+  if (purchaseImport.value.document.document_mode === 'dte' && dteSubtotal > 0) return dteSubtotal;
+
+  return roundMoney(purchaseImport.value.lines.reduce((sum, line) => sum + Number(line.subtotal ?? (Number(line.quantity || 0) * Number(line.unit_cost || 0))), 0));
+});
+const purchaseImportTax = computed(() => {
+  if (['nota_envio', 'manual'].includes(String(purchaseImport.value.document.document_type || ''))) return 0;
+
+  const dteTax = Number(purchaseImport.value.document.tax_amount ?? 0);
+  if (purchaseImport.value.document.document_mode === 'dte') return dteTax;
+
+  return roundMoney(purchaseImportSubtotal.value * 0.13);
+});
 const purchaseImportFuel = computed(() => {
   if (!purchaseImport.value.document.apply_fuel_charges) return 0;
 
   const quantity = purchaseImport.value.lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0);
-  return quantity * (Number(purchaseImport.value.document.fovial_per_unit || 0) + Number(purchaseImport.value.document.cotrans_per_unit || 0));
+  return roundMoney(quantity * (Number(purchaseImport.value.document.fovial_per_unit || 0) + Number(purchaseImport.value.document.cotrans_per_unit || 0)));
 });
 const purchaseImportPerceived = computed(() => {
   if (!purchaseImport.value.document.apply_tax_perceived) return 0;
@@ -162,10 +176,10 @@ const purchaseImportPerceived = computed(() => {
     ? Number(purchaseImport.value.document.tax_perceived_rate || 0) / 100
     : 0.01;
 
-  return purchaseImportSubtotal.value * rate;
+  return roundMoney(purchaseImportSubtotal.value * rate);
 });
-const purchaseImportCalculatedTotal = computed(() => purchaseImportSubtotal.value + purchaseImportTax.value + purchaseImportFuel.value + purchaseImportPerceived.value);
-const purchaseImportDifference = computed(() => Number(purchaseImport.value.document.document_total || 0) - purchaseImportCalculatedTotal.value);
+const purchaseImportCalculatedTotal = computed(() => roundMoney(purchaseImportSubtotal.value + purchaseImportTax.value + purchaseImportFuel.value + purchaseImportPerceived.value));
+const purchaseImportDifference = computed(() => roundMoney(Number(purchaseImport.value.document.document_total || 0) - purchaseImportCalculatedTotal.value));
 const purchaseImportTotalsOk = computed(() => Math.abs(purchaseImportDifference.value) <= 0.02);
 const purchaseImportResolvedLines = computed(() => purchaseImport.value.lines.filter((line) => lineResolved(line)).length);
 const purchaseImportCanRegister = computed(() => {
@@ -335,6 +349,7 @@ async function importPurchaseJson(event): Promise<void> {
       description: line.description,
       quantity: line.quantity,
       unit_cost: line.unit_cost,
+      subtotal: line.subtotal,
       unit_code: line.unit_code,
       supplier_code: line.supplier_code || '',
       no_inventory: line.no_inventory,
@@ -371,6 +386,7 @@ async function registerImportedPurchase(): Promise<void> {
         unit_code: line.unit_code || '59',
         quantity: Number(line.quantity || 0),
         unit_cost: Number(line.unit_cost || 0),
+        subtotal: line.subtotal !== undefined && line.subtotal !== null ? Number(line.subtotal || 0) : null,
         no_inventory: Boolean(line.no_inventory),
         price_includes_tax: false
       });
@@ -382,6 +398,7 @@ async function registerImportedPurchase(): Promise<void> {
       document_mode: purchaseImport.value.document.document_mode || 'dte',
       document_number: purchaseImport.value.document.document_number || null,
       payment_condition: purchaseImport.value.document.payment_condition || 'cash',
+      tax_amount: Number(purchaseImport.value.document.tax_amount || 0),
       document_total: Number(purchaseImport.value.document.document_total || 0),
       purchase_date: purchaseImport.value.document.purchase_date,
       is_consumable: Boolean(purchaseImport.value.document.is_consumable),
@@ -557,6 +574,10 @@ function updateImportedSupplierPhone(value: string): void {
 
 function formatMoney(value): string {
   return new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(Number(value || 0));
+}
+
+function roundMoney(value): number {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 }
 
 function formatQuantity(value): string {
