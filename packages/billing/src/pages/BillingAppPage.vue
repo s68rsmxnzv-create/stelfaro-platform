@@ -198,7 +198,9 @@ const selectedComponentProps = computed(() => {
   if (props.module === 'mh-events') {
     return {
       ...baseProps,
-      initialEventType: selectedEventType.value
+      initialEventType: selectedEventType.value,
+      platformSession: props.platformSession,
+      platformBaseUrl: props.platformBaseUrl
     };
   }
 
@@ -410,22 +412,12 @@ function navigateFromMenu(event, href) {
                 Dashboard
               </a>
 
-              <a
-                v-for="item in extraNavItems"
-                :key="item.href"
-                :href="item.href"
-                class="rounded-md px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
-                :class="item.active ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
-                @click="navigate($event, item.href)"
-              >
-                {{ item.label }}
-              </a>
-
               <BillingAppNav
                 :auth-token="authToken"
                 :core-base-url="coreBaseUrl"
                 :document-slug="documentSlug"
                 :event-slug="eventSlug"
+                :extra-nav-items="extraNavItems"
                 :module="module"
                 :app-base-url="appBaseUrl"
                 :billing-context-cache-scope="billingContextCacheScope"

@@ -32,10 +32,15 @@ const props = defineProps({
   billingContextCacheScope: {
     type: String,
     default: 'default'
+  },
+  extraNavItems: {
+    type: Array,
+    default: () => []
   }
 });
 const emit = defineEmits(['navigate']);
 
+const operationalMenuOpen = ref(false);
 const billingMenuOpen = ref(false);
 const eventMenuOpen = ref(false);
 const responsesMenuOpen = ref(false);
@@ -74,6 +79,7 @@ const responseOptions = [
 
 const baseUrl = computed(() => props.appBaseUrl.replace(/\/$/, ''));
 const responsesMenuActive = computed(() => ['mh-responses', 'mh-event-responses'].includes(props.module));
+const operationalMenuActive = computed(() => props.extraNavItems.some((item) => item.active));
 const hrefFor = (path) => `${baseUrl.value}${path}`;
 const billingOptions = computed(() => {
   const source = documentTypes.value.length ? documentTypes.value : fallbackBillingTypes;
@@ -137,9 +143,18 @@ function applyBillingContext(context) {
     }));
 }
 
+function toggleOperationalMenu() {
+  const next = !operationalMenuOpen.value;
+  operationalMenuOpen.value = next;
+  billingMenuOpen.value = false;
+  eventMenuOpen.value = false;
+  responsesMenuOpen.value = false;
+}
+
 function toggleBillingMenu() {
   const next = !billingMenuOpen.value;
   billingMenuOpen.value = next;
+  operationalMenuOpen.value = false;
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
 }
@@ -147,6 +162,7 @@ function toggleBillingMenu() {
 function toggleEventMenu() {
   const next = !eventMenuOpen.value;
   eventMenuOpen.value = next;
+  operationalMenuOpen.value = false;
   billingMenuOpen.value = false;
   responsesMenuOpen.value = false;
 }
@@ -154,18 +170,20 @@ function toggleEventMenu() {
 function toggleResponsesMenu() {
   const next = !responsesMenuOpen.value;
   responsesMenuOpen.value = next;
+  operationalMenuOpen.value = false;
   billingMenuOpen.value = false;
   eventMenuOpen.value = false;
 }
 
 function closeMenus() {
+  operationalMenuOpen.value = false;
   billingMenuOpen.value = false;
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
 }
 
 function closeMenusOnOutsidePointerDown(event) {
-  if (!billingMenuOpen.value && !eventMenuOpen.value && !responsesMenuOpen.value) return;
+  if (!operationalMenuOpen.value && !billingMenuOpen.value && !eventMenuOpen.value && !responsesMenuOpen.value) return;
   if (navRef.value?.contains(event.target)) return;
 
   closeMenus();
@@ -185,6 +203,38 @@ function navigate(event, href) {
 
 <template>
   <div ref="navRef" class="hidden items-center gap-1 md:flex">
+    <div v-if="extraNavItems.length" class="relative">
+      <button
+        class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
+        :class="operationalMenuActive ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
+        type="button"
+        @click="toggleOperationalMenu"
+      >
+        Taller
+        <span
+          class="h-1.5 w-1.5 rotate-45 border-b-2 border-r-2 border-current text-slate-400 transition"
+          :class="operationalMenuOpen ? 'rotate-[225deg]' : ''"
+          aria-hidden="true"
+        />
+      </button>
+
+      <div
+        v-if="operationalMenuOpen"
+        class="sf-app-menu absolute left-0 z-30 mt-2 w-52 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+      >
+        <a
+          v-for="item in extraNavItems"
+          :key="item.href"
+          :href="item.href"
+          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
+          :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': item.active }"
+          @click="navigate($event, item.href)"
+        >
+          {{ item.label }}
+        </a>
+      </div>
+    </div>
+
     <div class="relative">
       <button
         class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
