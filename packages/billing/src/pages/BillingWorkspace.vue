@@ -2586,7 +2586,7 @@ function updatePaymentCondition(value: string): void {
             </div>
 
             <div class="mt-4 grid gap-3 text-sm">
-              <div class="rounded-md border border-slate-200 bg-slate-50/80 p-3 dark:border-line dark:bg-surface-muted">
+              <div class="rounded-md border border-slate-200 bg-white p-3 dark:border-line dark:bg-surface">
                 <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Condicion</p>
                 <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ paymentConditionLabel }}</p>
                 <p class="mt-1 truncate text-xs text-slate-500 dark:text-muted">{{ paymentSummaryLabel }}</p>
