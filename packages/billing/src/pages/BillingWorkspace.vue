@@ -2591,9 +2591,7 @@ function updatePaymentCondition(value: string): void {
                 <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ paymentConditionLabel }}</p>
                 <p class="mt-1 truncate text-xs text-slate-500 dark:text-muted">{{ paymentSummaryLabel }}</p>
                 <div class="mt-3 grid grid-cols-2 gap-2">
-                  <button class="rounded-md border border-blue-100 bg-blue-50/60 px-3 py-2 text-sm font-semibold text-slate-900 transition hover:bg-blue-100/70 dark:border-line dark:bg-surface-raised dark:text-text dark:hover:bg-surface-strong" type="button" @click="setCashPayment">
-                    Contado
-                  </button>
+                  <UiButton variant="secondary" type="button" @click="setCashPayment">Contado</UiButton>
                   <UiButton variant="secondary" type="button" @click="openPaymentModal">Editar pago</UiButton>
                 </div>
               </div>
