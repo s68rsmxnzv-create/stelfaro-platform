@@ -1143,14 +1143,22 @@ function issueIdempotencyKey(): string {
 
 async function reserveInventoryForIssue(idempotencyKey: string): Promise<PlatformInventoryReservation | null> {
   if (!platformTenantId.value || inventoryIssueLines.value.length === 0) return null;
+  if (!selectedSucursal.value) {
+    throw new Error('Selecciona una sucursal para reservar inventario.');
+  }
 
   pushIssueLog('Reservando inventario FIFO...');
   const response = await platformClient.value.createInventoryReservation(platformTenantId.value, {
     idempotency_key: `dte-${idempotencyKey}`,
+    core_sucursal_id: selectedSucursal.value.id,
+    core_sucursal_code: selectedSucursal.value.codigo || null,
+    core_sucursal_name: selectedSucursal.value.nombre || null,
     source_type: 'dte',
     metadata: {
       document_type: form.documentType,
       total: totalLabel.value,
+      punto_venta_id: selectedPuntoVenta.value?.id ?? null,
+      punto_venta_codigo: selectedPuntoVenta.value?.codigo ?? null,
     },
     lines: inventoryIssueLines.value
   });
@@ -1193,6 +1201,7 @@ function broadcastInventoryChange(action: 'reserved' | 'confirmed' | 'released',
   const detail = {
     action,
     tenant_id: platformTenantId.value,
+    core_sucursal_id: reservation.core_sucursal_id ?? selectedSucursal.value?.id ?? null,
     reservation_id: reservation.id,
     at: Date.now()
   };

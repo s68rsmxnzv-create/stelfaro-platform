@@ -295,6 +295,9 @@ export type PlatformInventorySupplier = {
 export type PlatformInventoryLot = {
   id: number;
   tenant_id: number;
+  core_sucursal_id: number | null;
+  core_sucursal_code: string | null;
+  core_sucursal_name: string | null;
   catalog_item_id: number;
   inventory_supplier_id: number | null;
   inventory_purchase_id: number | null;
@@ -313,6 +316,9 @@ export type PlatformInventoryLot = {
 export type PlatformInventoryMovement = {
   id: number;
   tenant_id: number;
+  core_sucursal_id: number | null;
+  core_sucursal_code: string | null;
+  core_sucursal_name: string | null;
   catalog_item_id: number;
   inventory_lot_id: number | null;
   movement_type: 'entry' | 'exit' | string;
@@ -332,6 +338,9 @@ export type PlatformInventoryMovement = {
 
 export type PlatformInventoryPurchasePayload = {
   inventory_supplier_id?: number | null;
+  core_sucursal_id?: number | null;
+  core_sucursal_code?: string | null;
+  core_sucursal_name?: string | null;
   document_type?: string | null;
   document_mode?: 'manual' | 'dte' | 'physical' | string | null;
   document_number?: string | null;
@@ -409,6 +418,9 @@ export type PlatformInventoryPurchaseImportPreview = {
 export type PlatformInventoryReservation = {
   id: number;
   tenant_id: number;
+  core_sucursal_id: number | null;
+  core_sucursal_code: string | null;
+  core_sucursal_name: string | null;
   idempotency_key: string;
   status: 'reserved' | 'confirmed' | 'released' | 'reversed' | string;
   source_type: string | null;
@@ -437,6 +449,9 @@ export type PlatformInventoryReservation = {
 
 export type PlatformInventoryReservationPayload = {
   idempotency_key: string;
+  core_sucursal_id?: number | null;
+  core_sucursal_code?: string | null;
+  core_sucursal_name?: string | null;
   source_type?: string | null;
   source_id?: string | null;
   source_number?: string | null;
@@ -1501,15 +1516,15 @@ export class PlatformClient {
     return this.http.post(`platform/tenants/${tenantId}/inventory/purchases/import-dte-json`, { json: { payload } }).json();
   }
 
-  inventoryLots(tenantId: number, params: { catalog_item_id?: number; available_only?: boolean; page?: number; per_page?: number } = {}): Promise<PlatformPaginatedResponse<PlatformInventoryLot>> {
+  inventoryLots(tenantId: number, params: { catalog_item_id?: number; core_sucursal_id?: number; available_only?: boolean; page?: number; per_page?: number } = {}): Promise<PlatformPaginatedResponse<PlatformInventoryLot>> {
     return this.http.get(`platform/tenants/${tenantId}/inventory/lots`, { searchParams: compactParams(params) }).json();
   }
 
-  inventoryMovements(tenantId: number, params: { catalog_item_id?: number; movement_type?: string; reason?: string; page?: number; per_page?: number } = {}): Promise<PlatformPaginatedResponse<PlatformInventoryMovement>> {
+  inventoryMovements(tenantId: number, params: { catalog_item_id?: number; core_sucursal_id?: number; movement_type?: string; reason?: string; page?: number; per_page?: number } = {}): Promise<PlatformPaginatedResponse<PlatformInventoryMovement>> {
     return this.http.get(`platform/tenants/${tenantId}/inventory/movements`, { searchParams: compactParams(params) }).json();
   }
 
-  createInventoryAdjustment(tenantId: number, payload: { catalog_item_id: number; direction: 'entry' | 'exit'; quantity: number; unit_cost?: number | null; notes?: string | null }): Promise<{ data: PlatformInventoryMovement }> {
+  createInventoryAdjustment(tenantId: number, payload: { catalog_item_id: number; core_sucursal_id?: number | null; core_sucursal_code?: string | null; core_sucursal_name?: string | null; direction: 'entry' | 'exit'; quantity: number; unit_cost?: number | null; notes?: string | null }): Promise<{ data: PlatformInventoryMovement }> {
     return this.http.post(`platform/tenants/${tenantId}/inventory/adjustments`, { json: payload }).json();
   }
 

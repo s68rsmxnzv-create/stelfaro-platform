@@ -34,6 +34,8 @@ const categories = ref([]);
 const lots = ref([]);
 const movements = ref([]);
 const suppliers = ref([]);
+const fiscalScope = ref(null);
+const selectedBranchId = ref('');
 const toasts = ref([]);
 const stockEntryOpen = ref(false);
 const supplierOpen = ref(false);
@@ -118,20 +120,50 @@ const categoryOptions = computed(() => categories.value.map((category) => ({
   label: category.name,
   hint: category.kind || 'mixta'
 })));
+const branchOptions = computed(() => (fiscalScope.value?.sucursales ?? []).map((branch) => ({
+  value: String(branch.id),
+  label: `${branch.codigo || 'Sucursal'} · ${branch.nombre}`,
+  hint: branch.puntos_venta?.length ? `${branch.puntos_venta.length} puntos de venta` : 'Sucursal fiscal'
+})));
+const selectedBranch = computed(() => (fiscalScope.value?.sucursales ?? []).find((branch) => String(branch.id) === String(selectedBranchId.value)) ?? null);
+const branchPayload = computed(() => selectedBranch.value ? {
+  core_sucursal_id: Number(selectedBranch.value.id),
+  core_sucursal_code: selectedBranch.value.codigo || null,
+  core_sucursal_name: selectedBranch.value.nombre || null
+} : {
+  core_sucursal_id: null,
+  core_sucursal_code: null,
+  core_sucursal_name: null
+});
+const visibleLots = computed(() => selectedBranch.value
+  ? lots.value.filter((lot) => Number(lot.core_sucursal_id || 0) === Number(selectedBranch.value.id))
+  : lots.value);
+const visibleMovements = computed(() => selectedBranch.value
+  ? movements.value.filter((movement) => Number(movement.core_sucursal_id || 0) === Number(selectedBranch.value.id))
+  : movements.value);
+const branchStockByItem = computed(() => visibleLots.value.reduce((map, lot) => {
+  const itemId = Number(lot.catalog_item_id || 0);
+  map[itemId] = Number(map[itemId] || 0) + Number(lot.available_quantity || 0);
+  return map;
+}, {}));
 const visibleItems = computed(() => {
   const term = filters.value.q.trim().toLowerCase();
-  if (!term) return items.value;
+  const list = items.value.map((item) => ({
+    ...item,
+    branch_stock_quantity: Number(branchStockByItem.value[Number(item.id)] || 0)
+  }));
+  if (!term) return list;
 
-  return items.value.filter((item) => `${item.name} ${item.sku || ''}`.toLowerCase().includes(term));
+  return list.filter((item) => `${item.name} ${item.sku || ''}`.toLowerCase().includes(term));
 });
-const lowStockItems = computed(() => items.value.filter((item) => Number(item.stock_quantity || 0) <= 0));
+const lowStockItems = computed(() => visibleItems.value.filter((item) => Number(item.branch_stock_quantity || 0) <= 0));
 const stats = computed(() => ({
   products: items.value.length,
-  units: items.value.reduce((sum, item) => sum + Number(item.stock_quantity || 0), 0),
-  value: items.value.reduce((sum, item) => sum + (Number(item.stock_quantity || 0) * Number(item.reference_cost || 0)), 0),
+  units: visibleItems.value.reduce((sum, item) => sum + Number(item.branch_stock_quantity || 0), 0),
+  value: visibleItems.value.reduce((sum, item) => sum + (Number(item.branch_stock_quantity || 0) * Number(item.reference_cost || 0)), 0),
   lowStock: lowStockItems.value.length,
-  lots: lots.value.length,
-  movements: movements.value.length
+  lots: visibleLots.value.length,
+  movements: visibleMovements.value.length
 }));
 const activeResolveLine = computed(() => {
   if (resolveLineIndex.value === null) return null;
@@ -216,13 +248,14 @@ async function loadInventory(options = { silent: false }): Promise<void> {
 
   if (!options.silent) loading.value = true;
   try {
-    const [inventoryItemResponse, catalogItemResponse, lotResponse, movementResponse, supplierResponse, categoryResponse] = await Promise.all([
+    const [inventoryItemResponse, catalogItemResponse, lotResponse, movementResponse, supplierResponse, categoryResponse, fiscalScopeResponse] = await Promise.all([
       client.value.catalogItems(tenantId.value, { status: 'active', controls_inventory: true, per_page: 100 }),
       client.value.catalogItems(tenantId.value, { status: 'active', per_page: 100 }),
       client.value.inventoryLots(tenantId.value, { available_only: false, per_page: 100 }),
       client.value.inventoryMovements(tenantId.value, { per_page: 100 }),
       client.value.inventorySuppliers(tenantId.value, { status: 'active', per_page: 100 }),
-      client.value.catalogCategories(tenantId.value, { status: 'active' })
+      client.value.catalogCategories(tenantId.value, { status: 'active' }),
+      client.value.tenantFiscalScope(tenantId.value).catch(() => null)
     ]);
     items.value = inventoryItemResponse.data ?? [];
     catalogItems.value = catalogItemResponse.data ?? [];
@@ -230,6 +263,10 @@ async function loadInventory(options = { silent: false }): Promise<void> {
     movements.value = movementResponse.data ?? [];
     suppliers.value = supplierResponse.data ?? [];
     categories.value = categoryResponse.data ?? [];
+    fiscalScope.value = fiscalScopeResponse;
+    if (!selectedBranchId.value && branchOptions.value.length > 0) {
+      selectedBranchId.value = branchOptions.value[0].value;
+    }
   } catch (error) {
     notify('No se pudo cargar inventario', messageFromError(error), 'error');
   } finally {
@@ -279,6 +316,10 @@ function openEntry(item = null): void {
 
 async function saveEntry(): Promise<void> {
   if (!tenantId.value) return;
+  if (branchOptions.value.length > 0 && !selectedBranch.value) {
+    notify('Selecciona sucursal', 'La entrada debe asignarse a una sucursal.', 'error');
+    return;
+  }
 
   const catalogItemId = selectedItem.value?.id ?? Number(entryForm.value.catalog_item_id || 0);
   if (!catalogItemId) return;
@@ -286,6 +327,7 @@ async function saveEntry(): Promise<void> {
   saving.value = true;
   try {
     await client.value.createInventoryPurchase(tenantId.value, {
+      ...branchPayload.value,
       document_type: entryForm.value.document_type || null,
       document_number: entryForm.value.document_number || null,
       purchase_date: entryForm.value.purchase_date,
@@ -307,11 +349,16 @@ async function saveEntry(): Promise<void> {
 
 async function saveAdjustment(): Promise<void> {
   if (!tenantId.value || !adjustmentForm.value.catalog_item_id) return;
+  if (branchOptions.value.length > 0 && !selectedBranch.value) {
+    notify('Selecciona sucursal', 'El ajuste debe aplicarse a una sucursal.', 'error');
+    return;
+  }
 
   saving.value = true;
   try {
     await client.value.createInventoryAdjustment(tenantId.value, {
       catalog_item_id: Number(adjustmentForm.value.catalog_item_id),
+      ...branchPayload.value,
       direction: adjustmentForm.value.direction,
       quantity: Number(adjustmentForm.value.quantity || 0),
       unit_cost: Number(adjustmentForm.value.unit_cost || 0),
@@ -412,6 +459,10 @@ async function importPurchaseJson(event): Promise<void> {
 
 async function registerImportedPurchase(): Promise<void> {
   if (!tenantId.value || !purchaseImport.value.preview) return;
+  if (branchOptions.value.length > 0 && !selectedBranch.value) {
+    notify('Selecciona sucursal', 'La compra debe ingresar a una sucursal.', 'error');
+    return;
+  }
 
   saving.value = true;
   savingAction.value = 'purchase';
@@ -434,6 +485,7 @@ async function registerImportedPurchase(): Promise<void> {
 
     await client.value.createInventoryPurchase(tenantId.value, {
       inventory_supplier_id: supplierId,
+      ...branchPayload.value,
       document_type: purchaseImport.value.document.document_type || null,
       document_mode: purchaseImport.value.document.document_mode || 'dte',
       document_number: purchaseImport.value.document.document_number || null,
@@ -660,9 +712,19 @@ function messageFromError(error): string {
     />
 
     <div class="space-y-5">
-      <div class="flex flex-wrap justify-end gap-2">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div class="min-w-[240px] max-w-sm flex-1">
+          <UiSelect
+            v-if="branchOptions.length > 0"
+            v-model="selectedBranchId"
+            label="Sucursal"
+            :options="branchOptions"
+          />
+        </div>
+        <div class="flex flex-wrap justify-end gap-2">
         <UiButton variant="secondary" :disabled="loading" @click="loadInventory">Actualizar</UiButton>
         <UiButton :disabled="items.length === 0" @click="openEntry(null)">Entrada</UiButton>
+        </div>
       </div>
 
         <div v-if="loading" class="rounded-md border border-slate-200 bg-white p-10 dark:border-line dark:bg-surface">
@@ -701,17 +763,17 @@ function messageFromError(error): string {
             <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
               <h3 class="text-base font-bold text-slate-950 dark:text-text">Movimientos recientes</h3>
               <div class="mt-4 divide-y divide-slate-100 dark:divide-line">
-                <div v-for="movement in movements.slice(0, 8)" :key="movement.id" class="flex items-center justify-between gap-4 py-3 text-sm">
+                <div v-for="movement in visibleMovements.slice(0, 8)" :key="movement.id" class="flex items-center justify-between gap-4 py-3 text-sm">
                   <div>
                     <p class="font-semibold text-slate-950 dark:text-text">{{ movement.catalog_item?.name ?? 'Producto' }}</p>
-                    <p class="text-xs text-slate-500 dark:text-soft">{{ movement.reason }} · {{ movement.reference_number || movement.created_at }}</p>
+                    <p class="text-xs text-slate-500 dark:text-soft">{{ movement.core_sucursal_code || movement.core_sucursal_name || 'Sin sucursal' }} · {{ movement.reason }} · {{ movement.reference_number || movement.created_at }}</p>
                   </div>
                   <div class="text-right">
                     <UiStatusBadge :tone="movementTone(movement.movement_type)">{{ movement.movement_type === 'entry' ? 'Entrada' : 'Salida' }}</UiStatusBadge>
                     <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ formatQuantity(movement.quantity) }}</p>
                   </div>
                 </div>
-                <p v-if="movements.length === 0" class="py-8 text-center text-sm text-slate-500 dark:text-muted">Sin movimientos todavía.</p>
+                <p v-if="visibleMovements.length === 0" class="py-8 text-center text-sm text-slate-500 dark:text-muted">Sin movimientos todavía.</p>
               </div>
             </div>
           </div>
@@ -725,7 +787,8 @@ function messageFromError(error): string {
                 <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
                   <tr>
                     <th class="px-4 py-3">Producto</th>
-                    <th class="px-4 py-3">Stock</th>
+                    <th class="px-4 py-3">Stock sucursal</th>
+                    <th class="px-4 py-3">Stock total</th>
                     <th class="px-4 py-3">Costo prom.</th>
                     <th class="px-4 py-3">Valor</th>
                     <th class="px-4 py-3 text-right">Acciones</th>
@@ -737,9 +800,10 @@ function messageFromError(error): string {
                       <p class="font-semibold text-slate-950 dark:text-text">{{ item.name }}</p>
                       <p class="text-xs text-slate-500 dark:text-soft">{{ item.sku || 'Sin código' }}</p>
                     </td>
-                    <td class="px-4 py-3 font-semibold text-slate-950 dark:text-text">{{ formatQuantity(item.stock_quantity) }}</td>
+                    <td class="px-4 py-3 font-semibold text-slate-950 dark:text-text">{{ formatQuantity(item.branch_stock_quantity) }}</td>
+                    <td class="px-4 py-3">{{ formatQuantity(item.stock_quantity) }}</td>
                     <td class="px-4 py-3">{{ formatMoney(item.reference_cost) }}</td>
-                    <td class="px-4 py-3">{{ formatMoney(Number(item.stock_quantity || 0) * Number(item.reference_cost || 0)) }}</td>
+                    <td class="px-4 py-3">{{ formatMoney(Number(item.branch_stock_quantity || 0) * Number(item.reference_cost || 0)) }}</td>
                     <td class="px-4 py-3">
                       <div class="flex justify-end gap-2">
                         <UiButton size="sm" variant="secondary" @click="openEntry(item)">Entrada</UiButton>
@@ -748,7 +812,7 @@ function messageFromError(error): string {
                     </td>
                   </tr>
                   <tr v-if="visibleItems.length === 0">
-                    <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="5">Sin productos inventariables.</td>
+                    <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="6">Sin productos inventariables.</td>
                   </tr>
                 </tbody>
               </UiDataTable>
@@ -990,20 +1054,22 @@ function messageFromError(error): string {
                   <th class="px-4 py-3">Lote</th>
                   <th class="px-4 py-3">Producto</th>
                   <th class="px-4 py-3">Fecha</th>
+                  <th class="px-4 py-3">Sucursal</th>
                   <th class="px-4 py-3">Disponible</th>
                   <th class="px-4 py-3">Costo</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100 dark:divide-line">
-                <tr v-for="lot in lots" :key="lot.id" class="text-sm">
+                <tr v-for="lot in visibleLots" :key="lot.id" class="text-sm">
                   <td class="px-4 py-3 font-semibold text-slate-950 dark:text-text">{{ lot.lot_code }}</td>
                   <td class="px-4 py-3">{{ lot.catalog_item?.name ?? 'Producto' }}</td>
                   <td class="px-4 py-3">{{ lot.received_date || 'Sin fecha' }}</td>
+                  <td class="px-4 py-3">{{ lot.core_sucursal_code || lot.core_sucursal_name || 'Sin asignar' }}</td>
                   <td class="px-4 py-3">{{ formatQuantity(lot.available_quantity) }}</td>
                   <td class="px-4 py-3">{{ formatMoney(lot.unit_cost) }}</td>
                 </tr>
-                <tr v-if="lots.length === 0">
-                  <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="5">Sin lotes registrados.</td>
+                <tr v-if="visibleLots.length === 0">
+                  <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="6">Sin lotes registrados.</td>
                 </tr>
               </tbody>
             </UiDataTable>
@@ -1016,22 +1082,24 @@ function messageFromError(error): string {
                   <th class="px-4 py-3">Producto</th>
                   <th class="px-4 py-3">Tipo</th>
                   <th class="px-4 py-3">Motivo</th>
+                  <th class="px-4 py-3">Sucursal</th>
                   <th class="px-4 py-3">Cantidad</th>
                   <th class="px-4 py-3">Costo</th>
                   <th class="px-4 py-3">Referencia</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100 dark:divide-line">
-                <tr v-for="movement in movements" :key="movement.id" class="text-sm">
+                <tr v-for="movement in visibleMovements" :key="movement.id" class="text-sm">
                   <td class="px-4 py-3 font-semibold text-slate-950 dark:text-text">{{ movement.catalog_item?.name ?? 'Producto' }}</td>
                   <td class="px-4 py-3"><UiStatusBadge :tone="movementTone(movement.movement_type)">{{ movement.movement_type === 'entry' ? 'Entrada' : 'Salida' }}</UiStatusBadge></td>
                   <td class="px-4 py-3">{{ movement.reason }}</td>
+                  <td class="px-4 py-3">{{ movement.core_sucursal_code || movement.core_sucursal_name || 'Sin asignar' }}</td>
                   <td class="px-4 py-3">{{ formatQuantity(movement.quantity) }}</td>
                   <td class="px-4 py-3">{{ movement.unit_cost === null ? 'N/D' : formatMoney(movement.unit_cost) }}</td>
                   <td class="px-4 py-3">{{ movement.reference_number || movement.reference_id || movement.created_at }}</td>
                 </tr>
-                <tr v-if="movements.length === 0">
-                  <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="6">Sin movimientos registrados.</td>
+                <tr v-if="visibleMovements.length === 0">
+                  <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="7">Sin movimientos registrados.</td>
                 </tr>
               </tbody>
             </UiDataTable>
