@@ -87,6 +87,7 @@ type IssueLogEntry = {
   message: string;
   status: 'ok' | 'error';
 };
+const INVENTORY_CHANGED_EVENT = 'stelfaro:inventory-changed';
 const issueLog = ref<IssueLogEntry[]>([]);
 const customers = ref<BillingCustomer[]>([]);
 const customerSearch = ref('');
@@ -1154,6 +1155,7 @@ async function reserveInventoryForIssue(idempotencyKey: string): Promise<Platfor
     lines: inventoryIssueLines.value
   });
   pushIssueLog('Inventario reservado.', 'ok');
+  broadcastInventoryChange('reserved', response.data);
 
   return response.data;
 }
@@ -1168,6 +1170,7 @@ async function confirmInventoryReservation(reservation: PlatformInventoryReserva
     source_number: result.document.numeroControl || result.document.codigoGeneracion || null,
   });
   pushIssueLog('Salida de inventario registrada.', 'ok');
+  broadcastInventoryChange('confirmed', response.data);
 
   return response.data;
 }
@@ -1176,10 +1179,29 @@ async function releaseInventoryReservation(reservation: PlatformInventoryReserva
   if (!platformTenantId.value || reservation.status !== 'reserved') return;
 
   try {
-    await platformClient.value.releaseInventoryReservation(platformTenantId.value, reservation.id);
+    const response = await platformClient.value.releaseInventoryReservation(platformTenantId.value, reservation.id);
     pushIssueLog('Inventario liberado.', 'ok');
+    broadcastInventoryChange('released', response.data);
   } catch {
     pushIssueLog('No se pudo liberar la reserva de inventario automaticamente.', 'error');
+  }
+}
+
+function broadcastInventoryChange(action: 'reserved' | 'confirmed' | 'released', reservation: PlatformInventoryReservation): void {
+  if (typeof window === 'undefined' || !platformTenantId.value) return;
+
+  const detail = {
+    action,
+    tenant_id: platformTenantId.value,
+    reservation_id: reservation.id,
+    at: Date.now()
+  };
+  window.dispatchEvent(new CustomEvent(INVENTORY_CHANGED_EVENT, { detail }));
+
+  try {
+    window.localStorage.setItem(INVENTORY_CHANGED_EVENT, JSON.stringify(detail));
+  } catch {
+    // localStorage solo sincroniza otras pestañas; el evento local ya fue emitido.
   }
 }
 

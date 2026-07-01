@@ -2,7 +2,7 @@
 // @ts-nocheck
 import { PlatformClient } from '@stelfaro/api-client';
 import { UiButton, UiDataTable, UiInput, UiLoadingMark, UiModalShell, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 import BillingSectionLayout from '../components/BillingSectionLayout.vue';
@@ -19,6 +19,7 @@ const props = withDefaults(defineProps<{
   dashboardUrl: ''
 });
 
+const INVENTORY_CHANGED_EVENT = 'stelfaro:inventory-changed';
 const client = computed(() => new PlatformClient(props.platformBaseUrl, { credentials: 'same-origin' }));
 const tenantId = computed(() => Number(props.platformSession?.tenant?.id || 0));
 const tenantName = computed(() => props.platformSession?.tenant?.name ?? 'Empresa');
@@ -194,14 +195,26 @@ const purchaseImportCanRegister = computed(() => {
     && purchaseImportTotalsOk.value;
 });
 const processOverlayOpen = computed(() => saving.value && savingAction.value === 'purchase');
+let inventoryRefreshTimer = null;
 
-watch(tenantId, loadInventory);
-onMounted(loadInventory);
+watch(tenantId, () => {
+  void loadInventory();
+});
+onMounted(() => {
+  window.addEventListener(INVENTORY_CHANGED_EVENT, handleInventoryChanged);
+  window.addEventListener('storage', handleInventoryStorageChanged);
+  void loadInventory();
+});
+onBeforeUnmount(() => {
+  window.removeEventListener(INVENTORY_CHANGED_EVENT, handleInventoryChanged);
+  window.removeEventListener('storage', handleInventoryStorageChanged);
+  if (inventoryRefreshTimer) window.clearTimeout(inventoryRefreshTimer);
+});
 
-async function loadInventory(): Promise<void> {
+async function loadInventory(options = { silent: false }): Promise<void> {
   if (!tenantId.value) return;
 
-  loading.value = true;
+  if (!options.silent) loading.value = true;
   try {
     const [inventoryItemResponse, catalogItemResponse, lotResponse, movementResponse, supplierResponse, categoryResponse] = await Promise.all([
       client.value.catalogItems(tenantId.value, { status: 'active', controls_inventory: true, per_page: 100 }),
@@ -220,8 +233,35 @@ async function loadInventory(): Promise<void> {
   } catch (error) {
     notify('No se pudo cargar inventario', messageFromError(error), 'error');
   } finally {
-    loading.value = false;
+    if (!options.silent) loading.value = false;
   }
+}
+
+function handleInventoryChanged(event): void {
+  const detail = event?.detail ?? null;
+  if (detail?.tenant_id && Number(detail.tenant_id) !== tenantId.value) return;
+
+  scheduleInventoryRefresh();
+}
+
+function handleInventoryStorageChanged(event): void {
+  if (event.key !== INVENTORY_CHANGED_EVENT || !event.newValue) return;
+
+  try {
+    const detail = JSON.parse(event.newValue);
+    if (detail?.tenant_id && Number(detail.tenant_id) !== tenantId.value) return;
+  } catch {
+    return;
+  }
+
+  scheduleInventoryRefresh();
+}
+
+function scheduleInventoryRefresh(): void {
+  if (inventoryRefreshTimer) window.clearTimeout(inventoryRefreshTimer);
+  inventoryRefreshTimer = window.setTimeout(() => {
+    void loadInventory({ silent: true });
+  }, 120);
 }
 
 function openEntry(item = null): void {
