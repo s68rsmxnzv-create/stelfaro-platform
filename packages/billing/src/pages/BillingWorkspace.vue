@@ -2590,9 +2590,15 @@ function updatePaymentCondition(value: string): void {
                 <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Condicion</p>
                 <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ paymentConditionLabel }}</p>
                 <p class="mt-1 truncate text-xs text-slate-500 dark:text-muted">{{ paymentSummaryLabel }}</p>
+                <div class="mt-3 grid grid-cols-2 gap-2">
+                  <button class="rounded-md border border-blue-100 bg-blue-50/60 px-3 py-2 text-sm font-semibold text-slate-900 transition hover:bg-blue-100/70 dark:border-line dark:bg-surface-raised dark:text-text dark:hover:bg-surface-strong" type="button" @click="setCashPayment">
+                    Contado
+                  </button>
+                  <UiButton variant="secondary" type="button" @click="openPaymentModal">Editar pago</UiButton>
+                </div>
               </div>
 
-              <div class="w-full min-w-0 overflow-hidden rounded-md border border-slate-200 bg-slate-50/80 p-3 dark:border-line dark:bg-surface-muted">
+              <div class="w-full min-w-0 overflow-hidden rounded-md border border-slate-200 bg-white p-3 dark:border-line dark:bg-surface">
                 <div class="flex min-w-0 items-center justify-between gap-3">
                   <div class="min-w-0 flex-1 overflow-hidden">
                     <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Observaciones</p>
@@ -2606,12 +2612,6 @@ function updatePaymentCondition(value: string): void {
                 </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-2">
-                <button class="rounded-md border border-blue-100 bg-blue-50/60 px-3 py-2 text-sm font-semibold text-slate-900 transition hover:bg-blue-100/70 dark:border-line dark:bg-surface-raised dark:text-text dark:hover:bg-surface-strong" type="button" @click="setCashPayment">
-                  Contado
-                </button>
-                <UiButton variant="secondary" type="button" @click="openPaymentModal">Editar pago</UiButton>
-              </div>
               <p v-if="!hasValidAdvancedPayments" class="text-xs font-medium text-red-700">
                 Las formas de pago deben sumar {{ currency(totalLabel) }}.
               </p>
