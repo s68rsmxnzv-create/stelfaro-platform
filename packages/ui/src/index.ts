@@ -17,6 +17,7 @@ export { default as UiEmailInput } from './components/UiEmailInput.vue';
 export { default as UiPhoneInput } from './components/UiPhoneInput.vue';
 export { default as UiPasswordInput } from './components/UiPasswordInput.vue';
 export { default as UiTextarea } from './components/UiTextarea.vue';
+export { default as UiCheckbox } from './components/UiCheckbox.vue';
 export { default as UiToggle } from './components/UiToggle.vue';
 export { default as UiFileUpload } from './components/UiFileUpload.vue';
 export { default as UiLogoUpload } from './components/UiLogoUpload.vue';

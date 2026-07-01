@@ -22,14 +22,14 @@ const inputType = computed(() => visible.value ? 'text' : 'password');
 <template>
   <label class="block">
     <span class="flex items-center justify-between gap-3">
-      <span class="text-sm font-medium text-slate-700">{{ label }}</span>
+      <span class="text-sm font-medium text-slate-700 dark:text-muted">{{ label }}</span>
       <slot name="action" />
     </span>
 
     <span class="relative mt-1 flex items-center">
       <button
         type="button"
-        class="absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-400 transition hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-sky-100"
+        class="absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-400 transition hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-sky-100 dark:text-soft dark:hover:text-text dark:focus:ring-primary-soft"
         :aria-label="visible ? 'Ocultar password' : 'Mostrar password'"
         @click="visible = !visible"
       >
@@ -49,7 +49,7 @@ const inputType = computed(() => visible.value ? 'text' : 'password');
         :type="inputType"
         :value="modelValue ?? ''"
         :placeholder="placeholder"
-        class="w-full rounded-md border border-blue-100 bg-white/90 py-2 pl-3 pr-11 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50 disabled:text-slate-500"
+        class="w-full rounded-md border border-blue-100 bg-white/90 py-2 pl-3 pr-11 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50 disabled:text-slate-500 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised dark:disabled:bg-surface-muted"
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
       >
     </span>

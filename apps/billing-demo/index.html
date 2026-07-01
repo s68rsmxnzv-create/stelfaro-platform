@@ -4,6 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stelfaro Billing</title>
+    <script>
+      (() => {
+        try {
+          const storedTheme = window.localStorage.getItem('stelfaro:theme');
+          const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+          const darkMode = storedTheme ? storedTheme === 'dark' : prefersDark;
+
+          document.documentElement.classList.toggle('dark', darkMode);
+          document.documentElement.dataset.theme = darkMode ? 'dark' : 'light';
+          document.documentElement.style.colorScheme = darkMode ? 'dark' : 'light';
+        } catch {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>
