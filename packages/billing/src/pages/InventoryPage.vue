@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { PlatformClient } from '@stelfaro/api-client';
-import { UiButton, UiDataTable, UiInput, UiLoadingMark, UiModalShell, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
+import { UiButton, UiCheckbox, UiDataTable, UiFileUpload, UiInput, UiLoadingMark, UiModalShell, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
@@ -35,6 +35,9 @@ const lots = ref([]);
 const movements = ref([]);
 const suppliers = ref([]);
 const fiscalScope = ref(null);
+const salesReport = ref([]);
+const marginReport = ref([]);
+const stockAlerts = ref([]);
 const selectedBranchId = ref('');
 const toasts = ref([]);
 const stockEntryOpen = ref(false);
@@ -56,6 +59,23 @@ const adjustmentForm = ref({
   quantity: 1,
   unit_cost: 0,
   notes: ''
+});
+const countForm = ref({
+  count_date: new Date().toISOString().slice(0, 10),
+  catalog_item_id: '',
+  counted_quantity: 0,
+  notes: ''
+});
+const transferForm = ref({
+  from_core_sucursal_id: '',
+  to_core_sucursal_id: '',
+  catalog_item_id: '',
+  quantity: 1,
+  notes: ''
+});
+const reportFilters = ref({
+  from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10),
+  to: new Date().toISOString().slice(0, 10)
 });
 const supplierForm = ref({
   name: '',
@@ -102,6 +122,10 @@ const tabs = [
   { key: 'lots', label: 'Lotes', detail: 'Disponibilidad FIFO', icon: 'lots' },
   { key: 'kardex', label: 'Kardex', detail: 'Movimientos', icon: 'kardex' },
   { key: 'adjustments', label: 'Ajustes', detail: 'Correcciones', icon: 'adjustments' },
+  { key: 'counts', label: 'Conteo', detail: 'Inventario físico', icon: 'adjustments' },
+  { key: 'transfers', label: 'Transferencias', detail: 'Entre sucursales', icon: 'entries' },
+  { key: 'reports', label: 'Reportes', detail: 'Ventas y margen', icon: 'summary' },
+  { key: 'alerts', label: 'Alertas', detail: 'Stock mínimo', icon: 'stock' },
   { key: 'suppliers', label: 'Proveedores', detail: 'Compras', icon: 'suppliers' }
 ];
 const sectionNavItems = computed(() => tabs.map((tab) => ({ ...tab, id: tab.key })));
@@ -126,6 +150,8 @@ const branchOptions = computed(() => (fiscalScope.value?.sucursales ?? []).map((
   hint: branch.puntos_venta?.length ? `${branch.puntos_venta.length} puntos de venta` : 'Sucursal fiscal'
 })));
 const selectedBranch = computed(() => (fiscalScope.value?.sucursales ?? []).find((branch) => String(branch.id) === String(selectedBranchId.value)) ?? null);
+const transferFromBranch = computed(() => (fiscalScope.value?.sucursales ?? []).find((branch) => String(branch.id) === String(transferForm.value.from_core_sucursal_id)) ?? null);
+const transferToBranch = computed(() => (fiscalScope.value?.sucursales ?? []).find((branch) => String(branch.id) === String(transferForm.value.to_core_sucursal_id)) ?? null);
 const branchPayload = computed(() => selectedBranch.value ? {
   core_sucursal_id: Number(selectedBranch.value.id),
   core_sucursal_code: selectedBranch.value.codigo || null,
@@ -232,6 +258,9 @@ let inventoryRefreshTimer = null;
 watch(tenantId, () => {
   void loadInventory();
 });
+watch(selectedBranchId, () => {
+  void loadInventory({ silent: true });
+});
 onMounted(() => {
   window.addEventListener(INVENTORY_CHANGED_EVENT, handleInventoryChanged);
   window.addEventListener('storage', handleInventoryStorageChanged);
@@ -248,14 +277,17 @@ async function loadInventory(options = { silent: false }): Promise<void> {
 
   if (!options.silent) loading.value = true;
   try {
-    const [inventoryItemResponse, catalogItemResponse, lotResponse, movementResponse, supplierResponse, categoryResponse, fiscalScopeResponse] = await Promise.all([
+    const [inventoryItemResponse, catalogItemResponse, lotResponse, movementResponse, supplierResponse, categoryResponse, fiscalScopeResponse, salesResponse, marginResponse, alertsResponse] = await Promise.all([
       client.value.catalogItems(tenantId.value, { status: 'active', controls_inventory: true, per_page: 100 }),
       client.value.catalogItems(tenantId.value, { status: 'active', per_page: 100 }),
       client.value.inventoryLots(tenantId.value, { available_only: false, per_page: 100 }),
       client.value.inventoryMovements(tenantId.value, { per_page: 100 }),
       client.value.inventorySuppliers(tenantId.value, { status: 'active', per_page: 100 }),
       client.value.catalogCategories(tenantId.value, { status: 'active' }),
-      client.value.tenantFiscalScope(tenantId.value).catch(() => null)
+      client.value.tenantFiscalScope(tenantId.value).catch(() => null),
+      client.value.inventorySalesReport(tenantId.value, reportParams()).catch(() => ({ data: [] })),
+      client.value.inventoryMarginReport(tenantId.value, reportParams()).catch(() => ({ data: [] })),
+      client.value.inventoryStockAlerts(tenantId.value, branchReportParams()).catch(() => ({ data: [] }))
     ]);
     items.value = inventoryItemResponse.data ?? [];
     catalogItems.value = catalogItemResponse.data ?? [];
@@ -264,6 +296,9 @@ async function loadInventory(options = { silent: false }): Promise<void> {
     suppliers.value = supplierResponse.data ?? [];
     categories.value = categoryResponse.data ?? [];
     fiscalScope.value = fiscalScopeResponse;
+    salesReport.value = salesResponse.data ?? [];
+    marginReport.value = marginResponse.data ?? [];
+    stockAlerts.value = alertsResponse.data ?? [];
     if (!selectedBranchId.value && branchOptions.value.length > 0) {
       selectedBranchId.value = branchOptions.value[0].value;
     }
@@ -272,6 +307,18 @@ async function loadInventory(options = { silent: false }): Promise<void> {
   } finally {
     if (!options.silent) loading.value = false;
   }
+}
+
+function reportParams() {
+  return {
+    from: reportFilters.value.from || undefined,
+    to: reportFilters.value.to || undefined,
+    ...branchReportParams()
+  };
+}
+
+function branchReportParams() {
+  return selectedBranch.value ? { core_sucursal_id: Number(selectedBranch.value.id) } : {};
 }
 
 function handleInventoryChanged(event): void {
@@ -370,6 +417,67 @@ async function saveAdjustment(): Promise<void> {
     await loadInventory();
   } catch (error) {
     notify('No se pudo registrar ajuste', messageFromError(error), 'error');
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function savePhysicalCount(): Promise<void> {
+  if (!tenantId.value || !countForm.value.catalog_item_id) return;
+  if (branchOptions.value.length > 0 && !selectedBranch.value) {
+    notify('Selecciona sucursal', 'El conteo debe aplicarse a una sucursal.', 'error');
+    return;
+  }
+
+  saving.value = true;
+  try {
+    await client.value.createInventoryCount(tenantId.value, {
+      ...branchPayload.value,
+      count_date: countForm.value.count_date,
+      notes: countForm.value.notes || null,
+      lines: [{
+        catalog_item_id: Number(countForm.value.catalog_item_id),
+        counted_quantity: Number(countForm.value.counted_quantity || 0)
+      }]
+    });
+    notify('Conteo aplicado', 'Se ajustó kardex según la diferencia física.', 'success');
+    countForm.value.catalog_item_id = '';
+    countForm.value.counted_quantity = 0;
+    countForm.value.notes = '';
+    await loadInventory();
+  } catch (error) {
+    notify('No se pudo aplicar conteo', messageFromError(error), 'error');
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function saveTransfer(): Promise<void> {
+  if (!tenantId.value || !transferForm.value.catalog_item_id || !transferFromBranch.value || !transferToBranch.value) return;
+
+  saving.value = true;
+  try {
+    await client.value.createInventoryTransfer(tenantId.value, {
+      from_core_sucursal_id: Number(transferFromBranch.value.id),
+      from_core_sucursal_code: transferFromBranch.value.codigo || null,
+      from_core_sucursal_name: transferFromBranch.value.nombre || null,
+      to_core_sucursal_id: Number(transferToBranch.value.id),
+      to_core_sucursal_code: transferToBranch.value.codigo || null,
+      to_core_sucursal_name: transferToBranch.value.nombre || null,
+      transfer_date: new Date().toISOString().slice(0, 10),
+      notes: transferForm.value.notes || null,
+      lines: [{
+        catalog_item_id: Number(transferForm.value.catalog_item_id),
+        quantity: Number(transferForm.value.quantity || 0)
+      }]
+    });
+    notify('Transferencia aplicada', 'Se movió stock entre sucursales y quedó en kardex.', 'success');
+    transferForm.value.catalog_item_id = '';
+    transferForm.value.quantity = 1;
+    transferForm.value.notes = '';
+    await loadInventory();
+  } catch (error) {
+    notify('No se pudo transferir', messageFromError(error), 'error');
   } finally {
     saving.value = false;
   }
@@ -827,10 +935,7 @@ function messageFromError(error): string {
                   <p class="mt-1 text-sm text-slate-600 dark:text-muted">Registra entradas rápidas o importa el JSON DTE recibido del proveedor.</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                  <label class="inline-flex cursor-pointer items-center justify-center rounded-md bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-200 dark:bg-surface-muted dark:text-text dark:hover:bg-surface-raised">
-                    Importar JSON
-                    <input class="sr-only" type="file" accept=".json,application/json" :disabled="saving" @change="importPurchaseJson" />
-                  </label>
+                  <UiFileUpload id="inventory-purchase-json" label="Importar JSON" accept=".json,application/json" compact @change="importPurchaseJson" />
                   <UiButton :disabled="items.length === 0" @click="openEntry(null)">Entrada rápida</UiButton>
                 </div>
               </div>
@@ -1019,22 +1124,13 @@ function messageFromError(error): string {
                   <div class="mt-4 rounded-md border border-slate-200 p-4 dark:border-line">
                     <p class="text-sm font-black text-slate-950 dark:text-text">Ajustes</p>
                     <div class="mt-3 space-y-3">
-                      <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
-                        <input v-model="purchaseImport.document.is_consumable" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
-                        Compra consumible
-                      </label>
+                      <UiCheckbox v-model="purchaseImport.document.is_consumable" label="Compra consumible" />
                       <div v-if="Number(purchaseImport.document.tax_perceived_amount || 0) > 0" class="flex items-center justify-between gap-3 rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-success/50 dark:bg-surface-2">
                         <span class="font-semibold text-slate-800 dark:text-text">IVA percibido detectado</span>
                         <span class="shrink-0 rounded bg-emerald-100 px-2 py-1 font-black text-emerald-800 dark:bg-success-soft dark:text-success">{{ formatMoney(purchaseImport.document.tax_perceived_amount) }}</span>
                       </div>
-                      <label v-else class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
-                        <input v-model="purchaseImport.document.apply_tax_perceived" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
-                        IVA percibido
-                      </label>
-                      <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
-                        <input v-model="purchaseImport.document.apply_fuel_charges" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
-                        FOVIAL/COTRANS
-                      </label>
+                      <UiCheckbox v-else v-model="purchaseImport.document.apply_tax_perceived" label="IVA percibido" />
+                      <UiCheckbox v-model="purchaseImport.document.apply_fuel_charges" label="FOVIAL/COTRANS" />
                     </div>
                   </div>
 
@@ -1120,6 +1216,118 @@ function messageFromError(error): string {
             </form>
           </div>
 
+          <div v-if="activeTab === 'counts'" class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+            <form class="grid gap-4 lg:grid-cols-2" @submit.prevent="savePhysicalCount">
+              <UiSelect v-model="countForm.catalog_item_id" label="Producto" :options="inventoryOptions" />
+              <UiInput v-model="countForm.counted_quantity" label="Cantidad física" type="number" min="0" step="0.001" />
+              <UiInput v-model="countForm.count_date" label="Fecha conteo" type="date" />
+              <UiInput v-model="countForm.notes" label="Notas" placeholder="Referencia del conteo" />
+              <div class="flex justify-end lg:col-span-2">
+                <UiButton type="submit" :disabled="saving || !countForm.catalog_item_id">Aplicar conteo</UiButton>
+              </div>
+            </form>
+          </div>
+
+          <div v-if="activeTab === 'transfers'" class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+            <form class="grid gap-4 lg:grid-cols-2" @submit.prevent="saveTransfer">
+              <UiSelect v-model="transferForm.from_core_sucursal_id" label="Sucursal origen" :options="branchOptions" />
+              <UiSelect v-model="transferForm.to_core_sucursal_id" label="Sucursal destino" :options="branchOptions" />
+              <UiSelect v-model="transferForm.catalog_item_id" label="Producto" :options="inventoryOptions" />
+              <UiInput v-model="transferForm.quantity" label="Cantidad" type="number" min="0.001" step="0.001" />
+              <div class="lg:col-span-2">
+                <UiInput v-model="transferForm.notes" label="Notas" placeholder="Referencia interna" />
+              </div>
+              <div class="flex justify-end lg:col-span-2">
+                <UiButton type="submit" :disabled="saving || !transferForm.catalog_item_id || !transferFromBranch || !transferToBranch">Transferir</UiButton>
+              </div>
+            </form>
+          </div>
+
+          <div v-if="activeTab === 'reports'" class="space-y-4">
+            <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+              <div class="grid gap-4 md:grid-cols-[1fr_1fr_auto]">
+                <UiInput v-model="reportFilters.from" label="Desde" type="date" />
+                <UiInput v-model="reportFilters.to" label="Hasta" type="date" />
+                <div class="flex items-end">
+                  <UiButton variant="secondary" @click="loadInventory({ silent: true })">Actualizar</UiButton>
+                </div>
+              </div>
+            </div>
+            <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+              <h3 class="text-base font-bold text-slate-950 dark:text-text">Ventas por producto</h3>
+              <UiDataTable class="mt-4" overflow="auto" min-width="min-w-[760px]">
+                <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
+                  <tr>
+                    <th class="px-4 py-3">Producto</th>
+                    <th class="px-4 py-3">Origen</th>
+                    <th class="px-4 py-3 text-right">Cantidad</th>
+                    <th class="px-4 py-3 text-right">Venta</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-line">
+                  <tr v-for="row in salesReport" :key="`${row.catalog_item_id || row.name}-${row.line_origin}`" class="text-sm">
+                    <td class="px-4 py-3">
+                      <p class="font-semibold text-slate-950 dark:text-text">{{ row.name }}</p>
+                      <p class="text-xs text-slate-500 dark:text-soft">{{ row.sku || 'Sin código' }}</p>
+                    </td>
+                    <td class="px-4 py-3">{{ row.line_origin }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatQuantity(row.quantity) }}</td>
+                    <td class="px-4 py-3 text-right font-semibold">{{ formatMoney(row.sales_total) }}</td>
+                  </tr>
+                  <tr v-if="salesReport.length === 0">
+                    <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="4">Sin ventas registradas en el período.</td>
+                  </tr>
+                </tbody>
+              </UiDataTable>
+            </div>
+            <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+              <h3 class="text-base font-bold text-slate-950 dark:text-text">Margen referencial</h3>
+              <UiDataTable class="mt-4" overflow="auto" min-width="min-w-[820px]">
+                <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
+                  <tr>
+                    <th class="px-4 py-3">Producto</th>
+                    <th class="px-4 py-3 text-right">Venta</th>
+                    <th class="px-4 py-3 text-right">Costo ref.</th>
+                    <th class="px-4 py-3 text-right">Margen</th>
+                    <th class="px-4 py-3 text-right">%</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-line">
+                  <tr v-for="row in marginReport" :key="`${row.catalog_item_id || row.name}-margin`" class="text-sm">
+                    <td class="px-4 py-3 font-semibold text-slate-950 dark:text-text">{{ row.name }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatMoney(row.sales_total) }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatMoney(row.reference_cost_total) }}</td>
+                    <td class="px-4 py-3 text-right font-semibold">{{ formatMoney(row.margin_total) }}</td>
+                    <td class="px-4 py-3 text-right">{{ Number(row.margin_percent || 0).toFixed(2) }}%</td>
+                  </tr>
+                  <tr v-if="marginReport.length === 0">
+                    <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="5">Sin margen para mostrar.</td>
+                  </tr>
+                </tbody>
+              </UiDataTable>
+            </div>
+          </div>
+
+          <div v-if="activeTab === 'alerts'" class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h3 class="text-base font-bold text-slate-950 dark:text-text">Alertas de stock mínimo</h3>
+              <UiButton variant="secondary" @click="loadInventory({ silent: true })">Actualizar</UiButton>
+            </div>
+            <div class="mt-4 divide-y divide-slate-100 dark:divide-line">
+              <div v-for="item in stockAlerts" :key="item.id" class="flex items-center justify-between gap-4 py-3 text-sm">
+                <div>
+                  <p class="font-semibold text-slate-950 dark:text-text">{{ item.name }}</p>
+                  <p class="text-xs text-slate-500 dark:text-soft">{{ item.sku || 'Sin código' }}</p>
+                </div>
+                <div class="text-right">
+                  <UiStatusBadge tone="warning">Bajo mínimo</UiStatusBadge>
+                  <p class="mt-1 text-xs text-slate-500 dark:text-soft">{{ formatQuantity(item.stock_quantity) }} / mínimo {{ formatQuantity(item.min_stock_quantity) }}</p>
+                </div>
+              </div>
+              <p v-if="stockAlerts.length === 0" class="py-8 text-center text-sm text-slate-500 dark:text-muted">Sin alertas activas.</p>
+            </div>
+          </div>
+
           <div v-if="activeTab === 'suppliers'" class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
             <div class="flex items-center justify-between gap-3">
               <h3 class="text-base font-bold text-slate-950 dark:text-text">Proveedores</h3>
@@ -1163,10 +1371,7 @@ function messageFromError(error): string {
               <p class="text-sm font-black text-slate-950 dark:text-text">Resolución operativa</p>
               <p class="mt-1 text-sm text-slate-600 dark:text-muted">Define cómo quedará relacionada esta línea con el catálogo.</p>
             </div>
-            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
-              <input v-model="activeResolveLine.create_item" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
-              Crear ítem
-            </label>
+            <UiCheckbox v-model="activeResolveLine.create_item" label="Crear ítem" />
           </div>
 
           <div class="mt-4 grid gap-4 md:grid-cols-2">
@@ -1180,16 +1385,10 @@ function messageFromError(error): string {
               <UiInput v-model="activeResolveLine.new_item_name" label="Nombre nuevo" />
               <UiSelect v-model="activeResolveLine.category_id" label="Categoría" :options="categoryOptions" />
               <UiInput v-model="activeResolveLine.new_category_name" label="Nueva categoría" placeholder="Opcional" />
-              <label class="flex min-h-10 items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
-                <input v-model="activeResolveLine.controls_inventory" type="checkbox" class="h-4 w-4 rounded border-slate-300" :disabled="activeResolveLine.no_inventory" />
-                Afecta inventario
-              </label>
+              <UiCheckbox v-model="activeResolveLine.controls_inventory" label="Afecta inventario" :disabled="activeResolveLine.no_inventory" />
             </template>
 
-            <label class="flex min-h-10 items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted">
-              <input v-model="activeResolveLine.no_inventory" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
-              No ingresa a inventario
-            </label>
+            <UiCheckbox v-model="activeResolveLine.no_inventory" label="No ingresa a inventario" />
           </div>
         </div>
 
