@@ -250,6 +250,7 @@ export type PlatformCatalogItem = {
   reference_cost: number | null;
   cost_source: 'none' | 'reference' | 'real' | string;
   stock_quantity: number;
+  min_stock_quantity: number;
   status: 'active' | 'inactive' | string;
   metadata: Record<string, unknown> | null;
   created_at: string | null;
@@ -270,6 +271,7 @@ export type PlatformCatalogItemPayload = {
   base_price?: number | null;
   base_price_includes_tax?: boolean;
   reference_cost?: number | null;
+  min_stock_quantity?: number | null;
   status?: 'active' | 'inactive' | string;
 };
 
@@ -460,6 +462,94 @@ export type PlatformInventoryReservationPayload = {
     catalog_item_id: number;
     quantity: number;
     description?: string | null;
+  }>;
+};
+
+export type PlatformInventorySalePayload = {
+  core_sucursal_id?: number | null;
+  core_sucursal_code?: string | null;
+  core_sucursal_name?: string | null;
+  source_type?: string | null;
+  source_id: string;
+  source_number?: string | null;
+  sale_date?: string | null;
+  metadata?: Record<string, unknown> | null;
+  lines: Array<{
+    catalog_item_id?: number | null;
+    line_origin?: 'free' | 'catalog' | 'inventory' | string | null;
+    description?: string | null;
+    quantity: number;
+    unit_price?: number | null;
+    discount_amount?: number | null;
+    net_total?: number | null;
+    reference_unit_cost?: number | null;
+  }>;
+};
+
+export type PlatformInventorySaleReportRow = {
+  catalog_item_id: number | null;
+  line_origin: 'free' | 'catalog' | 'inventory' | string;
+  sku: string | null;
+  name: string;
+  quantity: number;
+  sales_total: number;
+  reference_cost_total: number;
+  margin_total?: number;
+  margin_percent?: number;
+};
+
+export type PlatformInventoryStockAlert = Pick<PlatformCatalogItem, 'id' | 'sku' | 'name'> & {
+  stock_quantity: number;
+  min_stock_quantity: number;
+  below_minimum: boolean;
+};
+
+export type PlatformInventoryPurchaseAnnexRow = {
+  purchase_id: number;
+  purchase_date: string | null;
+  document_type: string | null;
+  document_mode: string | null;
+  document_number: string | null;
+  supplier_name: string | null;
+  supplier_tax_id: string | null;
+  supplier_nrc: string | null;
+  payment_condition: string | null;
+  subtotal: number | string;
+  tax_amount: number | string;
+  tax_perceived: number | string;
+  other_non_taxable_total: number | string;
+  total: number | string;
+  f07_operation_type: number | null;
+  f07_classification: number | null;
+  f07_sector: number | null;
+  f07_cost_expense_type: number | null;
+  import_metadata: Record<string, unknown> | null;
+};
+
+export type PlatformInventoryCountPayload = {
+  core_sucursal_id?: number | null;
+  core_sucursal_code?: string | null;
+  core_sucursal_name?: string | null;
+  count_date?: string | null;
+  notes?: string | null;
+  lines: Array<{
+    catalog_item_id: number;
+    counted_quantity: number;
+  }>;
+};
+
+export type PlatformInventoryTransferPayload = {
+  from_core_sucursal_id: number;
+  from_core_sucursal_code?: string | null;
+  from_core_sucursal_name?: string | null;
+  to_core_sucursal_id: number;
+  to_core_sucursal_code?: string | null;
+  to_core_sucursal_name?: string | null;
+  transfer_date?: string | null;
+  notes?: string | null;
+  lines: Array<{
+    catalog_item_id: number;
+    quantity: number;
   }>;
 };
 
@@ -1542,6 +1632,42 @@ export class PlatformClient {
 
   reverseInventoryReservation(tenantId: number, reservationId: number, payload: { source_type?: string | null; source_id?: string | null; source_number?: string | null; notes?: string | null } = {}): Promise<{ data: PlatformInventoryReservation }> {
     return this.http.post(`platform/tenants/${tenantId}/inventory/reservations/${reservationId}/reverse`, { json: payload }).json();
+  }
+
+  recordInventorySale(tenantId: number, payload: PlatformInventorySalePayload): Promise<{ data: unknown }> {
+    return this.http.post(`platform/tenants/${tenantId}/inventory/sales`, { json: payload }).json();
+  }
+
+  reverseInventorySaleBySource(tenantId: number, payload: { source_type?: string | null; source_id: string; event_id?: string | null; event_number?: string | null; notes?: string | null }): Promise<{ data: unknown }> {
+    return this.http.post(`platform/tenants/${tenantId}/inventory/sales/reverse-by-source`, { json: payload }).json();
+  }
+
+  createInventoryCount(tenantId: number, payload: PlatformInventoryCountPayload): Promise<{ data: unknown }> {
+    return this.http.post(`platform/tenants/${tenantId}/inventory/counts`, { json: payload }).json();
+  }
+
+  createInventoryTransfer(tenantId: number, payload: PlatformInventoryTransferPayload): Promise<{ data: unknown }> {
+    return this.http.post(`platform/tenants/${tenantId}/inventory/transfers`, { json: payload }).json();
+  }
+
+  inventorySalesReport(tenantId: number, params: { from?: string; to?: string; core_sucursal_id?: number; per_page?: number } = {}): Promise<{ data: PlatformInventorySaleReportRow[] }> {
+    return this.http.get(`platform/tenants/${tenantId}/inventory/reports/sales`, { searchParams: compactParams(params) }).json();
+  }
+
+  inventoryKardexReport(tenantId: number, params: { catalog_item_id?: number; core_sucursal_id?: number; from?: string; to?: string; per_page?: number; page?: number } = {}): Promise<PlatformPaginatedResponse<PlatformInventoryMovement>> {
+    return this.http.get(`platform/tenants/${tenantId}/inventory/reports/kardex`, { searchParams: compactParams(params) }).json();
+  }
+
+  inventoryMarginReport(tenantId: number, params: { from?: string; to?: string; core_sucursal_id?: number; per_page?: number } = {}): Promise<{ data: PlatformInventorySaleReportRow[] }> {
+    return this.http.get(`platform/tenants/${tenantId}/inventory/reports/margin`, { searchParams: compactParams(params) }).json();
+  }
+
+  inventoryStockAlerts(tenantId: number, params: { core_sucursal_id?: number } = {}): Promise<{ data: PlatformInventoryStockAlert[] }> {
+    return this.http.get(`platform/tenants/${tenantId}/inventory/reports/stock-alerts`, { searchParams: compactParams(params) }).json();
+  }
+
+  inventoryPurchaseAnnexReport(tenantId: number, params: { from?: string; to?: string } = {}): Promise<{ data: PlatformInventoryPurchaseAnnexRow[] }> {
+    return this.http.get(`platform/tenants/${tenantId}/inventory/reports/purchase-annex`, { searchParams: compactParams(params) }).json();
   }
 
   tenantFiscalScope(tenantId: number): Promise<PlatformFiscalScopeResponse> {

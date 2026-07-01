@@ -20,7 +20,7 @@ import {
   type PlatformInventoryReservation
 } from '@stelfaro/api-client';
 import { currency, type BillingItem, type DocumentType } from '@stelfaro/shared';
-import { UiButton, UiCard, UiSearchInput, UiLoadingMark } from '@stelfaro/ui';
+import { UiButton, UiCard, UiInput, UiSearchInput, UiLoadingMark, UiSelect, UiTextarea } from '@stelfaro/ui';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import BillingFiscalCustomerModal, { type BillingFiscalCustomerModalPayload } from '../components/BillingFiscalCustomerModal.vue';
 import BillingSujetoExcluidoModal, { type BillingSujetoExcluidoModalPayload } from '../components/BillingSujetoExcluidoModal.vue';
@@ -212,8 +212,16 @@ const paymentLines = ref<PaymentLine[]>([]);
 const empresas = computed(() => context.value?.empresas ?? []);
 const selectedEmpresa = computed<BillingEmpresa | null>(() => empresas.value.find((empresa) => empresa.id === form.empresaId) ?? null);
 const sucursales = computed(() => selectedEmpresa.value?.sucursales ?? []);
+const sucursalOptions = computed(() => sucursales.value.map((sucursal) => ({
+  value: sucursal.id,
+  label: `${sucursal.codigo} · ${sucursal.nombre}`
+})));
 const selectedSucursal = computed<BillingSucursal | null>(() => sucursales.value.find((sucursal) => sucursal.id === form.sucursalId) ?? null);
 const puntosVenta = computed(() => selectedSucursal.value?.puntosVenta ?? []);
+const puntoVentaOptions = computed(() => puntosVenta.value.map((punto) => ({
+  value: punto.id,
+  label: `${punto.codigo} · ${punto.nombre}`
+})));
 const selectedPuntoVenta = computed<BillingPuntoVenta | null>(() => puntosVenta.value.find((punto) => punto.id === form.puntoVentaId) ?? null);
 const canManageBillingStation = computed(() => {
   const role = context.value?.user?.role ?? '';
@@ -1113,6 +1121,9 @@ async function issueDocument(): Promise<void> {
           inventoryReservation = await confirmInventoryReservation(inventoryReservation, result);
         }
       }
+      if (!rejected) {
+        await recordInventorySale(result);
+      }
       issueResult.value = result;
       draft.value = result.document;
       void notifyEmailDelivery(result.document);
@@ -1211,6 +1222,43 @@ function broadcastInventoryChange(action: 'reserved' | 'confirmed' | 'released',
     window.localStorage.setItem(INVENTORY_CHANGED_EVENT, JSON.stringify(detail));
   } catch {
     // localStorage solo sincroniza otras pestañas; el evento local ya fue emitido.
+  }
+}
+
+async function recordInventorySale(result: DteIssueResponse): Promise<void> {
+  if (!platformTenantId.value || !selectedSucursal.value || items.value.length === 0) return;
+
+  try {
+    await platformClient.value.recordInventorySale(platformTenantId.value, {
+      core_sucursal_id: selectedSucursal.value.id,
+      core_sucursal_code: selectedSucursal.value.codigo || null,
+      core_sucursal_name: selectedSucursal.value.nombre || null,
+      source_type: 'dte',
+      source_id: String(result.document.id),
+      source_number: result.document.numeroControl || result.document.codigoGeneracion || null,
+      sale_date: new Date().toISOString().slice(0, 10),
+      metadata: {
+        document_type: form.documentType,
+        customer_name: form.customerName || null,
+        total: totalLabel.value,
+      },
+      lines: items.value
+        .filter((line) => line.description.trim() !== '' && Number(line.quantity || 0) > 0)
+        .map((line) => ({
+          catalog_item_id: line.catalogItemId ? Number(line.catalogItemId) : null,
+          line_origin: line.lineOrigin ?? 'free',
+          description: line.description,
+          quantity: Number(line.quantity || 0),
+          unit_price: Number(line.unitPrice || 0),
+          discount_amount: lineDiscountAmount(line),
+          net_total: lineNetTotal(line),
+          reference_unit_cost: null,
+        })),
+    });
+    pushIssueLog('Venta registrada para reportes de inventario.', 'ok');
+    window.dispatchEvent(new CustomEvent(INVENTORY_CHANGED_EVENT, { detail: { action: 'sale_recorded', tenant_id: platformTenantId.value, at: Date.now() } }));
+  } catch {
+    pushIssueLog('El DTE fue emitido, pero no se pudo registrar la venta para reportes.', 'error');
   }
 }
 
@@ -2160,26 +2208,22 @@ function updatePaymentCondition(value: string): void {
     >
       <div class="grid gap-4">
         <div class="grid gap-3 md:grid-cols-[260px_minmax(0,1fr)] md:items-end">
-          <label class="text-sm font-semibold text-slate-700">
-            <span class="mb-1 block text-xs uppercase text-slate-500">Condicion de la operacion</span>
-            <select
-              class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-              :value="paymentCondition"
-              @change="updatePaymentCondition(($event.target as HTMLSelectElement).value)"
-            >
-              <option v-for="option in paymentConditionOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-            </select>
-          </label>
-          <div class="rounded-md bg-slate-50 px-3 py-2 text-sm">
-            <span class="font-semibold text-slate-500">Total formas de pago:</span>
-            <span class="ml-2 font-bold" :class="paymentTotalMatches ? 'text-emerald-700' : 'text-red-700'">{{ currency(paymentTotal) }}</span>
-            <span class="ml-2 text-slate-500">de {{ currency(totalLabel) }}</span>
+          <UiSelect
+            label="Condicion de la operacion"
+            :model-value="paymentCondition"
+            :options="paymentConditionOptions"
+            @update:model-value="updatePaymentCondition(String($event))"
+          />
+          <div class="rounded-md bg-slate-50 px-3 py-2 text-sm dark:bg-surface-muted">
+            <span class="font-semibold text-slate-500 dark:text-muted">Total formas de pago:</span>
+            <span class="ml-2 font-bold" :class="paymentTotalMatches ? 'text-emerald-700 dark:text-success' : 'text-red-700 dark:text-danger'">{{ currency(paymentTotal) }}</span>
+            <span class="ml-2 text-slate-500 dark:text-muted">de {{ currency(totalLabel) }}</span>
           </div>
         </div>
 
-        <div class="overflow-x-auto rounded-md border border-slate-200">
+        <div class="overflow-x-auto rounded-md border border-slate-200 dark:border-line">
           <table class="w-full min-w-[960px] text-left text-sm">
-            <thead class="bg-blue-50/70 text-xs uppercase text-slate-500">
+            <thead class="bg-blue-50/70 text-xs uppercase text-slate-500 dark:bg-surface-muted dark:text-soft">
               <tr>
                 <th class="px-3 py-2">Forma</th>
                 <th class="w-32 px-3 py-2">Monto</th>
@@ -2189,43 +2233,40 @@ function updatePaymentCondition(value: string): void {
                 <th class="w-28 px-3 py-2"></th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-200">
+            <tbody class="divide-y divide-slate-200 dark:divide-line">
               <tr v-for="payment in paymentLines" :key="payment.id">
                 <td class="px-3 py-2">
-                  <select v-model="payment.codigo" class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100">
-                    <option v-for="option in paymentMethodOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                  </select>
+                  <UiSelect v-model="payment.codigo" label="Forma de pago" :options="paymentMethodOptions" hide-label />
                 </td>
                 <td class="px-3 py-2">
-                  <input v-model.number="payment.montoPago" class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="0" step="0.01" type="number">
-                  <button class="mt-1 text-[11px] font-semibold text-sky-700 hover:text-sky-900" type="button" @click="fillRemainingPayment(payment)">Usar saldo</button>
+                  <UiInput v-model.number="payment.montoPago" label="Monto" hide-label min="0" step="0.01" type="number" />
+                  <UiButton class="mt-1 px-2 py-1 text-[11px]" variant="ghost" size="sm" type="button" @click="fillRemainingPayment(payment)">Usar saldo</UiButton>
                 </td>
                 <td class="px-3 py-2">
-                  <input
+                  <UiInput
                     v-model="payment.referencia"
-                    class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:bg-slate-100 disabled:text-slate-400"
+                    label="Referencia"
+                    hide-label
                     :disabled="paymentReferenceDisabled(payment)"
                     maxlength="50"
                     :placeholder="paymentReferenceDisabled(payment) ? 'No aplica' : 'Opcional'"
-                  >
+                  />
                 </td>
                 <td class="px-3 py-2">
-                  <select v-model="payment.plazo" class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100">
-                    <option v-for="option in paymentTermOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                  </select>
+                  <UiSelect v-model="payment.plazo" label="Plazo" :options="paymentTermOptions" hide-label />
                 </td>
                 <td class="px-3 py-2">
-                  <input v-model.number="payment.periodo" class="w-full rounded-md border border-blue-100 bg-white px-3 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" min="1" step="1" type="number" :disabled="!payment.plazo">
+                  <UiInput v-model.number="payment.periodo" label="Periodo" hide-label min="1" step="1" type="number" :disabled="!payment.plazo" />
                 </td>
                 <td class="px-3 py-2 text-right">
-                  <button class="rounded px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-red-700" type="button" @click="removePaymentLine(payment.id)">Quitar</button>
+                  <UiButton variant="ghost" size="sm" type="button" @click="removePaymentLine(payment.id)">Quitar</UiButton>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <p v-if="!hasValidAdvancedPayments" class="text-sm font-medium text-red-700">
+        <p v-if="!hasValidAdvancedPayments" class="text-sm font-medium text-red-700 dark:text-danger">
           Las formas de pago deben sumar el total y completar plazo/periodo cuando aplique.
         </p>
       </div>
@@ -2243,16 +2284,13 @@ function updatePaymentCondition(value: string): void {
       max-width="max-w-2xl"
       @close="observationsModalOpen = false"
     >
-      <label class="block">
-        <span class="text-sm font-semibold text-slate-700">Detalle</span>
-        <textarea
-          v-model="form.observations"
-          class="mt-1 w-full resize-y rounded-md border border-blue-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-          maxlength="3000"
-          placeholder="Ej. Compra patrocinada para cliente B"
-          rows="5"
-        />
-      </label>
+      <UiTextarea
+        v-model="form.observations"
+        label="Detalle"
+        maxlength="3000"
+        placeholder="Ej. Compra patrocinada para cliente B"
+        :rows="5"
+      />
 
       <template #footer>
         <UiButton variant="secondary" type="button" @click="form.observations = ''">Limpiar</UiButton>
@@ -2444,22 +2482,8 @@ function updatePaymentCondition(value: string): void {
                   </p>
                 </div>
                 <div v-if="sucursales.length > 1 || puntosVenta.length > 1" class="mt-3 grid gap-2 sm:grid-cols-2">
-                  <label v-if="sucursales.length > 1" class="grid gap-1 text-xs font-semibold text-slate-600 dark:text-muted">
-                    <span>Sucursal</span>
-                    <select v-model.number="form.sucursalId" class="h-9 rounded-md border border-blue-100 bg-white px-2 text-sm font-semibold text-slate-950 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text">
-                      <option v-for="sucursal in sucursales" :key="sucursal.id" :value="sucursal.id">
-                        {{ sucursal.codigo }} · {{ sucursal.nombre }}
-                      </option>
-                    </select>
-                  </label>
-                  <label v-if="puntosVenta.length > 1" class="grid gap-1 text-xs font-semibold text-slate-600 dark:text-muted">
-                    <span>Punto de venta</span>
-                    <select v-model.number="form.puntoVentaId" class="h-9 rounded-md border border-blue-100 bg-white px-2 text-sm font-semibold text-slate-950 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text">
-                      <option v-for="punto in puntosVenta" :key="punto.id" :value="punto.id">
-                        {{ punto.codigo }} · {{ punto.nombre }}
-                      </option>
-                    </select>
-                  </label>
+                  <UiSelect v-if="sucursales.length > 1" v-model.number="form.sucursalId" label="Sucursal" :options="sucursalOptions" />
+                  <UiSelect v-if="puntosVenta.length > 1" v-model.number="form.puntoVentaId" label="Punto de venta" :options="puntoVentaOptions" />
                 </div>
                 <div v-if="selectedSucursal && selectedPuntoVenta" class="mt-3 flex flex-wrap items-center gap-2">
                   <span
@@ -2717,13 +2741,13 @@ function updatePaymentCondition(value: string): void {
                     </div>
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="draftLine.quantity" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:focus:bg-surface-raised" min="0.01" step="0.01" type="number">
+                    <UiInput v-model.number="draftLine.quantity" label="Cantidad" hide-label min="0.01" step="0.01" type="number" />
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="draftLine.unitPrice" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:focus:bg-surface-raised" min="0" step="0.01" type="number">
+                    <UiInput v-model.number="draftLine.unitPrice" :label="isNotaDebito ? 'Nuevo valor' : isSujetoExcluido ? 'Monto compra' : 'Precio'" hide-label min="0" step="0.01" type="number" />
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="draftLine.discountPercent" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:focus:bg-surface-raised" max="100" min="0" step="0.01" type="number">
+                    <UiInput v-model.number="draftLine.discountPercent" :label="isAdjustmentNote ? (isNotaDebito ? 'Incremento' : 'Ajuste') : isSujetoExcluido ? 'Descuento' : 'Porcentaje descuento'" hide-label max="100" min="0" step="0.01" type="number" />
                     <p v-if="lineDiscountAmount(draftLine) > 0" class="mt-1 text-[11px] text-slate-500 dark:text-muted">-{{ currency(lineDiscountAmount(draftLine)) }}</p>
                   </td>
                   <td class="px-3 py-2 text-right">
@@ -2751,15 +2775,16 @@ function updatePaymentCondition(value: string): void {
                   </td>
                   <td class="px-3 py-2">
                     <template v-if="isAdjustmentNote">
-                      <input
-                        class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:focus:bg-surface-raised"
+                      <UiInput
+                        label="Cantidad"
+                        hide-label
                         :max="isNotaCredito ? Number(line.originalQuantity ?? line.quantity ?? 0) : undefined"
                         :min="isNotaDebito && line.sourceLine !== false ? Number(line.originalQuantity ?? line.quantity ?? 0) : 0.01"
                         step="0.01"
                         type="number"
-                        :value="Number(line.quantity)"
-                        @input="updateAdjustmentQuantity(line, ($event.target as HTMLInputElement).value)"
-                      >
+                        :model-value="Number(line.quantity)"
+                        @update:model-value="updateAdjustmentQuantity(line, String($event))"
+                      />
                       <p v-if="isNotaCredito" class="mt-1 text-[11px] text-slate-500 dark:text-muted">
                         Max. {{ Number(line.originalQuantity ?? line.quantity ?? 0) }}
                       </p>
@@ -2771,15 +2796,16 @@ function updatePaymentCondition(value: string): void {
                   </td>
                   <td class="px-3 py-2">
                     <template v-if="isAdjustmentNote">
-                      <input
-                        class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:focus:bg-surface-raised"
+                      <UiInput
+                        label="Precio"
+                        hide-label
                         :max="isNotaCredito ? Number(line.originalUnitPrice ?? line.unitPrice ?? 0) : undefined"
                         min="0"
                         step="0.01"
                         type="number"
-                        :value="Number(line.unitPrice)"
-                        @input="updateNotaCreditoPrice(line, ($event.target as HTMLInputElement).value)"
-                      >
+                        :model-value="Number(line.unitPrice)"
+                        @update:model-value="updateNotaCreditoPrice(line, String($event))"
+                      />
                       <p v-if="isNotaCredito" class="mt-1 text-[11px] text-slate-500 dark:text-muted">{{ sourceLineMaxLabel(line) }}</p>
                       <p v-else-if="line.sourceLine === false" class="mt-1 text-[11px] text-slate-500 dark:text-muted">Monto de la linea nueva</p>
                       <p v-else class="mt-1 text-[11px] text-slate-500 dark:text-muted">{{ notaDebitoOriginalLabel(line) }}</p>
@@ -2804,7 +2830,7 @@ function updatePaymentCondition(value: string): void {
                     <p v-if="lineDiscountAmount(line) > 0" class="text-[11px] text-slate-500 dark:text-muted">Bruto {{ currency(lineGrossTotal(line)) }}</p>
                   </td>
                   <td class="px-3 py-2 text-right">
-                    <button class="rounded px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-red-700 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-danger" type="button" @click="removeLine(line.id)">Quitar</button>
+                    <UiButton variant="ghost" size="sm" type="button" @click="removeLine(line.id)">Quitar</UiButton>
                   </td>
                 </tr>
                 <tr v-if="lines.length === 0">
@@ -2812,21 +2838,21 @@ function updatePaymentCondition(value: string): void {
                 </tr>
                 <tr v-if="isNotaDebito && selectedSourceDocument" class="border-t-2 border-slate-200 bg-slate-50/70 dark:border-line-strong dark:bg-surface-muted">
                   <td class="px-3 py-2">
-                    <input v-model="draftLine.description" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100" placeholder="Nueva linea a debitar">
-                    <p class="mt-1 text-[11px] text-slate-500">Agregar linea nueva a la Nota de Debito</p>
+                    <UiInput v-model="draftLine.description" label="Nueva línea a debitar" hide-label placeholder="Nueva línea a debitar" />
+                    <p class="mt-1 text-[11px] text-slate-500 dark:text-muted">Agregar línea nueva a la Nota de Débito</p>
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="draftLine.quantity" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100" min="0.01" step="0.01" type="number">
+                    <UiInput v-model.number="draftLine.quantity" label="Cantidad" hide-label min="0.01" step="0.01" type="number" />
                   </td>
                   <td class="px-3 py-2">
-                    <input v-model.number="draftLine.unitPrice" class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100" min="0.01" step="0.01" type="number">
+                    <UiInput v-model.number="draftLine.unitPrice" label="Monto" hide-label min="0.01" step="0.01" type="number" />
                   </td>
                   <td class="px-3 py-2">
                     <span class="text-slate-400">No aplica</span>
                   </td>
                   <td class="px-3 py-2 text-right">
-                    <p class="font-semibold text-slate-900">{{ currency(lineNetTotal(draftLine)) }}</p>
-                    <p class="text-[11px] text-slate-500">IVA {{ currency(lineIvaAmount(draftLine)) }}</p>
+                    <p class="font-semibold text-slate-900 dark:text-text">{{ currency(lineNetTotal(draftLine)) }}</p>
+                    <p class="text-[11px] text-slate-500 dark:text-muted">IVA {{ currency(lineIvaAmount(draftLine)) }}</p>
                   </td>
                   <td class="px-3 py-2 text-right">
                     <UiButton @click="addLine">Agregar</UiButton>

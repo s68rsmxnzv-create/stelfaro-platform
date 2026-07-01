@@ -4,7 +4,8 @@ import {
   CoreDteClient,
   type BillingEmpresa,
   type DteDraftSummary,
-  type MhFiscalEventSummary
+  type MhFiscalEventSummary,
+  PlatformClient
 } from '@stelfaro/api-client';
 import { currency, fiscalDate, fiscalDateTime } from '@stelfaro/shared';
 import { UiButton, UiCard, UiSearchInput, UiLoadingMark, UiRefreshButton, UiSaveIcon, UiTextarea } from '@stelfaro/ui';
@@ -16,13 +17,19 @@ const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
   authToken?: string | null;
   initialEventType?: string;
+  platformSession?: Record<string, unknown> | null;
+  platformBaseUrl?: string;
 }>(), {
   coreBaseUrl: '/api/v1',
   authToken: null,
-  initialEventType: 'invalidacion'
+  initialEventType: 'invalidacion',
+  platformSession: null,
+  platformBaseUrl: '/api/v1'
 });
 
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
+const platformClient = computed(() => new PlatformClient(props.platformBaseUrl, { credentials: 'same-origin' }));
+const platformTenantId = computed(() => Number((props.platformSession as { tenant?: { id?: number | string | null } } | null)?.tenant?.id || 0));
 const loading = ref(false);
 const processing = ref(false);
 const eventModalOpen = ref(false);
@@ -803,6 +810,7 @@ async function invalidateSelected(): Promise<void> {
     eventPhaseIndex.value = 4;
     eventProgress.value = 100;
     pushLog('Evento procesado por MH');
+    await reverseInventoryForAcceptedInvalidation();
     await loadDocuments({ preserveEventResult: true });
   } catch (caught) {
     const recovered = await recoverEventResult(eventIdForRecovery);
@@ -810,6 +818,7 @@ async function invalidateSelected(): Promise<void> {
     if (recovered && (eventAccepted.value || eventRejected.value)) {
       eventLog.value.push({ label: 'Respuesta MH recuperada', status: 'ok' });
       error.value = null;
+      await reverseInventoryForAcceptedInvalidation();
       await loadDocuments({ preserveEventResult: true });
     } else {
       eventLog.value.push({ label: 'Proceso detenido', status: 'error' });
@@ -819,6 +828,31 @@ async function invalidateSelected(): Promise<void> {
     eventProgress.value = Math.max(eventProgress.value, 100);
   } finally {
     processing.value = false;
+  }
+}
+
+async function reverseInventoryForAcceptedInvalidation(): Promise<void> {
+  if (!eventAccepted.value || !selected.value || Number(form.tipoAnulacion) !== 2 || !platformTenantId.value) {
+    return;
+  }
+
+  try {
+    eventLog.value.push({ label: 'Revirtiendo inventario por invalidacion tipo 2', status: 'ok' });
+    await platformClient.value.reverseInventorySaleBySource(platformTenantId.value, {
+      source_type: 'dte',
+      source_id: String(selected.value.id),
+      event_id: eventResult.value?.id ? String(eventResult.value.id) : null,
+      event_number: eventResult.value?.codigoGeneracion ?? eventResult.value?.numeroControl ?? null,
+      notes: 'Invalidacion tipo 2 aceptada por MH',
+    });
+    eventLog.value.push({ label: 'Inventario revertido automaticamente', status: 'ok' });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('stelfaro:inventory-changed', {
+        detail: { action: 'mh_invalidation_reversal', tenant_id: platformTenantId.value, at: Date.now() }
+      }));
+    }
+  } catch {
+    eventLog.value.push({ label: 'MH acepto la invalidacion, pero no se pudo revertir inventario automaticamente', status: 'error' });
   }
 }
 
