@@ -64,6 +64,7 @@ const emit = defineEmits<{
 const compactSidebar = ref(false);
 const sidebarWidthClass = computed(() => compactSidebar.value ? 'w-20' : 'w-80');
 const mainOffsetClass = computed(() => compactSidebar.value ? 'lg:pl-24' : 'lg:pl-[344px]');
+const sidebarTooltip = ref<{ label: string; detail: string; top: number } | null>(null);
 
 onMounted(() => {
   if (!props.collapsible) return;
@@ -108,7 +109,26 @@ function iconComponent(icon: string): Component {
 
 function toggleSidebar(): void {
   if (!props.collapsible) return;
+  sidebarTooltip.value = null;
   compactSidebar.value = !compactSidebar.value;
+}
+
+function showSidebarTooltip(item: NavItem, event: FocusEvent | MouseEvent): void {
+  if (!compactSidebar.value) return;
+
+  const target = event.currentTarget as HTMLElement | null;
+  if (!target) return;
+
+  const rect = target.getBoundingClientRect();
+  sidebarTooltip.value = {
+    label: item.label,
+    detail: item.detail,
+    top: Math.round(rect.top + (rect.height / 2))
+  };
+}
+
+function hideSidebarTooltip(): void {
+  sidebarTooltip.value = null;
 }
 
 const activeItem = computed(() => props.navItems.find((item) => item.id === props.activeId) ?? props.navItems[0]);
@@ -181,13 +201,16 @@ const navGroups = computed(() => {
               v-for="item in group.items"
               :key="item.id"
               type="button"
-              class="flex min-h-14 w-full items-center rounded-lg text-base transition"
-              :title="compactSidebar ? `${item.label}: ${item.detail}` : undefined"
+              class="group relative flex min-h-14 w-full items-center rounded-lg text-base transition"
               :aria-label="compactSidebar ? `${item.label}: ${item.detail}` : undefined"
               :class="[
                 compactSidebar ? 'justify-center px-0' : 'gap-3 px-3 text-left',
                 activeId === item.id ? 'bg-slate-100 font-bold text-slate-950 shadow-sm shadow-slate-950/5 dark:bg-surface-muted dark:text-text' : 'font-semibold text-slate-800 hover:bg-slate-50 hover:text-slate-950 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text'
               ]"
+              @mouseenter="showSidebarTooltip(item, $event)"
+              @mouseleave="hideSidebarTooltip"
+              @focus="showSidebarTooltip(item, $event)"
+              @blur="hideSidebarTooltip"
               @click="emit('select', item.id)"
             >
               <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md" :class="activeId === item.id ? 'bg-white text-sky-700 dark:bg-surface-raised dark:text-primary' : 'text-slate-500 dark:text-soft'">
@@ -202,6 +225,16 @@ const navGroups = computed(() => {
         </div>
       </nav>
     </aside>
+
+    <div
+      v-if="sidebarTooltip && compactSidebar"
+      class="pointer-events-none fixed left-[5.75rem] z-[60] min-w-44 -translate-y-1/2 rounded-md border border-slate-200 bg-white px-3 py-2 text-left shadow-lg shadow-slate-950/10 dark:border-line dark:bg-surface-raised dark:shadow-black/30"
+      :style="{ top: `${sidebarTooltip.top}px` }"
+      role="tooltip"
+    >
+      <span class="block whitespace-nowrap text-sm font-bold text-slate-950 dark:text-text">{{ sidebarTooltip.label }}</span>
+      <span class="mt-0.5 block whitespace-nowrap text-xs font-medium text-slate-500 dark:text-soft">{{ sidebarTooltip.detail }}</span>
+    </div>
 
     <main class="px-4 py-6 transition-[padding] duration-200 sm:px-6 lg:pr-8" :class="mainOffsetClass">
       <div class="mb-5 flex items-center overflow-x-auto whitespace-nowrap">
