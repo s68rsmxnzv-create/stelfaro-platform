@@ -311,6 +311,7 @@ export type PlatformInventoryLot = {
   available_quantity: number;
   status: string;
   catalog_item?: Pick<PlatformCatalogItem, 'id' | 'sku' | 'name' | 'unit_code' | 'unit_name'> | null;
+  supplier?: Pick<PlatformInventorySupplier, 'id' | 'name' | 'tax_id' | 'nrc'> | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -373,6 +374,63 @@ export type PlatformInventoryPurchasePayload = {
     price_includes_tax?: boolean;
     no_inventory?: boolean;
   }>;
+};
+
+export type PlatformInventoryPurchaseLine = {
+  id: number;
+  tenant_id: number;
+  inventory_purchase_id: number;
+  catalog_item_id: number;
+  description_snapshot: string | null;
+  unit_code: string | null;
+  unit_name: string | null;
+  quantity: number;
+  input_unit_cost: number;
+  unit_cost: number;
+  base_unit_cost: number;
+  tax_unit_amount: number;
+  tax_rate: number;
+  total_unit_amount: number;
+  tax_amount: number;
+  line_total: number;
+  price_includes_tax: boolean;
+  no_inventory: boolean;
+  controls_inventory_snapshot: boolean;
+  inventory_quantity: number;
+  catalog_item?: Pick<PlatformCatalogItem, 'id' | 'sku' | 'name' | 'unit_code' | 'unit_name' | 'controls_inventory'> | null;
+  lots?: PlatformInventoryLot[];
+};
+
+export type PlatformInventoryPurchase = {
+  id: number;
+  tenant_id: number;
+  inventory_supplier_id: number | null;
+  core_sucursal_id: number | null;
+  core_sucursal_code: string | null;
+  core_sucursal_name: string | null;
+  purchase_number: number;
+  document_type: string | null;
+  document_mode: string | null;
+  document_number: string | null;
+  payment_condition: string | null;
+  document_total: number | string | null;
+  is_consumable: boolean;
+  purchase_date: string | null;
+  subtotal: number | string;
+  tax_amount: number | string;
+  tax_perceived: number | string;
+  fovial_per_unit: number | string;
+  cotrans_per_unit: number | string;
+  other_non_taxable_total: number | string;
+  total: number | string;
+  status: string;
+  supplier_snapshot: Record<string, unknown> | null;
+  import_metadata: Record<string, unknown> | null;
+  lines_count?: number;
+  supplier?: PlatformInventorySupplier | null;
+  lines?: PlatformInventoryPurchaseLine[];
+  created_at: string | null;
+  updated_at: string | null;
 };
 
 export type PlatformInventoryPurchaseImportPreview = {
@@ -1600,6 +1658,14 @@ export class PlatformClient {
 
   createInventoryPurchase(tenantId: number, payload: PlatformInventoryPurchasePayload): Promise<{ data: unknown }> {
     return this.http.post(`platform/tenants/${tenantId}/inventory/purchases`, { json: payload }).json();
+  }
+
+  inventoryPurchases(tenantId: number, params: { page?: number; per_page?: number } = {}): Promise<PlatformPaginatedResponse<PlatformInventoryPurchase>> {
+    return this.http.get(`platform/tenants/${tenantId}/inventory/purchases`, { searchParams: compactParams(params) }).json();
+  }
+
+  inventoryPurchase(tenantId: number, purchaseId: number): Promise<{ data: PlatformInventoryPurchase }> {
+    return this.http.get(`platform/tenants/${tenantId}/inventory/purchases/${purchaseId}`).json();
   }
 
   importInventoryPurchaseDteJson(tenantId: number, payload: Record<string, unknown>): Promise<{ data: PlatformInventoryPurchaseImportPreview }> {

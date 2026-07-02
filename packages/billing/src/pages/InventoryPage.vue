@@ -20,6 +20,7 @@ const props = withDefaults(defineProps<{
 });
 
 const INVENTORY_CHANGED_EVENT = 'stelfaro:inventory-changed';
+const INVENTORY_ACTIVE_VIEW_KEY = 'stelfaro:inventory-active-view';
 const client = computed(() => new PlatformClient(props.platformBaseUrl, { credentials: 'same-origin' }));
 const tenantId = computed(() => Number(props.platformSession?.tenant?.id || 0));
 const tenantName = computed(() => props.platformSession?.tenant?.name ?? 'Empresa');
@@ -34,25 +35,36 @@ const categories = ref([]);
 const lots = ref([]);
 const movements = ref([]);
 const suppliers = ref([]);
+const purchases = ref([]);
 const fiscalScope = ref(null);
 const salesReport = ref([]);
 const marginReport = ref([]);
 const stockAlerts = ref([]);
 const selectedBranchId = ref('');
 const toasts = ref([]);
-const stockEntryOpen = ref(false);
 const supplierOpen = ref(false);
 const resolveLineIndex = ref(null);
-const selectedItem = ref(null);
+const productDetailItem = ref(null);
+const selectedLot = ref(null);
+const selectedPurchase = ref(null);
 const filters = ref({ q: '' });
-const entryForm = ref({
+const lotFilters = ref({
+  q: '',
+  status: '',
   catalog_item_id: '',
-  purchase_date: new Date().toISOString().slice(0, 10),
-  document_type: '',
-  document_number: '',
-  quantity: 1,
-  unit_cost: 0
+  inventory_supplier_id: '',
+  from: '',
+  to: ''
 });
+const purchaseFilters = ref({
+  q: '',
+  document_mode: '',
+  supplier_id: '',
+  from: '',
+  to: ''
+});
+const stockPage = ref(1);
+const stockPageSize = ref('12');
 const adjustmentForm = ref({
   catalog_item_id: '',
   direction: 'entry',
@@ -85,7 +97,7 @@ const supplierForm = ref({
   email: '',
   address: ''
 });
-const purchaseImport = ref({
+const compraImportada = ref({
   fileName: '',
   preview: null,
   supplier_id: '',
@@ -116,24 +128,34 @@ const purchaseImport = ref({
 });
 
 const tabs = [
-  { key: 'overview', label: 'Resumen', detail: 'Estado general', icon: 'summary' },
-  { key: 'stock', label: 'Existencias', detail: 'Productos y stock', icon: 'stock' },
-  { key: 'entries', label: 'Entradas', detail: 'Compras y lotes', icon: 'entries' },
-  { key: 'lots', label: 'Lotes', detail: 'Disponibilidad FIFO', icon: 'lots' },
-  { key: 'kardex', label: 'Kardex', detail: 'Movimientos', icon: 'kardex' },
-  { key: 'adjustments', label: 'Ajustes', detail: 'Correcciones', icon: 'adjustments' },
-  { key: 'counts', label: 'Conteo', detail: 'Inventario físico', icon: 'adjustments' },
-  { key: 'transfers', label: 'Transferencias', detail: 'Entre sucursales', icon: 'entries' },
-  { key: 'reports', label: 'Reportes', detail: 'Ventas y margen', icon: 'summary' },
-  { key: 'alerts', label: 'Alertas', detail: 'Stock mínimo', icon: 'stock' },
-  { key: 'suppliers', label: 'Proveedores', detail: 'Compras', icon: 'suppliers' }
+  { key: 'overview', label: 'Resumen', detail: 'Estado general', icon: 'summary', group: 'Frecuente' },
+  { key: 'stock', label: 'Existencias', detail: 'Productos y stock', icon: 'stock', group: 'Frecuente' },
+  { key: 'entries', label: 'Entradas', detail: 'Compras y lotes', icon: 'entries', group: 'Frecuente' },
+  { key: 'purchases', label: 'Compras', detail: 'Historial', icon: 'purchases', group: 'Frecuente' },
+  { key: 'lots', label: 'Lotes', detail: 'Disponibilidad FIFO', icon: 'lots', group: 'Seguimiento' },
+  { key: 'kardex', label: 'Kardex', detail: 'Movimientos', icon: 'kardex', group: 'Seguimiento' },
+  { key: 'reports', label: 'Reportes', detail: 'Ventas y margen', icon: 'report-document', group: 'Seguimiento' },
+  { key: 'alerts', label: 'Alertas', detail: 'Stock mínimo', icon: 'alerts', group: 'Seguimiento' },
+  { key: 'transfers', label: 'Transferencias', detail: 'Entre sucursales', icon: 'transfers', group: 'Operaciones' },
+  { key: 'counts', label: 'Conteo', detail: 'Inventario físico', icon: 'counts', group: 'Operaciones' },
+  { key: 'adjustments', label: 'Ajustes', detail: 'Correcciones', icon: 'adjustments', group: 'Operaciones' },
+  { key: 'suppliers', label: 'Proveedores', detail: 'Compras', icon: 'suppliers', group: 'Administración' }
 ];
+const validTabKeys = new Set(tabs.map((tab) => tab.key));
 const sectionNavItems = computed(() => tabs.map((tab) => ({ ...tab, id: tab.key })));
 const inventoryOptions = computed(() => items.value.map((item) => ({
   value: String(item.id),
   label: item.name,
   hint: item.sku || 'Sin código'
 })));
+const supplierOptions = computed(() => [
+  { value: '', label: 'Selecciona proveedor', hint: 'Requerido' },
+  ...suppliers.value.map((supplier) => ({
+    value: String(supplier.id),
+    label: supplier.name,
+    hint: supplier.tax_id || supplier.nrc || 'Proveedor'
+  }))
+]);
 const catalogOptions = computed(() => catalogItems.value.map((item) => ({
   value: String(item.id),
   label: item.name,
@@ -167,6 +189,117 @@ const visibleLots = computed(() => selectedBranch.value
 const visibleMovements = computed(() => selectedBranch.value
   ? movements.value.filter((movement) => Number(movement.core_sucursal_id || 0) === Number(selectedBranch.value.id))
   : movements.value);
+const lotProductOptions = computed(() => [
+  { value: '', label: 'Todos los productos', hint: 'Sin filtro' },
+  ...items.value.map((item) => ({
+    value: String(item.id),
+    label: item.name,
+    hint: item.sku || 'Sin código'
+  }))
+]);
+const lotSupplierOptions = computed(() => [
+  { value: '', label: 'Todos los proveedores', hint: 'Sin filtro' },
+  ...suppliers.value.map((supplier) => ({
+    value: String(supplier.id),
+    label: supplier.name,
+    hint: supplier.tax_id || supplier.nrc || 'Proveedor'
+  }))
+]);
+const lotStatusOptions = [
+  { value: '', label: 'Todos los estados' },
+  { value: 'available', label: 'Disponibles' },
+  { value: 'partial', label: 'Parciales' },
+  { value: 'depleted', label: 'Agotados' }
+];
+const purchaseModeOptions = [
+  { value: '', label: 'Todos los modos' },
+  { value: 'dte', label: 'DTE JSON' },
+  { value: 'paper', label: 'CCF físico' }
+];
+const lotRows = computed(() => visibleLots.value.map((lot) => {
+  const initial = Number(lot.initial_quantity || 0);
+  const available = Number(lot.available_quantity || 0);
+  const consumed = Math.max(0, roundQuantity(initial - available));
+  const value = roundMoney(available * Number(lot.unit_cost || 0));
+  const status = available <= 0 ? 'depleted' : (initial > 0 && available < initial ? 'partial' : 'available');
+  const productLots = visibleLots.value
+    .filter((candidate) => Number(candidate.catalog_item_id || 0) === Number(lot.catalog_item_id || 0) && Number(candidate.available_quantity || 0) > 0)
+    .sort((a, b) => String(a.received_date || a.created_at || '').localeCompare(String(b.received_date || b.created_at || '')) || Number(a.id || 0) - Number(b.id || 0));
+  const fifoIndex = productLots.findIndex((candidate) => Number(candidate.id) === Number(lot.id));
+
+  return {
+    ...lot,
+    initial_quantity_number: initial,
+    available_quantity_number: available,
+    consumed_quantity: consumed,
+    available_value: value,
+    lot_status: status,
+    fifo_position: fifoIndex >= 0 ? fifoIndex + 1 : null,
+    fifo_pending_before: fifoIndex > 0 ? fifoIndex : 0,
+    supplier_name: lot.supplier?.name || suppliers.value.find((supplier) => Number(supplier.id) === Number(lot.inventory_supplier_id))?.name || 'Sin proveedor'
+  };
+}));
+const filteredLotRows = computed(() => {
+  const term = lotFilters.value.q.trim().toLowerCase();
+
+  return lotRows.value.filter((lot) => {
+    const haystack = `${lot.lot_code || ''} ${lot.catalog_item?.name || ''} ${lot.catalog_item?.sku || ''} ${lot.supplier_name || ''}`.toLowerCase();
+    const date = String(lot.received_date || '').slice(0, 10);
+
+    return (!term || haystack.includes(term))
+      && (!lotFilters.value.status || lot.lot_status === lotFilters.value.status)
+      && (!lotFilters.value.catalog_item_id || String(lot.catalog_item_id) === String(lotFilters.value.catalog_item_id))
+      && (!lotFilters.value.inventory_supplier_id || String(lot.inventory_supplier_id) === String(lotFilters.value.inventory_supplier_id))
+      && (!lotFilters.value.from || date >= lotFilters.value.from)
+      && (!lotFilters.value.to || date <= lotFilters.value.to);
+  });
+});
+const lotStats = computed(() => ({
+  available: filteredLotRows.value.filter((lot) => lot.lot_status === 'available').length,
+  partial: filteredLotRows.value.filter((lot) => lot.lot_status === 'partial').length,
+  depleted: filteredLotRows.value.filter((lot) => lot.lot_status === 'depleted').length,
+  units: filteredLotRows.value.reduce((sum, lot) => sum + Number(lot.available_quantity_number || 0), 0),
+  value: filteredLotRows.value.reduce((sum, lot) => sum + Number(lot.available_value || 0), 0)
+}));
+const selectedLotMovements = computed(() => {
+  if (!selectedLot.value) return [];
+
+  return movements.value.filter((movement) => Number(movement.inventory_lot_id || 0) === Number(selectedLot.value.id));
+});
+const purchaseRows = computed(() => purchases.value.map((purchase) => ({
+  ...purchase,
+  supplier_name: purchase.supplier?.name || purchase.supplier_snapshot?.name || 'Sin proveedor',
+  branch_label: purchase.core_sucursal_code || purchase.core_sucursal_name || 'Sin sucursal',
+  total_number: Number(purchase.total || purchase.document_total || 0)
+})));
+const filteredPurchaseRows = computed(() => {
+  const term = purchaseFilters.value.q.trim().toLowerCase();
+
+  return purchaseRows.value.filter((purchase) => {
+    const date = String(purchase.purchase_date || '').slice(0, 10);
+    const haystack = `${purchase.purchase_number || ''} ${purchase.document_number || ''} ${purchase.supplier_name || ''}`.toLowerCase();
+
+    return (!term || haystack.includes(term))
+      && (!purchaseFilters.value.document_mode
+        || (purchaseFilters.value.document_mode === 'paper'
+          ? ['manual', 'physical', 'paper'].includes(String(purchase.document_mode || ''))
+          : String(purchase.document_mode || '') === purchaseFilters.value.document_mode))
+      && (!purchaseFilters.value.supplier_id || String(purchase.inventory_supplier_id || '') === purchaseFilters.value.supplier_id)
+      && (!purchaseFilters.value.from || date >= purchaseFilters.value.from)
+      && (!purchaseFilters.value.to || date <= purchaseFilters.value.to);
+  });
+});
+const purchaseStats = computed(() => ({
+  count: filteredPurchaseRows.value.length,
+  total: filteredPurchaseRows.value.reduce((sum, purchase) => sum + Number(purchase.total_number || 0), 0),
+  dte: filteredPurchaseRows.value.filter((purchase) => purchase.document_mode === 'dte').length,
+  manual: filteredPurchaseRows.value.filter((purchase) => purchase.document_mode !== 'dte').length
+}));
+const selectedPurchaseMovements = computed(() => {
+  if (!selectedPurchase.value) return [];
+
+  return movements.value.filter((movement) => movement.reference_type === 'purchase' && String(movement.reference_id || '') === String(selectedPurchase.value.id));
+});
 const branchStockByItem = computed(() => visibleLots.value.reduce((map, lot) => {
   const itemId = Number(lot.catalog_item_id || 0);
   map[itemId] = Number(map[itemId] || 0) + Number(lot.available_quantity || 0);
@@ -182,7 +315,167 @@ const visibleItems = computed(() => {
 
   return list.filter((item) => `${item.name} ${item.sku || ''}`.toLowerCase().includes(term));
 });
+const stockTotalPages = computed(() => Math.max(1, Math.ceil(visibleItems.value.length / Number(stockPageSize.value || 12))));
+const stockPageStart = computed(() => visibleItems.value.length === 0 ? 0 : ((stockPage.value - 1) * Number(stockPageSize.value || 12)) + 1);
+const stockPageEnd = computed(() => Math.min(visibleItems.value.length, stockPage.value * Number(stockPageSize.value || 12)));
+const paginatedVisibleItems = computed(() => {
+  const size = Number(stockPageSize.value || 12);
+  const start = (stockPage.value - 1) * size;
+
+  return visibleItems.value.slice(start, start + size);
+});
+const stockPaginationItems = computed(() => pageItems(stockTotalPages.value, stockPage.value));
 const lowStockItems = computed(() => visibleItems.value.filter((item) => Number(item.branch_stock_quantity || 0) <= 0));
+const overviewAlertCount = computed(() => stockAlerts.value.length);
+const overviewHealthyCount = computed(() => Math.max(0, stats.value.products - overviewAlertCount.value - stats.value.lowStock));
+const overviewStockSegments = computed(() => {
+  const total = Math.max(1, stats.value.products);
+  return [
+    { key: 'ok', label: 'OK', value: overviewHealthyCount.value, class: 'bg-emerald-500 dark:bg-success' },
+    { key: 'alert', label: 'Bajo mínimo', value: overviewAlertCount.value, class: 'bg-amber-500 dark:bg-warning' },
+    { key: 'zero', label: 'Sin stock', value: stats.value.lowStock, class: 'bg-red-500 dark:bg-danger' },
+  ].map((segment) => ({
+    ...segment,
+    width: `${Math.max(0, (Number(segment.value || 0) / total) * 100)}%`
+  }));
+});
+const overviewTrend = computed(() => {
+  const dayMs = 24 * 60 * 60 * 1000;
+  const today = new Date();
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(today.getTime() - ((6 - index) * dayMs));
+    const iso = date.toISOString().slice(0, 10);
+
+    return {
+      iso,
+      label: date.toLocaleDateString('es-SV', { weekday: 'short' }).replace('.', ''),
+      entries: 0,
+      exits: 0,
+    };
+  });
+
+  for (const movement of visibleMovements.value) {
+    const date = String(movement.created_at || '').slice(0, 10);
+    const day = days.find((candidate) => candidate.iso === date);
+    if (!day) continue;
+
+    if (movement.movement_type === 'entry') {
+      day.entries += Number(movement.quantity || 0);
+    } else {
+      day.exits += Number(movement.quantity || 0);
+    }
+  }
+
+  const max = Math.max(1, ...days.flatMap((day) => [day.entries, day.exits]));
+  const width = 360;
+  const height = 140;
+  const xStep = width / Math.max(1, days.length - 1);
+  const pointsFor = (key) => days.map((day, index) => {
+    const x = index * xStep;
+    const y = height - ((Number(day[key] || 0) / max) * (height - 16)) - 8;
+
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+
+  return {
+    days,
+    max,
+    entryPoints: pointsFor('entries'),
+    exitPoints: pointsFor('exits'),
+  };
+});
+const overviewMovementBars = computed(() => {
+  const entries = visibleMovements.value
+    .filter((movement) => movement.movement_type === 'entry')
+    .reduce((sum, movement) => sum + Number(movement.quantity || 0), 0);
+  const exits = visibleMovements.value
+    .filter((movement) => movement.movement_type !== 'entry')
+    .reduce((sum, movement) => sum + Number(movement.quantity || 0), 0);
+  const transfers = visibleMovements.value
+    .filter((movement) => String(movement.reason || '').includes('transfer'))
+    .reduce((sum, movement) => sum + Number(movement.quantity || 0), 0);
+  const reversals = visibleMovements.value
+    .filter((movement) => movement.reason === 'reversal')
+    .reduce((sum, movement) => sum + Number(movement.quantity || 0), 0);
+  const rows = [
+    { key: 'entries', label: 'Entradas', value: entries, class: 'bg-emerald-500 dark:bg-success' },
+    { key: 'exits', label: 'Salidas', value: exits, class: 'bg-sky-500 dark:bg-primary' },
+    { key: 'transfers', label: 'Transferencias', value: transfers, class: 'bg-indigo-500 dark:bg-primary' },
+    { key: 'reversals', label: 'Reversas', value: reversals, class: 'bg-amber-500 dark:bg-warning' },
+  ];
+  const max = Math.max(1, ...rows.map((row) => row.value));
+
+  return rows.map((row) => ({
+    ...row,
+    width: `${Math.max(3, (row.value / max) * 100)}%`
+  }));
+});
+const productDetailLots = computed(() => {
+  if (!productDetailItem.value) return [];
+
+  return lots.value
+    .filter((lot) => Number(lot.catalog_item_id || 0) === Number(productDetailItem.value.id))
+    .sort((a, b) => String(a.received_date || a.created_at || '').localeCompare(String(b.received_date || b.created_at || '')));
+});
+const productDetailMovements = computed(() => {
+  if (!productDetailItem.value) return [];
+
+  return movements.value
+    .filter((movement) => Number(movement.catalog_item_id || 0) === Number(productDetailItem.value.id))
+    .slice(0, 12);
+});
+const productDetailSales = computed(() => {
+  if (!productDetailItem.value) return null;
+
+  return salesReport.value.find((row) => Number(row.catalog_item_id || 0) === Number(productDetailItem.value.id)) ?? null;
+});
+const productDetailMargin = computed(() => {
+  if (!productDetailItem.value) return null;
+
+  return marginReport.value.find((row) => Number(row.catalog_item_id || 0) === Number(productDetailItem.value.id)) ?? null;
+});
+const productDetailBranchRows = computed(() => {
+  if (!productDetailItem.value) return [];
+
+  const branchMap = new Map();
+  for (const lot of productDetailLots.value) {
+    const key = String(lot.core_sucursal_id || 'none');
+    const current = branchMap.get(key) ?? {
+      id: lot.core_sucursal_id ?? null,
+      label: lot.core_sucursal_code || lot.core_sucursal_name || 'Sin sucursal',
+      quantity: 0,
+      value: 0,
+    };
+    current.quantity += Number(lot.available_quantity || 0);
+    current.value += Number(lot.available_quantity || 0) * Number(lot.unit_cost || 0);
+    branchMap.set(key, current);
+  }
+
+  return Array.from(branchMap.values());
+});
+const productDetailStats = computed(() => {
+  const lotsTotal = productDetailLots.value.reduce((sum, lot) => sum + Number(lot.available_quantity || 0), 0);
+  const costValue = productDetailLots.value.reduce((sum, lot) => sum + (Number(lot.available_quantity || 0) * Number(lot.unit_cost || 0)), 0);
+  const saleQuantity = Number(productDetailSales.value?.quantity || 0);
+  const saleTotal = Number(productDetailSales.value?.sales_total || 0);
+  const marginTotal = Number(productDetailMargin.value?.margin_total || 0);
+
+  return {
+    lotsTotal,
+    costValue,
+    saleQuantity,
+    saleTotal,
+    marginTotal,
+  };
+});
+const resumenReportes = computed(() => ({
+  ventas: salesReport.value.length,
+  margen: marginReport.value.length,
+  kardex: visibleMovements.value.length,
+  existencias: visibleItems.value.length,
+  lotes: filteredLotRows.value.length,
+  alertas: stockAlerts.value.length
+}));
 const stats = computed(() => ({
   products: items.value.length,
   units: visibleItems.value.reduce((sum, item) => sum + Number(item.branch_stock_quantity || 0), 0),
@@ -191,77 +484,120 @@ const stats = computed(() => ({
   lots: visibleLots.value.length,
   movements: visibleMovements.value.length
 }));
+const countSheetRows = computed(() => visibleItems.value.map((item, index) => ({
+  number: index + 1,
+  sku: item.sku || '',
+  name: item.name,
+  unit: item.unit_name || item.unit_code || '',
+  system_quantity: roundQuantity(Number(item.branch_stock_quantity || 0)),
+  counted_quantity: '',
+  difference: '',
+  notes: ''
+})));
 const activeResolveLine = computed(() => {
   if (resolveLineIndex.value === null) return null;
 
-  return purchaseImport.value.lines[resolveLineIndex.value] ?? null;
+  return compraImportada.value.lines[resolveLineIndex.value] ?? null;
 });
-const purchaseDocumentLabel = computed(() => ({
+const etiquetaDocumentoCompra = computed(() => ({
   dte_ccf: 'DTE CCF',
   dte_fcf: 'DTE FC',
   ccf: 'CCF físico',
   fcf: 'FC física',
   fse: 'FSE',
   nota_envio: 'Nota de envío'
-}[purchaseImport.value.document.document_type] ?? (purchaseImport.value.document.document_type || 'Documento')));
-const purchasePaymentLabel = computed(() => purchaseImport.value.document.payment_condition === 'credit' ? 'Crédito' : 'Contado');
-const purchaseImportSubtotal = computed(() => {
-  const dteSubtotal = Number(purchaseImport.value.document.subtotal ?? 0);
-  if (purchaseImport.value.document.document_mode === 'dte' && dteSubtotal > 0) return dteSubtotal;
+}[compraImportada.value.document.document_type] ?? (compraImportada.value.document.document_type || 'Documento')));
+const etiquetaPagoCompra = computed(() => compraImportada.value.document.payment_condition === 'credit' ? 'Crédito' : 'Contado');
+const esCompraManual = computed(() => compraImportada.value.document.document_mode === 'manual');
+const compraImportadaSubtotal = computed(() => {
+  const dteSubtotal = Number(compraImportada.value.document.subtotal ?? 0);
+  if (compraImportada.value.document.document_mode === 'dte' && dteSubtotal > 0) return dteSubtotal;
 
-  return roundMoney(purchaseImport.value.lines.reduce((sum, line) => sum + Number(line.subtotal ?? (Number(line.quantity || 0) * Number(line.unit_cost || 0))), 0));
+  return roundMoney(compraImportada.value.lines.reduce((sum, line) => sum + Number(line.subtotal ?? (Number(line.quantity || 0) * Number(line.unit_cost || 0))), 0));
 });
-const purchaseImportTax = computed(() => {
-  if (['nota_envio', 'manual'].includes(String(purchaseImport.value.document.document_type || ''))) return 0;
+const ivaCompraImportada = computed(() => {
+  if (['nota_envio', 'manual'].includes(String(compraImportada.value.document.document_type || ''))) return 0;
 
-  const dteTax = Number(purchaseImport.value.document.tax_amount ?? 0);
-  if (purchaseImport.value.document.document_mode === 'dte') return dteTax;
+  const dteTax = Number(compraImportada.value.document.tax_amount ?? 0);
+  if (compraImportada.value.document.document_mode === 'dte') return dteTax;
 
-  return roundMoney(purchaseImportSubtotal.value * 0.13);
+  return roundMoney(compraImportadaSubtotal.value * 0.13);
 });
-const purchaseImportFuel = computed(() => {
-  if (!purchaseImport.value.document.apply_fuel_charges) return 0;
+const combustibleCompraImportada = computed(() => {
+  if (!compraImportada.value.document.apply_fuel_charges) return 0;
 
-  const quantity = purchaseImport.value.lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0);
-  return roundMoney(quantity * (Number(purchaseImport.value.document.fovial_per_unit || 0) + Number(purchaseImport.value.document.cotrans_per_unit || 0)));
+  const quantity = compraImportada.value.lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0);
+  return roundMoney(quantity * (Number(compraImportada.value.document.fovial_per_unit || 0) + Number(compraImportada.value.document.cotrans_per_unit || 0)));
 });
-const purchaseImportPerceived = computed(() => {
-  if (!purchaseImport.value.document.apply_tax_perceived) return 0;
+const ivaPercibidoCompraImportada = computed(() => {
+  if (!compraImportada.value.document.apply_tax_perceived) return 0;
 
-  const detectedAmount = Number(purchaseImport.value.document.tax_perceived_amount || 0);
+  const detectedAmount = Number(compraImportada.value.document.tax_perceived_amount || 0);
   if (detectedAmount > 0) return detectedAmount;
 
-  const rate = purchaseImport.value.document.tax_perceived_mode === 'manual'
-    ? Number(purchaseImport.value.document.tax_perceived_rate || 0) / 100
+  const rate = compraImportada.value.document.tax_perceived_mode === 'manual'
+    ? Number(compraImportada.value.document.tax_perceived_rate || 0) / 100
     : 0.01;
 
-  return roundMoney(purchaseImportSubtotal.value * rate);
+  return roundMoney(compraImportadaSubtotal.value * rate);
 });
-const purchaseImportCalculatedTotal = computed(() => roundMoney(purchaseImportSubtotal.value + purchaseImportTax.value + purchaseImportFuel.value + purchaseImportPerceived.value));
-const purchaseImportDifference = computed(() => roundMoney(Number(purchaseImport.value.document.document_total || 0) - purchaseImportCalculatedTotal.value));
-const purchaseImportTotalsOk = computed(() => Math.abs(purchaseImportDifference.value) <= 0.02);
-const purchaseImportResolvedLines = computed(() => purchaseImport.value.lines.filter((line) => lineResolved(line)).length);
-const purchaseImportCanRegister = computed(() => {
-  const supplierReady = purchaseImport.value.create_supplier
-    ? purchaseImport.value.supplier.name.trim() !== ''
-    : purchaseImport.value.supplier_id !== '';
+const totalCalculadoCompraImportada = computed(() => roundMoney(compraImportadaSubtotal.value + ivaCompraImportada.value + combustibleCompraImportada.value + ivaPercibidoCompraImportada.value));
+const totalDocumentoCompraImportada = computed(() => esCompraManual.value ? totalCalculadoCompraImportada.value : Number(compraImportada.value.document.document_total || 0));
+const diferenciaCompraImportada = computed(() => esCompraManual.value ? 0 : roundMoney(Number(compraImportada.value.document.document_total || 0) - totalCalculadoCompraImportada.value));
+const totalesCompraImportadaOk = computed(() => Math.abs(diferenciaCompraImportada.value) <= 0.02);
+const lineasCompraImportadaResueltas = computed(() => compraImportada.value.lines.filter((line) => lineResolved(line)).length);
+const compraImportadaPuedeRegistrarse = computed(() => {
+  const supplierReady = compraImportada.value.create_supplier
+    ? compraImportada.value.supplier.name.trim() !== ''
+    : compraImportada.value.supplier_id !== '';
 
-  return Boolean(purchaseImport.value.preview)
+  return Boolean(compraImportada.value.preview)
     && supplierReady
-    && purchaseImport.value.lines.length > 0
-    && purchaseImport.value.lines.every((line) => lineResolved(line))
-    && purchaseImportTotalsOk.value;
+    && compraImportada.value.lines.length > 0
+    && compraImportada.value.lines.every((line) => lineResolved(line))
+    && totalesCompraImportadaOk.value;
 });
-const processOverlayOpen = computed(() => saving.value && savingAction.value === 'purchase');
+const processOverlayOpen = computed(() => saving.value && savingAction.value === 'compra');
 let inventoryRefreshTimer = null;
 
 watch(tenantId, () => {
   void loadInventory();
 });
 watch(selectedBranchId, () => {
+  stockPage.value = 1;
   void loadInventory({ silent: true });
 });
+watch(() => filters.value.q, () => {
+  stockPage.value = 1;
+});
+watch(stockPageSize, () => {
+  stockPage.value = 1;
+});
+watch(() => compraImportada.value.supplier_id, (supplierId) => {
+  if (!esCompraManual.value || compraImportada.value.create_supplier || !supplierId) return;
+
+  const supplier = suppliers.value.find((candidate) => String(candidate.id) === String(supplierId));
+  if (!supplier) return;
+
+  compraImportada.value.supplier = {
+    name: normalizeSupplierName(supplier.name || ''),
+    tax_id: formatNit(supplier.tax_id || ''),
+    nrc: formatNrc(supplier.nrc || ''),
+    phone: formatPhone(supplier.phone || ''),
+    email: supplier.email || '',
+    address: supplier.address || ''
+  };
+});
+watch(() => visibleItems.value.length, () => {
+  if (stockPage.value > stockTotalPages.value) {
+    stockPage.value = stockTotalPages.value;
+  }
+});
+watch(activeTab, (tab) => {
+  persistActiveInventoryView(tab);
+});
 onMounted(() => {
+  activeTab.value = initialInventoryView();
   window.addEventListener(INVENTORY_CHANGED_EVENT, handleInventoryChanged);
   window.addEventListener('storage', handleInventoryStorageChanged);
   void loadInventory();
@@ -277,23 +613,25 @@ async function loadInventory(options = { silent: false }): Promise<void> {
 
   if (!options.silent) loading.value = true;
   try {
-    const [inventoryItemResponse, catalogItemResponse, lotResponse, movementResponse, supplierResponse, categoryResponse, fiscalScopeResponse, salesResponse, marginResponse, alertsResponse] = await Promise.all([
-      client.value.catalogItems(tenantId.value, { status: 'active', controls_inventory: true, per_page: 100 }),
-      client.value.catalogItems(tenantId.value, { status: 'active', per_page: 100 }),
+    const [inventoryItemsResponse, catalogItemsResponse, lotResponse, movementResponse, supplierResponse, purchaseResponse, categoryResponse, fiscalScopeResponse, salesResponse, marginResponse, alertsResponse] = await Promise.all([
+      fetchAllCatalogItems({ status: 'active', controls_inventory: true }),
+      fetchAllCatalogItems({ status: 'active' }),
       client.value.inventoryLots(tenantId.value, { available_only: false, per_page: 100 }),
       client.value.inventoryMovements(tenantId.value, { per_page: 100 }),
       client.value.inventorySuppliers(tenantId.value, { status: 'active', per_page: 100 }),
+      client.value.inventoryPurchases(tenantId.value, { per_page: 100 }),
       client.value.catalogCategories(tenantId.value, { status: 'active' }),
       client.value.tenantFiscalScope(tenantId.value).catch(() => null),
       client.value.inventorySalesReport(tenantId.value, reportParams()).catch(() => ({ data: [] })),
       client.value.inventoryMarginReport(tenantId.value, reportParams()).catch(() => ({ data: [] })),
       client.value.inventoryStockAlerts(tenantId.value, branchReportParams()).catch(() => ({ data: [] }))
     ]);
-    items.value = inventoryItemResponse.data ?? [];
-    catalogItems.value = catalogItemResponse.data ?? [];
+    items.value = inventoryItemsResponse;
+    catalogItems.value = catalogItemsResponse;
     lots.value = lotResponse.data ?? [];
     movements.value = movementResponse.data ?? [];
     suppliers.value = supplierResponse.data ?? [];
+    purchases.value = purchaseResponse.data ?? [];
     categories.value = categoryResponse.data ?? [];
     fiscalScope.value = fiscalScopeResponse;
     salesReport.value = salesResponse.data ?? [];
@@ -309,16 +647,70 @@ async function loadInventory(options = { silent: false }): Promise<void> {
   }
 }
 
+async function fetchAllCatalogItems(params): Promise<unknown[]> {
+  if (!tenantId.value) return [];
+
+  const all = [];
+  let page = 1;
+  let lastPage = 1;
+
+  do {
+    const response = await client.value.catalogItems(tenantId.value, { ...params, page, per_page: 100 });
+    all.push(...(response.data ?? []));
+    lastPage = Number(response.meta?.last_page ?? response.last_page ?? page);
+    page += 1;
+  } while (page <= lastPage);
+
+  return all;
+}
+
 function reportParams() {
   return {
-    from: reportFilters.value.from || undefined,
-    to: reportFilters.value.to || undefined,
+    ...periodReportParams(),
     ...branchReportParams()
+  };
+}
+
+function periodReportParams() {
+  return {
+    from: reportFilters.value.from || undefined,
+    to: reportFilters.value.to || undefined
   };
 }
 
 function branchReportParams() {
   return selectedBranch.value ? { core_sucursal_id: Number(selectedBranch.value.id) } : {};
+}
+
+function initialInventoryView(): string {
+  if (typeof window === 'undefined') return 'overview';
+
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get('inventory_view');
+  if (fromUrl && validTabKeys.has(fromUrl)) {
+    return fromUrl;
+  }
+
+  const fromStorage = window.localStorage.getItem(INVENTORY_ACTIVE_VIEW_KEY);
+  if (fromStorage && validTabKeys.has(fromStorage)) {
+    return fromStorage;
+  }
+
+  return 'overview';
+}
+
+function persistActiveInventoryView(tab: string): void {
+  if (typeof window === 'undefined' || !validTabKeys.has(tab)) return;
+
+  window.localStorage.setItem(INVENTORY_ACTIVE_VIEW_KEY, tab);
+
+  const url = new URL(window.location.href);
+  if (tab === 'overview') {
+    url.searchParams.delete('inventory_view');
+  } else {
+    url.searchParams.set('inventory_view', tab);
+  }
+  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
 }
 
 function handleInventoryChanged(event): void {
@@ -348,50 +740,107 @@ function scheduleInventoryRefresh(): void {
   }, 120);
 }
 
-function openEntry(item = null): void {
-  selectedItem.value = item;
-  entryForm.value = {
-    catalog_item_id: item ? String(item.id) : '',
-    purchase_date: new Date().toISOString().slice(0, 10),
-    document_type: '',
-    document_number: '',
-    quantity: 1,
-    unit_cost: Number(item?.reference_cost || 0)
-  };
-  stockEntryOpen.value = true;
+function openProductDetail(item): void {
+  productDetailItem.value = item;
 }
 
-async function saveEntry(): Promise<void> {
-  if (!tenantId.value) return;
-  if (branchOptions.value.length > 0 && !selectedBranch.value) {
-    notify('Selecciona sucursal', 'La entrada debe asignarse a una sucursal.', 'error');
-    return;
-  }
+async function openPurchaseDetail(purchase): Promise<void> {
+  if (!tenantId.value || !purchase?.id) return;
 
-  const catalogItemId = selectedItem.value?.id ?? Number(entryForm.value.catalog_item_id || 0);
-  if (!catalogItemId) return;
-
-  saving.value = true;
+  selectedPurchase.value = purchase;
   try {
-    await client.value.createInventoryPurchase(tenantId.value, {
-      ...branchPayload.value,
-      document_type: entryForm.value.document_type || null,
-      document_number: entryForm.value.document_number || null,
-      purchase_date: entryForm.value.purchase_date,
-      lines: [{
-        catalog_item_id: catalogItemId,
-        quantity: Number(entryForm.value.quantity || 0),
-        unit_cost: Number(entryForm.value.unit_cost || 0)
-      }]
-    });
-    notify('Entrada registrada', 'Se creó lote y movimiento de kardex.', 'success');
-    stockEntryOpen.value = false;
-    await loadInventory();
+    const response = await client.value.inventoryPurchase(tenantId.value, Number(purchase.id));
+    selectedPurchase.value = response.data;
   } catch (error) {
-    notify('No se pudo registrar entrada', messageFromError(error), 'error');
-  } finally {
-    saving.value = false;
+    notify('No se pudo cargar compra', messageFromError(error), 'error');
   }
+}
+
+function crearLineaCompraVacia(item = null) {
+  return {
+    description: item?.name || '',
+    quantity: 1,
+    unit_cost: Number(item?.reference_cost || 0),
+    subtotal: Number(item?.reference_cost || 0),
+    unit_code: item?.unit_code || '59',
+    supplier_code: '',
+    no_inventory: false,
+    catalog_item_id: item?.id ? String(item.id) : '',
+    create_item: !item?.id,
+    new_item_name: item?.name || '',
+    new_item_sku: '',
+    new_item_base_price: Number(item?.base_price || 0),
+    category_id: '',
+    new_category_name: '',
+    controls_inventory: true
+  };
+}
+
+function abrirCompraManual(item = null): void {
+  activeTab.value = 'entries';
+  compraImportada.value.fileName = '';
+  compraImportada.value.preview = { source: 'manual_ccf_paper' };
+  compraImportada.value.supplier_id = '';
+  compraImportada.value.create_supplier = false;
+  compraImportada.value.supplier = { name: '', tax_id: '', nrc: '', phone: '', email: '', address: '' };
+  compraImportada.value.document = {
+    ...compraImportada.value.document,
+    document_type: 'ccf',
+    document_mode: 'manual',
+    document_number: '',
+    purchase_date: new Date().toISOString().slice(0, 10),
+    payment_condition: 'cash',
+    subtotal: 0,
+    tax_amount: 0,
+    document_total: 0,
+    is_consumable: false,
+    apply_tax_perceived: false,
+    tax_perceived_mode: 'auto',
+    tax_perceived_rate: 1,
+    tax_perceived_amount: 0,
+    apply_fuel_charges: false,
+    fovial_per_unit: 0,
+    cotrans_per_unit: 0,
+    fiscal_profile: '',
+    fiscal_sector: ''
+  };
+  compraImportada.value.lines = [crearLineaCompraVacia(item)];
+  compraImportada.value.import_metadata = { source: 'manual_ccf_paper' };
+}
+
+function agregarLineaCompraManual(): void {
+  compraImportada.value.lines.push(crearLineaCompraVacia());
+}
+
+function quitarLineaCompra(index: number): void {
+  if (compraImportada.value.lines.length <= 1) return;
+  compraImportada.value.lines.splice(index, 1);
+}
+
+function goToStockPage(page: number): void {
+  stockPage.value = Math.min(Math.max(page, 1), stockTotalPages.value);
+}
+
+function pageItems(lastPage: number, page: number) {
+  if (lastPage <= 7) {
+    return Array.from({ length: lastPage }, (_, index) => index + 1);
+  }
+
+  const pages = new Set([1, 2, lastPage - 1, lastPage, page - 1, page, page + 1]);
+  const visible = [...pages]
+    .filter((item) => item >= 1 && item <= lastPage)
+    .sort((a, b) => a - b);
+  const items = [];
+
+  for (const item of visible) {
+    const previous = items[items.length - 1];
+    if (typeof previous === 'number' && item - previous > 1) {
+      items.push('ellipsis');
+    }
+    items.push(item);
+  }
+
+  return items;
 }
 
 async function saveAdjustment(): Promise<void> {
@@ -507,7 +956,290 @@ async function saveSupplier(): Promise<void> {
   }
 }
 
-async function importPurchaseJson(event): Promise<void> {
+function descargarReporte(tipo: string): void {
+  const reportes = {
+    ventas: {
+      nombre: 'ventas-producto',
+      columnas: [
+        ['sku', 'Código'],
+        ['name', 'Producto'],
+        ['line_origin', 'Origen'],
+        ['quantity', 'Cantidad'],
+        ['sales_total', 'Venta'],
+        ['reference_cost_total', 'Costo ref.']
+      ],
+      filas: salesReport.value
+    },
+    margen: {
+      nombre: 'margen-producto',
+      columnas: [
+        ['sku', 'Código'],
+        ['name', 'Producto'],
+        ['quantity', 'Cantidad'],
+        ['sales_total', 'Venta'],
+        ['reference_cost_total', 'Costo ref.'],
+        ['margin_total', 'Margen'],
+        ['margin_percent', 'Margen %']
+      ],
+      filas: marginReport.value
+    },
+    kardex: {
+      nombre: 'kardex',
+      columnas: [
+        ['created_at', 'Fecha'],
+        ['producto', 'Producto'],
+        ['sku', 'Código'],
+        ['lote', 'Lote'],
+        ['movement_type', 'Tipo'],
+        ['reason', 'Motivo'],
+        ['sucursal', 'Sucursal'],
+        ['quantity', 'Cantidad'],
+        ['unit_cost', 'Costo'],
+        ['balance_after', 'Saldo'],
+        ['reference_number', 'Referencia'],
+        ['notes', 'Notas']
+      ],
+      filas: visibleMovements.value.map((movement) => ({
+        ...movement,
+        producto: movement.catalog_item?.name || 'Producto',
+        sku: movement.catalog_item?.sku || '',
+        lote: movement.lot?.lot_code || '',
+        sucursal: movement.core_sucursal_code || movement.core_sucursal_name || ''
+      }))
+    },
+    existencias: {
+      nombre: 'existencias',
+      columnas: [
+        ['sku', 'Código'],
+        ['name', 'Producto'],
+        ['branch_stock_quantity', 'Stock sucursal'],
+        ['stock_quantity', 'Stock total'],
+        ['reference_cost', 'Costo ref.'],
+        ['valor', 'Valor ref.']
+      ],
+      filas: visibleItems.value.map((item) => ({
+        ...item,
+        valor: roundMoney(Number(item.branch_stock_quantity || 0) * Number(item.reference_cost || 0))
+      }))
+    },
+    lotes: {
+      nombre: 'lotes',
+      columnas: [
+        ['lot_code', 'Lote'],
+        ['producto', 'Producto'],
+        ['sku', 'Código'],
+        ['supplier_name', 'Proveedor'],
+        ['received_date', 'Fecha'],
+        ['sucursal', 'Sucursal'],
+        ['initial_quantity_number', 'Inicial'],
+        ['consumed_quantity', 'Consumido'],
+        ['available_quantity_number', 'Disponible'],
+        ['unit_cost', 'Costo'],
+        ['available_value', 'Valor'],
+        ['estado', 'Estado']
+      ],
+      filas: filteredLotRows.value.map((lot) => ({
+        ...lot,
+        producto: lot.catalog_item?.name || 'Producto',
+        sku: lot.catalog_item?.sku || '',
+        sucursal: lot.core_sucursal_code || lot.core_sucursal_name || '',
+        estado: lotStatusLabel(lot.lot_status)
+      }))
+    },
+    alertas: {
+      nombre: 'alertas-stock',
+      columnas: [
+        ['sku', 'Código'],
+        ['name', 'Producto'],
+        ['stock_quantity', 'Stock'],
+        ['min_stock_quantity', 'Mínimo']
+      ],
+      filas: stockAlerts.value
+    }
+  };
+  const reporte = reportes[tipo];
+  if (!reporte) return;
+  if (reporte.filas.length === 0) {
+    notify('Sin datos', 'No hay filas para descargar con los filtros actuales.', 'info');
+    return;
+  }
+
+  descargarCsv(reporte.nombre, reporte.columnas, reporte.filas);
+}
+
+function descargarHojaConteo(): void {
+  if (countSheetRows.value.length === 0) {
+    notify('Sin datos', 'No hay productos inventariables para generar la hoja de conteo.', 'info');
+    return;
+  }
+
+  descargarCsv('hoja-conteo-fisico', columnasHojaConteo(), countSheetRows.value, nombreArchivoHojaConteo());
+}
+
+function imprimirHojaConteo(): void {
+  if (countSheetRows.value.length === 0) {
+    notify('Sin datos', 'No hay productos inventariables para imprimir.', 'info');
+    return;
+  }
+
+  const ventana = window.open('', '_blank', 'noopener,noreferrer');
+  if (!ventana) {
+    notify('No se pudo abrir impresión', 'Revisa si el navegador bloqueó la ventana emergente.', 'error');
+    return;
+  }
+
+  const sucursal = selectedBranch.value
+    ? `${selectedBranch.value.codigo || ''} ${selectedBranch.value.nombre || ''}`.trim()
+    : 'Todas las sucursales';
+  const fecha = countForm.value.count_date || new Date().toISOString().slice(0, 10);
+  const filas = countSheetRows.value.map((row) => `
+    <tr>
+      <td>${escapeHtml(row.number)}</td>
+      <td>${escapeHtml(row.sku)}</td>
+      <td>${escapeHtml(row.name)}</td>
+      <td>${escapeHtml(row.unit)}</td>
+      <td class="right">${escapeHtml(formatQuantity(row.system_quantity))}</td>
+      <td class="blank"></td>
+      <td class="blank"></td>
+      <td class="blank"></td>
+    </tr>
+  `).join('');
+
+  ventana.document.write(`<!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${escapeHtml(nombreArchivoHojaConteo())}</title>
+        <style>
+          * { box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; color: #111827; margin: 24px; }
+          header { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
+          h1 { font-size: 20px; margin: 0 0 6px; }
+          p { margin: 2px 0; font-size: 12px; color: #475569; }
+          table { border-collapse: collapse; width: 100%; font-size: 11px; }
+          th, td { border: 1px solid #cbd5e1; padding: 6px; vertical-align: top; }
+          th { background: #e2e8f0; text-transform: uppercase; font-size: 10px; text-align: left; }
+          .right { text-align: right; }
+          .blank { height: 28px; }
+          .meta { text-align: right; }
+          @media print {
+            body { margin: 12mm; }
+            button { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <header>
+          <div>
+            <h1>Hoja de conteo físico</h1>
+            <p>${escapeHtml(String(tenantName.value || 'Empresa'))}</p>
+            <p>Sucursal: ${escapeHtml(sucursal)}</p>
+          </div>
+          <div class="meta">
+            <p>Fecha conteo: ${escapeHtml(fecha)}</p>
+            <p>Productos: ${countSheetRows.value.length}</p>
+          </div>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Código</th>
+              <th>Producto</th>
+              <th>Unidad</th>
+              <th class="right">Sistema</th>
+              <th>Conteo físico</th>
+              <th>Diferencia</th>
+              <th>Notas</th>
+            </tr>
+          </thead>
+          <tbody>${filas}</tbody>
+        </table>
+        <script>window.print();<\/script>
+      </body>
+    </html>`);
+  ventana.document.close();
+}
+
+function columnasHojaConteo(): Array<[string, string]> {
+  return [
+    ['number', '#'],
+    ['sku', 'Código'],
+    ['name', 'Producto'],
+    ['unit', 'Unidad'],
+    ['system_quantity', 'Cantidad sistema'],
+    ['counted_quantity', 'Conteo físico'],
+    ['difference', 'Diferencia'],
+    ['notes', 'Notas']
+  ];
+}
+
+function nombreArchivoHojaConteo(): string {
+  const empresa = String(tenantName.value || 'empresa')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40) || 'empresa';
+  const sucursal = selectedBranch.value
+    ? String(selectedBranch.value.codigo || selectedBranch.value.nombre || 'sucursal')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+    : 'todas';
+  const fecha = countForm.value.count_date || new Date().toISOString().slice(0, 10);
+
+  return `${empresa}-hoja-conteo-${sucursal}-${fecha}`;
+}
+
+function descargarCsv(nombre: string, columnas: Array<[string, string]>, filas: Array<Record<string, unknown>>, nombreArchivo = ''): void {
+  const cabecera = columnas.map(([, label]) => label);
+  const cuerpo = filas.map((fila) => columnas.map(([key]) => valorCsv(fila[key])));
+  const contenido = [cabecera, ...cuerpo].map((row) => row.join(';')).join('\n');
+  const blob = new Blob([`\uFEFF${contenido}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${nombreArchivo || nombreArchivoReporte(nombre)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function valorCsv(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const normalized = String(value).replace(/\r?\n/g, ' ').replace(/"/g, '""');
+  return `"${normalized}"`;
+}
+
+function nombreArchivoReporte(nombre: string): string {
+  const empresa = String(tenantName.value || 'empresa')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40) || 'empresa';
+  const desde = reportFilters.value.from || 'inicio';
+  const hasta = reportFilters.value.to || new Date().toISOString().slice(0, 10);
+
+  return `${empresa}-${nombre}-${desde}-${hasta}`;
+}
+
+async function importarJsonCompra(event): Promise<void> {
   const file = event?.target?.files?.[0] ?? null;
   if (!tenantId.value || !file) return;
 
@@ -517,11 +1249,11 @@ async function importPurchaseJson(event): Promise<void> {
     const response = await client.value.importInventoryPurchaseDteJson(tenantId.value, payload);
     const preview = response.data;
     const supplierSource = preview.supplier.matched ?? preview.supplier.from_json;
-    purchaseImport.value.fileName = file.name;
-    purchaseImport.value.preview = preview;
-    purchaseImport.value.supplier_id = preview.supplier.matched ? String(preview.supplier.matched.id) : '';
-    purchaseImport.value.create_supplier = !preview.supplier.matched;
-    purchaseImport.value.supplier = {
+    compraImportada.value.fileName = file.name;
+    compraImportada.value.preview = preview;
+    compraImportada.value.supplier_id = preview.supplier.matched ? String(preview.supplier.matched.id) : '';
+    compraImportada.value.create_supplier = !preview.supplier.matched;
+    compraImportada.value.supplier = {
       name: normalizeSupplierName(supplierSource.name || ''),
       tax_id: formatNit(supplierSource.tax_id || ''),
       nrc: formatNrc(supplierSource.nrc || ''),
@@ -529,8 +1261,8 @@ async function importPurchaseJson(event): Promise<void> {
       email: preview.supplier.from_json.email || '',
       address: preview.supplier.from_json.address || ''
     };
-    purchaseImport.value.document = {
-      ...purchaseImport.value.document,
+    compraImportada.value.document = {
+      ...compraImportada.value.document,
       ...preview.document,
       is_consumable: false,
       apply_tax_perceived: Boolean(preview.document.apply_tax_perceived),
@@ -540,7 +1272,7 @@ async function importPurchaseJson(event): Promise<void> {
       fiscal_profile: '',
       fiscal_sector: ''
     };
-    purchaseImport.value.lines = preview.lines.map((line) => ({
+    compraImportada.value.lines = preview.lines.map((line) => ({
       description: line.description,
       quantity: line.quantity,
       unit_cost: line.unit_cost,
@@ -551,11 +1283,13 @@ async function importPurchaseJson(event): Promise<void> {
       catalog_item_id: line.matched_catalog_item ? String(line.matched_catalog_item.id) : '',
       create_item: !line.matched_catalog_item,
       new_item_name: line.description,
+      new_item_sku: '',
+      new_item_base_price: 0,
       category_id: '',
       new_category_name: '',
       controls_inventory: !line.no_inventory
     }));
-    purchaseImport.value.import_metadata = preview.import_metadata;
+    compraImportada.value.import_metadata = preview.import_metadata;
     notify('JSON cargado', 'Revisa proveedor y líneas antes de registrar.', 'success');
   } catch (error) {
     notify('No se pudo importar JSON', messageFromError(error), 'error');
@@ -565,20 +1299,20 @@ async function importPurchaseJson(event): Promise<void> {
   }
 }
 
-async function registerImportedPurchase(): Promise<void> {
-  if (!tenantId.value || !purchaseImport.value.preview) return;
+async function registrarCompraImportada(): Promise<void> {
+  if (!tenantId.value || !compraImportada.value.preview) return;
   if (branchOptions.value.length > 0 && !selectedBranch.value) {
     notify('Selecciona sucursal', 'La compra debe ingresar a una sucursal.', 'error');
     return;
   }
 
   saving.value = true;
-  savingAction.value = 'purchase';
+  savingAction.value = 'compra';
   try {
-    const supplierId = await resolvePurchaseSupplier();
+    const supplierId = await resolverProveedorCompra();
     const lines = [];
-    for (const line of purchaseImport.value.lines) {
-      const catalogItemId = await resolvePurchaseLineItem(line);
+    for (const line of compraImportada.value.lines) {
+      const catalogItemId = await resolverItemLineaCompra(line);
       lines.push({
         catalog_item_id: catalogItemId,
         description: line.description,
@@ -594,30 +1328,30 @@ async function registerImportedPurchase(): Promise<void> {
     await client.value.createInventoryPurchase(tenantId.value, {
       inventory_supplier_id: supplierId,
       ...branchPayload.value,
-      document_type: purchaseImport.value.document.document_type || null,
-      document_mode: purchaseImport.value.document.document_mode || 'dte',
-      document_number: purchaseImport.value.document.document_number || null,
-      payment_condition: purchaseImport.value.document.payment_condition || 'cash',
-      tax_amount: Number(purchaseImport.value.document.tax_amount || 0),
-      document_total: Number(purchaseImport.value.document.document_total || 0),
-      purchase_date: purchaseImport.value.document.purchase_date,
-      is_consumable: Boolean(purchaseImport.value.document.is_consumable),
-      apply_tax_perceived: Boolean(purchaseImport.value.document.apply_tax_perceived),
-      tax_perceived_mode: purchaseImport.value.document.tax_perceived_mode || 'auto',
-      tax_perceived_rate: Number(purchaseImport.value.document.tax_perceived_rate || 1),
-      tax_perceived_amount: Number(purchaseImport.value.document.tax_perceived_amount || 0),
-      apply_fuel_charges: Boolean(purchaseImport.value.document.apply_fuel_charges),
-      fovial_per_unit: Number(purchaseImport.value.document.fovial_per_unit || 0),
-      cotrans_per_unit: Number(purchaseImport.value.document.cotrans_per_unit || 0),
-      fiscal_profile: purchaseImport.value.document.fiscal_profile || null,
-      fiscal_sector: purchaseImport.value.document.fiscal_sector ? Number(purchaseImport.value.document.fiscal_sector) : null,
-      supplier_snapshot: purchaseImport.value.supplier,
-      import_metadata: purchaseImport.value.import_metadata,
+      document_type: compraImportada.value.document.document_type || null,
+      document_mode: compraImportada.value.document.document_mode || 'dte',
+      document_number: compraImportada.value.document.document_number || null,
+      payment_condition: compraImportada.value.document.payment_condition || 'cash',
+      tax_amount: esCompraManual.value ? ivaCompraImportada.value : Number(compraImportada.value.document.tax_amount || 0),
+      document_total: esCompraManual.value ? totalCalculadoCompraImportada.value : Number(compraImportada.value.document.document_total || 0),
+      purchase_date: compraImportada.value.document.purchase_date,
+      is_consumable: Boolean(compraImportada.value.document.is_consumable),
+      apply_tax_perceived: Boolean(compraImportada.value.document.apply_tax_perceived),
+      tax_perceived_mode: compraImportada.value.document.tax_perceived_mode || 'auto',
+      tax_perceived_rate: Number(compraImportada.value.document.tax_perceived_rate || 1),
+      tax_perceived_amount: Number(compraImportada.value.document.tax_perceived_amount || 0),
+      apply_fuel_charges: Boolean(compraImportada.value.document.apply_fuel_charges),
+      fovial_per_unit: Number(compraImportada.value.document.fovial_per_unit || 0),
+      cotrans_per_unit: Number(compraImportada.value.document.cotrans_per_unit || 0),
+      fiscal_profile: compraImportada.value.document.fiscal_profile || null,
+      fiscal_sector: compraImportada.value.document.fiscal_sector ? Number(compraImportada.value.document.fiscal_sector) : null,
+      supplier_snapshot: compraImportada.value.supplier,
+      import_metadata: compraImportada.value.import_metadata,
       lines
     });
 
     notify('Compra registrada', 'Se crearon lotes y kardex para las líneas inventariables.', 'success');
-    clearPurchaseImport();
+    limpiarCompraImportada();
     await loadInventory();
   } catch (error) {
     notify('No se pudo registrar compra', messageFromError(error), 'error');
@@ -627,48 +1361,49 @@ async function registerImportedPurchase(): Promise<void> {
   }
 }
 
-async function resolvePurchaseSupplier(): Promise<number | null> {
-  if (!purchaseImport.value.create_supplier) {
-    return purchaseImport.value.supplier_id ? Number(purchaseImport.value.supplier_id) : null;
+async function resolverProveedorCompra(): Promise<number | null> {
+  if (!compraImportada.value.create_supplier) {
+    return compraImportada.value.supplier_id ? Number(compraImportada.value.supplier_id) : null;
   }
 
-  if (!purchaseImport.value.supplier.name.trim()) {
+  if (!compraImportada.value.supplier.name.trim()) {
     throw new Error('Debes ingresar el nombre del proveedor.');
   }
 
   const response = await client.value.createInventorySupplier(tenantId.value, {
-    name: purchaseImport.value.supplier.name.trim(),
-    tax_id: purchaseImport.value.supplier.tax_id.trim() || null,
-    nrc: purchaseImport.value.supplier.nrc.trim() || null,
-    phone: purchaseImport.value.supplier.phone.trim() || null,
-    email: purchaseImport.value.supplier.email.trim() || null,
-    address: purchaseImport.value.supplier.address.trim() || null
+    name: compraImportada.value.supplier.name.trim(),
+    tax_id: compraImportada.value.supplier.tax_id.trim() || null,
+    nrc: compraImportada.value.supplier.nrc.trim() || null,
+    phone: compraImportada.value.supplier.phone.trim() || null,
+    email: compraImportada.value.supplier.email.trim() || null,
+    address: compraImportada.value.supplier.address.trim() || null
   });
 
   return response.data.id;
 }
 
-async function resolvePurchaseLineItem(line): Promise<number> {
+async function resolverItemLineaCompra(line): Promise<number> {
   if (!line.create_item && line.catalog_item_id) {
     return Number(line.catalog_item_id);
   }
 
-  const categoryId = await resolvePurchaseCategory(line);
+  const categoryId = await resolverCategoriaCompra(line);
   const response = await client.value.createCatalogItem(tenantId.value, {
     catalog_category_id: categoryId,
+    sku: line.new_item_sku?.trim() || null,
     name: line.new_item_name.trim() || line.description,
     item_type: line.no_inventory ? 'service' : 'part',
     unit_code: line.unit_code || '59',
     controls_inventory: !line.no_inventory && Boolean(line.controls_inventory),
     reference_cost: Number(line.unit_cost || 0),
-    base_price: 0,
+    base_price: Number(line.new_item_base_price || 0),
     status: 'active'
   });
 
   return response.data.id;
 }
 
-async function resolvePurchaseCategory(line): Promise<number | null> {
+async function resolverCategoriaCompra(line): Promise<number | null> {
   if (line.category_id) {
     return Number(line.category_id);
   }
@@ -687,13 +1422,13 @@ async function resolvePurchaseCategory(line): Promise<number | null> {
   return response.data.id;
 }
 
-function clearPurchaseImport(): void {
-  purchaseImport.value.fileName = '';
-  purchaseImport.value.preview = null;
-  purchaseImport.value.supplier_id = '';
-  purchaseImport.value.create_supplier = false;
-  purchaseImport.value.lines = [];
-  purchaseImport.value.import_metadata = null;
+function limpiarCompraImportada(): void {
+  compraImportada.value.fileName = '';
+  compraImportada.value.preview = null;
+  compraImportada.value.supplier_id = '';
+  compraImportada.value.create_supplier = false;
+  compraImportada.value.lines = [];
+  compraImportada.value.import_metadata = null;
 }
 
 function openLineResolver(index: number): void {
@@ -701,6 +1436,17 @@ function openLineResolver(index: number): void {
 }
 
 function closeLineResolver(): void {
+  if (activeResolveLine.value) {
+    const line = activeResolveLine.value;
+    line.subtotal = roundMoney(Number(line.quantity || 0) * Number(line.unit_cost || 0));
+    if (line.create_item && line.new_item_name?.trim()) {
+      line.description = line.description || line.new_item_name.trim();
+    }
+    if (!line.create_item && line.catalog_item_id) {
+      const itemName = lineLinkedItemName(line);
+      if (itemName !== 'Pendiente') line.description = line.description || itemName;
+    }
+  }
   resolveLineIndex.value = null;
 }
 
@@ -719,7 +1465,7 @@ function lineLinkedItemName(line): string {
 }
 
 function lineModeLabel(line): string {
-  if (purchaseImport.value.document.is_consumable || line.no_inventory) return 'No inventario';
+  if (compraImportada.value.document.is_consumable || line.no_inventory) return 'No inventario';
   if (line.create_item) return line.controls_inventory ? 'Nuevo inventariable' : 'Nuevo catálogo';
 
   const item = catalogItems.value.find((candidate) => String(candidate.id) === String(line.catalog_item_id));
@@ -757,19 +1503,19 @@ function formatPhone(value: string): string {
 }
 
 function updateImportedSupplierName(value: string): void {
-  purchaseImport.value.supplier.name = normalizeSupplierName(value);
+  compraImportada.value.supplier.name = normalizeSupplierName(value);
 }
 
 function updateImportedSupplierNit(value: string): void {
-  purchaseImport.value.supplier.tax_id = formatNit(value);
+  compraImportada.value.supplier.tax_id = formatNit(value);
 }
 
 function updateImportedSupplierNrc(value: string): void {
-  purchaseImport.value.supplier.nrc = formatNrc(value);
+  compraImportada.value.supplier.nrc = formatNrc(value);
 }
 
 function updateImportedSupplierPhone(value: string): void {
-  purchaseImport.value.supplier.phone = formatPhone(value);
+  compraImportada.value.supplier.phone = formatPhone(value);
 }
 
 function formatMoney(value): string {
@@ -780,8 +1526,60 @@ function roundMoney(value): number {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 }
 
+function roundQuantity(value): number {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 1000) / 1000;
+}
+
 function formatQuantity(value): string {
   return new Intl.NumberFormat('es-SV', { maximumFractionDigits: 3 }).format(Number(value || 0));
+}
+
+function formatDateOnly(value): string {
+  const text = String(value || '').trim();
+  if (!text) return 'Sin fecha';
+
+  return text.slice(0, 10);
+}
+
+function lotStatusLabel(status: string): string {
+  return {
+    available: 'Disponible',
+    partial: 'Parcial',
+    depleted: 'Agotado'
+  }[status] ?? 'Disponible';
+}
+
+function lotStatusTone(status: string): string {
+  return {
+    available: 'success',
+    partial: 'warning',
+    depleted: 'neutral'
+  }[status] ?? 'neutral';
+}
+
+function purchaseDocumentTypeLabel(type: string | null | undefined): string {
+  return {
+    ccf: 'CCF físico',
+    fcf: 'FC física',
+    fse: 'FSE',
+    dte_ccf: 'DTE CCF',
+    dte_fcf: 'DTE FC',
+    nota_envio: 'Nota de envío',
+    manual: 'CCF físico'
+  }[String(type || '')] ?? (type || 'Documento');
+}
+
+function purchaseDocumentModeLabel(mode: string | null | undefined): string {
+  return {
+    dte: 'DTE JSON',
+    manual: 'CCF físico',
+    physical: 'CCF físico',
+    paper: 'CCF físico'
+  }[String(mode || '')] ?? 'CCF físico';
+}
+
+function paymentConditionLabel(condition: string | null | undefined): string {
+  return ['credit', 'credito'].includes(String(condition || '').toLowerCase()) ? 'Crédito' : 'Contado';
 }
 
 function movementTone(type): string {
@@ -810,6 +1608,7 @@ function messageFromError(error): string {
     :nav-items="sectionNavItems"
     :active-id="activeTab"
     :home-href="homeHref"
+    sidebar-storage-key="stelfaro:inventory-sidebar-compact"
     @select="activeTab = $event"
   >
     <BillingFloatingToastStack :toasts="toasts" />
@@ -830,8 +1629,7 @@ function messageFromError(error): string {
           />
         </div>
         <div class="flex flex-wrap justify-end gap-2">
-        <UiButton variant="secondary" :disabled="loading" @click="loadInventory">Actualizar</UiButton>
-        <UiButton :disabled="items.length === 0" @click="openEntry(null)">Entrada</UiButton>
+          <UiButton variant="secondary" :disabled="loading" @click="loadInventory">Actualizar</UiButton>
         </div>
       </div>
 
@@ -842,53 +1640,132 @@ function messageFromError(error): string {
         <template v-else>
           <div v-if="activeTab === 'overview'" class="space-y-5">
             <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-              <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+              <button type="button" class="rounded-md border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-sky-300 hover:bg-sky-50/50 dark:border-line dark:bg-surface dark:hover:border-primary dark:hover:bg-primary-soft/20" @click="activeTab = 'stock'">
                 <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Productos</p>
                 <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ stats.products }}</p>
-              </div>
-              <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+                <p class="mt-1 text-xs text-slate-500 dark:text-muted">Ver existencias</p>
+              </button>
+              <button type="button" class="rounded-md border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-sky-300 hover:bg-sky-50/50 dark:border-line dark:bg-surface dark:hover:border-primary dark:hover:bg-primary-soft/20" @click="activeTab = 'stock'">
                 <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Unidades</p>
                 <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ formatQuantity(stats.units) }}</p>
-              </div>
-              <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+                <p class="mt-1 text-xs text-slate-500 dark:text-muted">Stock sucursal</p>
+              </button>
+              <button type="button" class="rounded-md border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-sky-300 hover:bg-sky-50/50 dark:border-line dark:bg-surface dark:hover:border-primary dark:hover:bg-primary-soft/20" @click="activeTab = 'lots'">
                 <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Valor costo</p>
                 <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ formatMoney(stats.value) }}</p>
-              </div>
-              <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
-                <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Sin stock</p>
-                <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ stats.lowStock }}</p>
-              </div>
-              <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+                <p class="mt-1 text-xs text-slate-500 dark:text-muted">Ver lotes</p>
+              </button>
+              <button type="button" class="rounded-md border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-amber-300 hover:bg-amber-50/60 dark:border-line dark:bg-surface dark:hover:border-warning dark:hover:bg-warning-soft/20" @click="activeTab = 'alerts'">
+                <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Alertas</p>
+                <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ overviewAlertCount }}</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-muted">{{ stats.lowStock }} sin stock</p>
+              </button>
+              <button type="button" class="rounded-md border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-sky-300 hover:bg-sky-50/50 dark:border-line dark:bg-surface dark:hover:border-primary dark:hover:bg-primary-soft/20" @click="activeTab = 'lots'">
                 <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Lotes</p>
                 <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ stats.lots }}</p>
-              </div>
-              <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+                <p class="mt-1 text-xs text-slate-500 dark:text-muted">FIFO disponible</p>
+              </button>
+              <button type="button" class="rounded-md border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-sky-300 hover:bg-sky-50/50 dark:border-line dark:bg-surface dark:hover:border-primary dark:hover:bg-primary-soft/20" @click="activeTab = 'kardex'">
                 <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Movimientos</p>
                 <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ stats.movements }}</p>
-              </div>
+                <p class="mt-1 text-xs text-slate-500 dark:text-muted">Ver kardex</p>
+              </button>
             </div>
 
-            <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
-              <h3 class="text-base font-bold text-slate-950 dark:text-text">Movimientos recientes</h3>
-              <div class="mt-4 divide-y divide-slate-100 dark:divide-line">
-                <div v-for="movement in visibleMovements.slice(0, 8)" :key="movement.id" class="flex items-center justify-between gap-4 py-3 text-sm">
+            <div class="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+              <section class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+                <div class="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p class="font-semibold text-slate-950 dark:text-text">{{ movement.catalog_item?.name ?? 'Producto' }}</p>
-                    <p class="text-xs text-slate-500 dark:text-soft">{{ movement.core_sucursal_code || movement.core_sucursal_name || 'Sin sucursal' }} · {{ movement.reason }} · {{ movement.reference_number || movement.created_at }}</p>
+                    <h3 class="text-base font-bold text-slate-950 dark:text-text">Tendencia de movimiento</h3>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-muted">Entradas y salidas de los últimos 7 días.</p>
                   </div>
-                  <div class="text-right">
-                    <UiStatusBadge :tone="movementTone(movement.movement_type)">{{ movement.movement_type === 'entry' ? 'Entrada' : 'Salida' }}</UiStatusBadge>
-                    <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ formatQuantity(movement.quantity) }}</p>
+                  <div class="flex gap-3 text-xs font-semibold">
+                    <span class="inline-flex items-center gap-1 text-emerald-700 dark:text-success"><span class="h-2 w-2 rounded-full bg-emerald-500 dark:bg-success"></span>Entradas</span>
+                    <span class="inline-flex items-center gap-1 text-sky-700 dark:text-primary"><span class="h-2 w-2 rounded-full bg-sky-500 dark:bg-primary"></span>Salidas</span>
                   </div>
                 </div>
-                <p v-if="visibleMovements.length === 0" class="py-8 text-center text-sm text-slate-500 dark:text-muted">Sin movimientos todavía.</p>
-              </div>
+                <div class="mt-5 h-48 rounded-md bg-slate-50 px-4 py-4 dark:bg-surface-muted">
+                  <svg class="h-full w-full overflow-visible" viewBox="0 0 360 160" preserveAspectRatio="none" aria-hidden="true">
+                    <line x1="0" y1="152" x2="360" y2="152" class="stroke-slate-200 dark:stroke-line" stroke-width="1" />
+                    <polyline :points="overviewTrend.entryPoints" fill="none" class="stroke-emerald-500 dark:stroke-success" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+                    <polyline :points="overviewTrend.exitPoints" fill="none" class="stroke-sky-500 dark:stroke-primary" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+                  </svg>
+                </div>
+                <div class="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase text-slate-500 dark:text-soft">
+                  <span v-for="day in overviewTrend.days" :key="day.iso">{{ day.label }}</span>
+                </div>
+              </section>
+
+              <section class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 class="text-base font-bold text-slate-950 dark:text-text">Salud del inventario</h3>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-muted">Estado operativo de productos inventariables.</p>
+                  </div>
+                  <UiButton size="sm" variant="secondary" @click="activeTab = 'alerts'">Ver alertas</UiButton>
+                </div>
+                <div class="mt-5 overflow-hidden rounded-full bg-slate-100 dark:bg-surface-muted">
+                  <div class="flex h-4">
+                    <span v-for="segment in overviewStockSegments" :key="segment.key" :class="segment.class" :style="{ width: segment.width }"></span>
+                  </div>
+                </div>
+                <div class="mt-5 grid gap-3 sm:grid-cols-3">
+                  <button
+                    v-for="segment in overviewStockSegments"
+                    :key="segment.key"
+                    type="button"
+                    class="rounded-md border border-slate-200 px-3 py-3 text-left transition hover:bg-slate-50 dark:border-line dark:hover:bg-surface-muted"
+                    @click="segment.key === 'ok' ? activeTab = 'stock' : activeTab = 'alerts'"
+                  >
+                    <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">{{ segment.label }}</p>
+                    <p class="mt-1 text-xl font-black text-slate-950 dark:text-text">{{ segment.value }}</p>
+                  </button>
+                </div>
+              </section>
             </div>
-          </div>
+
+            <section class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 class="text-base font-bold text-slate-950 dark:text-text">Actividad acumulada</h3>
+                  <p class="mt-1 text-sm text-slate-500 dark:text-muted">Lectura rápida por tipo de operación visible.</p>
+                </div>
+                <UiButton size="sm" variant="secondary" @click="activeTab = 'kardex'">Abrir kardex</UiButton>
+              </div>
+              <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <button
+                  v-for="row in overviewMovementBars"
+                  :key="row.key"
+                  type="button"
+                  class="rounded-md border border-slate-200 px-4 py-4 text-left transition hover:bg-slate-50 dark:border-line dark:hover:bg-surface-muted"
+                  @click="activeTab = 'kardex'"
+                >
+                  <div class="flex items-center justify-between gap-3">
+                    <span class="text-sm font-bold text-slate-950 dark:text-text">{{ row.label }}</span>
+                    <span class="text-sm font-black text-slate-950 dark:text-text">{{ formatQuantity(row.value) }}</span>
+                  </div>
+                  <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-surface-muted">
+                    <span class="block h-full rounded-full" :class="row.class" :style="{ width: row.width }"></span>
+                  </div>
+                </button>
+              </div>
+            </section>
+            </div>
 
           <div v-if="activeTab === 'stock'" class="space-y-4">
             <div class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
-              <UiSearchInput v-model="filters.q" label="Buscar producto" placeholder="Nombre o código" button-label="Filtrar" />
+              <div class="grid gap-4 lg:grid-cols-[1fr_180px]">
+                <UiSearchInput v-model="filters.q" label="Buscar producto" placeholder="Nombre o código" button-label="Filtrar" />
+                <UiSelect
+                  v-model="stockPageSize"
+                  label="Por página"
+                  :options="[
+                    { value: '12', label: '12 productos' },
+                    { value: '24', label: '24 productos' },
+                    { value: '48', label: '48 productos' }
+                  ]"
+                />
+              </div>
             </div>
             <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
               <UiDataTable overflow="auto" min-width="min-w-[820px]">
@@ -903,7 +1780,7 @@ function messageFromError(error): string {
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-line">
-                  <tr v-for="item in visibleItems" :key="item.id" class="text-sm">
+                  <tr v-for="item in paginatedVisibleItems" :key="item.id" class="text-sm">
                     <td class="px-4 py-3">
                       <p class="font-semibold text-slate-950 dark:text-text">{{ item.name }}</p>
                       <p class="text-xs text-slate-500 dark:text-soft">{{ item.sku || 'Sin código' }}</p>
@@ -914,16 +1791,60 @@ function messageFromError(error): string {
                     <td class="px-4 py-3">{{ formatMoney(Number(item.branch_stock_quantity || 0) * Number(item.reference_cost || 0)) }}</td>
                     <td class="px-4 py-3">
                       <div class="flex justify-end gap-2">
-                        <UiButton size="sm" variant="secondary" @click="openEntry(item)">Entrada</UiButton>
+                        <UiButton size="sm" variant="secondary" @click="openProductDetail(item)">Detalle</UiButton>
+                        <UiButton size="sm" variant="secondary" @click="abrirCompraManual(item)">Entrada</UiButton>
                         <UiButton size="sm" variant="ghost" @click="adjustmentForm.catalog_item_id = String(item.id); activeTab = 'adjustments'">Ajuste</UiButton>
                       </div>
                     </td>
                   </tr>
-                  <tr v-if="visibleItems.length === 0">
+                  <tr v-if="paginatedVisibleItems.length === 0">
                     <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="6">Sin productos inventariables.</td>
                   </tr>
                 </tbody>
               </UiDataTable>
+              <div class="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-line lg:flex-row lg:items-center lg:justify-between">
+                <p class="text-sm font-semibold text-slate-500 dark:text-soft">
+                  Mostrando {{ stockPageStart }}-{{ stockPageEnd }} de {{ visibleItems.length }}
+                </p>
+                <div class="flex flex-wrap items-center gap-1">
+                  <button
+                    type="button"
+                    class="grid h-10 min-w-10 place-items-center rounded-md border border-slate-200 bg-white px-3 text-slate-700 transition hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-line dark:bg-surface-muted dark:text-muted dark:hover:border-primary dark:hover:text-primary"
+                    :disabled="stockPage <= 1"
+                    aria-label="Página anterior"
+                    @click="goToStockPage(stockPage - 1)"
+                  >
+                    ‹
+                  </button>
+                  <template v-for="(item, index) in stockPaginationItems" :key="`${item}-${index}`">
+                    <span
+                      v-if="item === 'ellipsis'"
+                      class="hidden h-10 min-w-10 place-items-center px-2 text-sm font-semibold text-slate-400 dark:text-soft sm:grid"
+                    >
+                      ...
+                    </span>
+                    <button
+                      v-else
+                      type="button"
+                      class="hidden h-10 min-w-10 rounded-md border px-3 text-sm font-bold transition sm:inline-flex sm:items-center sm:justify-center"
+                      :class="item === stockPage ? 'border-sky-600 bg-sky-600 text-white dark:border-primary dark:bg-primary dark:text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-sky-300 hover:text-sky-700 dark:border-line dark:bg-surface-muted dark:text-muted dark:hover:border-primary dark:hover:text-primary'"
+                      :aria-current="item === stockPage ? 'page' : undefined"
+                      @click="goToStockPage(item)"
+                    >
+                      {{ item }}
+                    </button>
+                  </template>
+                  <button
+                    type="button"
+                    class="grid h-10 min-w-10 place-items-center rounded-md border border-slate-200 bg-white px-3 text-slate-700 transition hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-line dark:bg-surface-muted dark:text-muted dark:hover:border-primary dark:hover:text-primary"
+                    :disabled="stockPage >= stockTotalPages"
+                    aria-label="Página siguiente"
+                    @click="goToStockPage(stockPage + 1)"
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -932,50 +1853,77 @@ function messageFromError(error): string {
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 class="text-base font-bold text-slate-950 dark:text-text">Compras y entradas</h3>
-                  <p class="mt-1 text-sm text-slate-600 dark:text-muted">Registra entradas rápidas o importa el JSON DTE recibido del proveedor.</p>
+                  <p class="mt-1 text-sm text-slate-600 dark:text-muted">Registra un CCF físico o importa el JSON DTE recibido del proveedor.</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                  <UiFileUpload id="inventory-purchase-json" label="Importar JSON" accept=".json,application/json" compact @change="importPurchaseJson" />
-                  <UiButton :disabled="items.length === 0" @click="openEntry(null)">Entrada rápida</UiButton>
+                  <UiFileUpload id="inventory-compra-json" label="Importar JSON" accept=".json,application/json" compact @change="importarJsonCompra" />
+                  <UiButton @click="abrirCompraManual(null)">CCF físico</UiButton>
                 </div>
               </div>
             </div>
 
-            <div v-if="purchaseImport.preview" class="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-none">
+            <div v-if="compraImportada.preview" class="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-none">
               <div class="border-b border-slate-200 px-5 py-4 dark:border-line">
                 <div class="flex flex-wrap items-start justify-between gap-4">
                   <div class="min-w-0">
-                    <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Compra importada</p>
-                    <h3 class="mt-1 text-xl font-black text-slate-950 dark:text-text">{{ purchaseDocumentLabel }}</h3>
-                    <p class="mt-1 max-w-full truncate text-sm text-slate-600 dark:text-muted">{{ purchaseImport.document.document_number || 'Sin código de generación' }}</p>
+                    <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">{{ esCompraManual ? 'CCF físico' : 'Compra importada' }}</p>
+                    <h3 class="mt-1 text-xl font-black text-slate-950 dark:text-text">{{ etiquetaDocumentoCompra }}</h3>
+                    <p class="mt-1 max-w-full truncate text-sm text-slate-600 dark:text-muted">{{ esCompraManual ? 'CCF físico en papel' : (compraImportada.document.document_number || 'Sin código de generación') }}</p>
                   </div>
                   <div class="flex flex-wrap items-center gap-2">
-                    <UiStatusBadge :tone="purchaseImportTotalsOk ? 'success' : 'warning'">{{ purchaseImportTotalsOk ? 'Totales OK' : 'Revisar total' }}</UiStatusBadge>
-                    <UiStatusBadge :tone="purchaseImportResolvedLines === purchaseImport.lines.length ? 'success' : 'warning'">{{ purchaseImportResolvedLines }}/{{ purchaseImport.lines.length }} líneas</UiStatusBadge>
-                    <UiButton variant="ghost" @click="clearPurchaseImport">Limpiar</UiButton>
+                    <UiStatusBadge :tone="totalesCompraImportadaOk ? 'success' : 'warning'">{{ totalesCompraImportadaOk ? 'Totales OK' : 'Revisar total' }}</UiStatusBadge>
+                    <UiStatusBadge :tone="lineasCompraImportadaResueltas === compraImportada.lines.length ? 'success' : 'warning'">{{ lineasCompraImportadaResueltas }}/{{ compraImportada.lines.length }} líneas</UiStatusBadge>
+                    <UiButton variant="ghost" @click="limpiarCompraImportada">Limpiar</UiButton>
                   </div>
                 </div>
 
                 <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                   <div class="rounded-md border border-slate-200 px-4 py-3 dark:border-line">
                     <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Fecha</p>
-                    <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ purchaseImport.document.purchase_date || 'N/D' }}</p>
+                    <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ compraImportada.document.purchase_date || 'N/D' }}</p>
                   </div>
                   <div class="rounded-md border border-slate-200 px-4 py-3 dark:border-line">
                     <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Condición</p>
-                    <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ purchasePaymentLabel }}</p>
+                    <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ etiquetaPagoCompra }}</p>
                   </div>
                   <div class="rounded-md border border-slate-200 px-4 py-3 dark:border-line">
-                    <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Archivo</p>
-                    <p class="mt-1 truncate font-semibold text-slate-950 dark:text-text">{{ purchaseImport.fileName }}</p>
+                    <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">{{ esCompraManual ? 'Origen' : 'Archivo' }}</p>
+                    <p class="mt-1 truncate font-semibold text-slate-950 dark:text-text">{{ esCompraManual ? 'Papel' : compraImportada.fileName }}</p>
                   </div>
                   <div class="rounded-md border border-slate-200 px-4 py-3 dark:border-line">
                     <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Documento</p>
-                    <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ purchaseDocumentLabel }}</p>
+                    <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ etiquetaDocumentoCompra }}</p>
                   </div>
                   <div class="rounded-md border border-slate-200 px-4 py-3 dark:border-line">
-                    <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Total DTE</p>
-                    <p class="mt-1 text-lg font-black text-slate-950 dark:text-text">{{ formatMoney(purchaseImport.document.document_total) }}</p>
+                    <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">{{ esCompraManual ? 'Total calculado' : 'Total DTE' }}</p>
+                    <p class="mt-1 text-lg font-black text-slate-950 dark:text-text">{{ formatMoney(totalDocumentoCompraImportada) }}</p>
+                  </div>
+                </div>
+                <div v-if="esCompraManual" class="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-line dark:bg-surface-muted">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p class="text-sm font-black text-slate-950 dark:text-text">Datos del CCF físico</p>
+                      <p class="mt-1 text-sm text-slate-600 dark:text-muted">Usa esta captura para compras con CCF en papel que alimentarán el anexo.</p>
+                    </div>
+                    <span
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-sky-200 bg-white text-sm font-black text-sky-700 dark:border-primary/40 dark:bg-surface dark:text-primary"
+                      title="Si recibiste un DTE, importa el JSON. Las facturas consumidor final no se capturan aquí porque no alimentan el anexo de compras."
+                      aria-label="Ayuda sobre CCF físico"
+                    >
+                      ?
+                    </span>
+                  </div>
+                  <div class="mt-4 grid gap-4 md:grid-cols-3">
+                    <UiInput v-model="compraImportada.document.purchase_date" label="Fecha" type="date" />
+                    <UiInput v-model="compraImportada.document.document_number" label="Número CCF" placeholder="Serie o correlativo" />
+                    <UiSelect
+                      v-model="compraImportada.document.payment_condition"
+                      label="Condición"
+                      :options="[
+                        { value: 'cash', label: 'Contado' },
+                        { value: 'credit', label: 'Crédito' }
+                      ]"
+                    />
                   </div>
                 </div>
               </div>
@@ -986,49 +1934,60 @@ function messageFromError(error): string {
                     <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-line">
                       <div>
                         <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Proveedor</p>
-                        <p class="mt-1 text-base font-bold text-slate-950 dark:text-text">{{ purchaseImport.supplier.name || 'Proveedor pendiente' }}</p>
+                        <p class="mt-1 text-base font-bold text-slate-950 dark:text-text">{{ compraImportada.supplier.name || 'Proveedor pendiente' }}</p>
                         <p class="mt-1 text-sm text-slate-600 dark:text-muted">
-                          {{ purchaseImport.supplier.tax_id || 'Sin NIT' }}
-                          <span v-if="purchaseImport.supplier.nrc"> · NRC {{ purchaseImport.supplier.nrc }}</span>
-                          <span v-if="purchaseImport.supplier.phone"> · {{ purchaseImport.supplier.phone }}</span>
+                          {{ compraImportada.supplier.tax_id || 'Sin NIT' }}
+                          <span v-if="compraImportada.supplier.nrc"> · NRC {{ compraImportada.supplier.nrc }}</span>
+                          <span v-if="compraImportada.supplier.phone"> · {{ compraImportada.supplier.phone }}</span>
                         </p>
                       </div>
-                      <UiStatusBadge :tone="purchaseImport.create_supplier ? 'warning' : 'success'">{{ purchaseImport.create_supplier ? 'Nuevo proveedor' : 'Proveedor vinculado' }}</UiStatusBadge>
+                      <UiStatusBadge :tone="compraImportada.create_supplier ? 'warning' : (compraImportada.supplier_id ? 'success' : 'neutral')">
+                        {{ compraImportada.create_supplier ? 'Nuevo proveedor' : (compraImportada.supplier_id ? 'Proveedor vinculado' : 'Proveedor pendiente') }}
+                      </UiStatusBadge>
                     </div>
                     <div class="px-4 py-4">
-                      <div v-if="!purchaseImport.create_supplier" class="grid gap-3 md:grid-cols-3">
-                        <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
-                          <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Nombre</p>
-                          <p class="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-text">{{ purchaseImport.supplier.name }}</p>
+                      <div v-if="!compraImportada.create_supplier" class="space-y-3">
+                        <div v-if="esCompraManual" class="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                          <UiSelect v-model="compraImportada.supplier_id" label="Proveedor existente" :options="supplierOptions" />
+                          <UiButton variant="secondary" @click="compraImportada.create_supplier = true">Nuevo proveedor</UiButton>
                         </div>
-                        <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
-                          <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">NIT / NRC</p>
-                          <p class="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-text">{{ purchaseImport.supplier.tax_id || 'Sin NIT' }}<span v-if="purchaseImport.supplier.nrc"> · {{ purchaseImport.supplier.nrc }}</span></p>
-                        </div>
-                        <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
-                          <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Origen</p>
-                          <p class="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-text">Base de proveedores</p>
+                        <div class="grid gap-3 md:grid-cols-3">
+                          <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
+                            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Nombre</p>
+                            <p class="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-text">{{ compraImportada.supplier.name || 'Pendiente' }}</p>
+                          </div>
+                          <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
+                            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">NIT / NRC</p>
+                            <p class="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-text">{{ compraImportada.supplier.tax_id || 'Sin NIT' }}<span v-if="compraImportada.supplier.nrc"> · {{ compraImportada.supplier.nrc }}</span></p>
+                          </div>
+                          <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
+                            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Origen</p>
+                            <p class="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-text">Base de proveedores</p>
+                          </div>
                         </div>
                       </div>
-                      <template v-if="purchaseImport.create_supplier">
+                      <template v-if="compraImportada.create_supplier">
+                        <div v-if="esCompraManual" class="mb-4 flex justify-end">
+                          <UiButton variant="ghost" @click="compraImportada.create_supplier = false">Usar proveedor existente</UiButton>
+                        </div>
                         <div class="grid gap-4 md:grid-cols-2">
                           <UiInput
-                            :model-value="purchaseImport.supplier.name"
+                            :model-value="compraImportada.supplier.name"
                             label="Nombre proveedor"
                             @update:model-value="updateImportedSupplierName"
                           />
                           <UiInput
-                            :model-value="purchaseImport.supplier.tax_id"
+                            :model-value="compraImportada.supplier.tax_id"
                             label="NIT"
                             @update:model-value="updateImportedSupplierNit"
                           />
                           <UiInput
-                            :model-value="purchaseImport.supplier.nrc"
+                            :model-value="compraImportada.supplier.nrc"
                             label="NRC"
                             @update:model-value="updateImportedSupplierNrc"
                           />
                           <UiInput
-                            :model-value="purchaseImport.supplier.phone"
+                            :model-value="compraImportada.supplier.phone"
                             label="Teléfono"
                             @update:model-value="updateImportedSupplierPhone"
                           />
@@ -1043,9 +2002,10 @@ function messageFromError(error): string {
                         <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Detalle</p>
                         <p class="mt-1 text-base font-bold text-slate-950 dark:text-text">Líneas del documento</p>
                       </div>
-                      <UiStatusBadge :tone="purchaseImportResolvedLines === purchaseImport.lines.length ? 'success' : 'warning'">
-                        {{ purchaseImportResolvedLines }} resueltas
+                      <UiStatusBadge :tone="lineasCompraImportadaResueltas === compraImportada.lines.length ? 'success' : 'warning'">
+                        {{ lineasCompraImportadaResueltas }} resueltas
                       </UiStatusBadge>
+                      <UiButton v-if="esCompraManual" size="sm" variant="secondary" @click="agregarLineaCompraManual">Agregar línea</UiButton>
                     </div>
                     <UiDataTable overflow="auto" min-width="min-w-[940px]">
                       <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
@@ -1060,7 +2020,7 @@ function messageFromError(error): string {
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-100 dark:divide-line">
-                        <tr v-for="(line, idx) in purchaseImport.lines" :key="`${line.description}-${idx}`" class="text-sm">
+                        <tr v-for="(line, idx) in compraImportada.lines" :key="`${line.description}-${idx}`" class="text-sm">
                           <td class="px-4 py-3">
                             <p class="max-w-[320px] truncate font-semibold text-slate-950 dark:text-text">{{ line.description }}</p>
                             <p class="text-xs text-slate-500 dark:text-soft">Unidad {{ line.unit_code || '59' }}</p>
@@ -1070,13 +2030,16 @@ function messageFromError(error): string {
                             <p class="text-xs text-slate-500 dark:text-soft">{{ lineResolved(line) ? 'Lista para registrar' : 'Pendiente de resolver' }}</p>
                           </td>
                           <td class="px-4 py-3">
-                            <UiStatusBadge :tone="line.no_inventory || purchaseImport.document.is_consumable ? 'neutral' : 'success'">{{ lineModeLabel(line) }}</UiStatusBadge>
+                            <UiStatusBadge :tone="line.no_inventory || compraImportada.document.is_consumable ? 'neutral' : 'success'">{{ lineModeLabel(line) }}</UiStatusBadge>
                           </td>
                           <td class="px-4 py-3 text-right font-semibold">{{ formatQuantity(line.quantity) }}</td>
                           <td class="px-4 py-3 text-right">{{ formatMoney(line.unit_cost) }}</td>
                           <td class="px-4 py-3 text-right font-semibold">{{ formatMoney(Number(line.quantity || 0) * Number(line.unit_cost || 0)) }}</td>
                           <td class="px-4 py-3 text-right">
-                            <UiButton size="sm" variant="secondary" @click="openLineResolver(idx)">Resolver</UiButton>
+                            <div class="flex justify-end gap-2">
+                              <UiButton size="sm" variant="secondary" @click="openLineResolver(idx)">{{ esCompraManual ? 'Editar' : 'Resolver' }}</UiButton>
+                              <UiButton v-if="esCompraManual && compraImportada.lines.length > 1" size="sm" variant="ghost" @click="quitarLineaCompra(idx)">Quitar</UiButton>
+                            </div>
                           </td>
                         </tr>
                       </tbody>
@@ -1090,32 +2053,32 @@ function messageFromError(error): string {
                     <div class="mt-4 space-y-2 text-sm">
                       <div class="flex justify-between gap-4">
                         <span class="text-slate-600 dark:text-muted">Subtotal</span>
-                        <strong>{{ formatMoney(purchaseImportSubtotal) }}</strong>
+                        <strong>{{ formatMoney(compraImportadaSubtotal) }}</strong>
                       </div>
                       <div class="flex justify-between gap-4">
                         <span class="text-slate-600 dark:text-muted">IVA estimado</span>
-                        <strong>{{ formatMoney(purchaseImportTax) }}</strong>
+                        <strong>{{ formatMoney(ivaCompraImportada) }}</strong>
                       </div>
-                      <div v-if="purchaseImport.document.apply_tax_perceived" class="flex justify-between gap-4">
+                      <div v-if="compraImportada.document.apply_tax_perceived" class="flex justify-between gap-4">
                         <span class="text-slate-600 dark:text-muted">IVA percibido</span>
-                        <strong>{{ formatMoney(purchaseImportPerceived) }}</strong>
+                        <strong>{{ formatMoney(ivaPercibidoCompraImportada) }}</strong>
                       </div>
-                      <div v-if="purchaseImport.document.apply_fuel_charges" class="flex justify-between gap-4">
+                      <div v-if="compraImportada.document.apply_fuel_charges" class="flex justify-between gap-4">
                         <span class="text-slate-600 dark:text-muted">FOVIAL/COTRANS</span>
-                        <strong>{{ formatMoney(purchaseImportFuel) }}</strong>
+                        <strong>{{ formatMoney(combustibleCompraImportada) }}</strong>
                       </div>
                       <div class="border-t border-slate-200 pt-3 dark:border-line">
                         <div class="flex justify-between gap-4">
                           <span class="font-bold text-slate-950 dark:text-text">Calculado</span>
-                          <strong>{{ formatMoney(purchaseImportCalculatedTotal) }}</strong>
+                          <strong>{{ formatMoney(totalCalculadoCompraImportada) }}</strong>
                         </div>
                         <div class="mt-2 flex justify-between gap-4">
-                          <span class="font-bold text-slate-950 dark:text-text">Total DTE</span>
-                          <strong>{{ formatMoney(purchaseImport.document.document_total) }}</strong>
+                          <span class="font-bold text-slate-950 dark:text-text">{{ esCompraManual ? 'Total compra' : 'Total DTE' }}</span>
+                          <strong>{{ formatMoney(totalDocumentoCompraImportada) }}</strong>
                         </div>
-                        <div class="mt-2 flex justify-between gap-4" :class="purchaseImportTotalsOk ? 'text-emerald-700 dark:text-success' : 'text-amber-700 dark:text-warning'">
+                        <div class="mt-2 flex justify-between gap-4" :class="totalesCompraImportadaOk ? 'text-emerald-700 dark:text-success' : 'text-amber-700 dark:text-warning'">
                           <span class="font-bold">Diferencia</span>
-                          <strong>{{ formatMoney(purchaseImportDifference) }}</strong>
+                          <strong>{{ formatMoney(diferenciaCompraImportada) }}</strong>
                         </div>
                       </div>
                     </div>
@@ -1124,51 +2087,197 @@ function messageFromError(error): string {
                   <div class="mt-4 rounded-md border border-slate-200 p-4 dark:border-line">
                     <p class="text-sm font-black text-slate-950 dark:text-text">Ajustes</p>
                     <div class="mt-3 space-y-3">
-                      <UiCheckbox v-model="purchaseImport.document.is_consumable" label="Compra consumible" />
-                      <div v-if="Number(purchaseImport.document.tax_perceived_amount || 0) > 0" class="flex items-center justify-between gap-3 rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-success/50 dark:bg-surface-2">
+                      <UiCheckbox v-model="compraImportada.document.is_consumable" label="Compra consumible" />
+                      <div v-if="Number(compraImportada.document.tax_perceived_amount || 0) > 0" class="flex items-center justify-between gap-3 rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-success/50 dark:bg-surface-2">
                         <span class="font-semibold text-slate-800 dark:text-text">IVA percibido detectado</span>
-                        <span class="shrink-0 rounded bg-emerald-100 px-2 py-1 font-black text-emerald-800 dark:bg-success-soft dark:text-success">{{ formatMoney(purchaseImport.document.tax_perceived_amount) }}</span>
+                        <span class="shrink-0 rounded bg-emerald-100 px-2 py-1 font-black text-emerald-800 dark:bg-success-soft dark:text-success">{{ formatMoney(compraImportada.document.tax_perceived_amount) }}</span>
                       </div>
-                      <UiCheckbox v-else v-model="purchaseImport.document.apply_tax_perceived" label="IVA percibido" />
-                      <UiCheckbox v-model="purchaseImport.document.apply_fuel_charges" label="FOVIAL/COTRANS" />
+                      <UiCheckbox v-else v-model="compraImportada.document.apply_tax_perceived" label="IVA percibido" />
+                      <UiCheckbox v-model="compraImportada.document.apply_fuel_charges" label="FOVIAL/COTRANS" />
                     </div>
                   </div>
 
                   <div class="mt-4 flex flex-col gap-2">
-                    <UiButton :disabled="saving || !purchaseImportCanRegister" @click="registerImportedPurchase">Registrar compra</UiButton>
-                    <p v-if="!purchaseImportCanRegister" class="text-xs text-slate-500 dark:text-soft">Resuelve proveedor, líneas y diferencia de totales antes de registrar.</p>
+                    <UiButton :disabled="saving || !compraImportadaPuedeRegistrarse" @click="registrarCompraImportada">Registrar compra</UiButton>
+                    <p v-if="!compraImportadaPuedeRegistrarse" class="text-xs text-slate-500 dark:text-soft">Resuelve proveedor, líneas y diferencia de totales antes de registrar.</p>
                   </div>
                 </aside>
               </div>
             </div>
           </div>
 
-          <div v-if="activeTab === 'lots'" class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
-            <UiDataTable overflow="auto" min-width="min-w-[820px]">
-              <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
-                <tr>
-                  <th class="px-4 py-3">Lote</th>
-                  <th class="px-4 py-3">Producto</th>
-                  <th class="px-4 py-3">Fecha</th>
-                  <th class="px-4 py-3">Sucursal</th>
-                  <th class="px-4 py-3">Disponible</th>
-                  <th class="px-4 py-3">Costo</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-100 dark:divide-line">
-                <tr v-for="lot in visibleLots" :key="lot.id" class="text-sm">
-                  <td class="px-4 py-3 font-semibold text-slate-950 dark:text-text">{{ lot.lot_code }}</td>
-                  <td class="px-4 py-3">{{ lot.catalog_item?.name ?? 'Producto' }}</td>
-                  <td class="px-4 py-3">{{ lot.received_date || 'Sin fecha' }}</td>
-                  <td class="px-4 py-3">{{ lot.core_sucursal_code || lot.core_sucursal_name || 'Sin asignar' }}</td>
-                  <td class="px-4 py-3">{{ formatQuantity(lot.available_quantity) }}</td>
-                  <td class="px-4 py-3">{{ formatMoney(lot.unit_cost) }}</td>
-                </tr>
-                <tr v-if="visibleLots.length === 0">
-                  <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="6">Sin lotes registrados.</td>
-                </tr>
-              </tbody>
-            </UiDataTable>
+          <div v-if="activeTab === 'purchases'" class="space-y-4">
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Compras filtradas</p>
+                <p class="mt-1 text-2xl font-black text-slate-950 dark:text-text">{{ purchaseStats.count }}</p>
+              </div>
+              <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Total</p>
+                <p class="mt-1 text-2xl font-black text-slate-950 dark:text-text">{{ formatMoney(purchaseStats.total) }}</p>
+              </div>
+              <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">DTE JSON</p>
+                <p class="mt-1 text-2xl font-black text-slate-950 dark:text-text">{{ purchaseStats.dte }}</p>
+              </div>
+              <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">CCF físico</p>
+                <p class="mt-1 text-2xl font-black text-slate-950 dark:text-text">{{ purchaseStats.manual }}</p>
+              </div>
+            </div>
+
+            <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+              <div class="grid gap-4 lg:grid-cols-[1.2fr_1fr_1fr] xl:grid-cols-[1.4fr_1fr_1fr_1fr_auto]">
+                <UiSearchInput v-model="purchaseFilters.q" label="Buscar" placeholder="Buscar proveedor, documento o número interno" />
+                <UiSelect v-model="purchaseFilters.document_mode" label="Modo" :options="purchaseModeOptions" />
+                <UiSelect v-model="purchaseFilters.supplier_id" label="Proveedor" :options="lotSupplierOptions" />
+                <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                  <UiInput v-model="purchaseFilters.from" label="Desde" type="date" />
+                  <UiInput v-model="purchaseFilters.to" label="Hasta" type="date" />
+                </div>
+                <div class="flex items-end">
+                  <UiButton variant="ghost" @click="purchaseFilters = { q: '', document_mode: '', supplier_id: '', from: '', to: '' }">Limpiar</UiButton>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+              <UiDataTable overflow="auto" min-width="min-w-[1040px]">
+                <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
+                  <tr>
+                    <th class="px-4 py-3">Compra</th>
+                    <th class="px-4 py-3">Proveedor</th>
+                    <th class="px-4 py-3">Documento</th>
+                    <th class="px-4 py-3">Fecha</th>
+                    <th class="px-4 py-3">Sucursal</th>
+                    <th class="px-4 py-3 text-right">Líneas</th>
+                    <th class="px-4 py-3 text-right">Total</th>
+                    <th class="px-4 py-3 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-line">
+                  <tr v-for="purchase in filteredPurchaseRows" :key="purchase.id" class="text-sm">
+                    <td class="px-4 py-3">
+                      <p class="font-semibold text-slate-950 dark:text-text">#{{ purchase.purchase_number || purchase.id }}</p>
+                      <UiStatusBadge :tone="purchase.status === 'registered' ? 'success' : 'neutral'">{{ purchase.status || 'Registrada' }}</UiStatusBadge>
+                    </td>
+                    <td class="px-4 py-3">
+                      <p class="max-w-[240px] truncate font-semibold text-slate-950 dark:text-text">{{ purchase.supplier_name }}</p>
+                      <p class="text-xs text-slate-500 dark:text-soft">{{ purchase.supplier?.tax_id || purchase.supplier_snapshot?.tax_id || 'Sin NIT' }}</p>
+                    </td>
+                    <td class="px-4 py-3">
+                      <p class="font-semibold text-slate-950 dark:text-text">{{ purchaseDocumentTypeLabel(purchase.document_type) }}</p>
+                      <p class="max-w-[220px] truncate text-xs text-slate-500 dark:text-soft">{{ purchase.document_number || 'Sin número' }} · {{ purchaseDocumentModeLabel(purchase.document_mode) }}</p>
+                    </td>
+                    <td class="px-4 py-3">{{ formatDateOnly(purchase.purchase_date) }}</td>
+                    <td class="px-4 py-3">{{ purchase.branch_label }}</td>
+                    <td class="px-4 py-3 text-right">{{ purchase.lines_count || purchase.lines?.length || 0 }}</td>
+                    <td class="px-4 py-3 text-right font-semibold text-slate-950 dark:text-text">{{ formatMoney(purchase.total_number) }}</td>
+                    <td class="px-4 py-3 text-right">
+                      <UiButton size="sm" @click="openPurchaseDetail(purchase)">Ver</UiButton>
+                    </td>
+                  </tr>
+                  <tr v-if="filteredPurchaseRows.length === 0">
+                    <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="8">Sin compras para los filtros seleccionados.</td>
+                  </tr>
+                </tbody>
+              </UiDataTable>
+            </div>
+          </div>
+
+          <div v-if="activeTab === 'lots'" class="space-y-4">
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+              <button type="button" class="rounded-md border border-slate-200 bg-white px-4 py-3 text-left dark:border-line dark:bg-surface" @click="lotFilters.status = ''">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Lotes filtrados</p>
+                <p class="mt-1 text-2xl font-black text-slate-950 dark:text-text">{{ filteredLotRows.length }}</p>
+              </button>
+              <button type="button" class="rounded-md border border-slate-200 bg-white px-4 py-3 text-left dark:border-line dark:bg-surface" @click="lotFilters.status = 'available'">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Disponibles</p>
+                <p class="mt-1 text-2xl font-black text-emerald-700 dark:text-success">{{ lotStats.available }}</p>
+              </button>
+              <button type="button" class="rounded-md border border-slate-200 bg-white px-4 py-3 text-left dark:border-line dark:bg-surface" @click="lotFilters.status = 'partial'">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Parciales</p>
+                <p class="mt-1 text-2xl font-black text-amber-700 dark:text-warning">{{ lotStats.partial }}</p>
+              </button>
+              <button type="button" class="rounded-md border border-slate-200 bg-white px-4 py-3 text-left dark:border-line dark:bg-surface" @click="lotFilters.status = 'depleted'">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Agotados</p>
+                <p class="mt-1 text-2xl font-black text-slate-950 dark:text-text">{{ lotStats.depleted }}</p>
+              </button>
+              <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Valor disponible</p>
+                <p class="mt-1 text-2xl font-black text-slate-950 dark:text-text">{{ formatMoney(lotStats.value) }}</p>
+              </div>
+            </div>
+
+            <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+              <div class="grid gap-4 lg:grid-cols-[1.2fr_1fr_1fr] xl:grid-cols-[1.4fr_1fr_1fr_1fr_1fr_auto]">
+                <UiSearchInput v-model="lotFilters.q" label="Buscar" placeholder="Buscar lote, producto, SKU o proveedor" />
+                <UiSelect v-model="lotFilters.status" label="Estado" :options="lotStatusOptions" />
+                <UiSelect v-model="lotFilters.catalog_item_id" label="Producto" :options="lotProductOptions" />
+                <UiSelect v-model="lotFilters.inventory_supplier_id" label="Proveedor" :options="lotSupplierOptions" />
+                <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                  <UiInput v-model="lotFilters.from" label="Desde" type="date" />
+                  <UiInput v-model="lotFilters.to" label="Hasta" type="date" />
+                </div>
+                <div class="flex items-end">
+                  <UiButton variant="ghost" @click="lotFilters = { q: '', status: '', catalog_item_id: '', inventory_supplier_id: '', from: '', to: '' }">Limpiar</UiButton>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+              <UiDataTable overflow="auto" min-width="min-w-[1080px]">
+                <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
+                  <tr>
+                    <th class="px-4 py-3">Lote</th>
+                    <th class="px-4 py-3">Producto</th>
+                    <th class="px-4 py-3">Proveedor</th>
+                    <th class="px-4 py-3">Fecha</th>
+                    <th class="px-4 py-3">Sucursal</th>
+                    <th class="px-4 py-3 text-right">Inicial</th>
+                    <th class="px-4 py-3 text-right">Consumido</th>
+                    <th class="px-4 py-3 text-right">Disponible</th>
+                    <th class="px-4 py-3 text-right">Valor</th>
+                    <th class="px-4 py-3 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-line">
+                  <tr v-for="lot in filteredLotRows" :key="lot.id" class="text-sm">
+                    <td class="px-4 py-3">
+                      <p class="font-semibold text-slate-950 dark:text-text">{{ lot.lot_code }}</p>
+                      <p class="text-xs text-slate-500 dark:text-soft">{{ lot.inventory_purchase_id ? `Compra #${lot.inventory_purchase_id}` : 'Sin compra' }}</p>
+                    </td>
+                    <td class="px-4 py-3">
+                      <p class="max-w-[260px] truncate font-semibold text-slate-950 dark:text-text">{{ lot.catalog_item?.name ?? 'Producto' }}</p>
+                      <p class="text-xs text-slate-500 dark:text-soft">{{ lot.catalog_item?.sku || 'Sin código' }}</p>
+                    </td>
+                    <td class="px-4 py-3">
+                      <p class="max-w-[180px] truncate text-slate-700 dark:text-muted">{{ lot.supplier_name }}</p>
+                    </td>
+                    <td class="px-4 py-3">{{ lot.received_date || 'Sin fecha' }}</td>
+                    <td class="px-4 py-3">{{ lot.core_sucursal_code || lot.core_sucursal_name || 'Sin asignar' }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatQuantity(lot.initial_quantity_number) }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatQuantity(lot.consumed_quantity) }}</td>
+                    <td class="px-4 py-3 text-right">
+                      <div class="flex flex-col items-end gap-1">
+                        <UiStatusBadge :tone="lotStatusTone(lot.lot_status)">{{ lotStatusLabel(lot.lot_status) }}</UiStatusBadge>
+                        <span class="font-semibold text-slate-950 dark:text-text">{{ formatQuantity(lot.available_quantity_number) }}</span>
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                      <p class="font-semibold text-slate-950 dark:text-text">{{ formatMoney(lot.available_value) }}</p>
+                      <p class="text-xs text-slate-500 dark:text-soft">{{ formatMoney(lot.unit_cost) }} c/u</p>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                      <UiButton size="sm" variant="secondary" @click="selectedLot = lot">Detalle</UiButton>
+                    </td>
+                  </tr>
+                  <tr v-if="filteredLotRows.length === 0">
+                    <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="10">Sin lotes para los filtros seleccionados.</td>
+                  </tr>
+                </tbody>
+              </UiDataTable>
+            </div>
           </div>
 
           <div v-if="activeTab === 'kardex'" class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
@@ -1217,6 +2326,22 @@ function messageFromError(error): string {
           </div>
 
           <div v-if="activeTab === 'counts'" class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+            <div class="mb-5 flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-line lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 class="text-base font-bold text-slate-950 dark:text-text">Hoja de conteo físico</h3>
+                <p class="mt-1 text-sm text-slate-500 dark:text-muted">
+                  Genera una hoja con el stock del sistema y columnas vacías para anotar el conteo real.
+                </p>
+                <p class="mt-2 text-xs font-semibold uppercase text-slate-500 dark:text-soft">
+                  {{ selectedBranch ? `${selectedBranch.codigo || 'Sucursal'} · ${selectedBranch.nombre}` : 'Todas las sucursales' }} · {{ countSheetRows.length }} productos
+                </p>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <UiButton variant="secondary" type="button" @click="imprimirHojaConteo">Imprimir hoja</UiButton>
+                <UiButton type="button" @click="descargarHojaConteo">Descargar CSV</UiButton>
+              </div>
+            </div>
+
             <form class="grid gap-4 lg:grid-cols-2" @submit.prevent="savePhysicalCount">
               <UiSelect v-model="countForm.catalog_item_id" label="Producto" :options="inventoryOptions" />
               <UiInput v-model="countForm.counted_quantity" label="Cantidad física" type="number" min="0" step="0.001" />
@@ -1245,14 +2370,54 @@ function messageFromError(error): string {
 
           <div v-if="activeTab === 'reports'" class="space-y-4">
             <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
-              <div class="grid gap-4 md:grid-cols-[1fr_1fr_auto]">
-                <UiInput v-model="reportFilters.from" label="Desde" type="date" />
-                <UiInput v-model="reportFilters.to" label="Hasta" type="date" />
-                <div class="flex items-end">
-                  <UiButton variant="secondary" @click="loadInventory({ silent: true })">Actualizar</UiButton>
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h3 class="text-base font-bold text-slate-950 dark:text-text">Reportes descargables</h3>
+                  <p class="mt-1 text-sm text-slate-600 dark:text-muted">Genera archivos CSV con los filtros y la sucursal activa.</p>
+                </div>
+                <div class="grid w-full gap-4 md:w-auto md:grid-cols-[160px_160px_auto]">
+                  <UiInput v-model="reportFilters.from" label="Desde" type="date" />
+                  <UiInput v-model="reportFilters.to" label="Hasta" type="date" />
+                  <div class="flex items-end">
+                    <UiButton variant="secondary" @click="loadInventory({ silent: true })">Actualizar</UiButton>
+                  </div>
                 </div>
               </div>
             </div>
+
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Ventas</p>
+                <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ resumenReportes.ventas }}</p>
+                <UiButton class="mt-4 w-full" variant="secondary" :disabled="resumenReportes.ventas === 0" @click="descargarReporte('ventas')">Descargar CSV</UiButton>
+              </div>
+              <div class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Margen</p>
+                <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ resumenReportes.margen }}</p>
+                <UiButton class="mt-4 w-full" variant="secondary" :disabled="resumenReportes.margen === 0" @click="descargarReporte('margen')">Descargar CSV</UiButton>
+              </div>
+              <div class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Kardex</p>
+                <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ resumenReportes.kardex }}</p>
+                <UiButton class="mt-4 w-full" variant="secondary" :disabled="resumenReportes.kardex === 0" @click="descargarReporte('kardex')">Descargar CSV</UiButton>
+              </div>
+              <div class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Existencias</p>
+                <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ resumenReportes.existencias }}</p>
+                <UiButton class="mt-4 w-full" variant="secondary" :disabled="resumenReportes.existencias === 0" @click="descargarReporte('existencias')">Descargar CSV</UiButton>
+              </div>
+              <div class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Lotes</p>
+                <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ resumenReportes.lotes }}</p>
+                <UiButton class="mt-4 w-full" variant="secondary" :disabled="resumenReportes.lotes === 0" @click="descargarReporte('lotes')">Descargar CSV</UiButton>
+              </div>
+              <div class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Alertas</p>
+                <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ resumenReportes.alertas }}</p>
+                <UiButton class="mt-4 w-full" variant="secondary" :disabled="resumenReportes.alertas === 0" @click="descargarReporte('alertas')">Descargar CSV</UiButton>
+              </div>
+            </div>
+
             <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
               <h3 class="text-base font-bold text-slate-950 dark:text-text">Ventas por producto</h3>
               <UiDataTable class="mt-4" overflow="auto" min-width="min-w-[760px]">
@@ -1348,6 +2513,414 @@ function messageFromError(error): string {
     </div>
 
     <UiModalShell
+      :open="Boolean(productDetailItem)"
+      :title="productDetailItem?.name || 'Producto'"
+      :description="productDetailItem?.sku || 'Sin código'"
+      max-width="max-w-6xl"
+      @close="productDetailItem = null"
+    >
+      <div v-if="productDetailItem" class="space-y-5">
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Stock total</p>
+            <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ formatQuantity(productDetailStats.lotsTotal) }}</p>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Valor costo</p>
+            <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ formatMoney(productDetailStats.costValue) }}</p>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Costo ref.</p>
+            <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ formatMoney(productDetailItem.reference_cost) }}</p>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Vendido</p>
+            <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ formatQuantity(productDetailStats.saleQuantity) }}</p>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Margen</p>
+            <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ formatMoney(productDetailStats.marginTotal) }}</p>
+          </div>
+        </div>
+
+        <div class="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+          <section class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="text-base font-bold text-slate-950 dark:text-text">Stock por sucursal</h3>
+              <UiStatusBadge :tone="productDetailStats.lotsTotal > 0 ? 'success' : 'warning'">{{ productDetailStats.lotsTotal > 0 ? 'Disponible' : 'Sin stock' }}</UiStatusBadge>
+            </div>
+            <div class="mt-4 divide-y divide-slate-100 dark:divide-line">
+              <div v-for="branch in productDetailBranchRows" :key="branch.id || branch.label" class="flex items-center justify-between gap-4 py-3 text-sm">
+                <div>
+                  <p class="font-semibold text-slate-950 dark:text-text">{{ branch.label }}</p>
+                  <p class="text-xs text-slate-500 dark:text-soft">{{ formatMoney(branch.value) }} a costo de lote</p>
+                </div>
+                <p class="font-black text-slate-950 dark:text-text">{{ formatQuantity(branch.quantity) }}</p>
+              </div>
+              <p v-if="productDetailBranchRows.length === 0" class="py-8 text-center text-sm text-slate-500 dark:text-muted">Sin existencias por sucursal.</p>
+            </div>
+          </section>
+
+          <section class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+            <h3 class="text-base font-bold text-slate-950 dark:text-text">Lotes disponibles</h3>
+            <UiDataTable class="mt-4" overflow="auto" min-width="min-w-[640px]">
+              <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
+                <tr>
+                  <th class="px-4 py-3">Lote</th>
+                  <th class="px-4 py-3">Sucursal</th>
+                  <th class="px-4 py-3">Fecha</th>
+                  <th class="px-4 py-3 text-right">Disponible</th>
+                  <th class="px-4 py-3 text-right">Costo</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 dark:divide-line">
+                <tr v-for="lot in productDetailLots" :key="lot.id" class="text-sm">
+                  <td class="px-4 py-3 font-semibold text-slate-950 dark:text-text">{{ lot.lot_code }}</td>
+                  <td class="px-4 py-3">{{ lot.core_sucursal_code || lot.core_sucursal_name || 'Sin asignar' }}</td>
+                  <td class="px-4 py-3">{{ lot.received_date || 'Sin fecha' }}</td>
+                  <td class="px-4 py-3 text-right font-semibold">{{ formatQuantity(lot.available_quantity) }}</td>
+                  <td class="px-4 py-3 text-right">{{ formatMoney(lot.unit_cost) }}</td>
+                </tr>
+                <tr v-if="productDetailLots.length === 0">
+                  <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="5">Sin lotes para este producto.</td>
+                </tr>
+              </tbody>
+            </UiDataTable>
+          </section>
+        </div>
+
+        <div class="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+          <section class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+            <h3 class="text-base font-bold text-slate-950 dark:text-text">Kardex reciente</h3>
+            <UiDataTable class="mt-4" overflow="auto" min-width="min-w-[720px]">
+              <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
+                <tr>
+                  <th class="px-4 py-3">Tipo</th>
+                  <th class="px-4 py-3">Motivo</th>
+                  <th class="px-4 py-3">Sucursal</th>
+                  <th class="px-4 py-3 text-right">Cantidad</th>
+                  <th class="px-4 py-3">Referencia</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 dark:divide-line">
+                <tr v-for="movement in productDetailMovements" :key="movement.id" class="text-sm">
+                  <td class="px-4 py-3"><UiStatusBadge :tone="movementTone(movement.movement_type)">{{ movement.movement_type === 'entry' ? 'Entrada' : 'Salida' }}</UiStatusBadge></td>
+                  <td class="px-4 py-3">{{ movement.reason }}</td>
+                  <td class="px-4 py-3">{{ movement.core_sucursal_code || movement.core_sucursal_name || 'Sin asignar' }}</td>
+                  <td class="px-4 py-3 text-right font-semibold">{{ formatQuantity(movement.quantity) }}</td>
+                  <td class="px-4 py-3">{{ movement.reference_number || movement.reference_id || movement.created_at }}</td>
+                </tr>
+                <tr v-if="productDetailMovements.length === 0">
+                  <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="5">Sin movimientos recientes.</td>
+                </tr>
+              </tbody>
+            </UiDataTable>
+          </section>
+
+          <section class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+            <h3 class="text-base font-bold text-slate-950 dark:text-text">Ventas y margen</h3>
+            <div class="mt-4 space-y-3 text-sm">
+              <div class="flex items-center justify-between gap-4 rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
+                <span class="text-slate-600 dark:text-muted">Unidades vendidas</span>
+                <strong class="text-slate-950 dark:text-text">{{ formatQuantity(productDetailStats.saleQuantity) }}</strong>
+              </div>
+              <div class="flex items-center justify-between gap-4 rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
+                <span class="text-slate-600 dark:text-muted">Venta acumulada</span>
+                <strong class="text-slate-950 dark:text-text">{{ formatMoney(productDetailStats.saleTotal) }}</strong>
+              </div>
+              <div class="flex items-center justify-between gap-4 rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
+                <span class="text-slate-600 dark:text-muted">Costo referencial</span>
+                <strong class="text-slate-950 dark:text-text">{{ formatMoney(productDetailMargin?.reference_cost_total || 0) }}</strong>
+              </div>
+              <div class="flex items-center justify-between gap-4 rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
+                <span class="text-slate-600 dark:text-muted">Margen referencial</span>
+                <strong class="text-slate-950 dark:text-text">{{ formatMoney(productDetailStats.marginTotal) }}</strong>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </UiModalShell>
+
+    <UiModalShell
+      :open="Boolean(selectedPurchase)"
+      :title="selectedPurchase ? `Compra #${selectedPurchase.purchase_number || selectedPurchase.id}` : 'Compra'"
+      :description="selectedPurchase?.document_number || 'Detalle de compra'"
+      max-width="max-w-6xl"
+      @close="selectedPurchase = null"
+    >
+      <div v-if="selectedPurchase" class="min-w-0 space-y-5">
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div class="min-w-0 rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Fecha</p>
+            <p class="mt-2 text-lg font-black text-slate-950 dark:text-text">{{ formatDateOnly(selectedPurchase.purchase_date) }}</p>
+          </div>
+          <div class="min-w-0 rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Documento</p>
+            <p class="mt-2 font-black text-slate-950 dark:text-text">{{ purchaseDocumentTypeLabel(selectedPurchase.document_type) }}</p>
+            <p class="mt-1 truncate text-xs text-slate-500 dark:text-soft">{{ selectedPurchase.document_number || 'Sin número' }}</p>
+          </div>
+          <div class="min-w-0 rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Modo</p>
+            <p class="mt-2 font-black text-slate-950 dark:text-text">{{ purchaseDocumentModeLabel(selectedPurchase.document_mode) }}</p>
+          </div>
+          <div class="min-w-0 rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Condición</p>
+            <p class="mt-2 font-black text-slate-950 dark:text-text">{{ paymentConditionLabel(selectedPurchase.payment_condition) }}</p>
+          </div>
+          <div class="min-w-0 rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Total</p>
+            <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ formatMoney(selectedPurchase.total) }}</p>
+          </div>
+        </div>
+
+        <div class="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
+          <div class="min-w-0 space-y-5">
+            <section class="min-w-0 rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Proveedor</p>
+                  <h3 class="mt-1 text-lg font-black text-slate-950 dark:text-text">{{ selectedPurchase.supplier?.name || selectedPurchase.supplier_snapshot?.name || 'Sin proveedor' }}</h3>
+                  <p class="mt-1 text-sm text-slate-600 dark:text-muted">
+                    {{ selectedPurchase.supplier?.tax_id || selectedPurchase.supplier_snapshot?.tax_id || 'Sin NIT' }}
+                    <span v-if="selectedPurchase.supplier?.nrc || selectedPurchase.supplier_snapshot?.nrc"> · NRC {{ selectedPurchase.supplier?.nrc || selectedPurchase.supplier_snapshot?.nrc }}</span>
+                  </p>
+                </div>
+                <UiStatusBadge :tone="selectedPurchase.status === 'registered' ? 'success' : 'neutral'">{{ selectedPurchase.status || 'Registrada' }}</UiStatusBadge>
+              </div>
+            </section>
+
+            <section class="min-w-0 overflow-hidden rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+              <h3 class="text-base font-bold text-slate-950 dark:text-text">Líneas compradas</h3>
+              <UiDataTable class="mt-4" overflow="auto" min-width="min-w-[940px]">
+                <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
+                  <tr>
+                    <th class="px-4 py-3">Producto</th>
+                    <th class="px-4 py-3">Modo</th>
+                    <th class="px-4 py-3 text-right">Cantidad</th>
+                    <th class="px-4 py-3 text-right">Costo base</th>
+                    <th class="px-4 py-3 text-right">IVA</th>
+                    <th class="px-4 py-3 text-right">Total</th>
+                    <th class="px-4 py-3">Lotes</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-line">
+                  <tr v-for="line in selectedPurchase.lines || []" :key="line.id" class="text-sm">
+                    <td class="px-4 py-3">
+                      <p class="max-w-[260px] truncate font-semibold text-slate-950 dark:text-text">{{ line.catalog_item?.name || line.description_snapshot || 'Producto' }}</p>
+                      <p class="text-xs text-slate-500 dark:text-soft">{{ line.catalog_item?.sku || 'Sin código' }} · Unidad {{ line.unit_name || line.unit_code || '59' }}</p>
+                    </td>
+                    <td class="px-4 py-3">
+                      <UiStatusBadge :tone="line.no_inventory ? 'neutral' : 'success'">{{ line.no_inventory ? 'No inventario' : 'Inventario' }}</UiStatusBadge>
+                    </td>
+                    <td class="px-4 py-3 text-right">{{ formatQuantity(line.quantity) }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatMoney(line.base_unit_cost) }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatMoney(line.tax_amount) }}</td>
+                    <td class="px-4 py-3 text-right font-semibold">{{ formatMoney(line.line_total) }}</td>
+                    <td class="px-4 py-3">
+                      <div class="flex flex-wrap gap-1">
+                        <UiStatusBadge v-for="lot in line.lots || []" :key="lot.id" tone="neutral">{{ lot.lot_code }}</UiStatusBadge>
+                        <span v-if="!line.lots || line.lots.length === 0" class="text-xs text-slate-500 dark:text-soft">Sin lote</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr v-if="!selectedPurchase.lines || selectedPurchase.lines.length === 0">
+                    <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="7">Cargando líneas o sin detalle registrado.</td>
+                  </tr>
+                </tbody>
+              </UiDataTable>
+            </section>
+
+            <section class="min-w-0 overflow-hidden rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+              <h3 class="text-base font-bold text-slate-950 dark:text-text">Kardex asociado</h3>
+              <UiDataTable class="mt-4" overflow="auto" min-width="min-w-[760px]">
+                <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
+                  <tr>
+                    <th class="px-4 py-3">Producto</th>
+                    <th class="px-4 py-3">Tipo</th>
+                    <th class="px-4 py-3">Lote</th>
+                    <th class="px-4 py-3 text-right">Cantidad</th>
+                    <th class="px-4 py-3 text-right">Costo</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-line">
+                  <tr v-for="movement in selectedPurchaseMovements" :key="movement.id" class="text-sm">
+                    <td class="px-4 py-3 font-semibold text-slate-950 dark:text-text">{{ movement.catalog_item?.name || 'Producto' }}</td>
+                    <td class="px-4 py-3"><UiStatusBadge :tone="movementTone(movement.movement_type)">{{ movement.movement_type === 'entry' ? 'Entrada' : 'Salida' }}</UiStatusBadge></td>
+                    <td class="px-4 py-3">{{ movement.lot?.lot_code || 'Sin lote' }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatQuantity(movement.quantity) }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatMoney(movement.unit_cost) }}</td>
+                  </tr>
+                  <tr v-if="selectedPurchaseMovements.length === 0">
+                    <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="5">Sin movimientos asociados en la carga actual.</td>
+                  </tr>
+                </tbody>
+              </UiDataTable>
+            </section>
+          </div>
+
+          <aside class="min-w-0 rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+            <h3 class="text-base font-bold text-slate-950 dark:text-text">Resumen</h3>
+            <div class="mt-4 space-y-3 text-sm">
+              <div class="flex justify-between gap-4">
+                <span class="text-slate-600 dark:text-muted">Subtotal</span>
+                <strong>{{ formatMoney(selectedPurchase.subtotal) }}</strong>
+              </div>
+              <div class="flex justify-between gap-4">
+                <span class="text-slate-600 dark:text-muted">IVA</span>
+                <strong>{{ formatMoney(selectedPurchase.tax_amount) }}</strong>
+              </div>
+              <div class="flex justify-between gap-4">
+                <span class="text-slate-600 dark:text-muted">IVA percibido</span>
+                <strong>{{ formatMoney(selectedPurchase.tax_perceived) }}</strong>
+              </div>
+              <div class="flex justify-between gap-4">
+                <span class="text-slate-600 dark:text-muted">No afecto</span>
+                <strong>{{ formatMoney(selectedPurchase.other_non_taxable_total) }}</strong>
+              </div>
+              <div class="border-t border-slate-200 pt-3 dark:border-line">
+                <div class="flex justify-between gap-4">
+                  <span class="font-bold text-slate-950 dark:text-text">Total</span>
+                  <strong>{{ formatMoney(selectedPurchase.total) }}</strong>
+                </div>
+              </div>
+              <div class="border-t border-slate-200 pt-3 dark:border-line">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Sucursal</p>
+                <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ selectedPurchase.core_sucursal_code || selectedPurchase.core_sucursal_name || 'Sin sucursal' }}</p>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </UiModalShell>
+
+    <UiModalShell
+      :open="Boolean(selectedLot)"
+      :title="selectedLot?.lot_code || 'Lote'"
+      :description="selectedLot?.catalog_item?.name || 'Detalle de lote'"
+      max-width="max-w-5xl"
+      @close="selectedLot = null"
+    >
+      <div v-if="selectedLot" class="space-y-5">
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Estado</p>
+            <div class="mt-2">
+              <UiStatusBadge :tone="lotStatusTone(selectedLot.lot_status)">{{ lotStatusLabel(selectedLot.lot_status) }}</UiStatusBadge>
+            </div>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Inicial</p>
+            <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ formatQuantity(selectedLot.initial_quantity_number) }}</p>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Consumido</p>
+            <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ formatQuantity(selectedLot.consumed_quantity) }}</p>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Disponible</p>
+            <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ formatQuantity(selectedLot.available_quantity_number) }}</p>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-line dark:bg-surface">
+            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Valor</p>
+            <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ formatMoney(selectedLot.available_value) }}</p>
+          </div>
+        </div>
+
+        <div class="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+          <section class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+            <h3 class="text-base font-bold text-slate-950 dark:text-text">Origen</h3>
+            <div class="mt-4 space-y-3 text-sm">
+              <div class="flex justify-between gap-4 rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
+                <span class="text-slate-600 dark:text-muted">Producto</span>
+                <strong class="max-w-[260px] truncate text-slate-950 dark:text-text">{{ selectedLot.catalog_item?.name || 'Producto' }}</strong>
+              </div>
+              <div class="flex justify-between gap-4 rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
+                <span class="text-slate-600 dark:text-muted">Código</span>
+                <strong class="text-slate-950 dark:text-text">{{ selectedLot.catalog_item?.sku || 'Sin código' }}</strong>
+              </div>
+              <div class="flex justify-between gap-4 rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
+                <span class="text-slate-600 dark:text-muted">Proveedor</span>
+                <strong class="max-w-[260px] truncate text-slate-950 dark:text-text">{{ selectedLot.supplier_name }}</strong>
+              </div>
+              <div class="flex justify-between gap-4 rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
+                <span class="text-slate-600 dark:text-muted">Compra</span>
+                <strong class="text-slate-950 dark:text-text">{{ selectedLot.inventory_purchase_id ? `#${selectedLot.inventory_purchase_id}` : 'Sin referencia' }}</strong>
+              </div>
+              <div class="flex justify-between gap-4 rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
+                <span class="text-slate-600 dark:text-muted">Fecha</span>
+                <strong class="text-slate-950 dark:text-text">{{ selectedLot.received_date || 'Sin fecha' }}</strong>
+              </div>
+              <div class="flex justify-between gap-4 rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted">
+                <span class="text-slate-600 dark:text-muted">Sucursal</span>
+                <strong class="max-w-[260px] truncate text-slate-950 dark:text-text">{{ selectedLot.core_sucursal_code || selectedLot.core_sucursal_name || 'Sin asignar' }}</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <h3 class="text-base font-bold text-slate-950 dark:text-text">Lectura FIFO</h3>
+              <UiStatusBadge :tone="selectedLot.fifo_position === 1 ? 'success' : 'neutral'">
+                {{ selectedLot.fifo_position === 1 ? 'Próximo en salir' : 'En cola FIFO' }}
+              </UiStatusBadge>
+            </div>
+            <div class="mt-4 rounded-md bg-slate-50 p-4 dark:bg-surface-muted">
+              <p class="text-sm font-semibold text-slate-950 dark:text-text">
+                <template v-if="selectedLot.fifo_position === 1">
+                  Este lote es el primero disponible para este producto en la sucursal filtrada.
+                </template>
+                <template v-else-if="selectedLot.fifo_position">
+                  Hay {{ selectedLot.fifo_pending_before }} lote(s) disponible(s) antes de este según FIFO.
+                </template>
+                <template v-else>
+                  Este lote no participa en salidas FIFO porque está agotado.
+                </template>
+              </p>
+            </div>
+            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+              <div class="rounded-md border border-slate-200 px-3 py-2 dark:border-line">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Costo unitario</p>
+                <p class="mt-1 font-black text-slate-950 dark:text-text">{{ formatMoney(selectedLot.unit_cost) }}</p>
+              </div>
+              <div class="rounded-md border border-slate-200 px-3 py-2 dark:border-line">
+                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Unidad</p>
+                <p class="mt-1 font-black text-slate-950 dark:text-text">{{ selectedLot.catalog_item?.unit_name || selectedLot.catalog_item?.unit_code || 'Unidad' }}</p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+          <h3 class="text-base font-bold text-slate-950 dark:text-text">Kardex del lote</h3>
+          <UiDataTable class="mt-4" overflow="auto" min-width="min-w-[760px]">
+            <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
+              <tr>
+                <th class="px-4 py-3">Fecha</th>
+                <th class="px-4 py-3">Tipo</th>
+                <th class="px-4 py-3">Motivo</th>
+                <th class="px-4 py-3 text-right">Cantidad</th>
+                <th class="px-4 py-3">Referencia</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-line">
+              <tr v-for="movement in selectedLotMovements" :key="movement.id" class="text-sm">
+                <td class="px-4 py-3">{{ String(movement.created_at || '').slice(0, 10) || 'Sin fecha' }}</td>
+                <td class="px-4 py-3"><UiStatusBadge :tone="movementTone(movement.movement_type)">{{ movement.movement_type === 'entry' ? 'Entrada' : 'Salida' }}</UiStatusBadge></td>
+                <td class="px-4 py-3">{{ movement.reason }}</td>
+                <td class="px-4 py-3 text-right font-semibold">{{ formatQuantity(movement.quantity) }}</td>
+                <td class="px-4 py-3">{{ movement.reference_number || movement.reference_id || 'Sin referencia' }}</td>
+              </tr>
+              <tr v-if="selectedLotMovements.length === 0">
+                <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="5">Sin movimientos asociados al lote.</td>
+              </tr>
+            </tbody>
+          </UiDataTable>
+        </section>
+      </div>
+    </UiModalShell>
+
+    <UiModalShell
       :open="Boolean(activeResolveLine)"
       title="Resolver línea"
       :description="activeResolveLine?.description || ''"
@@ -1356,8 +2929,9 @@ function messageFromError(error): string {
     >
       <div v-if="activeResolveLine" class="space-y-5">
         <div class="rounded-md border border-slate-200 p-4 dark:border-line">
-          <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Línea DTE</p>
-          <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ activeResolveLine.description }}</p>
+          <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">{{ esCompraManual ? 'Línea de compra' : 'Línea DTE' }}</p>
+          <UiInput v-if="esCompraManual" v-model="activeResolveLine.description" class="mt-3" label="Descripción" placeholder="Producto comprado" />
+          <p v-else class="mt-1 font-semibold text-slate-950 dark:text-text">{{ activeResolveLine.description }}</p>
           <div class="mt-3 grid gap-3 md:grid-cols-3">
             <UiInput v-model="activeResolveLine.quantity" label="Cantidad" type="number" min="0.001" step="0.001" />
             <UiInput v-model="activeResolveLine.unit_cost" label="Costo unitario" type="number" min="0" step="0.0001" />
@@ -1383,6 +2957,8 @@ function messageFromError(error): string {
             />
             <template v-else>
               <UiInput v-model="activeResolveLine.new_item_name" label="Nombre nuevo" />
+              <UiInput v-model="activeResolveLine.new_item_sku" label="Código/SKU" placeholder="Opcional" />
+              <UiInput v-model="activeResolveLine.new_item_base_price" label="Precio de venta" type="number" min="0" step="0.01" />
               <UiSelect v-model="activeResolveLine.category_id" label="Categoría" :options="categoryOptions" />
               <UiInput v-model="activeResolveLine.new_category_name" label="Nueva categoría" placeholder="Opcional" />
               <UiCheckbox v-model="activeResolveLine.controls_inventory" label="Afecta inventario" :disabled="activeResolveLine.no_inventory" />
@@ -1396,34 +2972,6 @@ function messageFromError(error): string {
           <UiButton :disabled="!lineResolved(activeResolveLine)" @click="closeLineResolver">Aplicar</UiButton>
         </div>
       </div>
-    </UiModalShell>
-
-    <UiModalShell
-      :open="stockEntryOpen"
-      title="Entrada de inventario"
-      :description="selectedItem ? selectedItem.name : ''"
-      max-width="max-w-xl"
-      @close="stockEntryOpen = false"
-    >
-      <form class="space-y-4" @submit.prevent="saveEntry">
-        <UiSelect
-          v-if="!selectedItem"
-          v-model="entryForm.catalog_item_id"
-          label="Producto"
-          :options="inventoryOptions"
-        />
-        <div class="grid gap-4 md:grid-cols-2">
-          <UiInput v-model="entryForm.purchase_date" label="Fecha" type="date" required />
-          <UiInput v-model="entryForm.document_number" label="Documento" placeholder="Factura, CCF o referencia" />
-          <UiInput v-model="entryForm.quantity" label="Cantidad" type="number" min="0.001" step="0.001" required />
-          <UiInput v-model="entryForm.unit_cost" label="Costo unitario" type="number" min="0" step="0.0001" required />
-        </div>
-        <UiInput v-model="entryForm.document_type" label="Tipo de documento" placeholder="Opcional" />
-        <div class="flex justify-end gap-2">
-          <UiButton type="button" variant="ghost" @click="stockEntryOpen = false">Cancelar</UiButton>
-          <UiButton type="submit" :disabled="saving || (!selectedItem && !entryForm.catalog_item_id)">Registrar entrada</UiButton>
-        </div>
-      </form>
     </UiModalShell>
 
     <UiModalShell
