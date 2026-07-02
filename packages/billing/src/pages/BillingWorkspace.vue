@@ -106,6 +106,8 @@ const sujetoExcluidoModalOpen = ref(false);
 const customerSearchModalOpen = ref(false);
 const paymentModalOpen = ref(false);
 const observationsModalOpen = ref(false);
+const zeroValueLineWarningOpen = ref(false);
+const zeroValueLineWarningConfirmed = ref(false);
 const fiscalModalDepartamento = ref('');
 const fiscalModalMunicipio = ref('');
 const ccfPriceIncludesIva = ref(true);
@@ -393,6 +395,9 @@ const totalLabel = computed(() => {
 
   return roundMoney(Math.max(0, totalWithIva + perception - retention));
 });
+const zeroValueLines = computed(() => items.value.filter((line) => lineNetTotal(line) <= 0 || Number(line.unitPrice || 0) <= 0));
+const hasZeroValueLines = computed(() => zeroValueLines.value.length > 0);
+const canIssuePositiveTotal = computed(() => roundMoney(totalLabel.value) > 0);
 const unitCount = computed(() => items.value.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
 const complianceTotal = computed(() => roundMoney(totalLabel.value));
 const requiresCustomerIdentificationByAmount = computed(() => (
@@ -415,6 +420,7 @@ const canBuild = computed(() => Boolean(
   && correlativoPreview.value
   && form.customerName.trim()
   && items.value.length > 0
+  && canIssuePositiveTotal.value
   && !genericCustomerBlockedByAmount.value
   && (!requiresCustomerIdentificationByAmount.value || hasRequiredCustomerIdentification.value)
   && hasValidAdvancedPayments.value
@@ -521,6 +527,10 @@ const customerIdentificationByAmountMessage = computed(() => (
 ));
 const issueDisabledReason = computed(() => {
   if (!requiresCustomerIdentificationByAmount.value || hasRequiredCustomerIdentification.value) {
+    if (!canIssuePositiveTotal.value) {
+      return null;
+    }
+
     if (supportsAdvancedPayments.value && !hasValidAdvancedPayments.value) {
       return 'Revisa las formas de pago.';
     }
@@ -1055,6 +1065,18 @@ async function issueDocument(): Promise<void> {
     return;
   }
 
+  if (!canIssuePositiveTotal.value) {
+    error.value = 'No se puede emitir un DTE con total cero. Ajusta precio, cantidad o descuento antes de continuar.';
+    return;
+  }
+
+  if (hasZeroValueLines.value && !zeroValueLineWarningConfirmed.value) {
+    zeroValueLineWarningOpen.value = true;
+    error.value = null;
+    return;
+  }
+
+  zeroValueLineWarningConfirmed.value = false;
   clearIssueAutoClose();
   issuing.value = true;
   error.value = null;
@@ -1142,6 +1164,12 @@ async function issueDocument(): Promise<void> {
   } finally {
     issuing.value = false;
   }
+}
+
+async function confirmZeroValueLineWarning(): Promise<void> {
+  zeroValueLineWarningOpen.value = false;
+  zeroValueLineWarningConfirmed.value = true;
+  await issueDocument();
 }
 
 function issueIdempotencyKey(): string {
@@ -2295,6 +2323,36 @@ function updatePaymentCondition(value: string): void {
       <template #footer>
         <UiButton variant="secondary" type="button" @click="form.observations = ''">Limpiar</UiButton>
         <UiButton type="button" @click="observationsModalOpen = false">Listo</UiButton>
+      </template>
+    </BillingModalShell>
+
+    <BillingModalShell
+      :open="zeroValueLineWarningOpen"
+      title="Lineas con valor cero"
+      eyebrow="Revision antes de emitir"
+      max-width="max-w-xl"
+      @close="zeroValueLineWarningOpen = false"
+    >
+      <div class="space-y-4">
+        <div class="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+          Hay {{ zeroValueLines.length }} linea{{ zeroValueLines.length === 1 ? '' : 's' }} con precio o total cero. El DTE tiene total mayor que cero, pero conviene confirmar que esas lineas realmente deben emitirse asi.
+        </div>
+
+        <div class="max-h-56 overflow-y-auto rounded-md border border-slate-200 dark:border-line">
+          <div
+            v-for="line in zeroValueLines"
+            :key="line.description"
+            class="flex items-center justify-between gap-4 border-b border-slate-100 px-3 py-2 text-sm last:border-b-0 dark:border-line"
+          >
+            <span class="min-w-0 truncate font-semibold text-slate-950 dark:text-text">{{ line.description }}</span>
+            <span class="shrink-0 text-slate-600 dark:text-muted">{{ currency(lineNetTotal(line)) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <UiButton variant="secondary" type="button" @click="zeroValueLineWarningOpen = false">Revisar lineas</UiButton>
+        <UiButton type="button" @click="confirmZeroValueLineWarning">Emitir de todos modos</UiButton>
       </template>
     </BillingModalShell>
 
