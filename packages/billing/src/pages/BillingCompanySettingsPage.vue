@@ -319,6 +319,7 @@ function daysUntil(value: string | null | undefined): number | null {
     :nav-items="navItems"
     :active-id="activeView"
     :home-href="dashboardUrl || appBaseUrl || '/'"
+    sidebar-storage-key="stelfaro:settings-sidebar-compact"
     @select="openViewById"
   >
 
