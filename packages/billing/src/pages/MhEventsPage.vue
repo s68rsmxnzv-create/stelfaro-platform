@@ -310,9 +310,9 @@ const retornoTotals = computed(() => {
   const totalFlete = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.flete), 0));
   const ivaRete = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.ivaRete), 0));
   const reteRenta = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.reteRenta), 0));
-  const totalIva = form.retornoDteType === '01' ? roundMoney(totalGravada * 0.13) : 0;
+  const totalIva = roundMoney(retornoLineas.value.reduce((sum, line) => sum + returnEventLineIva(line), 0));
   const subTotalVentas = roundMoney(totalNoSuj + totalExenta + totalGravada);
-  const montoTotalOperacion = roundMoney(subTotalVentas + totalCompra + totalNoGravado + totalSeguro + totalFlete + totalIva);
+  const montoTotalOperacion = roundMoney(subTotalVentas + totalCompra + totalNoGravado + totalSeguro + totalFlete);
 
   return {
     totalNoSuj,
@@ -818,6 +818,7 @@ function selectReturnDocument(document: DteDraftSummary): void {
   if (!canAddReturnDocument(document)) return;
 
   selectedReturnDocuments.value.push(document);
+  prefillReturnLineFromDocument(document);
   query.value = '';
   returnCandidates.value = [];
   returnCandidatesLoaded.value = false;
@@ -1632,27 +1633,69 @@ function returnDocumentDeadline(document: DteDraftSummary): Date | null {
 
 function returnDocumentTotal(document: DteDraftSummary): number {
   if (Number(document.retorno?.remainingAmount ?? 0) > 0) {
-    return Number(document.retorno?.remainingAmount ?? 0);
+    return roundMoney(Number(document.retorno?.remainingAmount ?? 0));
   }
 
   const resumen = recordValue((document.payload ?? document.dte_json ?? {}).resumen);
   for (const key of ['totalPagar', 'montoTotalOperacion', 'totalCompra', 'subTotal', 'totalGravada']) {
     const value = Number(resumen[key] ?? 0);
-    if (Number.isFinite(value) && value > 0) return value;
+    if (Number.isFinite(value) && value > 0) return roundMoney(value);
   }
 
-  return Number(document.totalPagar ?? 0);
+  return roundMoney(Number(document.totalPagar ?? 0));
+}
+
+function returnDocumentForLine(line: ReturnEventLine): DteDraftSummary | null {
+  const code = line.codigoGeneracion.trim().toUpperCase();
+
+  return selectedReturnDocuments.value.find((document) => document.codigoGeneracion.toUpperCase() === code) ?? null;
+}
+
+function returnLineMaxAmount(line: ReturnEventLine): number {
+  const document = returnDocumentForLine(line);
+
+  return document ? returnDocumentTotal(document) : Number.POSITIVE_INFINITY;
+}
+
+function isEmptyReturnLine(line: ReturnEventLine): boolean {
+  return !line.codigoGeneracion.trim()
+    && numberValue(line.montoRetorno) <= 0
+    && returnEventLineBase(line) <= 0;
+}
+
+function applyReturnDocumentToLine(line: ReturnEventLine, document: DteDraftSummary): void {
+  line.codigoGeneracion = document.codigoGeneracion;
+  line.tipoMonto = defaultReturnAmountType();
+  line.montoRetorno = returnDocumentTotal(document);
+  syncReturnEventAmounts(line);
+}
+
+function prefillReturnLineFromDocument(document: DteDraftSummary): void {
+  const reusableLine = retornoLineas.value.find(isEmptyReturnLine);
+
+  if (reusableLine) {
+    applyReturnDocumentToLine(reusableLine, document);
+    return;
+  }
+
+  retornoLineas.value.push(createReturnEventLine(document));
 }
 
 function syncReturnLinesFromSelection(): void {
-  const firstCode = selectedReturnDocuments.value[0]?.codigoGeneracion ?? '';
+  const firstDocument = selectedReturnDocuments.value[0] ?? null;
+  const firstCode = firstDocument?.codigoGeneracion ?? '';
 
   retornoLineas.value = retornoLineas.value.map((line) => {
     if (line.codigoGeneracion && selectedReturnCodes.value.has(line.codigoGeneracion)) {
       return line;
     }
 
-    return { ...line, codigoGeneracion: firstCode };
+    const updated = { ...line, codigoGeneracion: firstCode };
+    if (firstDocument && isEmptyReturnLine(line)) {
+      applyReturnDocumentToLine(updated, firstDocument);
+    }
+
+    return updated;
   });
 }
 
@@ -1793,10 +1836,10 @@ function specialOperationTypeLabel(value: string): string {
   return operacionesDocumentoTipos.find((tipo) => tipo.value === value)?.label ?? value;
 }
 
-function createReturnEventLine(): ReturnEventLine {
+function createReturnEventLine(document?: DteDraftSummary): ReturnEventLine {
   returnLineSequence += 1;
 
-  return {
+  const line: ReturnEventLine = {
     id: returnLineSequence,
     codigoGeneracion: '',
     descripcion: 'Retorno reportado',
@@ -1814,6 +1857,12 @@ function createReturnEventLine(): ReturnEventLine {
     ivaRete: 0,
     reteRenta: 0,
   };
+
+  if (document) {
+    applyReturnDocumentToLine(line, document);
+  }
+
+  return line;
 }
 
 function addReturnEventLine(): void {
@@ -1877,7 +1926,9 @@ function normalizeReturnAmountType(line: ReturnEventLine): ReturnEventLine['tipo
 }
 
 function syncReturnEventAmounts(line: ReturnEventLine): void {
-  const amount = roundMoney(line.montoRetorno);
+  const maxAmount = returnLineMaxAmount(line);
+  const requestedAmount = roundMoney(line.montoRetorno);
+  const amount = Number.isFinite(maxAmount) ? Math.min(requestedAmount, maxAmount) : requestedAmount;
   line.tipoMonto = normalizeReturnAmountType(line);
   line.montoRetorno = amount;
   line.ventaNoSuj = 0;
@@ -1891,7 +1942,7 @@ function syncReturnEventAmounts(line: ReturnEventLine): void {
     } else if (line.tipoMonto === 'exenta') {
       line.ventaExenta = amount;
     } else {
-      line.ventaGravada = roundBodyAmount(amount / 1.13);
+      line.ventaGravada = amount;
     }
   } else if (form.retornoDteType === '14') {
     line.compra = amount;
@@ -1927,11 +1978,15 @@ function returnEventLineBase(line: ReturnEventLine): number {
   );
 }
 
-function returnEventLineTotal(line: ReturnEventLine): number {
-  const iva = form.retornoDteType === '01' ? roundMoney(numberValue(line.ventaGravada) * 0.13) : 0;
+function returnEventLineIva(line: ReturnEventLine): number {
+  if (form.retornoDteType !== '01' || line.tipoMonto !== 'gravada') return 0;
 
+  return roundMoney((numberValue(line.ventaGravada) / 1.13) * 0.13);
+}
+
+function returnEventLineTotal(line: ReturnEventLine): number {
   return roundMoney(
-    Math.max(0, returnEventLineBase(line) + iva - numberValue(line.ivaRete) - numberValue(line.reteRenta))
+    Math.max(0, returnEventLineBase(line) - numberValue(line.ivaRete) - numberValue(line.reteRenta))
   );
 }
 
@@ -1962,7 +2017,7 @@ function returnAmountInputLabel(): string {
 
 function returnBaseLabel(line: ReturnEventLine): string {
   if (form.retornoDteType === '14') return 'Compra';
-  if (form.retornoDteType === '01' && line.tipoMonto === 'gravada') return 'Base sin IVA';
+  if (form.retornoDteType === '01' && line.tipoMonto === 'gravada') return 'Monto gravado';
   if (form.retornoDteType === '01' && line.tipoMonto === 'exenta') return 'Exento';
   if (form.retornoDteType === '01' && line.tipoMonto === 'no_sujeta') return 'No sujeto';
 
@@ -2204,7 +2259,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                       </div>
                       <dl class="mt-3 grid gap-2 text-xs sm:grid-cols-2">
                         <div>
-                          <dt class="font-semibold uppercase text-slate-500 dark:text-soft">Total origen</dt>
+                          <dt class="font-semibold uppercase text-slate-500 dark:text-soft">Disponible</dt>
                           <dd class="mt-1 font-bold text-slate-950 dark:text-text">{{ currency(returnDocumentTotal(document)) }}</dd>
                         </div>
                         <div>
@@ -2281,6 +2336,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                         v-model.number="line.montoRetorno"
                         type="number"
                         min="0"
+                        :max="Number.isFinite(returnLineMaxAmount(line)) ? returnLineMaxAmount(line) : undefined"
                         step="0.01"
                         class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text"
                         :placeholder="form.retornoDteType === '01' ? 'Total cobrado' : 'Monto'"
@@ -2299,7 +2355,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                       <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Retencion renta</span><input v-model.number="line.reteRenta" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="clearEventResult"></label>
                     </template>
                     <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted"><p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">{{ returnBaseLabel(line) }}</p><p class="mt-1 text-sm font-bold text-slate-950 dark:text-text">{{ currency(returnEventLinePrimaryAmount(line)) }}</p></div>
-                    <div v-if="form.retornoDteType === '01'" class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted"><p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">IVA calculado</p><p class="mt-1 text-sm font-bold text-slate-950 dark:text-text">{{ currency(roundMoney(numberValue(line.ventaGravada) * 0.13)) }}</p></div>
+                    <div v-if="form.retornoDteType === '01'" class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted"><p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">IVA informativo</p><p class="mt-1 text-sm font-bold text-slate-950 dark:text-text">{{ currency(returnEventLineIva(line)) }}</p></div>
                     <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted"><p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Precio unitario</p><p class="mt-1 text-sm font-bold text-slate-950 dark:text-text">{{ currency(line.precioUni) }}</p></div>
                     <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted"><p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Total</p><p class="mt-1 text-sm font-bold text-slate-950 dark:text-text">{{ currency(returnEventLineTotal(line)) }}</p></div>
                   </div>
