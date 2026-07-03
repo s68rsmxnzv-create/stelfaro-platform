@@ -74,23 +74,23 @@ onBeforeUnmount(() => {
     >
       <component
         :is="panelAs"
-        class="flex w-full flex-col rounded-md border border-blue-100 bg-white shadow-2xl shadow-slate-950/25"
+        class="flex w-full flex-col rounded-md border border-blue-100 bg-white shadow-2xl shadow-slate-950/25 dark:border-line dark:bg-surface dark:shadow-black/40"
         :class="[maxWidth, panelClass]"
         role="dialog"
         aria-modal="true"
         :aria-label="title"
         @submit.prevent="emit('submit')"
       >
-        <header class="shrink-0 border-b border-slate-200 px-5 py-4">
+        <header class="shrink-0 border-b border-slate-200 px-5 py-4 dark:border-line">
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
-              <p v-if="eyebrow" class="text-sm font-semibold uppercase tracking-wide text-sky-700">{{ eyebrow }}</p>
-              <h2 class="text-lg font-bold text-slate-950" :class="eyebrow ? 'mt-1' : ''">{{ title }}</h2>
-              <p v-if="description" class="mt-1 text-sm text-slate-500">{{ description }}</p>
+              <p v-if="eyebrow" class="text-sm font-semibold uppercase tracking-wide text-sky-700 dark:text-primary">{{ eyebrow }}</p>
+              <h2 class="text-lg font-bold text-slate-950 dark:text-text" :class="eyebrow ? 'mt-1' : ''">{{ title }}</h2>
+              <p v-if="description" class="mt-1 text-sm text-slate-500 dark:text-muted">{{ description }}</p>
             </div>
             <button
               type="button"
-              class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500 disabled:cursor-not-allowed disabled:opacity-40"
+              class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-soft dark:hover:bg-surface-muted dark:hover:text-text"
               :aria-label="closeLabel"
               :disabled="closeDisabled"
               @click="close"
@@ -104,7 +104,7 @@ onBeforeUnmount(() => {
           <slot />
         </div>
 
-        <footer v-if="$slots.footer" class="shrink-0 flex justify-end gap-3 border-t border-slate-200 px-5 py-4">
+        <footer v-if="$slots.footer" class="shrink-0 flex justify-end gap-3 border-t border-slate-200 px-5 py-4 dark:border-line">
           <slot name="footer" />
         </footer>
       </component>

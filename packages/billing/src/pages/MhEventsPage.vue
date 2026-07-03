@@ -8,7 +8,7 @@ import {
   PlatformClient
 } from '@stelfaro/api-client';
 import { currency, fiscalDate, fiscalDateTime } from '@stelfaro/shared';
-import { UiButton, UiCard, UiInfoIcon, UiSearchInput, UiLoadingMark, UiRefreshButton, UiSaveIcon, UiTextarea } from '@stelfaro/ui';
+import { UiButton, UiCard, UiSearchInput, UiLoadingMark, UiRefreshButton, UiSaveIcon, UiTextarea } from '@stelfaro/ui';
 import BillingModalShell from '../components/BillingModalShell.vue';
 import BillingProcessModal from '../components/BillingProcessModal.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
@@ -68,7 +68,6 @@ const contingencyRetransmissionResults = ref<Array<{
 const eventResult = ref<MhFiscalEventSummary | null>(null);
 const eventLog = ref<Array<{ label: string; status: 'ok' | 'error' }>>([]);
 const motivoModalOpen = ref(false);
-const returnHelpModalOpen = ref(false);
 const motivoDraft = ref('');
 const motivoModalMode = ref<'invalidacion' | 'contingencia'>('invalidacion');
 const contingencyStartTouched = ref(false);
@@ -2016,43 +2015,15 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
         </div>
       </BillingProcessModal>
 
-      <BillingModalShell
-        :open="returnHelpModalOpen"
-        eyebrow="Ayuda"
-        title="Evento de retorno"
-        description="El retorno reporta devoluciones o reembolsos sobre FE, FEXE o FSEE ya aceptadas por MH."
-        max-width="max-w-2xl"
-        @close="returnHelpModalOpen = false"
-      >
-        <div class="space-y-3 text-sm text-slate-600 dark:text-muted">
-          <p>Selecciona DTE origen con sello de recepcion. El sistema descarta documentos vencidos, sin sello, de tipo no permitido o sin remanente disponible.</p>
-          <p>El plazo es de 3 meses desde el otorgamiento del sello de recepcion del DTE relacionado.</p>
-          <p>Si agregas mas de un DTE, todos deben ser del mismo tipo, empresa, ambiente y receptor; para FEXE tambien deben coincidir pais, regimen, recinto y tipo de exportacion.</p>
-        </div>
-
-        <template #footer>
-          <UiButton type="button" @click="returnHelpModalOpen = false">Entendido</UiButton>
-        </template>
-      </BillingModalShell>
-
       <UiCard>
         <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div class="min-w-0 space-y-5">
             <div class="rounded-md border border-slate-200 p-4 dark:border-line">
-              <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div class="mb-4">
                 <div>
                   <p class="text-base font-semibold text-slate-950 dark:text-text">DTE origen</p>
                   <p class="mt-1 text-sm text-slate-600 dark:text-muted">Busca documentos aceptados con sello y vigencia disponible para retorno.</p>
                 </div>
-                <button
-                  type="button"
-                  class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:border-sky-300 hover:text-sky-700 dark:border-line dark:bg-surface-muted dark:text-muted dark:hover:border-primary dark:hover:text-primary"
-                  aria-label="Ayuda sobre evento de retorno"
-                  title="Ayuda sobre retorno"
-                  @click="returnHelpModalOpen = true"
-                >
-                  <UiInfoIcon class="h-5 w-5" />
-                </button>
               </div>
 
               <div class="grid gap-3 lg:grid-cols-[240px_minmax(0,1fr)_auto] lg:items-end">
@@ -2118,9 +2089,9 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               </p>
 
               <div class="mt-4 overflow-hidden rounded-md border border-slate-200 dark:border-line">
-                  <div class="flex items-center justify-between gap-3 border-b border-slate-100 bg-emerald-50 px-4 py-3 dark:border-line dark:bg-success-soft/15">
-                    <p class="text-sm font-semibold text-emerald-950 dark:text-text">DTE relacionados</p>
-                    <span class="rounded bg-white px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-surface dark:text-success">
+                  <div class="flex items-center justify-between gap-3 border-b border-slate-100 bg-emerald-50 px-4 py-3 dark:border-line dark:bg-emerald-500/10">
+                    <p class="text-sm font-semibold text-emerald-950 dark:text-emerald-100">DTE relacionados</p>
+                    <span class="rounded bg-white px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-100">
                       {{ selectedReturnDocuments.length }} / 50
                     </span>
                   </div>

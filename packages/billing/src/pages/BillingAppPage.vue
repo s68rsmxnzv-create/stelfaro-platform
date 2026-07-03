@@ -4,7 +4,7 @@ import { CoreDteClient } from '@stelfaro/api-client';
 import { UiInfoIcon } from '@stelfaro/ui';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingAppNav from '../components/BillingAppNav.vue';
-import BillingModalShell from '../components/BillingModalShell.vue';
+import BillingHelpModal from '../components/BillingHelpModal.vue';
 import BillingCompanySettingsPage from './BillingCompanySettingsPage.vue';
 import CatalogPage from './CatalogPage.vue';
 import BillingDashboardPage from './BillingDashboardPage.vue';
@@ -80,7 +80,7 @@ const props = defineProps({
   }
 });
 
-const dteHelpModalOpen = ref(false);
+const helpModalOpen = ref(false);
 const userMenuOpen = ref(false);
 const userMenuRef = ref(null);
 const darkMode = ref(false);
@@ -114,27 +114,95 @@ const dteHelpByType = {
   '01': {
     title: 'Factura Electronica',
     summary: 'Para ventas al consumidor final.',
-    use: 'Usala cuando tu cliente no necesita credito fiscal. Si el monto es alto, identifica al cliente antes de emitir.'
+    use: 'Usala cuando tu cliente no necesita credito fiscal. Si el monto es alto, identifica al cliente antes de emitir.',
+    details: [
+      'Es el DTE natural para consumidores finales.',
+      'Puede emitirse con cliente generico cuando la operacion lo permite.',
+      'No traslada credito fiscal al receptor.'
+    ]
   },
   '03': {
     title: 'Credito Fiscal',
     summary: 'Para clientes que declaran IVA.',
-    use: 'Usalo cuando vendes a una empresa o contribuyente que necesita usar la compra como credito fiscal.'
+    use: 'Usalo cuando vendes a una empresa o contribuyente que necesita usar la compra como credito fiscal.',
+    details: [
+      'Requiere identificar correctamente al receptor contribuyente.',
+      'El IVA queda separado para efectos de credito fiscal.',
+      'Es el documento base para notas de credito o debito.'
+    ]
   },
   '05': {
     title: 'Nota de Credito',
     summary: 'Para bajar o anular valores de un CCF.',
-    use: 'Usala cuando hubo devolucion, descuento posterior o necesitas corregir a favor del cliente.'
+    use: 'Usala cuando hubo devolucion, descuento posterior o necesitas corregir a favor del cliente.',
+    details: [
+      'Debe relacionarse con el DTE origen correspondiente.',
+      'Disminuye valores facturados cuando aplica.',
+      'No debe usarse como sustituto de invalidacion si el DTE original debe quedar sin efecto.'
+    ]
   },
   '06': {
     title: 'Nota de Debito',
     summary: 'Para aumentar valores de un CCF.',
-    use: 'Usala cuando faltaron cargos, se agregaron productos o debes cobrar una diferencia.'
+    use: 'Usala cuando faltaron cargos, se agregaron productos o debes cobrar una diferencia.',
+    details: [
+      'Debe relacionarse con el DTE origen correspondiente.',
+      'Incrementa valores facturados cuando aplica.',
+      'Conviene revisar concepto, cantidades e impuestos antes de emitir.'
+    ]
   },
   '14': {
     title: 'Sujeto Excluido',
     summary: 'Para compras a personas fuera del IVA.',
-    use: 'Usala cuando compras bienes o servicios a alguien que no emite DTE ni factura con IVA.'
+    use: 'Usala cuando compras bienes o servicios a alguien que no emite DTE ni factura con IVA.',
+    details: [
+      'Registra compras a proveedores que no emiten DTE.',
+      'No se comporta como una venta al cliente final.',
+      'Revisa retenciones y datos del proveedor antes de emitir.'
+    ]
+  }
+};
+const eventHelpByType = {
+  invalidacion: {
+    title: 'Evento de invalidacion',
+    summary: 'Para dejar sin efecto un DTE aceptado.',
+    use: 'Usalo cuando el documento origen no debe seguir produciendo efectos por errores, rescision de la operacion u otra causal permitida.',
+    details: [
+      'El DTE debe estar aceptado por Hacienda y tener sello de recepcion.',
+      'La invalidacion no corrige montos parciales: deja sin efecto el documento completo.',
+      'Si el documento ya requiere otro tratamiento fiscal, revisa si corresponde retorno o un nuevo DTE.'
+    ]
+  },
+  contingencia: {
+    title: 'Evento de contingencia',
+    summary: 'Para informar emision diferida.',
+    use: 'Usalo cuando emitiste DTE bajo contingencia por una interrupcion tecnica y necesitas reportar el lote correspondiente.',
+    details: [
+      'Relaciona documentos emitidos con modelo diferido.',
+      'Completa fecha, hora y motivo de la contingencia cuando aplique.',
+      'Despues de reportar, verifica las respuestas MH del lote.'
+    ]
+  },
+  retorno: {
+    title: 'Evento de retorno',
+    summary: 'Para devoluciones o reembolsos sobre FE, FEXE o FSEE.',
+    use: 'Selecciona DTE origen con sello de recepcion. El sistema descarta documentos vencidos, sin sello, de tipo no permitido o sin remanente disponible.',
+    details: [
+      'El plazo general es de 3 meses desde el sello de recepcion del DTE relacionado.',
+      'Puedes relacionar hasta 50 DTE del mismo tipo; cada documento se referencia una sola vez por evento.',
+      'Si agregas mas de un DTE, todos deben corresponder al mismo emisor, receptor, tercero y ambiente.',
+      'El retorno no debe exceder el valor vendido o comprado del DTE origen.'
+    ]
+  },
+  operaciones_especiales: {
+    title: 'Evento de operaciones especiales',
+    summary: 'Para reportes especiales definidos por normativa.',
+    use: 'Usalo cuando necesitas reportar operaciones especiales activas o anuladas con el detalle requerido por Hacienda.',
+    details: [
+      'Selecciona empresa, ambiente, tipo de documento y modalidad antes de reportar.',
+      'Cada linea debe identificar rangos o documentos individuales segun la modalidad elegida.',
+      'Revisa totales y referencias antes de transmitir el evento.'
+    ]
   }
 };
 const fallbackBillingTypes = [
@@ -249,7 +317,12 @@ const pageTitle = computed(() => {
 
   return props.app.name;
 });
-const currentDteHelp = computed(() => (props.module === 'billing' ? dteHelpByType[selectedDocumentType.value] ?? null : null));
+const currentHelp = computed(() => {
+  if (props.module === 'billing') return dteHelpByType[selectedDocumentType.value] ?? null;
+  if (props.module === 'mh-events') return eventHelpByType[selectedEventType.value] ?? null;
+
+  return null;
+});
 const activeCompany = computed(() => billingCompanies.value.find((empresa) => empresa.lifecycle_status === 'active') ?? billingCompanies.value[0] ?? null);
 const billingContextCacheScope = computed(() => props.user?.email ?? props.app?.id ?? 'default');
 const companyLogoUrl = computed(() => activeCompany.value?.logo_url ?? null);
@@ -309,24 +382,24 @@ watch(() => props.user?.email, () => {
 
 onMounted(() => {
   initializeTheme();
-  window.addEventListener('keydown', closeDteHelpOnEscape);
+  window.addEventListener('keydown', closeHelpOnEscape);
   document.addEventListener('click', closeUserMenuOnOutsideClick);
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', closeDteHelpOnEscape);
+  window.removeEventListener('keydown', closeHelpOnEscape);
   document.removeEventListener('click', closeUserMenuOnOutsideClick);
 });
 
-function closeDteHelpOnEscape(event) {
+function closeHelpOnEscape(event) {
   if (event.key === 'Escape') {
-    dteHelpModalOpen.value = false;
+    helpModalOpen.value = false;
     userMenuOpen.value = false;
   }
 }
 
-function openDteHelpModal() {
-  dteHelpModalOpen.value = true;
+function openHelpModal() {
+  helpModalOpen.value = true;
 }
 
 function toggleUserMenu() {
@@ -551,12 +624,12 @@ function navigateFromMenu(event, href) {
       <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div class="flex flex-wrap items-center gap-3">
           <h1 class="text-3xl font-bold tracking-tight text-slate-950 dark:text-text">{{ pageTitle }}</h1>
-          <div v-if="currentDteHelp">
+          <div v-if="currentHelp">
             <button
-              class="grid h-9 w-9 place-items-center rounded-full border border-sky-200 bg-sky-50 text-sky-700 shadow-sm shadow-sky-950/5 transition hover:border-sky-300 hover:bg-sky-100 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
+              class="grid h-9 w-9 place-items-center rounded-full border border-sky-200 bg-sky-50 text-sky-700 shadow-sm shadow-sky-950/5 transition hover:border-sky-300 hover:bg-sky-100 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500 dark:border-primary/40 dark:bg-primary-soft/20 dark:text-primary dark:hover:border-primary dark:hover:bg-primary-soft/30"
               type="button"
-              :aria-label="`Ayuda sobre ${currentDteHelp.title}`"
-              @click="openDteHelpModal"
+              :aria-label="`Ayuda sobre ${currentHelp.title}`"
+              @click="openHelpModal"
             >
               <UiInfoIcon class="h-6 w-6" />
             </button>
@@ -565,23 +638,11 @@ function navigateFromMenu(event, href) {
       </div>
     </header>
 
-    <BillingModalShell
-      :open="dteHelpModalOpen && Boolean(currentDteHelp)"
-      :title="currentDteHelp?.title ?? 'Ayuda'"
-      :eyebrow="currentDteHelp?.summary ?? null"
-      max-width="max-w-md"
-      z-index-class="z-[100]"
-      panel-class="rounded-xl"
-      close-label="Cerrar ayuda"
-      @close="dteHelpModalOpen = false"
-    >
-      <div class="flex items-start gap-3">
-        <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-700">
-          <UiInfoIcon class="h-7 w-7" />
-        </span>
-        <p class="text-sm leading-6 text-slate-700">{{ currentDteHelp?.use }}</p>
-      </div>
-    </BillingModalShell>
+    <BillingHelpModal
+      :open="helpModalOpen"
+      :help="currentHelp"
+      @close="helpModalOpen = false"
+    />
 
     <main class="relative z-10">
       <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
