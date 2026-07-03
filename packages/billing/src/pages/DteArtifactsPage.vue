@@ -17,7 +17,7 @@ type ArtifactTab = 'dte' | 'events';
 type PageItem = number | 'ellipsis';
 
 const supportedTypes = new Set(['01', '03', '05', '06', '14']);
-const supportedEventTypes = new Set(['invalidacion', 'retorno']);
+const supportedEventTypes = new Set(['invalidacion', 'retorno', 'operaciones_especiales']);
 const pageSize = 10;
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const activeTab = ref<ArtifactTab>('dte');
@@ -409,7 +409,8 @@ function typeLabel(code: string): string {
 function eventLabel(type: string): string {
   const labels: Record<string, string> = {
     invalidacion: 'Evento de invalidacion',
-    retorno: 'Evento de retorno'
+    retorno: 'Evento de retorno',
+    operaciones_especiales: 'Evento de operaciones especiales'
   };
 
   return labels[type] ?? type;
@@ -418,8 +419,9 @@ function eventLabel(type: string): string {
 function eventEmptyMessage(): string {
   if (eventType.value === 'invalidacion') return 'No hay eventos de invalidacion aceptados para mostrar.';
   if (eventType.value === 'retorno') return 'No hay eventos de retorno aceptados para mostrar.';
+  if (eventType.value === 'operaciones_especiales') return 'No hay eventos de operaciones especiales aceptados para mostrar.';
 
-  return 'No hay eventos de invalidacion o retorno aceptados para mostrar.';
+  return 'No hay eventos aceptados para mostrar.';
 }
 
 function formatDate(value?: string | null): string {
@@ -484,9 +486,10 @@ function formatDate(value?: string | null): string {
               v-model="eventType"
               class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
             >
-              <option value="">Invalidacion y retorno</option>
+              <option value="">Todos</option>
               <option value="invalidacion">Invalidacion</option>
               <option value="retorno">Retorno</option>
+              <option value="operaciones_especiales">Operaciones especiales</option>
             </select>
           </div>
 
