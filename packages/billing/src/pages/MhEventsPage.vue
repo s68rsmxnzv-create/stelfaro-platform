@@ -43,14 +43,18 @@ const searched = ref(false);
 const replacementSearched = ref(false);
 const documents = ref<DteDraftSummary[]>([]);
 const contingencyCandidates = ref<DteDraftSummary[]>([]);
+const returnCandidates = ref<DteDraftSummary[]>([]);
 const contingencyCandidatesLoading = ref(false);
 const contingencyCandidatesLoaded = ref(false);
+const returnCandidatesLoading = ref(false);
+const returnCandidatesLoaded = ref(false);
 const billingContextLoading = ref(false);
 const billingCompanies = ref<BillingEmpresa[]>([]);
 const replacementDocuments = ref<DteDraftSummary[]>([]);
 const selected = ref<DteDraftSummary | null>(null);
 const selectedReplacement = ref<DteDraftSummary | null>(null);
 const selectedContingencyDocuments = ref<DteDraftSummary[]>([]);
+const selectedReturnDocuments = ref<DteDraftSummary[]>([]);
 const reportedContingencyDocuments = ref<DteDraftSummary[]>([]);
 const contingencyRetransmissionLoading = ref(false);
 const contingencyRetransmissionError = ref<string | null>(null);
@@ -101,6 +105,8 @@ type ReturnEventLine = {
   noGravado: number;
   seguro: number;
   flete: number;
+  ivaRete: number;
+  reteRenta: number;
 };
 let specialLineSequence = 0;
 let returnLineSequence = 0;
@@ -156,6 +162,7 @@ const form = reactive({
   operacionesStatus: 'active' as SpecialOperationStatus,
   operacionesMode: 'range' as SpecialOperationMode,
   operacionesDocumentType: '02' as '02' | '97',
+  retornoDteType: '01' as '01' | '11' | '14',
   retornoEmpresaId: null as number | null,
   retornoTipoDocumentoRelacionado: '17',
   retornoCodigoGeneracionRelacionado: '',
@@ -185,6 +192,11 @@ const contingenciaTipos = [
 const operacionesDocumentoTipos = [
   { value: '02', label: 'Factura simplificada' },
   { value: '97', label: 'Comprobante control interno' },
+];
+const retornoDocumentoTipos = [
+  { value: '01', label: 'Factura electronica' },
+  { value: '11', label: 'Factura de exportacion' },
+  { value: '14', label: 'Factura sujeto excluido' },
 ];
 const operacionesLineas = ref<SpecialOperationLine[]>([
   createSpecialOperationLine()
@@ -278,7 +290,9 @@ const canReportOperacionesEspeciales = computed(() => Boolean(
   && operacionesLineas.value.length <= 500
   && operacionesLineas.value.every(isValidSpecialOperationLine)
 ));
-const selectedRetornoEmpresa = computed(() => billingCompanies.value.find((empresa) => empresa.id === Number(form.retornoEmpresaId)) ?? null);
+const selectedRetornoEmpresa = computed(() => selectedReturnDocuments.value[0]?.empresa ?? billingCompanies.value.find((empresa) => empresa.id === Number(form.retornoEmpresaId)) ?? null);
+const selectedRetornoAmbiente = computed(() => selectedReturnDocuments.value[0]?.ambiente ?? billingCompanies.value.find((empresa) => empresa.id === Number(form.retornoEmpresaId))?.ambiente ?? '00');
+const selectedReturnCodes = computed(() => new Set(selectedReturnDocuments.value.map((document) => document.codigoGeneracion).filter(Boolean)));
 const retornoTotals = computed(() => {
   const totalNoSuj = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.ventaNoSuj), 0));
   const totalExenta = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.ventaExenta), 0));
@@ -287,8 +301,11 @@ const retornoTotals = computed(() => {
   const totalNoGravado = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.noGravado), 0));
   const totalSeguro = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.seguro), 0));
   const totalFlete = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.flete), 0));
-  const totalIva = roundMoney(totalGravada * 0.13);
+  const ivaRete = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.ivaRete), 0));
+  const reteRenta = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.reteRenta), 0));
+  const totalIva = form.retornoDteType === '01' ? roundMoney(totalGravada * 0.13) : 0;
   const subTotalVentas = roundMoney(totalNoSuj + totalExenta + totalGravada);
+  const montoTotalOperacion = roundMoney(subTotalVentas + totalCompra + totalNoGravado + totalSeguro + totalFlete + totalIva);
 
   return {
     totalNoSuj,
@@ -298,16 +315,15 @@ const retornoTotals = computed(() => {
     totalNoGravado,
     totalSeguro,
     totalFlete,
+    ivaRete,
+    reteRenta,
     totalIva,
-    total: roundMoney(subTotalVentas + totalCompra + totalNoGravado + totalSeguro + totalFlete + totalIva),
+    total: roundMoney(Math.max(0, montoTotalOperacion - ivaRete - reteRenta)),
   };
 });
 const canReportRetorno = computed(() => Boolean(
-  selectedRetornoEmpresa.value
-  && form.retornoCodEstableMH.trim().length === 4
-  && form.retornoCodPuntoVentaMH.trim().length === 4
-  && form.retornoCodigoGeneracionRelacionado.trim()
-  && form.retornoFechaEmisionRelacionado
+  selectedReturnDocuments.value.length > 0
+  && selectedReturnDocuments.value.length <= 50
   && retornoLineas.value.length > 0
   && retornoLineas.value.length <= 2000
   && retornoLineas.value.every(isValidReturnEventLine)
@@ -485,10 +501,8 @@ const actionStatusLabel = computed(() => {
   }
 
   if (isRetorno.value) {
-    if (!selectedRetornoEmpresa.value) return 'Falta empresa';
-    if (form.retornoCodEstableMH.trim().length !== 4) return 'Falta establecimiento MH';
-    if (form.retornoCodPuntoVentaMH.trim().length !== 4) return 'Falta punto venta MH';
-    if (!form.retornoCodigoGeneracionRelacionado.trim()) return 'Falta EOE relacionado';
+    if (selectedReturnDocuments.value.length === 0) return 'Falta DTE origen';
+    if (selectedReturnDocuments.value.length > 50) return 'Maximo 50 DTE';
     if (retornoLineas.value.length === 0) return 'Sin lineas';
     if (!retornoLineas.value.every(isValidReturnEventLine)) return 'Revisa lineas';
     return `${retornoLineas.value.length} item${retornoLineas.value.length === 1 ? '' : 's'} listos`;
@@ -502,13 +516,20 @@ const actionStatusLabel = computed(() => {
 });
 
 watch(query, () => {
-  if (!isInvalidacion.value) return;
+  if (!isInvalidacion.value && !isRetorno.value) return;
   if (searchLocked.value) {
     searchLocked.value = false;
     return;
   }
   if (searchTimer) window.clearTimeout(searchTimer);
-  searchTimer = window.setTimeout(() => void loadDocuments(), 250);
+  searchTimer = window.setTimeout(() => {
+    if (isRetorno.value) {
+      void loadReturnCandidates();
+      return;
+    }
+
+    void loadDocuments();
+  }, 250);
 });
 
 watch(replacementQuery, () => {
@@ -562,6 +583,7 @@ watch(() => props.initialEventType, () => {
   eventLog.value = [];
   selected.value = null;
   selectedContingencyDocuments.value = [];
+  selectedReturnDocuments.value = [];
   reportedContingencyDocuments.value = [];
   contingencyRetransmissionResults.value = [];
   contingencyRetransmissionError.value = null;
@@ -569,6 +591,8 @@ watch(() => props.initialEventType, () => {
   documents.value = [];
   contingencyCandidates.value = [];
   contingencyCandidatesLoaded.value = false;
+  returnCandidates.value = [];
+  returnCandidatesLoaded.value = false;
   query.value = '';
   searched.value = false;
   resetContingencyWindowAutomation();
@@ -577,7 +601,11 @@ watch(() => props.initialEventType, () => {
     void loadContingencyCandidates();
   }
 
-  if (isOperacionesEspeciales.value || isRetorno.value) {
+  if (isRetorno.value) {
+    void loadReturnCandidates();
+  }
+
+  if (isOperacionesEspeciales.value) {
     void loadBillingCompanies();
   }
 });
@@ -595,10 +623,22 @@ watch(isOperacionesEspeciales, (active) => {
 }, { immediate: true });
 
 watch(isRetorno, (active) => {
-  if (active && billingCompanies.value.length === 0) {
-    void loadBillingCompanies();
+  if (active && !returnCandidatesLoaded.value) {
+    void loadReturnCandidates();
   }
 }, { immediate: true });
+
+watch(() => form.retornoDteType, () => {
+  selectedReturnDocuments.value = [];
+  returnCandidates.value = [];
+  returnCandidatesLoaded.value = false;
+  retornoLineas.value = [createReturnEventLine()];
+  clearEventResult();
+
+  if (isRetorno.value) {
+    void loadReturnCandidates();
+  }
+});
 
 watch(() => form.operacionesDocumentType, (tipoDocumento) => {
   operacionesLineas.value = operacionesLineas.value.map((line) => ({
@@ -625,6 +665,10 @@ watch(() => form.operacionesStatus, () => {
 
 watch(selectedContingencyDocuments, () => {
   syncContingencyWindowFromSelection();
+}, { deep: true });
+
+watch(selectedReturnDocuments, () => {
+  syncReturnLinesFromSelection();
 }, { deep: true });
 
 async function loadDocuments(options: { preserveEventResult?: boolean } = {}): Promise<void> {
@@ -700,6 +744,34 @@ async function loadContingencyCandidates(): Promise<void> {
   }
 }
 
+async function loadReturnCandidates(): Promise<void> {
+  if (!isRetorno.value) return;
+
+  returnCandidatesLoading.value = true;
+  returnCandidatesLoaded.value = true;
+  error.value = null;
+
+  try {
+    const responses = await Promise.all(['accepted', 'received_by_mh'].map((estado) => client.value.documents({
+      q: query.value.trim(),
+      estado,
+      tipo_dte: form.retornoDteType,
+      limit: 75,
+      include_payload: true
+    })));
+    const documentsById = new Map<number, DteDraftSummary>();
+    responses.flatMap((response) => response.data).forEach((document) => {
+      documentsById.set(document.id, document);
+    });
+
+    returnCandidates.value = Array.from(documentsById.values()).filter(isReturnCandidateDocument);
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible cargar DTE para retorno.';
+  } finally {
+    returnCandidatesLoading.value = false;
+  }
+}
+
 async function loadBillingCompanies(): Promise<void> {
   if (billingCompanies.value.length > 0 || billingContextLoading.value) return;
 
@@ -742,6 +814,18 @@ function selectContingencyDocument(document: DteDraftSummary): void {
   eventLog.value = [];
   documents.value = [];
   searched.value = false;
+}
+
+function selectReturnDocument(document: DteDraftSummary): void {
+  if (!canAddReturnDocument(document)) return;
+
+  selectedReturnDocuments.value.push(document);
+  clearEventResult();
+}
+
+function removeReturnDocument(documentId: number): void {
+  selectedReturnDocuments.value = selectedReturnDocuments.value.filter((document) => document.id !== documentId);
+  clearEventResult();
 }
 
 function addVisibleContingencyCandidates(): void {
@@ -1104,7 +1188,7 @@ async function reportSpecialOperations(): Promise<void> {
 }
 
 async function reportReturnEvent(): Promise<void> {
-  if (!canReportRetorno.value || !selectedRetornoEmpresa.value) return;
+  if (!canReportRetorno.value || !selectedRetornoEmpresa.value || !selectedReturnDocuments.value[0]) return;
 
   let eventIdForRecovery: number | null = null;
   processing.value = true;
@@ -1119,25 +1203,14 @@ async function reportReturnEvent(): Promise<void> {
     pushLog('Creando evento de retorno');
     const draft = await client.value.createMhEvent('retorno', {
       empresa_id: Number(selectedRetornoEmpresa.value.id),
-      ambiente: selectedRetornoEmpresa.value.ambiente,
+      ambiente: selectedReturnDocuments.value[0].ambiente as '00' | '01',
       payload: {
-        documentoRelacionado: [{
-          tipoDocumento: form.retornoTipoDocumentoRelacionado.trim(),
-          codigoGeneracion: form.retornoCodigoGeneracionRelacionado.trim().toUpperCase(),
-          fechaEmision: form.retornoFechaEmisionRelacionado,
-        }],
-        emisor: {
-          codEstableMH: form.retornoCodEstableMH.trim(),
-          codEstable: nullableString(form.retornoCodEstable),
-          codPuntoVentaMH: form.retornoCodPuntoVentaMH.trim(),
-          codPuntoVenta: nullableString(form.retornoCodPuntoVenta),
-          recintoFiscal: nullableString(form.retornoRecintoFiscal),
-          tipoRegimen: nullableString(form.retornoTipoRegimen),
-          regimen: nullableString(form.retornoRegimen),
-          tipoItemExpor: form.retornoTipoItemExpor ? Number(form.retornoTipoItemExpor) : null,
-        },
         cuerpoDocumento: retornoLineas.value.map(returnEventLinePayload),
       },
+      relations: selectedReturnDocuments.value.map((document) => ({
+        relation_type: 'returns',
+        dte_document_id: document.id,
+      })),
     });
     eventIdForRecovery = draft.id;
 
@@ -1280,8 +1353,10 @@ function resetEventWorkspaceAfterSuccess(): void {
     form.operacionesStatus = 'active';
     form.operacionesMode = 'range';
   } else if (isRetorno.value) {
+    selectedReturnDocuments.value = [];
     retornoLineas.value = [createReturnEventLine()];
     form.retornoCodigoGeneracionRelacionado = '';
+    void loadReturnCandidates();
   } else {
     clearSelectedDocument();
     form.tipoAnulacion = 2;
@@ -1513,6 +1588,79 @@ function canAddContingencyDocument(document: DteDraftSummary): boolean {
     && selectedContingencyDocuments.value[0]?.ambiente === document.ambiente;
 }
 
+function isReturnCandidateDocument(document: DteDraftSummary): boolean {
+  if (!['01', '11', '14'].includes(document.tipoDte)) return false;
+  if (document.tipoDte !== form.retornoDteType) return false;
+  if (!['accepted', 'received_by_mh'].includes(String(document.estado).toLowerCase())) return false;
+  if (!document.selloRecibido) return false;
+
+  const deadline = returnDocumentDeadline(document);
+  return deadline === null || deadline.getTime() >= Date.now();
+}
+
+function canAddReturnDocument(document: DteDraftSummary): boolean {
+  if (!isReturnCandidateDocument(document)) return false;
+  if (selectedReturnDocuments.value.some((selectedDocument) => selectedDocument.id === document.id)) return false;
+  if (selectedReturnDocuments.value.length >= 50) return false;
+  if (selectedReturnDocuments.value.length === 0) return true;
+
+  const first = selectedReturnDocuments.value[0];
+  return first.tipoDte === document.tipoDte
+    && first.ambiente === document.ambiente
+    && first.empresa?.id === document.empresa?.id;
+}
+
+function returnDocumentDeadline(document: DteDraftSummary): Date | null {
+  const source = document.processed_at ?? document.updated_at ?? document.created_at ?? null;
+  if (!source) return null;
+
+  const date = new Date(source);
+  if (Number.isNaN(date.getTime())) return null;
+
+  date.setMonth(date.getMonth() + 3);
+  return date;
+}
+
+function returnDocumentTotal(document: DteDraftSummary): number {
+  const resumen = recordValue((document.payload ?? document.dte_json ?? {}).resumen);
+  for (const key of ['totalPagar', 'montoTotalOperacion', 'totalCompra', 'subTotal', 'totalGravada']) {
+    const value = Number(resumen[key] ?? 0);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+
+  return Number(document.totalPagar ?? 0);
+}
+
+function syncReturnLinesFromSelection(): void {
+  const firstCode = selectedReturnDocuments.value[0]?.codigoGeneracion ?? '';
+
+  retornoLineas.value = retornoLineas.value.map((line) => {
+    if (line.codigoGeneracion && selectedReturnCodes.value.has(line.codigoGeneracion)) {
+      return line;
+    }
+
+    return { ...line, codigoGeneracion: firstCode };
+  });
+}
+
+function returnDocumentTypeLabel(value: string): string {
+  return retornoDocumentoTipos.find((tipo) => tipo.value === value)?.label ?? value;
+}
+
+function returnDocumentParty(document: DteDraftSummary): string {
+  const receptor = recordValue((document.payload ?? document.dte_json ?? {}).receptor);
+  const sujeto = recordValue((document.payload ?? document.dte_json ?? {}).sujetoExcluido);
+  const tercero = recordValue((document.payload ?? document.dte_json ?? {}).ventaTercero);
+
+  return String(receptor.nombre ?? sujeto.nombre ?? tercero.nombre ?? 'Sin receptor');
+}
+
+function returnDocumentDeadlineLabel(document: DteDraftSummary): string {
+  const deadline = returnDocumentDeadline(document);
+
+  return deadline ? fiscalDateTime(deadline.toISOString()) : 'Sin fecha limite';
+}
+
 function isRetransmittableContingencyDocument(document: DteDraftSummary): boolean {
   return !['accepted', 'rejected'].includes(String(document.estado).toLowerCase());
 }
@@ -1648,6 +1796,8 @@ function createReturnEventLine(): ReturnEventLine {
     noGravado: 0,
     seguro: 0,
     flete: 0,
+    ivaRete: 0,
+    reteRenta: 0,
   };
 }
 
@@ -1667,9 +1817,10 @@ function removeReturnEventLine(id: number): void {
 function isValidReturnEventLine(line: ReturnEventLine): boolean {
   return Boolean(
     line.codigoGeneracion.trim()
+    && selectedReturnCodes.value.has(line.codigoGeneracion.trim())
     && line.descripcion.trim()
     && numberValue(line.cantidad) > 0
-    && returnEventLineTotal(line) > 0
+    && returnEventLineBase(line) > 0
   );
 }
 
@@ -1686,15 +1837,17 @@ function returnEventLinePayload(line: ReturnEventLine): Record<string, unknown> 
     noGravado: roundMoney(line.noGravado),
     seguro: roundMoney(line.seguro),
     flete: roundMoney(line.flete),
+    ivaRete: roundMoney(line.ivaRete),
+    reteRenta: roundMoney(line.reteRenta),
   };
 }
 
 function syncReturnEventPrice(line: ReturnEventLine): void {
   const quantity = Math.max(1, numberValue(line.cantidad));
-  line.precioUni = roundMoney(returnEventLineTotal(line) / quantity);
+  line.precioUni = roundMoney(returnEventLineBase(line) / quantity);
 }
 
-function returnEventLineTotal(line: ReturnEventLine): number {
+function returnEventLineBase(line: ReturnEventLine): number {
   return roundMoney(
     numberValue(line.ventaNoSuj)
     + numberValue(line.ventaExenta)
@@ -1703,6 +1856,14 @@ function returnEventLineTotal(line: ReturnEventLine): number {
     + numberValue(line.noGravado)
     + numberValue(line.seguro)
     + numberValue(line.flete)
+  );
+}
+
+function returnEventLineTotal(line: ReturnEventLine): number {
+  const iva = form.retornoDteType === '01' ? roundMoney(numberValue(line.ventaGravada) * 0.13) : 0;
+
+  return roundMoney(
+    Math.max(0, returnEventLineBase(line) + iva - numberValue(line.ivaRete) - numberValue(line.reteRenta))
   );
 }
 
@@ -1833,7 +1994,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
         :open="eventDiagnosticModalOpen"
         eyebrow="Evento MH"
         :title="processing ? 'Reportando retorno' : eventRejected ? 'Evento rechazado por MH' : eventAccepted ? 'Evento procesado' : 'Retorno detenido'"
-        :subtitle="`Ambiente ${selectedRetornoEmpresa?.ambiente ?? '00'} · ${selectedRetornoEmpresa?.nombre_comercial ?? selectedRetornoEmpresa?.razon_social ?? 'Empresa emisora'}`"
+        :subtitle="`Ambiente ${selectedRetornoAmbiente} · ${selectedRetornoEmpresa?.nombre_comercial ?? selectedRetornoEmpresa?.razon_social ?? 'Empresa emisora'}`"
         :processing="processing"
         :accepted="eventAccepted"
         :rejected="eventRejected || eventStopped"
@@ -1855,117 +2016,198 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
       <UiCard>
         <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div class="min-w-0 space-y-5">
-            <div class="grid gap-4 rounded-md border border-slate-200 p-4 lg:grid-cols-3">
-              <label class="block">
-                <span class="text-sm font-semibold text-slate-900">Empresa</span>
-                <select v-model.number="form.retornoEmpresaId" class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500" @change="clearEventResult">
-                  <option :value="null">Selecciona empresa</option>
-                  <option v-for="empresa in billingCompanies" :key="empresa.id" :value="empresa.id">{{ empresa.razon_social || empresa.nombre_comercial }}</option>
-                </select>
-              </label>
-              <label class="block">
-                <span class="text-sm font-semibold text-slate-900">Tipo documento relacionado</span>
-                <input v-model="form.retornoTipoDocumentoRelacionado" class="mt-2 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxlength="2" @input="clearEventResult">
-              </label>
-              <label class="block">
-                <span class="text-sm font-semibold text-slate-900">Fecha documento relacionado</span>
-                <input v-model="form.retornoFechaEmisionRelacionado" type="date" class="mt-2 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="clearEventResult">
-              </label>
-              <label class="block lg:col-span-3">
-                <span class="text-sm font-semibold text-slate-900">Codigo generacion EOE relacionado</span>
-                <input v-model="form.retornoCodigoGeneracionRelacionado" class="mt-2 block w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm uppercase" maxlength="36" placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" @input="clearEventResult">
-              </label>
+            <div class="rounded-md border border-slate-200 p-4 dark:border-line">
+              <div class="grid gap-3 lg:grid-cols-[240px_minmax(0,1fr)_auto] lg:items-end">
+                <label class="block">
+                  <span class="text-sm font-semibold text-slate-900 dark:text-text">Tipo de DTE origen</span>
+                  <select
+                    v-model="form.retornoDteType"
+                    class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 dark:border-line dark:bg-surface-muted dark:text-text"
+                    @change="clearEventResult"
+                  >
+                    <option v-for="tipo in retornoDocumentoTipos" :key="tipo.value" :value="tipo.value">{{ tipo.label }}</option>
+                  </select>
+                </label>
+                <UiSearchInput
+                  v-model="query"
+                  label="Buscar DTE origen"
+                  placeholder="Numero de control, codigo, sello, receptor o empresa"
+                  @search="loadReturnCandidates"
+                />
+                <UiRefreshButton :loading="returnCandidatesLoading" @click="loadReturnCandidates" />
+              </div>
+
+              <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
+                <div class="min-w-0 overflow-hidden rounded-md border border-slate-200 dark:border-line">
+                  <div class="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3 dark:border-line dark:bg-surface-muted">
+                    <p class="text-sm font-semibold text-slate-950 dark:text-text">DTE disponibles</p>
+                    <span class="rounded bg-white px-2 py-1 text-xs font-semibold text-slate-600 dark:bg-surface dark:text-muted">
+                      {{ returnCandidates.length }}
+                    </span>
+                  </div>
+
+                  <UiLoadingMark v-if="returnCandidatesLoading" label="Cargando DTE con sello MH" />
+
+                  <button
+                    v-for="document in returnCandidates"
+                    v-else
+                    :key="document.id"
+                    class="block w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition last:border-b-0 disabled:cursor-not-allowed disabled:opacity-50 dark:border-line"
+                    :class="canAddReturnDocument(document) ? 'hover:bg-sky-50 dark:hover:bg-primary-soft/20' : 'bg-slate-50 dark:bg-surface-muted'"
+                    type="button"
+                    :disabled="!canAddReturnDocument(document)"
+                    @click="selectReturnDocument(document)"
+                  >
+                    <span class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                      <span class="min-w-0">
+                        <span class="block font-semibold text-slate-950 dark:text-text">{{ document.tipoDte }} · {{ document.numeroControl }}</span>
+                        <span class="mt-1 block break-all font-mono text-xs text-slate-500 dark:text-soft">{{ document.codigoGeneracion }}</span>
+                        <span class="mt-2 block truncate text-xs text-slate-600 dark:text-muted">{{ returnDocumentParty(document) }}</span>
+                        <span class="mt-1 block truncate text-xs text-slate-500 dark:text-soft">{{ document.empresa?.razon_social ?? document.empresa?.nombre_comercial }}</span>
+                      </span>
+                      <span class="shrink-0 text-left md:text-right">
+                        <span class="block text-sm font-bold text-slate-950 dark:text-text">{{ currency(returnDocumentTotal(document)) }}</span>
+                        <span class="mt-1 block text-xs text-slate-500 dark:text-soft">Limite {{ returnDocumentDeadlineLabel(document) }}</span>
+                        <span class="mt-1 inline-flex rounded bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700 dark:bg-primary-soft/20 dark:text-primary">
+                          {{ canAddReturnDocument(document) ? 'Agregar' : 'No disponible' }}
+                        </span>
+                      </span>
+                    </span>
+                  </button>
+
+                  <p v-if="returnCandidatesLoaded && !returnCandidatesLoading && returnCandidates.length === 0" class="px-4 py-5 text-sm text-slate-500 dark:text-muted">
+                    No hay DTE aceptados con sello para este tipo y busqueda.
+                  </p>
+                </div>
+
+                <div class="min-w-0 overflow-hidden rounded-md border border-slate-200 dark:border-line">
+                  <div class="flex items-center justify-between gap-3 border-b border-slate-100 bg-emerald-50 px-4 py-3 dark:border-line dark:bg-success-soft/15">
+                    <p class="text-sm font-semibold text-emerald-950 dark:text-text">DTE relacionados</p>
+                    <span class="rounded bg-white px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-surface dark:text-success">
+                      {{ selectedReturnDocuments.length }} / 50
+                    </span>
+                  </div>
+
+                  <div v-if="selectedReturnDocuments.length" class="divide-y divide-slate-100 dark:divide-line">
+                    <div
+                      v-for="document in selectedReturnDocuments"
+                      :key="document.id"
+                      class="px-4 py-3 text-sm"
+                    >
+                      <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                          <p class="font-semibold text-slate-950 dark:text-text">{{ returnDocumentTypeLabel(document.tipoDte) }}</p>
+                          <p class="mt-1 truncate font-mono text-xs text-slate-500 dark:text-soft">{{ document.codigoGeneracion }}</p>
+                          <p class="mt-2 truncate text-xs text-slate-600 dark:text-muted">{{ returnDocumentParty(document) }}</p>
+                        </div>
+                        <button
+                          type="button"
+                          class="shrink-0 rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 dark:bg-surface-muted dark:text-muted dark:hover:bg-line"
+                          @click="removeReturnDocument(document.id)"
+                        >
+                          Quitar
+                        </button>
+                      </div>
+                      <dl class="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                        <div>
+                          <dt class="font-semibold uppercase text-slate-500 dark:text-soft">Total origen</dt>
+                          <dd class="mt-1 font-bold text-slate-950 dark:text-text">{{ currency(returnDocumentTotal(document)) }}</dd>
+                        </div>
+                        <div>
+                          <dt class="font-semibold uppercase text-slate-500 dark:text-soft">Sello MH</dt>
+                          <dd class="mt-1 truncate font-mono text-slate-700 dark:text-muted">{{ document.selloRecibido }}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </div>
+
+                  <p v-else class="px-4 py-5 text-sm text-slate-500 dark:text-muted">
+                    Selecciona uno o mas DTE aceptados. Todos deben ser del mismo tipo, empresa y ambiente.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div class="grid gap-4 rounded-md border border-slate-200 p-4 lg:grid-cols-4">
-              <label class="block">
-                <span class="text-xs font-semibold uppercase text-slate-500">Establecimiento MH</span>
-                <input v-model="form.retornoCodEstableMH" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxlength="4" @input="clearEventResult">
-              </label>
-              <label class="block">
-                <span class="text-xs font-semibold uppercase text-slate-500">Punto venta MH</span>
-                <input v-model="form.retornoCodPuntoVentaMH" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxlength="4" @input="clearEventResult">
-              </label>
-              <label class="block">
-                <span class="text-xs font-semibold uppercase text-slate-500">Establecimiento interno</span>
-                <input v-model="form.retornoCodEstable" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxlength="10" @input="clearEventResult">
-              </label>
-              <label class="block">
-                <span class="text-xs font-semibold uppercase text-slate-500">Punto venta interno</span>
-                <input v-model="form.retornoCodPuntoVenta" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxlength="15" @input="clearEventResult">
-              </label>
-              <label class="block">
-                <span class="text-xs font-semibold uppercase text-slate-500">Recinto fiscal</span>
-                <input v-model="form.retornoRecintoFiscal" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxlength="2" @input="clearEventResult">
-              </label>
-              <label class="block">
-                <span class="text-xs font-semibold uppercase text-slate-500">Tipo regimen</span>
-                <input v-model="form.retornoTipoRegimen" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxlength="4" @input="clearEventResult">
-              </label>
-              <label class="block">
-                <span class="text-xs font-semibold uppercase text-slate-500">Regimen</span>
-                <input v-model="form.retornoRegimen" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxlength="13" @input="clearEventResult">
-              </label>
-              <label class="block">
-                <span class="text-xs font-semibold uppercase text-slate-500">Tipo item expor.</span>
-                <input v-model.number="form.retornoTipoItemExpor" type="number" min="1" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="clearEventResult">
-              </label>
-            </div>
-
-            <div class="rounded-md border border-slate-200 p-4">
+            <div class="rounded-md border border-slate-200 p-4 dark:border-line">
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p class="text-base font-semibold text-slate-950">Detalle de retorno</p>
-                  <p class="mt-1 text-sm text-slate-600">{{ retornoLineas.length }} de 2000 items permitidos.</p>
+                  <p class="text-base font-semibold text-slate-950 dark:text-text">Detalle de retorno</p>
+                  <p class="mt-1 text-sm text-slate-600 dark:text-muted">{{ retornoLineas.length }} de 2000 items permitidos.</p>
                 </div>
                 <UiButton type="button" variant="secondary" @click="addReturnEventLine">Agregar item</UiButton>
               </div>
 
-              <UiLoadingMark v-if="billingContextLoading" class="mt-4" label="Cargando empresas" />
-
               <div class="mt-4 space-y-3">
-                <div v-for="(line, index) in retornoLineas" :key="line.id" class="rounded-md border border-slate-200 bg-white p-3">
+                <div v-for="(line, index) in retornoLineas" :key="line.id" class="rounded-md border border-slate-200 bg-white p-3 dark:border-line dark:bg-surface">
                   <div class="flex flex-wrap items-center justify-between gap-2">
-                    <p class="text-sm font-bold text-slate-950">Item {{ index + 1 }}</p>
-                    <button class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200" type="button" @click="removeReturnEventLine(line.id)">Quitar</button>
+                    <p class="text-sm font-bold text-slate-950 dark:text-text">Item {{ index + 1 }}</p>
+                    <button class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 dark:bg-surface-muted dark:text-muted dark:hover:bg-line" type="button" @click="removeReturnEventLine(line.id)">Quitar</button>
                   </div>
                   <div class="mt-3 grid gap-3 lg:grid-cols-6">
                     <label class="block lg:col-span-3">
-                      <span class="text-xs font-semibold uppercase text-slate-500">Codigo generacion retorno</span>
-                      <input v-model="line.codigoGeneracion" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm uppercase" maxlength="36" @input="clearEventResult">
+                      <span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">DTE origen</span>
+                      <select
+                        v-model="line.codigoGeneracion"
+                        class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-sm uppercase text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text"
+                        :disabled="selectedReturnDocuments.length === 0"
+                        @change="clearEventResult"
+                      >
+                        <option value="">Selecciona DTE</option>
+                        <option
+                          v-for="document in selectedReturnDocuments"
+                          :key="document.id"
+                          :value="document.codigoGeneracion"
+                        >
+                          {{ document.numeroControl }}
+                        </option>
+                      </select>
                     </label>
                     <label class="block">
-                      <span class="text-xs font-semibold uppercase text-slate-500">Cantidad</span>
-                      <input v-model.number="line.cantidad" type="number" min="1" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncReturnEventPrice(line); clearEventResult()">
+                      <span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Cantidad</span>
+                      <input v-model.number="line.cantidad" type="number" min="1" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()">
                     </label>
                     <label class="block lg:col-span-2">
-                      <span class="text-xs font-semibold uppercase text-slate-500">Descripcion</span>
-                      <input v-model="line.descripcion" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="clearEventResult">
+                      <span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Descripcion</span>
+                      <input v-model="line.descripcion" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="clearEventResult">
                     </label>
                   </div>
                   <div class="mt-3 grid gap-3 md:grid-cols-4 xl:grid-cols-8">
-                    <label class="block"><span class="text-xs font-semibold uppercase text-slate-500">No sujetas</span><input v-model.number="line.ventaNoSuj" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncReturnEventPrice(line); clearEventResult()"></label>
-                    <label class="block"><span class="text-xs font-semibold uppercase text-slate-500">Exentas</span><input v-model.number="line.ventaExenta" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncReturnEventPrice(line); clearEventResult()"></label>
-                    <label class="block"><span class="text-xs font-semibold uppercase text-slate-500">Gravadas</span><input v-model.number="line.ventaGravada" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncReturnEventPrice(line); clearEventResult()"></label>
-                    <label class="block"><span class="text-xs font-semibold uppercase text-slate-500">Compra</span><input v-model.number="line.compra" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncReturnEventPrice(line); clearEventResult()"></label>
-                    <label class="block"><span class="text-xs font-semibold uppercase text-slate-500">No gravado</span><input v-model.number="line.noGravado" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncReturnEventPrice(line); clearEventResult()"></label>
-                    <label class="block"><span class="text-xs font-semibold uppercase text-slate-500">Seguro</span><input v-model.number="line.seguro" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncReturnEventPrice(line); clearEventResult()"></label>
-                    <label class="block"><span class="text-xs font-semibold uppercase text-slate-500">Flete</span><input v-model.number="line.flete" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncReturnEventPrice(line); clearEventResult()"></label>
-                    <div class="rounded-md bg-slate-50 px-3 py-2"><p class="text-xs font-semibold uppercase text-slate-500">Total</p><p class="mt-1 text-sm font-bold text-slate-950">{{ currency(returnEventLineTotal(line)) }}</p></div>
+                    <template v-if="form.retornoDteType === '01'">
+                      <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">No sujetas</span><input v-model.number="line.ventaNoSuj" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()"></label>
+                      <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Exentas</span><input v-model.number="line.ventaExenta" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()"></label>
+                      <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Gravadas</span><input v-model.number="line.ventaGravada" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()"></label>
+                      <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">IVA retenido</span><input v-model.number="line.ivaRete" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="clearEventResult"></label>
+                    </template>
+                    <template v-else-if="form.retornoDteType === '11'">
+                      <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Exportacion</span><input v-model.number="line.ventaGravada" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()"></label>
+                      <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Seguro</span><input v-model.number="line.seguro" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()"></label>
+                      <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Flete</span><input v-model.number="line.flete" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()"></label>
+                      <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">No gravado</span><input v-model.number="line.noGravado" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()"></label>
+                    </template>
+                    <template v-else>
+                      <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Compra</span><input v-model.number="line.compra" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()"></label>
+                      <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Retencion renta</span><input v-model.number="line.reteRenta" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="clearEventResult"></label>
+                    </template>
+                    <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted"><p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Precio unitario</p><p class="mt-1 text-sm font-bold text-slate-950 dark:text-text">{{ currency(line.precioUni) }}</p></div>
+                    <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted"><p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Total</p><p class="mt-1 text-sm font-bold text-slate-950 dark:text-text">{{ currency(returnEventLineTotal(line)) }}</p></div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <aside class="min-w-0 rounded-md border border-slate-200 p-4">
-            <p class="text-base font-semibold text-slate-950">Resumen</p>
+          <aside class="min-w-0 rounded-md border border-slate-200 p-4 dark:border-line">
+            <p class="text-base font-semibold text-slate-950 dark:text-text">Resumen</p>
             <dl class="mt-4 space-y-3 text-sm">
-              <div class="flex items-center justify-between gap-3"><dt class="text-slate-500">Ventas</dt><dd class="font-semibold text-slate-950">{{ currency(retornoTotals.totalNoSuj + retornoTotals.totalExenta + retornoTotals.totalGravada) }}</dd></div>
-              <div class="flex items-center justify-between gap-3"><dt class="text-slate-500">Compra</dt><dd class="font-semibold text-slate-950">{{ currency(retornoTotals.totalCompra) }}</dd></div>
-              <div class="flex items-center justify-between gap-3"><dt class="text-slate-500">Seguro/flete</dt><dd class="font-semibold text-slate-950">{{ currency(retornoTotals.totalSeguro + retornoTotals.totalFlete) }}</dd></div>
-              <div class="flex items-center justify-between gap-3"><dt class="text-slate-500">IVA</dt><dd class="font-semibold text-slate-950">{{ currency(retornoTotals.totalIva) }}</dd></div>
-              <div class="rounded-md bg-sky-50 px-3 py-3 flex items-center justify-between gap-3"><dt class="font-semibold text-sky-900">Total</dt><dd class="text-lg font-bold text-sky-950">{{ currency(retornoTotals.total) }}</dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-slate-500 dark:text-muted">DTE origen</dt><dd class="font-semibold text-slate-950 dark:text-text">{{ selectedReturnDocuments.length }}</dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-slate-500 dark:text-muted">Tipo</dt><dd class="font-semibold text-slate-950 dark:text-text">{{ returnDocumentTypeLabel(form.retornoDteType) }}</dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-slate-500 dark:text-muted">Ventas</dt><dd class="font-semibold text-slate-950 dark:text-text">{{ currency(retornoTotals.totalNoSuj + retornoTotals.totalExenta + retornoTotals.totalGravada) }}</dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-slate-500 dark:text-muted">Compra</dt><dd class="font-semibold text-slate-950 dark:text-text">{{ currency(retornoTotals.totalCompra) }}</dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-slate-500 dark:text-muted">No gravado</dt><dd class="font-semibold text-slate-950 dark:text-text">{{ currency(retornoTotals.totalNoGravado) }}</dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-slate-500 dark:text-muted">Seguro/flete</dt><dd class="font-semibold text-slate-950 dark:text-text">{{ currency(retornoTotals.totalSeguro + retornoTotals.totalFlete) }}</dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-slate-500 dark:text-muted">IVA</dt><dd class="font-semibold text-slate-950 dark:text-text">{{ currency(retornoTotals.totalIva) }}</dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-slate-500 dark:text-muted">Retenciones</dt><dd class="font-semibold text-slate-950 dark:text-text">{{ currency(retornoTotals.ivaRete + retornoTotals.reteRenta) }}</dd></div>
+              <div class="flex items-center justify-between gap-3 rounded-md bg-sky-50 px-3 py-3 dark:bg-primary-soft/20"><dt class="font-semibold text-sky-900 dark:text-primary">Total</dt><dd class="text-lg font-bold text-sky-950 dark:text-text">{{ currency(retornoTotals.total) }}</dd></div>
             </dl>
           </aside>
         </div>
@@ -1975,6 +2217,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
         <section class="pointer-events-auto mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-700/70 bg-slate-950/95 px-3 py-2 text-white shadow-xl shadow-slate-950/25 backdrop-blur">
           <div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             <p class="min-w-0 max-w-[260px] truncate"><span class="text-slate-400">Empresa</span><span class="ml-2 font-bold text-white">{{ selectedRetornoEmpresa?.nombre_comercial ?? selectedRetornoEmpresa?.razon_social ?? 'Pendiente' }}</span></p>
+            <p class="min-w-0 max-w-[220px] truncate"><span class="text-slate-400">DTE</span><span class="ml-2 font-semibold text-white">{{ selectedReturnDocuments.length }}</span></p>
             <p class="min-w-0 max-w-[220px] truncate"><span class="text-slate-400">Items</span><span class="ml-2 font-semibold text-white">{{ retornoLineas.length }}</span></p>
             <p class="min-w-0 max-w-[220px] truncate"><span class="text-slate-400">Total</span><span class="ml-2 font-semibold text-white">{{ currency(retornoTotals.total) }}</span></p>
           </div>
