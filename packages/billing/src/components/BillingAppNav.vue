@@ -65,11 +65,13 @@ const fallbackBillingTypes = [
 const eventOptions = [
   { label: 'Invalidacion', path: '/eventos-mh/invalidacion', slug: 'invalidacion' },
   { label: 'Contingencia', path: '/eventos-mh/contingencia', slug: 'contingencia' },
+  { label: 'Retorno', path: '/eventos-mh/retorno', slug: 'retorno' },
   { label: 'Operaciones especiales', path: '/eventos-mh/operaciones-especiales', slug: 'operaciones-especiales' }
 ];
 const eventTypeBySlug = {
   invalidacion: 'invalidacion',
   contingencia: 'contingencia',
+  retorno: 'retorno',
   'operaciones-especiales': 'operaciones_especiales'
 };
 const responseOptions = [
