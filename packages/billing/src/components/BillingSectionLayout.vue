@@ -28,6 +28,7 @@ import {
   Wrench
 } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch, type Component } from 'vue';
+import BillingTooltip from './BillingTooltip.vue';
 
 type NavItem = {
   id: string;
@@ -226,15 +227,14 @@ const navGroups = computed(() => {
       </nav>
     </aside>
 
-    <div
+    <BillingTooltip
       v-if="sidebarTooltip && compactSidebar"
-      class="pointer-events-none fixed left-[5.75rem] z-[60] min-w-44 -translate-y-1/2 rounded-md border border-slate-200 bg-white px-3 py-2 text-left shadow-lg shadow-slate-950/10 dark:border-line dark:bg-surface-raised dark:shadow-black/30"
-      :style="{ top: `${sidebarTooltip.top}px` }"
-      role="tooltip"
-    >
-      <span class="block whitespace-nowrap text-sm font-bold text-slate-950 dark:text-text">{{ sidebarTooltip.label }}</span>
-      <span class="mt-0.5 block whitespace-nowrap text-xs font-medium text-slate-500 dark:text-soft">{{ sidebarTooltip.detail }}</span>
-    </div>
+      :open="true"
+      :label="sidebarTooltip.label"
+      :detail="sidebarTooltip.detail"
+      :top="sidebarTooltip.top"
+      :left="92"
+    />
 
     <main class="px-4 py-6 transition-[padding] duration-200 sm:px-6 lg:pr-8" :class="mainOffsetClass">
       <div class="mb-5 flex items-center overflow-x-auto whitespace-nowrap">

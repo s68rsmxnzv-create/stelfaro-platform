@@ -5,6 +5,7 @@ import { CircleQuestionMark } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingAppNav from '../components/BillingAppNav.vue';
 import BillingHelpModal from '../components/BillingHelpModal.vue';
+import BillingTooltip from '../components/BillingTooltip.vue';
 import BillingCompanySettingsPage from './BillingCompanySettingsPage.vue';
 import CatalogPage from './CatalogPage.vue';
 import BillingDashboardPage from './BillingDashboardPage.vue';
@@ -81,6 +82,7 @@ const props = defineProps({
 });
 
 const helpModalOpen = ref(false);
+const helpTooltip = ref(null);
 const userMenuOpen = ref(false);
 const userMenuRef = ref(null);
 const darkMode = ref(false);
@@ -399,7 +401,27 @@ function closeHelpOnEscape(event) {
 }
 
 function openHelpModal() {
+  helpTooltip.value = null;
   helpModalOpen.value = true;
+}
+
+function showHelpTooltip(event) {
+  if (!currentHelp.value) return;
+
+  const target = event.currentTarget;
+  if (!target) return;
+
+  const rect = target.getBoundingClientRect();
+  helpTooltip.value = {
+    label: 'Ayuda',
+    detail: currentHelp.value.title,
+    top: Math.round(rect.bottom + 10),
+    left: Math.round(rect.left + (rect.width / 2))
+  };
+}
+
+function hideHelpTooltip() {
+  helpTooltip.value = null;
 }
 
 function toggleUserMenu() {
@@ -629,15 +651,30 @@ function navigateFromMenu(event, href) {
               class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm shadow-slate-950/5 transition hover:border-sky-300 hover:text-sky-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500 dark:border-line dark:bg-surface-muted dark:text-muted dark:shadow-black/20 dark:hover:border-primary dark:hover:text-primary"
               type="button"
               :aria-label="`Ayuda sobre ${currentHelp.title}`"
-              :title="`Ayuda sobre ${currentHelp.title}`"
+              :aria-describedby="helpTooltip ? 'billing-help-tooltip' : undefined"
+              @mouseenter="showHelpTooltip"
+              @mouseleave="hideHelpTooltip"
+              @focus="showHelpTooltip"
+              @blur="hideHelpTooltip"
               @click="openHelpModal"
             >
-              <CircleQuestionMark class="h-6 w-6" aria-hidden="true" />
+              <CircleQuestionMark class="h-7 w-7" aria-hidden="true" />
             </button>
           </div>
         </div>
       </div>
     </header>
+
+    <BillingTooltip
+      v-if="helpTooltip"
+      id="billing-help-tooltip"
+      :open="true"
+      :label="helpTooltip.label"
+      :detail="helpTooltip.detail"
+      :top="helpTooltip.top"
+      :left="helpTooltip.left"
+      placement="bottom"
+    />
 
     <BillingHelpModal
       :open="helpModalOpen"
