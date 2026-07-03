@@ -877,6 +877,17 @@ export type DteDraftSummary = {
     baseDate: string | null;
     rule: 'three_months' | 'tenth_business_day_next_month' | 'unknown' | string;
   };
+  retorno?: {
+    eligible: boolean;
+    status: 'eligible' | 'unsupported_type' | 'not_accepted' | 'missing_receipt_stamp' | 'missing_receipt_date' | 'expired' | 'missing_total' | 'fully_returned' | string;
+    reason: string;
+    deadline: string | null;
+    baseDate: string | null;
+    originTotal: number;
+    returnedAmount: number;
+    remainingAmount: number;
+    rule: 'three_months_from_receipt_stamp' | string;
+  } | null;
   contingencia?: Record<string, unknown> | null;
   is_related_by_adjustment?: boolean;
   related_by_adjustment?: {
@@ -2063,7 +2074,7 @@ export class CoreDteClient {
     return finalResult;
   }
 
-  documents(params: { q?: string; estado?: string; tipo_dte?: string; empresa_id?: number; limit?: number; page?: number; include_payload?: boolean } = {}): Promise<DteDocumentListResponse> {
+  documents(params: { q?: string; estado?: string; tipo_dte?: string; empresa_id?: number; limit?: number; page?: number; include_payload?: boolean; include_audit?: boolean; retorno_eligible?: boolean } = {}): Promise<DteDocumentListResponse> {
     return this.http.get('dte/drafts', { searchParams: compactParams(params) }).json();
   }
 

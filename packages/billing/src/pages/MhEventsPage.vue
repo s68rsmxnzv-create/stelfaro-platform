@@ -8,7 +8,7 @@ import {
   PlatformClient
 } from '@stelfaro/api-client';
 import { currency, fiscalDate, fiscalDateTime } from '@stelfaro/shared';
-import { UiButton, UiCard, UiSearchInput, UiLoadingMark, UiRefreshButton, UiSaveIcon, UiTextarea } from '@stelfaro/ui';
+import { UiButton, UiCard, UiInfoIcon, UiSearchInput, UiLoadingMark, UiRefreshButton, UiSaveIcon, UiTextarea } from '@stelfaro/ui';
 import BillingModalShell from '../components/BillingModalShell.vue';
 import BillingProcessModal from '../components/BillingProcessModal.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
@@ -68,6 +68,7 @@ const contingencyRetransmissionResults = ref<Array<{
 const eventResult = ref<MhFiscalEventSummary | null>(null);
 const eventLog = ref<Array<{ label: string; status: 'ok' | 'error' }>>([]);
 const motivoModalOpen = ref(false);
+const returnHelpModalOpen = ref(false);
 const motivoDraft = ref('');
 const motivoModalMode = ref<'invalidacion' | 'contingencia'>('invalidacion');
 const contingencyStartTouched = ref(false);
@@ -601,10 +602,6 @@ watch(() => props.initialEventType, () => {
     void loadContingencyCandidates();
   }
 
-  if (isRetorno.value) {
-    void loadReturnCandidates();
-  }
-
   if (isOperacionesEspeciales.value) {
     void loadBillingCompanies();
   }
@@ -622,22 +619,12 @@ watch(isOperacionesEspeciales, (active) => {
   }
 }, { immediate: true });
 
-watch(isRetorno, (active) => {
-  if (active && !returnCandidatesLoaded.value) {
-    void loadReturnCandidates();
-  }
-}, { immediate: true });
-
 watch(() => form.retornoDteType, () => {
   selectedReturnDocuments.value = [];
   returnCandidates.value = [];
   returnCandidatesLoaded.value = false;
   retornoLineas.value = [createReturnEventLine()];
   clearEventResult();
-
-  if (isRetorno.value) {
-    void loadReturnCandidates();
-  }
 });
 
 watch(() => form.operacionesDocumentType, (tipoDocumento) => {
@@ -747,24 +734,29 @@ async function loadContingencyCandidates(): Promise<void> {
 async function loadReturnCandidates(): Promise<void> {
   if (!isRetorno.value) return;
 
+  const search = query.value.trim();
+  if (search.length < 2) {
+    returnCandidates.value = [];
+    returnCandidatesLoaded.value = false;
+    returnCandidatesLoading.value = false;
+    return;
+  }
+
   returnCandidatesLoading.value = true;
   returnCandidatesLoaded.value = true;
   error.value = null;
 
   try {
-    const responses = await Promise.all(['accepted', 'received_by_mh'].map((estado) => client.value.documents({
-      q: query.value.trim(),
-      estado,
+    const response = await client.value.documents({
+      q: search,
       tipo_dte: form.retornoDteType,
-      limit: 75,
-      include_payload: true
-    })));
-    const documentsById = new Map<number, DteDraftSummary>();
-    responses.flatMap((response) => response.data).forEach((document) => {
-      documentsById.set(document.id, document);
+      limit: 20,
+      include_payload: true,
+      include_audit: true,
+      retorno_eligible: true
     });
 
-    returnCandidates.value = Array.from(documentsById.values()).filter(isReturnCandidateDocument);
+    returnCandidates.value = response.data.filter(isReturnCandidateDocument);
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar DTE para retorno.';
   } finally {
@@ -1356,7 +1348,8 @@ function resetEventWorkspaceAfterSuccess(): void {
     selectedReturnDocuments.value = [];
     retornoLineas.value = [createReturnEventLine()];
     form.retornoCodigoGeneracionRelacionado = '';
-    void loadReturnCandidates();
+    returnCandidates.value = [];
+    returnCandidatesLoaded.value = false;
   } else {
     clearSelectedDocument();
     form.tipoAnulacion = 2;
@@ -1591,6 +1584,7 @@ function canAddContingencyDocument(document: DteDraftSummary): boolean {
 function isReturnCandidateDocument(document: DteDraftSummary): boolean {
   if (!['01', '11', '14'].includes(document.tipoDte)) return false;
   if (document.tipoDte !== form.retornoDteType) return false;
+  if (document.retorno && !document.retorno.eligible) return false;
   if (!['accepted', 'received_by_mh'].includes(String(document.estado).toLowerCase())) return false;
   if (!document.selloRecibido) return false;
 
@@ -1611,6 +1605,11 @@ function canAddReturnDocument(document: DteDraftSummary): boolean {
 }
 
 function returnDocumentDeadline(document: DteDraftSummary): Date | null {
+  if (document.retorno?.deadline) {
+    const deadline = new Date(document.retorno.deadline);
+    if (!Number.isNaN(deadline.getTime())) return deadline;
+  }
+
   const source = document.processed_at ?? document.updated_at ?? document.created_at ?? null;
   if (!source) return null;
 
@@ -1622,6 +1621,10 @@ function returnDocumentDeadline(document: DteDraftSummary): Date | null {
 }
 
 function returnDocumentTotal(document: DteDraftSummary): number {
+  if (Number(document.retorno?.remainingAmount ?? 0) > 0) {
+    return Number(document.retorno?.remainingAmount ?? 0);
+  }
+
   const resumen = recordValue((document.payload ?? document.dte_json ?? {}).resumen);
   for (const key of ['totalPagar', 'montoTotalOperacion', 'totalCompra', 'subTotal', 'totalGravada']) {
     const value = Number(resumen[key] ?? 0);
@@ -2013,10 +2016,45 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
         </div>
       </BillingProcessModal>
 
+      <BillingModalShell
+        :open="returnHelpModalOpen"
+        eyebrow="Ayuda"
+        title="Evento de retorno"
+        description="El retorno reporta devoluciones o reembolsos sobre FE, FEXE o FSEE ya aceptadas por MH."
+        max-width="max-w-2xl"
+        @close="returnHelpModalOpen = false"
+      >
+        <div class="space-y-3 text-sm text-slate-600 dark:text-muted">
+          <p>Selecciona DTE origen con sello de recepcion. El sistema descarta documentos vencidos, sin sello, de tipo no permitido o sin remanente disponible.</p>
+          <p>El plazo es de 3 meses desde el otorgamiento del sello de recepcion del DTE relacionado.</p>
+          <p>Si agregas mas de un DTE, todos deben ser del mismo tipo, empresa, ambiente y receptor; para FEXE tambien deben coincidir pais, regimen, recinto y tipo de exportacion.</p>
+        </div>
+
+        <template #footer>
+          <UiButton type="button" @click="returnHelpModalOpen = false">Entendido</UiButton>
+        </template>
+      </BillingModalShell>
+
       <UiCard>
         <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div class="min-w-0 space-y-5">
             <div class="rounded-md border border-slate-200 p-4 dark:border-line">
+              <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p class="text-base font-semibold text-slate-950 dark:text-text">DTE origen</p>
+                  <p class="mt-1 text-sm text-slate-600 dark:text-muted">Busca documentos aceptados con sello y vigencia disponible para retorno.</p>
+                </div>
+                <button
+                  type="button"
+                  class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:border-sky-300 hover:text-sky-700 dark:border-line dark:bg-surface-muted dark:text-muted dark:hover:border-primary dark:hover:text-primary"
+                  aria-label="Ayuda sobre evento de retorno"
+                  title="Ayuda sobre retorno"
+                  @click="returnHelpModalOpen = true"
+                >
+                  <UiInfoIcon class="h-5 w-5" />
+                </button>
+              </div>
+
               <div class="grid gap-3 lg:grid-cols-[240px_minmax(0,1fr)_auto] lg:items-end">
                 <label class="block">
                   <span class="text-sm font-semibold text-slate-900 dark:text-text">Tipo de DTE origen</span>
@@ -2037,23 +2075,17 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 <UiRefreshButton :loading="returnCandidatesLoading" @click="loadReturnCandidates" />
               </div>
 
-              <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
-                <div class="min-w-0 overflow-hidden rounded-md border border-slate-200 dark:border-line">
-                  <div class="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3 dark:border-line dark:bg-surface-muted">
-                    <p class="text-sm font-semibold text-slate-950 dark:text-text">DTE disponibles</p>
-                    <span class="rounded bg-white px-2 py-1 text-xs font-semibold text-slate-600 dark:bg-surface dark:text-muted">
-                      {{ returnCandidates.length }}
-                    </span>
-                  </div>
-
-                  <UiLoadingMark v-if="returnCandidatesLoading" label="Cargando DTE con sello MH" />
-
+              <div class="relative mt-3">
+                <div
+                  v-if="returnCandidatesLoading || returnCandidatesLoaded || returnCandidates.length"
+                  class="absolute z-20 max-h-96 w-full overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg shadow-slate-950/10 dark:border-line dark:bg-surface-raised dark:shadow-black/30"
+                >
+                  <UiLoadingMark v-if="returnCandidatesLoading" label="Buscando DTE aptos para retorno" />
                   <button
                     v-for="document in returnCandidates"
                     v-else
                     :key="document.id"
-                    class="block w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition last:border-b-0 disabled:cursor-not-allowed disabled:opacity-50 dark:border-line"
-                    :class="canAddReturnDocument(document) ? 'hover:bg-sky-50 dark:hover:bg-primary-soft/20' : 'bg-slate-50 dark:bg-surface-muted'"
+                    class="block w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition last:border-b-0 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:hover:bg-primary-soft/20"
                     type="button"
                     :disabled="!canAddReturnDocument(document)"
                     @click="selectReturnDocument(document)"
@@ -2076,11 +2108,16 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                   </button>
 
                   <p v-if="returnCandidatesLoaded && !returnCandidatesLoading && returnCandidates.length === 0" class="px-4 py-5 text-sm text-slate-500 dark:text-muted">
-                    No hay DTE aceptados con sello para este tipo y busqueda.
+                    No hay DTE vigentes para retorno con esa busqueda.
                   </p>
                 </div>
+              </div>
 
-                <div class="min-w-0 overflow-hidden rounded-md border border-slate-200 dark:border-line">
+              <p v-if="!returnCandidatesLoaded && query.trim().length < 2" class="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-line dark:bg-surface-muted dark:text-muted">
+                Escribe al menos 2 caracteres para buscar por numero de control, codigo, sello, receptor o empresa.
+              </p>
+
+              <div class="mt-4 overflow-hidden rounded-md border border-slate-200 dark:border-line">
                   <div class="flex items-center justify-between gap-3 border-b border-slate-100 bg-emerald-50 px-4 py-3 dark:border-line dark:bg-success-soft/15">
                     <p class="text-sm font-semibold text-emerald-950 dark:text-text">DTE relacionados</p>
                     <span class="rounded bg-white px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-surface dark:text-success">
@@ -2124,7 +2161,6 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                   <p v-else class="px-4 py-5 text-sm text-slate-500 dark:text-muted">
                     Selecciona uno o mas DTE aceptados. Todos deben ser del mismo tipo, empresa y ambiente.
                   </p>
-                </div>
               </div>
             </div>
 
