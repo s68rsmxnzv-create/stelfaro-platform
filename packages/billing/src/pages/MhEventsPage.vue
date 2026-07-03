@@ -96,6 +96,8 @@ type ReturnEventLine = {
   id: number;
   codigoGeneracion: string;
   descripcion: string;
+  tipoMonto: 'gravada' | 'exenta' | 'no_sujeta' | 'exportacion' | 'compra';
+  montoRetorno: number;
   cantidad: number;
   precioUni: number;
   ventaNoSuj: number;
@@ -130,7 +132,7 @@ const eventTypes = [
     key: 'retorno',
     label: 'Retorno',
     title: 'Evento de Retorno',
-    description: 'Registra retornos vinculados a operaciones especiales.',
+    description: 'Registra devoluciones o reembolsos sobre documentos aceptados.',
     ready: true,
   },
   {
@@ -197,6 +199,11 @@ const retornoDocumentoTipos = [
   { value: '01', label: 'Factura electronica' },
   { value: '11', label: 'Factura de exportacion' },
   { value: '14', label: 'Factura sujeto excluido' },
+];
+const retornoMontoTipos = [
+  { value: 'gravada', label: 'Gravado con IVA' },
+  { value: 'exenta', label: 'Exento' },
+  { value: 'no_sujeta', label: 'No sujeto' },
 ];
 const operacionesLineas = ref<SpecialOperationLine[]>([
   createSpecialOperationLine()
@@ -1793,6 +1800,8 @@ function createReturnEventLine(): ReturnEventLine {
     id: returnLineSequence,
     codigoGeneracion: '',
     descripcion: 'Retorno reportado',
+    tipoMonto: defaultReturnAmountType(),
+    montoRetorno: 0,
     cantidad: 1,
     precioUni: 0,
     ventaNoSuj: 0,
@@ -1831,26 +1840,79 @@ function isValidReturnEventLine(line: ReturnEventLine): boolean {
 }
 
 function returnEventLinePayload(line: ReturnEventLine): Record<string, unknown> {
+  syncReturnEventAmounts(line);
+
   return {
     codigoGeneracion: line.codigoGeneracion.trim().toUpperCase(),
     cantidad: Math.max(1, numberValue(line.cantidad)),
-    precioUni: roundMoney(line.precioUni),
+    precioUni: roundBodyAmount(line.precioUni),
     descripcion: line.descripcion.trim(),
-    ventaNoSuj: roundMoney(line.ventaNoSuj),
-    ventaExenta: roundMoney(line.ventaExenta),
-    ventaGravada: roundMoney(line.ventaGravada),
-    compra: roundMoney(line.compra),
-    noGravado: roundMoney(line.noGravado),
-    seguro: roundMoney(line.seguro),
-    flete: roundMoney(line.flete),
+    tipoMonto: line.tipoMonto,
+    montoTotal: roundMoney(line.montoRetorno),
+    ventaNoSuj: roundBodyAmount(line.ventaNoSuj),
+    ventaExenta: roundBodyAmount(line.ventaExenta),
+    ventaGravada: roundBodyAmount(line.ventaGravada),
+    compra: roundBodyAmount(line.compra),
+    noGravado: roundBodyAmount(line.noGravado),
+    seguro: roundBodyAmount(line.seguro),
+    flete: roundBodyAmount(line.flete),
     ivaRete: roundMoney(line.ivaRete),
     reteRenta: roundMoney(line.reteRenta),
   };
 }
 
+function defaultReturnAmountType(): ReturnEventLine['tipoMonto'] {
+  if (form?.retornoDteType === '11') return 'exportacion';
+  if (form?.retornoDteType === '14') return 'compra';
+
+  return 'gravada';
+}
+
+function normalizeReturnAmountType(line: ReturnEventLine): ReturnEventLine['tipoMonto'] {
+  if (form.retornoDteType === '11') return 'exportacion';
+  if (form.retornoDteType === '14') return 'compra';
+  if (['gravada', 'exenta', 'no_sujeta'].includes(line.tipoMonto)) return line.tipoMonto;
+
+  return 'gravada';
+}
+
+function syncReturnEventAmounts(line: ReturnEventLine): void {
+  const amount = roundMoney(line.montoRetorno);
+  line.tipoMonto = normalizeReturnAmountType(line);
+  line.montoRetorno = amount;
+  line.ventaNoSuj = 0;
+  line.ventaExenta = 0;
+  line.ventaGravada = 0;
+  line.compra = 0;
+
+  if (form.retornoDteType === '01') {
+    if (line.tipoMonto === 'no_sujeta') {
+      line.ventaNoSuj = amount;
+    } else if (line.tipoMonto === 'exenta') {
+      line.ventaExenta = amount;
+    } else {
+      line.ventaGravada = roundBodyAmount(amount / 1.13);
+    }
+  } else if (form.retornoDteType === '14') {
+    line.compra = amount;
+  } else {
+    line.ventaGravada = amount;
+  }
+
+  syncReturnEventPrice(line);
+}
+
 function syncReturnEventPrice(line: ReturnEventLine): void {
   const quantity = Math.max(1, numberValue(line.cantidad));
-  line.precioUni = roundMoney(returnEventLineBase(line) / quantity);
+  line.precioUni = roundBodyAmount(returnEventLinePrimaryAmount(line) / quantity);
+}
+
+function returnEventLinePrimaryAmount(line: ReturnEventLine): number {
+  if (form.retornoDteType === '14') return numberValue(line.compra);
+  if (form.retornoDteType === '01' && line.tipoMonto === 'no_sujeta') return numberValue(line.ventaNoSuj);
+  if (form.retornoDteType === '01' && line.tipoMonto === 'exenta') return numberValue(line.ventaExenta);
+
+  return numberValue(line.ventaGravada);
 }
 
 function returnEventLineBase(line: ReturnEventLine): number {
@@ -1885,6 +1947,26 @@ function numberValue(value: unknown): number {
 
 function roundMoney(value: unknown): number {
   return Math.round(Math.max(0, numberValue(value)) * 100) / 100;
+}
+
+function roundBodyAmount(value: unknown): number {
+  return Math.round(Math.max(0, numberValue(value)) * 100000000) / 100000000;
+}
+
+function returnAmountInputLabel(): string {
+  if (form.retornoDteType === '14') return 'Compra a retornar';
+  if (form.retornoDteType === '11') return 'Monto exportado';
+
+  return 'Monto a retornar';
+}
+
+function returnBaseLabel(line: ReturnEventLine): string {
+  if (form.retornoDteType === '14') return 'Compra';
+  if (form.retornoDteType === '01' && line.tipoMonto === 'gravada') return 'Base sin IVA';
+  if (form.retornoDteType === '01' && line.tipoMonto === 'exenta') return 'Exento';
+  if (form.retornoDteType === '01' && line.tipoMonto === 'no_sujeta') return 'No sujeto';
+
+  return 'Base';
 }
 
 function formatDate(value?: string | null): string {
@@ -2175,7 +2257,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     </label>
                     <label class="block">
                       <span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Cantidad</span>
-                      <input v-model.number="line.cantidad" type="number" min="1" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()">
+                      <input v-model.number="line.cantidad" type="number" min="1" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventAmounts(line); clearEventResult()">
                     </label>
                     <label class="block lg:col-span-2">
                       <span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Descripcion</span>
@@ -2183,22 +2265,41 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     </label>
                   </div>
                   <div class="mt-3 grid gap-3 md:grid-cols-4 xl:grid-cols-8">
+                    <label v-if="form.retornoDteType === '01'" class="block xl:col-span-2">
+                      <span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Tipo de monto</span>
+                      <select
+                        v-model="line.tipoMonto"
+                        class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text"
+                        @change="syncReturnEventAmounts(line); clearEventResult()"
+                      >
+                        <option v-for="tipo in retornoMontoTipos" :key="tipo.value" :value="tipo.value">{{ tipo.label }}</option>
+                      </select>
+                    </label>
+                    <label class="block xl:col-span-2">
+                      <span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">{{ returnAmountInputLabel() }}</span>
+                      <input
+                        v-model.number="line.montoRetorno"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text"
+                        :placeholder="form.retornoDteType === '01' ? 'Total cobrado' : 'Monto'"
+                        @input="syncReturnEventAmounts(line); clearEventResult()"
+                      >
+                    </label>
                     <template v-if="form.retornoDteType === '01'">
-                      <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">No sujetas</span><input v-model.number="line.ventaNoSuj" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()"></label>
-                      <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Exentas</span><input v-model.number="line.ventaExenta" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()"></label>
-                      <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Gravadas</span><input v-model.number="line.ventaGravada" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()"></label>
                       <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">IVA retenido</span><input v-model.number="line.ivaRete" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="clearEventResult"></label>
                     </template>
                     <template v-else-if="form.retornoDteType === '11'">
-                      <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Exportacion</span><input v-model.number="line.ventaGravada" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()"></label>
                       <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Seguro</span><input v-model.number="line.seguro" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()"></label>
                       <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Flete</span><input v-model.number="line.flete" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()"></label>
                       <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">No gravado</span><input v-model.number="line.noGravado" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()"></label>
                     </template>
                     <template v-else>
-                      <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Compra</span><input v-model.number="line.compra" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventPrice(line); clearEventResult()"></label>
                       <label class="block"><span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Retencion renta</span><input v-model.number="line.reteRenta" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="clearEventResult"></label>
                     </template>
+                    <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted"><p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">{{ returnBaseLabel(line) }}</p><p class="mt-1 text-sm font-bold text-slate-950 dark:text-text">{{ currency(returnEventLinePrimaryAmount(line)) }}</p></div>
+                    <div v-if="form.retornoDteType === '01'" class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted"><p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">IVA calculado</p><p class="mt-1 text-sm font-bold text-slate-950 dark:text-text">{{ currency(roundMoney(numberValue(line.ventaGravada) * 0.13)) }}</p></div>
                     <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted"><p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Precio unitario</p><p class="mt-1 text-sm font-bold text-slate-950 dark:text-text">{{ currency(line.precioUni) }}</p></div>
                     <div class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted"><p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Total</p><p class="mt-1 text-sm font-bold text-slate-950 dark:text-text">{{ currency(returnEventLineTotal(line)) }}</p></div>
                   </div>
