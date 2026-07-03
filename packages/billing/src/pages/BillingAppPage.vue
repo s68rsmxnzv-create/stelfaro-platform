@@ -626,12 +626,13 @@ function navigateFromMenu(event, href) {
           <h1 class="text-3xl font-bold tracking-tight text-slate-950 dark:text-text">{{ pageTitle }}</h1>
           <div v-if="currentHelp">
             <button
-              class="grid h-9 w-9 place-items-center rounded-full border border-sky-200 bg-sky-50 text-sky-700 shadow-sm shadow-sky-950/5 transition hover:border-sky-300 hover:bg-sky-100 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500 dark:border-primary/40 dark:bg-primary-soft/20 dark:text-primary dark:hover:border-primary dark:hover:bg-primary-soft/30"
+              class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm shadow-slate-950/5 transition hover:border-sky-300 hover:text-sky-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500 dark:border-line dark:bg-surface-muted dark:text-muted dark:shadow-black/20 dark:hover:border-primary dark:hover:text-primary"
               type="button"
               :aria-label="`Ayuda sobre ${currentHelp.title}`"
+              :title="`Ayuda sobre ${currentHelp.title}`"
               @click="openHelpModal"
             >
-              <UiInfoIcon class="h-6 w-6" />
+              <UiInfoIcon class="h-5 w-5" />
             </button>
           </div>
         </div>
