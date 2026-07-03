@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { PlatformClient } from '@stelfaro/api-client';
-import { UiButton, UiCheckbox, UiDataTable, UiFileUpload, UiInput, UiLoadingMark, UiModalShell, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
+import { UiActionDropdown, UiActionMenuItem, UiButton, UiCheckbox, UiDataTable, UiFileUpload, UiInput, UiLoadingMark, UiModalShell, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
@@ -171,6 +171,10 @@ const branchOptions = computed(() => (fiscalScope.value?.sucursales ?? []).map((
   label: `${branch.codigo || 'Sucursal'} · ${branch.nombre}`,
   hint: branch.puntos_venta?.length ? `${branch.puntos_venta.length} puntos de venta` : 'Sucursal fiscal'
 })));
+const branchFilterOptions = computed(() => [
+  { value: '', label: 'Todas las sucursales', hint: 'Vista consolidada' },
+  ...branchOptions.value
+]);
 const selectedBranch = computed(() => (fiscalScope.value?.sucursales ?? []).find((branch) => String(branch.id) === String(selectedBranchId.value)) ?? null);
 const transferFromBranch = computed(() => (fiscalScope.value?.sucursales ?? []).find((branch) => String(branch.id) === String(transferForm.value.from_core_sucursal_id)) ?? null);
 const transferToBranch = computed(() => (fiscalScope.value?.sucursales ?? []).find((branch) => String(branch.id) === String(transferForm.value.to_core_sucursal_id)) ?? null);
@@ -476,6 +480,55 @@ const resumenReportes = computed(() => ({
   lotes: filteredLotRows.value.length,
   alertas: stockAlerts.value.length
 }));
+const reportScopeLabel = computed(() => selectedBranch.value
+  ? `${selectedBranch.value.codigo || 'Sucursal'} · ${selectedBranch.value.nombre}`
+  : 'Todas las sucursales');
+const reportSummaryMetrics = computed(() => [
+  { label: 'Ventas', value: resumenReportes.value.ventas },
+  { label: 'Margen', value: resumenReportes.value.margen },
+  { label: 'Kardex', value: resumenReportes.value.kardex },
+  { label: 'Existencias', value: resumenReportes.value.existencias }
+]);
+const primaryReportRows = computed(() => [
+  {
+    key: 'ventas',
+    name: 'Ventas por producto',
+    detail: 'Unidades y monto vendido por producto.',
+    rows: resumenReportes.value.ventas
+  },
+  {
+    key: 'margen',
+    name: 'Margen referencial',
+    detail: 'Venta contra costo de referencia.',
+    rows: resumenReportes.value.margen
+  },
+  {
+    key: 'kardex',
+    name: 'Kardex',
+    detail: 'Entradas, salidas, ajustes y transferencias.',
+    rows: resumenReportes.value.kardex
+  }
+]);
+const secondaryReportRows = computed(() => [
+  {
+    key: 'existencias',
+    name: 'Existencias',
+    detail: 'Stock y valor referencial actual.',
+    rows: resumenReportes.value.existencias
+  },
+  {
+    key: 'lotes',
+    name: 'Lotes',
+    detail: 'Disponibilidad FIFO por lote.',
+    rows: resumenReportes.value.lotes
+  },
+  {
+    key: 'alertas',
+    name: 'Alertas',
+    detail: 'Productos bajo mínimo.',
+    rows: resumenReportes.value.alertas
+  }
+]);
 const stats = computed(() => ({
   products: items.value.length,
   units: visibleItems.value.reduce((sum, item) => sum + Number(item.branch_stock_quantity || 0), 0),
@@ -637,9 +690,6 @@ async function loadInventory(options = { silent: false }): Promise<void> {
     salesReport.value = salesResponse.data ?? [];
     marginReport.value = marginResponse.data ?? [];
     stockAlerts.value = alertsResponse.data ?? [];
-    if (!selectedBranchId.value && branchOptions.value.length > 0) {
-      selectedBranchId.value = branchOptions.value[0].value;
-    }
   } catch (error) {
     notify('No se pudo cargar inventario', messageFromError(error), 'error');
   } finally {
@@ -956,10 +1006,11 @@ async function saveSupplier(): Promise<void> {
   }
 }
 
-function descargarReporte(tipo: string): void {
+function definicionReporteInventario(tipo: string) {
   const reportes = {
     ventas: {
       nombre: 'ventas-producto',
+      titulo: 'Ventas por producto',
       columnas: [
         ['sku', 'Código'],
         ['name', 'Producto'],
@@ -972,6 +1023,7 @@ function descargarReporte(tipo: string): void {
     },
     margen: {
       nombre: 'margen-producto',
+      titulo: 'Margen referencial',
       columnas: [
         ['sku', 'Código'],
         ['name', 'Producto'],
@@ -985,6 +1037,7 @@ function descargarReporte(tipo: string): void {
     },
     kardex: {
       nombre: 'kardex',
+      titulo: 'Kardex',
       columnas: [
         ['created_at', 'Fecha'],
         ['producto', 'Producto'],
@@ -1009,6 +1062,7 @@ function descargarReporte(tipo: string): void {
     },
     existencias: {
       nombre: 'existencias',
+      titulo: 'Existencias',
       columnas: [
         ['sku', 'Código'],
         ['name', 'Producto'],
@@ -1024,6 +1078,7 @@ function descargarReporte(tipo: string): void {
     },
     lotes: {
       nombre: 'lotes',
+      titulo: 'Lotes',
       columnas: [
         ['lot_code', 'Lote'],
         ['producto', 'Producto'],
@@ -1048,6 +1103,7 @@ function descargarReporte(tipo: string): void {
     },
     alertas: {
       nombre: 'alertas-stock',
+      titulo: 'Alertas de stock mínimo',
       columnas: [
         ['sku', 'Código'],
         ['name', 'Producto'],
@@ -1057,14 +1113,61 @@ function descargarReporte(tipo: string): void {
       filas: stockAlerts.value
     }
   };
-  const reporte = reportes[tipo];
+
+  return reportes[tipo] ?? null;
+}
+
+function descargarExcelReporte(tipo: string): void {
+  const reporte = definicionReporteInventario(tipo);
   if (!reporte) return;
   if (reporte.filas.length === 0) {
-    notify('Sin datos', 'No hay filas para descargar con los filtros actuales.', 'info');
+    notify('Sin datos', 'No hay filas para exportar con los filtros actuales.', 'info');
     return;
   }
 
-  descargarCsv(reporte.nombre, reporte.columnas, reporte.filas);
+  const contenido = documentoReporteHtml(reporte, false);
+  const blob = new Blob([`\uFEFF${contenido}`], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  descargarBlob(blob, `${nombreArchivoReporte(reporte.nombre)}.xls`);
+}
+
+function verReporte(tipo: string): void {
+  abrirUrlReporte(tipo, false);
+}
+
+function descargarPdfReporte(tipo: string): void {
+  abrirUrlReporte(tipo, true);
+}
+
+function abrirUrlReporte(tipo: string, descargar = false): void {
+  const url = urlReportePdf(tipo, descargar);
+  const ventana = window.open(url, '_blank');
+
+  if (!ventana) {
+    notify('No se pudo abrir reporte', 'Revisa si el navegador bloqueó la ventana emergente.', 'error');
+  }
+}
+
+function urlReportePdf(tipo: string, descargar = false): string {
+  const params = new URLSearchParams();
+  const filtros = {
+    ...periodReportParams(),
+    ...branchReportParams()
+  };
+
+  Object.entries(filtros).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      params.set(key, String(value));
+    }
+  });
+
+  if (descargar) {
+    params.set('download', '1');
+  }
+
+  const query = params.toString();
+  const base = props.platformBaseUrl.replace(/\/$/, '');
+
+  return `${base}/platform/tenants/${tenantId.value}/inventory/reports/${tipo}/pdf${query ? `?${query}` : ''}`;
 }
 
 function descargarHojaConteo(): void {
@@ -1082,83 +1185,41 @@ function imprimirHojaConteo(): void {
     return;
   }
 
-  const ventana = window.open('', '_blank', 'noopener,noreferrer');
+  const ventana = window.open(urlHojaConteoPdf(false), '_blank');
   if (!ventana) {
     notify('No se pudo abrir impresión', 'Revisa si el navegador bloqueó la ventana emergente.', 'error');
+  }
+}
+
+function descargarHojaConteoPdf(): void {
+  if (countSheetRows.value.length === 0) {
+    notify('Sin datos', 'No hay productos inventariables para generar la hoja de conteo.', 'info');
     return;
   }
 
-  const sucursal = selectedBranch.value
-    ? `${selectedBranch.value.codigo || ''} ${selectedBranch.value.nombre || ''}`.trim()
-    : 'Todas las sucursales';
-  const fecha = countForm.value.count_date || new Date().toISOString().slice(0, 10);
-  const filas = countSheetRows.value.map((row) => `
-    <tr>
-      <td>${escapeHtml(row.number)}</td>
-      <td>${escapeHtml(row.sku)}</td>
-      <td>${escapeHtml(row.name)}</td>
-      <td>${escapeHtml(row.unit)}</td>
-      <td class="right">${escapeHtml(formatQuantity(row.system_quantity))}</td>
-      <td class="blank"></td>
-      <td class="blank"></td>
-      <td class="blank"></td>
-    </tr>
-  `).join('');
+  const ventana = window.open(urlHojaConteoPdf(true), '_blank');
+  if (!ventana) {
+    notify('No se pudo descargar PDF', 'Revisa si el navegador bloqueó la ventana emergente.', 'error');
+  }
+}
 
-  ventana.document.write(`<!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <title>${escapeHtml(nombreArchivoHojaConteo())}</title>
-        <style>
-          * { box-sizing: border-box; }
-          body { font-family: Arial, sans-serif; color: #111827; margin: 24px; }
-          header { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
-          h1 { font-size: 20px; margin: 0 0 6px; }
-          p { margin: 2px 0; font-size: 12px; color: #475569; }
-          table { border-collapse: collapse; width: 100%; font-size: 11px; }
-          th, td { border: 1px solid #cbd5e1; padding: 6px; vertical-align: top; }
-          th { background: #e2e8f0; text-transform: uppercase; font-size: 10px; text-align: left; }
-          .right { text-align: right; }
-          .blank { height: 28px; }
-          .meta { text-align: right; }
-          @media print {
-            body { margin: 12mm; }
-            button { display: none; }
-          }
-        </style>
-      </head>
-      <body>
-        <header>
-          <div>
-            <h1>Hoja de conteo físico</h1>
-            <p>${escapeHtml(String(tenantName.value || 'Empresa'))}</p>
-            <p>Sucursal: ${escapeHtml(sucursal)}</p>
-          </div>
-          <div class="meta">
-            <p>Fecha conteo: ${escapeHtml(fecha)}</p>
-            <p>Productos: ${countSheetRows.value.length}</p>
-          </div>
-        </header>
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Código</th>
-              <th>Producto</th>
-              <th>Unidad</th>
-              <th class="right">Sistema</th>
-              <th>Conteo físico</th>
-              <th>Diferencia</th>
-              <th>Notas</th>
-            </tr>
-          </thead>
-          <tbody>${filas}</tbody>
-        </table>
-        <script>window.print();<\/script>
-      </body>
-    </html>`);
-  ventana.document.close();
+function urlHojaConteoPdf(descargar = false): string {
+  const params = new URLSearchParams();
+
+  if (selectedBranch.value) {
+    params.set('core_sucursal_id', String(selectedBranch.value.id));
+  }
+
+  params.set('count_date', countForm.value.count_date || new Date().toISOString().slice(0, 10));
+
+  if (descargar) {
+    params.set('download', '1');
+  }
+
+  const query = params.toString();
+  const base = props.platformBaseUrl.replace(/\/$/, '');
+
+  return `${base}/platform/tenants/${tenantId.value}/inventory/reports/count-sheet/pdf${query ? `?${query}` : ''}`;
 }
 
 function columnasHojaConteo(): Array<[string, string]> {
@@ -1200,14 +1261,88 @@ function descargarCsv(nombre: string, columnas: Array<[string, string]>, filas: 
   const cuerpo = filas.map((fila) => columnas.map(([key]) => valorCsv(fila[key])));
   const contenido = [cabecera, ...cuerpo].map((row) => row.join(';')).join('\n');
   const blob = new Blob([`\uFEFF${contenido}`], { type: 'text/csv;charset=utf-8;' });
+  descargarBlob(blob, `${nombreArchivo || nombreArchivoReporte(nombre)}.csv`);
+}
+
+function descargarBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${nombreArchivo || nombreArchivoReporte(nombre)}.csv`;
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+function periodoReporteLabel(): string {
+  const desde = reportFilters.value.from || 'inicio';
+  const hasta = reportFilters.value.to || new Date().toISOString().slice(0, 10);
+
+  return `${desde} al ${hasta}`;
+}
+
+function valorDocumentoReporte(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '';
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? String(value) : value.toFixed(2);
+  }
+
+  return String(value);
+}
+
+function documentoReporteHtml(reporte, imprimir = false): string {
+  const encabezados = reporte.columnas.map(([, label]) => `<th>${escapeHtml(label)}</th>`).join('');
+  const filas = reporte.filas.map((fila) => `
+    <tr>
+      ${reporte.columnas.map(([key]) => `<td>${escapeHtml(valorDocumentoReporte(fila[key]))}</td>`).join('')}
+    </tr>
+  `).join('');
+
+  return `<!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${escapeHtml(reporte.titulo)}</title>
+        <style>
+          * { box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; color: #111827; margin: 24px; background: #fff; }
+          header { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 18px; border-bottom: 2px solid #111827; padding-bottom: 12px; }
+          h1 { font-size: 20px; margin: 0 0 6px; }
+          p { margin: 2px 0; font-size: 12px; color: #475569; }
+          table { border-collapse: collapse; width: 100%; font-size: 11px; }
+          th, td { border: 1px solid #cbd5e1; padding: 6px; vertical-align: top; }
+          th { background: #e2e8f0; color: #0f172a; text-transform: uppercase; font-size: 10px; text-align: left; }
+          tr:nth-child(even) td { background: #f8fafc; }
+          .meta { text-align: right; }
+          .toolbar { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+          button { border: 0; border-radius: 6px; background: #0284c7; color: #fff; font-weight: 700; padding: 10px 14px; cursor: pointer; }
+          @media print {
+            body { margin: 12mm; }
+            .toolbar { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="toolbar"><button onclick="window.print()">Imprimir / guardar PDF</button></div>
+        <header>
+          <div>
+            <h1>${escapeHtml(reporte.titulo)}</h1>
+            <p>${escapeHtml(String(tenantName.value || 'Empresa'))}</p>
+            <p>Sucursal: ${escapeHtml(reportScopeLabel.value)}</p>
+          </div>
+          <div class="meta">
+            <p>Periodo: ${escapeHtml(periodoReporteLabel())}</p>
+            <p>Filas: ${reporte.filas.length}</p>
+          </div>
+        </header>
+        <table>
+          <thead><tr>${encabezados}</tr></thead>
+          <tbody>${filas}</tbody>
+        </table>
+        ${imprimir ? '<script>window.addEventListener("load", () => window.print());<\/script>' : ''}
+      </body>
+    </html>`;
 }
 
 function escapeHtml(value: unknown): string {
@@ -1625,7 +1760,7 @@ function messageFromError(error): string {
             v-if="branchOptions.length > 0"
             v-model="selectedBranchId"
             label="Sucursal"
-            :options="branchOptions"
+            :options="branchFilterOptions"
           />
         </div>
         <div class="flex flex-wrap justify-end gap-2">
@@ -2337,8 +2472,9 @@ function messageFromError(error): string {
                 </p>
               </div>
               <div class="flex flex-wrap gap-2">
-                <UiButton variant="secondary" type="button" @click="imprimirHojaConteo">Imprimir hoja</UiButton>
-                <UiButton type="button" @click="descargarHojaConteo">Descargar CSV</UiButton>
+                <UiButton variant="secondary" type="button" @click="imprimirHojaConteo">Ver PDF</UiButton>
+                <UiButton type="button" @click="descargarHojaConteoPdf">Descargar PDF</UiButton>
+                <UiButton variant="ghost" type="button" @click="descargarHojaConteo">CSV</UiButton>
               </div>
             </div>
 
@@ -2368,12 +2504,12 @@ function messageFromError(error): string {
             </form>
           </div>
 
-          <div v-if="activeTab === 'reports'" class="space-y-4">
+          <div v-if="activeTab === 'reports'" class="space-y-5">
             <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
-              <div class="flex flex-wrap items-start justify-between gap-4">
+              <div class="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
                 <div>
-                  <h3 class="text-base font-bold text-slate-950 dark:text-text">Reportes descargables</h3>
-                  <p class="mt-1 text-sm text-slate-600 dark:text-muted">Genera archivos CSV con los filtros y la sucursal activa.</p>
+                  <h3 class="text-base font-bold text-slate-950 dark:text-text">Reportes operativos</h3>
+                  <p class="mt-1 text-sm font-semibold text-slate-500 dark:text-soft">{{ reportScopeLabel }}</p>
                 </div>
                 <div class="grid w-full gap-4 md:w-auto md:grid-cols-[160px_160px_auto]">
                   <UiInput v-model="reportFilters.from" label="Desde" type="date" />
@@ -2383,38 +2519,70 @@ function messageFromError(error): string {
                   </div>
                 </div>
               </div>
+
+              <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div
+                  v-for="metric in reportSummaryMetrics"
+                  :key="metric.label"
+                  class="rounded-md border border-slate-100 bg-slate-50 px-4 py-3 dark:border-line dark:bg-panel"
+                >
+                  <p class="text-[11px] font-bold uppercase text-slate-500 dark:text-soft">{{ metric.label }}</p>
+                  <p class="mt-1 text-xl font-black text-slate-950 dark:text-text">{{ metric.value }}</p>
+                </div>
+              </div>
             </div>
 
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <div class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
-                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Ventas</p>
-                <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ resumenReportes.ventas }}</p>
-                <UiButton class="mt-4 w-full" variant="secondary" :disabled="resumenReportes.ventas === 0" @click="descargarReporte('ventas')">Descargar CSV</UiButton>
+            <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.42fr)]">
+              <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <h3 class="text-base font-bold text-slate-950 dark:text-text">Descargas principales</h3>
+                  <span class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Acciones</span>
+                </div>
+                <UiDataTable class="mt-4" overflow="visible">
+                  <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
+                    <tr>
+                      <th class="px-4 py-3">Reporte</th>
+                      <th class="px-4 py-3 text-right">Filas</th>
+                      <th class="px-4 py-3 text-right">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 dark:divide-line">
+                    <tr v-for="report in primaryReportRows" :key="report.key" class="text-sm">
+                      <td class="px-4 py-3">
+                        <p class="font-semibold text-slate-950 dark:text-text">{{ report.name }}</p>
+                        <p class="text-xs text-slate-500 dark:text-soft">{{ report.detail }}</p>
+                      </td>
+                      <td class="px-4 py-3 text-right font-semibold text-slate-950 dark:text-text">{{ report.rows }}</td>
+                      <td class="px-4 py-3 text-right">
+                        <UiActionDropdown :label="`Abrir acciones de ${report.name}`" menu-width="w-48">
+                          <UiActionMenuItem :disabled="report.rows === 0" @select="verReporte(report.key)">Ver</UiActionMenuItem>
+                          <UiActionMenuItem :disabled="report.rows === 0" @select="descargarExcelReporte(report.key)">Descargar Excel</UiActionMenuItem>
+                          <UiActionMenuItem :disabled="report.rows === 0" @select="descargarPdfReporte(report.key)">Descargar PDF</UiActionMenuItem>
+                        </UiActionDropdown>
+                      </td>
+                    </tr>
+                  </tbody>
+                </UiDataTable>
               </div>
-              <div class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
-                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Margen</p>
-                <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ resumenReportes.margen }}</p>
-                <UiButton class="mt-4 w-full" variant="secondary" :disabled="resumenReportes.margen === 0" @click="descargarReporte('margen')">Descargar CSV</UiButton>
-              </div>
-              <div class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
-                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Kardex</p>
-                <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ resumenReportes.kardex }}</p>
-                <UiButton class="mt-4 w-full" variant="secondary" :disabled="resumenReportes.kardex === 0" @click="descargarReporte('kardex')">Descargar CSV</UiButton>
-              </div>
-              <div class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
-                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Existencias</p>
-                <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ resumenReportes.existencias }}</p>
-                <UiButton class="mt-4 w-full" variant="secondary" :disabled="resumenReportes.existencias === 0" @click="descargarReporte('existencias')">Descargar CSV</UiButton>
-              </div>
-              <div class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
-                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Lotes</p>
-                <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ resumenReportes.lotes }}</p>
-                <UiButton class="mt-4 w-full" variant="secondary" :disabled="resumenReportes.lotes === 0" @click="descargarReporte('lotes')">Descargar CSV</UiButton>
-              </div>
-              <div class="rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
-                <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Alertas</p>
-                <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ resumenReportes.alertas }}</p>
-                <UiButton class="mt-4 w-full" variant="secondary" :disabled="resumenReportes.alertas === 0" @click="descargarReporte('alertas')">Descargar CSV</UiButton>
+
+              <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+                <h3 class="text-base font-bold text-slate-950 dark:text-text">Secundarios</h3>
+                <div class="mt-4 divide-y divide-slate-100 dark:divide-line">
+                  <div v-for="report in secondaryReportRows" :key="report.key" class="flex items-center justify-between gap-4 py-3">
+                    <div class="min-w-0">
+                      <p class="font-semibold text-slate-950 dark:text-text">{{ report.name }}</p>
+                      <p class="truncate text-xs text-slate-500 dark:text-soft">{{ report.detail }}</p>
+                    </div>
+                    <div class="flex shrink-0 items-center gap-3">
+                      <span class="text-sm font-bold text-slate-950 dark:text-text">{{ report.rows }}</span>
+                      <UiActionDropdown :label="`Abrir acciones de ${report.name}`" menu-width="w-48">
+                        <UiActionMenuItem :disabled="report.rows === 0" @select="verReporte(report.key)">Ver</UiActionMenuItem>
+                        <UiActionMenuItem :disabled="report.rows === 0" @select="descargarExcelReporte(report.key)">Descargar Excel</UiActionMenuItem>
+                        <UiActionMenuItem :disabled="report.rows === 0" @select="descargarPdfReporte(report.key)">Descargar PDF</UiActionMenuItem>
+                      </UiActionDropdown>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
