@@ -811,6 +811,10 @@ function selectReturnDocument(document: DteDraftSummary): void {
   if (!canAddReturnDocument(document)) return;
 
   selectedReturnDocuments.value.push(document);
+  query.value = '';
+  returnCandidates.value = [];
+  returnCandidatesLoaded.value = false;
+  returnCandidatesLoading.value = false;
   clearEventResult();
 }
 
