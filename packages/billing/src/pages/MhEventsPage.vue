@@ -88,7 +88,22 @@ type SpecialOperationLine = {
   ventaExenta: number;
   ventaGravada: number;
 };
+type ReturnEventLine = {
+  id: number;
+  codigoGeneracion: string;
+  descripcion: string;
+  cantidad: number;
+  precioUni: number;
+  ventaNoSuj: number;
+  ventaExenta: number;
+  ventaGravada: number;
+  compra: number;
+  noGravado: number;
+  seguro: number;
+  flete: number;
+};
 let specialLineSequence = 0;
+let returnLineSequence = 0;
 
 const eventTypes = [
   {
@@ -110,7 +125,7 @@ const eventTypes = [
     label: 'Retorno',
     title: 'Evento de Retorno',
     description: 'Registra retornos vinculados a operaciones especiales.',
-    ready: false,
+    ready: true,
   },
   {
     key: 'operaciones_especiales',
@@ -124,6 +139,7 @@ const selectedEvent = computed(() => eventTypes.find((event) => event.key === pr
 const isInvalidacion = computed(() => selectedEvent.value.key === 'invalidacion');
 const isContingencia = computed(() => selectedEvent.value.key === 'contingencia');
 const isOperacionesEspeciales = computed(() => selectedEvent.value.key === 'operaciones_especiales');
+const isRetorno = computed(() => selectedEvent.value.key === 'retorno');
 const showSearchResults = computed(() => query.value.trim().length >= 2 && isInvalidacion.value && !selected.value);
 
 const form = reactive({
@@ -140,6 +156,18 @@ const form = reactive({
   operacionesStatus: 'active' as SpecialOperationStatus,
   operacionesMode: 'range' as SpecialOperationMode,
   operacionesDocumentType: '02' as '02' | '97',
+  retornoEmpresaId: null as number | null,
+  retornoTipoDocumentoRelacionado: '17',
+  retornoCodigoGeneracionRelacionado: '',
+  retornoFechaEmisionRelacionado: currentLocalDate(),
+  retornoCodEstableMH: '',
+  retornoCodEstable: '',
+  retornoCodPuntoVentaMH: '',
+  retornoCodPuntoVenta: '',
+  retornoRecintoFiscal: '',
+  retornoTipoRegimen: '',
+  retornoRegimen: '',
+  retornoTipoItemExpor: null as number | null,
 });
 
 const invalidacionTipos = [
@@ -160,6 +188,9 @@ const operacionesDocumentoTipos = [
 ];
 const operacionesLineas = ref<SpecialOperationLine[]>([
   createSpecialOperationLine()
+]);
+const retornoLineas = ref<ReturnEventLine[]>([
+  createReturnEventLine()
 ]);
 const contingencyAllowedTypes = new Set(['01', '03', '04', '05', '06', '07', '11', '14']);
 const replacementRequiredTypes = new Set(['01', '03', '04', '06', '07', '09', '11', '14', '15']);
@@ -247,6 +278,40 @@ const canReportOperacionesEspeciales = computed(() => Boolean(
   && operacionesLineas.value.length <= 500
   && operacionesLineas.value.every(isValidSpecialOperationLine)
 ));
+const selectedRetornoEmpresa = computed(() => billingCompanies.value.find((empresa) => empresa.id === Number(form.retornoEmpresaId)) ?? null);
+const retornoTotals = computed(() => {
+  const totalNoSuj = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.ventaNoSuj), 0));
+  const totalExenta = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.ventaExenta), 0));
+  const totalGravada = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.ventaGravada), 0));
+  const totalCompra = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.compra), 0));
+  const totalNoGravado = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.noGravado), 0));
+  const totalSeguro = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.seguro), 0));
+  const totalFlete = roundMoney(retornoLineas.value.reduce((sum, line) => sum + numberValue(line.flete), 0));
+  const totalIva = roundMoney(totalGravada * 0.13);
+  const subTotalVentas = roundMoney(totalNoSuj + totalExenta + totalGravada);
+
+  return {
+    totalNoSuj,
+    totalExenta,
+    totalGravada,
+    totalCompra,
+    totalNoGravado,
+    totalSeguro,
+    totalFlete,
+    totalIva,
+    total: roundMoney(subTotalVentas + totalCompra + totalNoGravado + totalSeguro + totalFlete + totalIva),
+  };
+});
+const canReportRetorno = computed(() => Boolean(
+  selectedRetornoEmpresa.value
+  && form.retornoCodEstableMH.trim().length === 4
+  && form.retornoCodPuntoVentaMH.trim().length === 4
+  && form.retornoCodigoGeneracionRelacionado.trim()
+  && form.retornoFechaEmisionRelacionado
+  && retornoLineas.value.length > 0
+  && retornoLineas.value.length <= 2000
+  && retornoLineas.value.every(isValidReturnEventLine)
+));
 const requiresMotivoContingencia = computed(() => Number(form.tipoContingencia) === 5);
 const contingencyWindowComplete = computed(() => Boolean(
   form.contingenciaFInicio
@@ -288,6 +353,14 @@ const eventPhases = computed(() => {
     { label: 'Validando datos', detail: 'Comprobando estructura, rangos, anulaciones y totales.' },
     { label: 'Firmando evento', detail: 'Aplicando la firma electronica.' },
     { label: 'Enviando a Hacienda', detail: 'Transmitiendo el evento de operaciones especiales.' },
+    { label: 'Registrando respuesta', detail: 'Guardando sello y respuesta de Hacienda.' }
+  ];
+
+  if (isRetorno.value) return [
+    { label: 'Preparando retorno', detail: 'Consolidando documento relacionado y detalle de retorno.' },
+    { label: 'Validando datos', detail: 'Comprobando estructura fiscal del evento.' },
+    { label: 'Firmando evento', detail: 'Aplicando la firma electronica.' },
+    { label: 'Enviando a Hacienda', detail: 'Transmitiendo el evento de retorno.' },
     { label: 'Registrando respuesta', detail: 'Guardando sello y respuesta de Hacienda.' }
   ];
 
@@ -342,10 +415,11 @@ const eventOverlayVariant = computed<'loading' | 'success' | 'warning'>(() => {
 });
 const eventOverlayTitle = computed(() => {
   if (contingencyRetransmissionLoading.value) return 'Retransmitiendo DTE';
-  if (processing.value) return isContingencia.value ? 'Declarando contingencia' : isOperacionesEspeciales.value ? 'Reportando operaciones' : 'Procesando evento';
+  if (processing.value) return isContingencia.value ? 'Declarando contingencia' : isOperacionesEspeciales.value ? 'Reportando operaciones' : isRetorno.value ? 'Reportando retorno' : 'Procesando evento';
   if (contingencyRetransmissionComplete.value) return 'Contingencia finalizada';
   if (isContingencia.value) return 'Evento declarado';
   if (isOperacionesEspeciales.value) return 'Operaciones reportadas';
+  if (isRetorno.value) return 'Retorno reportado';
   return 'Evento aceptado';
 });
 const eventOverlayMessage = computed(() => {
@@ -408,6 +482,16 @@ const actionStatusLabel = computed(() => {
     if (operacionesLineas.value.length > 500) return 'Maximo 500';
     if (!operacionesLineas.value.every(isValidSpecialOperationLine)) return 'Revisa lineas';
     return `${operacionesLineas.value.length} linea${operacionesLineas.value.length === 1 ? '' : 's'} listas`;
+  }
+
+  if (isRetorno.value) {
+    if (!selectedRetornoEmpresa.value) return 'Falta empresa';
+    if (form.retornoCodEstableMH.trim().length !== 4) return 'Falta establecimiento MH';
+    if (form.retornoCodPuntoVentaMH.trim().length !== 4) return 'Falta punto venta MH';
+    if (!form.retornoCodigoGeneracionRelacionado.trim()) return 'Falta EOE relacionado';
+    if (retornoLineas.value.length === 0) return 'Sin lineas';
+    if (!retornoLineas.value.every(isValidReturnEventLine)) return 'Revisa lineas';
+    return `${retornoLineas.value.length} item${retornoLineas.value.length === 1 ? '' : 's'} listos`;
   }
 
   if (!selected.value) return 'Pendiente';
@@ -493,7 +577,7 @@ watch(() => props.initialEventType, () => {
     void loadContingencyCandidates();
   }
 
-  if (isOperacionesEspeciales.value) {
+  if (isOperacionesEspeciales.value || isRetorno.value) {
     void loadBillingCompanies();
   }
 });
@@ -505,6 +589,12 @@ watch(isContingencia, (active) => {
 }, { immediate: true });
 
 watch(isOperacionesEspeciales, (active) => {
+  if (active && billingCompanies.value.length === 0) {
+    void loadBillingCompanies();
+  }
+}, { immediate: true });
+
+watch(isRetorno, (active) => {
   if (active && billingCompanies.value.length === 0) {
     void loadBillingCompanies();
   }
@@ -1013,6 +1103,83 @@ async function reportSpecialOperations(): Promise<void> {
   }
 }
 
+async function reportReturnEvent(): Promise<void> {
+  if (!canReportRetorno.value || !selectedRetornoEmpresa.value) return;
+
+  let eventIdForRecovery: number | null = null;
+  processing.value = true;
+  eventModalOpen.value = true;
+  eventProgress.value = 5;
+  eventPhaseIndex.value = 0;
+  error.value = null;
+  eventResult.value = null;
+  eventLog.value = [];
+
+  try {
+    pushLog('Creando evento de retorno');
+    const draft = await client.value.createMhEvent('retorno', {
+      empresa_id: Number(selectedRetornoEmpresa.value.id),
+      ambiente: selectedRetornoEmpresa.value.ambiente,
+      payload: {
+        documentoRelacionado: [{
+          tipoDocumento: form.retornoTipoDocumentoRelacionado.trim(),
+          codigoGeneracion: form.retornoCodigoGeneracionRelacionado.trim().toUpperCase(),
+          fechaEmision: form.retornoFechaEmisionRelacionado,
+        }],
+        emisor: {
+          codEstableMH: form.retornoCodEstableMH.trim(),
+          codEstable: nullableString(form.retornoCodEstable),
+          codPuntoVentaMH: form.retornoCodPuntoVentaMH.trim(),
+          codPuntoVenta: nullableString(form.retornoCodPuntoVenta),
+          recintoFiscal: nullableString(form.retornoRecintoFiscal),
+          tipoRegimen: nullableString(form.retornoTipoRegimen),
+          regimen: nullableString(form.retornoRegimen),
+          tipoItemExpor: form.retornoTipoItemExpor ? Number(form.retornoTipoItemExpor) : null,
+        },
+        cuerpoDocumento: retornoLineas.value.map(returnEventLinePayload),
+      },
+    });
+    eventIdForRecovery = draft.id;
+
+    pushLog('Validando datos del evento');
+    eventPhaseIndex.value = 1;
+    eventProgress.value = 30;
+    const validation = await client.value.validateMhEvent(draft.id);
+    if (!validation.validation.valid) {
+      eventResult.value = draft;
+      throw new Error(formatValidationErrors(validation.validation.errors));
+    }
+
+    pushLog('Firmando evento');
+    eventPhaseIndex.value = 2;
+    eventProgress.value = 55;
+    const signed = await client.value.signMhEvent(draft.id);
+    eventIdForRecovery = signed.id;
+
+    pushLog('Transmitiendo evento a MH');
+    eventPhaseIndex.value = 3;
+    eventProgress.value = 78;
+    eventResult.value = await client.value.transmitMhEvent(signed.id);
+    eventPhaseIndex.value = 4;
+    eventProgress.value = 100;
+    pushLog('Evento procesado por MH');
+  } catch (caught) {
+    const recovered = await recoverEventResult(eventIdForRecovery);
+
+    if (recovered && (eventAccepted.value || eventRejected.value)) {
+      eventLog.value.push({ label: 'Respuesta MH recuperada', status: 'ok' });
+      error.value = null;
+    } else {
+      eventLog.value.push({ label: 'Proceso detenido', status: 'error' });
+      error.value = friendlyErrorMessage(caught, 'No fue posible reportar el retorno.');
+    }
+
+    eventProgress.value = Math.max(eventProgress.value, 100);
+  } finally {
+    processing.value = false;
+  }
+}
+
 async function retransmitContingencyDocuments(): Promise<void> {
   if (!canRetransmitContingencyDocuments.value) return;
 
@@ -1112,6 +1279,9 @@ function resetEventWorkspaceAfterSuccess(): void {
     operacionesLineas.value = [createSpecialOperationLine()];
     form.operacionesStatus = 'active';
     form.operacionesMode = 'range';
+  } else if (isRetorno.value) {
+    retornoLineas.value = [createReturnEventLine()];
+    form.retornoCodigoGeneracionRelacionado = '';
   } else {
     clearSelectedDocument();
     form.tipoAnulacion = 2;
@@ -1462,6 +1632,80 @@ function specialOperationTypeLabel(value: string): string {
   return operacionesDocumentoTipos.find((tipo) => tipo.value === value)?.label ?? value;
 }
 
+function createReturnEventLine(): ReturnEventLine {
+  returnLineSequence += 1;
+
+  return {
+    id: returnLineSequence,
+    codigoGeneracion: '',
+    descripcion: 'Retorno reportado',
+    cantidad: 1,
+    precioUni: 0,
+    ventaNoSuj: 0,
+    ventaExenta: 0,
+    ventaGravada: 0,
+    compra: 0,
+    noGravado: 0,
+    seguro: 0,
+    flete: 0,
+  };
+}
+
+function addReturnEventLine(): void {
+  retornoLineas.value.push(createReturnEventLine());
+  clearEventResult();
+}
+
+function removeReturnEventLine(id: number): void {
+  retornoLineas.value = retornoLineas.value.filter((line) => line.id !== id);
+  if (retornoLineas.value.length === 0) {
+    retornoLineas.value = [createReturnEventLine()];
+  }
+  clearEventResult();
+}
+
+function isValidReturnEventLine(line: ReturnEventLine): boolean {
+  return Boolean(
+    line.codigoGeneracion.trim()
+    && line.descripcion.trim()
+    && numberValue(line.cantidad) > 0
+    && returnEventLineTotal(line) > 0
+  );
+}
+
+function returnEventLinePayload(line: ReturnEventLine): Record<string, unknown> {
+  return {
+    codigoGeneracion: line.codigoGeneracion.trim().toUpperCase(),
+    cantidad: Math.max(1, numberValue(line.cantidad)),
+    precioUni: roundMoney(line.precioUni),
+    descripcion: line.descripcion.trim(),
+    ventaNoSuj: roundMoney(line.ventaNoSuj),
+    ventaExenta: roundMoney(line.ventaExenta),
+    ventaGravada: roundMoney(line.ventaGravada),
+    compra: roundMoney(line.compra),
+    noGravado: roundMoney(line.noGravado),
+    seguro: roundMoney(line.seguro),
+    flete: roundMoney(line.flete),
+  };
+}
+
+function syncReturnEventPrice(line: ReturnEventLine): void {
+  const quantity = Math.max(1, numberValue(line.cantidad));
+  line.precioUni = roundMoney(returnEventLineTotal(line) / quantity);
+}
+
+function returnEventLineTotal(line: ReturnEventLine): number {
+  return roundMoney(
+    numberValue(line.ventaNoSuj)
+    + numberValue(line.ventaExenta)
+    + numberValue(line.ventaGravada)
+    + numberValue(line.compra)
+    + numberValue(line.noGravado)
+    + numberValue(line.seguro)
+    + numberValue(line.flete)
+  );
+}
+
 function nullableString(value: unknown): string | null {
   const string = String(value ?? '').trim();
 
@@ -1584,19 +1828,165 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
       </template>
     </BillingModalShell>
 
-    <UiCard v-if="!isInvalidacion && !isContingencia && !isOperacionesEspeciales">
-      <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-        <div>
-          <p class="text-base font-semibold text-slate-950">{{ selectedEvent.label }}</p>
-          <p class="mt-2 max-w-2xl text-sm text-slate-600">
-            Esta pantalla queda separada desde ya para mantener el mismo estilo que los DTE. Cuando aterricemos este evento, aqui quedara su flujo propio sin mezclar reglas con invalidacion.
-          </p>
+    <div v-if="isRetorno" class="grid gap-6 pb-24">
+      <BillingProcessModal
+        :open="eventDiagnosticModalOpen"
+        eyebrow="Evento MH"
+        :title="processing ? 'Reportando retorno' : eventRejected ? 'Evento rechazado por MH' : eventAccepted ? 'Evento procesado' : 'Retorno detenido'"
+        :subtitle="`Ambiente ${selectedRetornoEmpresa?.ambiente ?? '00'} · ${selectedRetornoEmpresa?.nombre_comercial ?? selectedRetornoEmpresa?.razon_social ?? 'Empresa emisora'}`"
+        :processing="processing"
+        :accepted="eventAccepted"
+        :rejected="eventRejected || eventStopped"
+        :status-label="processing ? eventPhases[eventPhaseIndex].label : eventRejected ? 'MH rechazo el evento' : eventAccepted ? 'Evento aceptado por MH' : 'No fue posible reportar'"
+        :status-detail="eventStatusDetail"
+        :progress="eventProgress"
+        progress-label="Retorno"
+        :logs="eventLog"
+        @close="closeEventModal"
+      >
+        <div v-if="eventResult" class="mt-5 rounded-md border p-4" :class="eventResultCardClass">
+          <p class="text-sm font-semibold">{{ eventResultLabel }}</p>
+          <p class="mt-1 break-all font-mono text-sm">{{ eventResult.codigoGeneracion }}</p>
+          <p v-if="eventResult.transmission?.descripcion_msg" class="mt-2 text-sm">{{ eventResult.transmission.descripcion_msg }}</p>
+          <p v-if="eventResult.transmission?.receipt_stamp" class="mt-3 break-all font-mono text-xs">{{ eventResult.transmission.receipt_stamp }}</p>
         </div>
-        <div class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Flujo en preparacion. La ruta y la navegacion ya estan listas.
+      </BillingProcessModal>
+
+      <UiCard>
+        <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div class="min-w-0 space-y-5">
+            <div class="grid gap-4 rounded-md border border-slate-200 p-4 lg:grid-cols-3">
+              <label class="block">
+                <span class="text-sm font-semibold text-slate-900">Empresa</span>
+                <select v-model.number="form.retornoEmpresaId" class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500" @change="clearEventResult">
+                  <option :value="null">Selecciona empresa</option>
+                  <option v-for="empresa in billingCompanies" :key="empresa.id" :value="empresa.id">{{ empresa.razon_social || empresa.nombre_comercial }}</option>
+                </select>
+              </label>
+              <label class="block">
+                <span class="text-sm font-semibold text-slate-900">Tipo documento relacionado</span>
+                <input v-model="form.retornoTipoDocumentoRelacionado" class="mt-2 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxlength="2" @input="clearEventResult">
+              </label>
+              <label class="block">
+                <span class="text-sm font-semibold text-slate-900">Fecha documento relacionado</span>
+                <input v-model="form.retornoFechaEmisionRelacionado" type="date" class="mt-2 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="clearEventResult">
+              </label>
+              <label class="block lg:col-span-3">
+                <span class="text-sm font-semibold text-slate-900">Codigo generacion EOE relacionado</span>
+                <input v-model="form.retornoCodigoGeneracionRelacionado" class="mt-2 block w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm uppercase" maxlength="36" placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" @input="clearEventResult">
+              </label>
+            </div>
+
+            <div class="grid gap-4 rounded-md border border-slate-200 p-4 lg:grid-cols-4">
+              <label class="block">
+                <span class="text-xs font-semibold uppercase text-slate-500">Establecimiento MH</span>
+                <input v-model="form.retornoCodEstableMH" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxlength="4" @input="clearEventResult">
+              </label>
+              <label class="block">
+                <span class="text-xs font-semibold uppercase text-slate-500">Punto venta MH</span>
+                <input v-model="form.retornoCodPuntoVentaMH" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxlength="4" @input="clearEventResult">
+              </label>
+              <label class="block">
+                <span class="text-xs font-semibold uppercase text-slate-500">Establecimiento interno</span>
+                <input v-model="form.retornoCodEstable" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxlength="10" @input="clearEventResult">
+              </label>
+              <label class="block">
+                <span class="text-xs font-semibold uppercase text-slate-500">Punto venta interno</span>
+                <input v-model="form.retornoCodPuntoVenta" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxlength="15" @input="clearEventResult">
+              </label>
+              <label class="block">
+                <span class="text-xs font-semibold uppercase text-slate-500">Recinto fiscal</span>
+                <input v-model="form.retornoRecintoFiscal" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxlength="2" @input="clearEventResult">
+              </label>
+              <label class="block">
+                <span class="text-xs font-semibold uppercase text-slate-500">Tipo regimen</span>
+                <input v-model="form.retornoTipoRegimen" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxlength="4" @input="clearEventResult">
+              </label>
+              <label class="block">
+                <span class="text-xs font-semibold uppercase text-slate-500">Regimen</span>
+                <input v-model="form.retornoRegimen" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxlength="13" @input="clearEventResult">
+              </label>
+              <label class="block">
+                <span class="text-xs font-semibold uppercase text-slate-500">Tipo item expor.</span>
+                <input v-model.number="form.retornoTipoItemExpor" type="number" min="1" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="clearEventResult">
+              </label>
+            </div>
+
+            <div class="rounded-md border border-slate-200 p-4">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p class="text-base font-semibold text-slate-950">Detalle de retorno</p>
+                  <p class="mt-1 text-sm text-slate-600">{{ retornoLineas.length }} de 2000 items permitidos.</p>
+                </div>
+                <UiButton type="button" variant="secondary" @click="addReturnEventLine">Agregar item</UiButton>
+              </div>
+
+              <UiLoadingMark v-if="billingContextLoading" class="mt-4" label="Cargando empresas" />
+
+              <div class="mt-4 space-y-3">
+                <div v-for="(line, index) in retornoLineas" :key="line.id" class="rounded-md border border-slate-200 bg-white p-3">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <p class="text-sm font-bold text-slate-950">Item {{ index + 1 }}</p>
+                    <button class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200" type="button" @click="removeReturnEventLine(line.id)">Quitar</button>
+                  </div>
+                  <div class="mt-3 grid gap-3 lg:grid-cols-6">
+                    <label class="block lg:col-span-3">
+                      <span class="text-xs font-semibold uppercase text-slate-500">Codigo generacion retorno</span>
+                      <input v-model="line.codigoGeneracion" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm uppercase" maxlength="36" @input="clearEventResult">
+                    </label>
+                    <label class="block">
+                      <span class="text-xs font-semibold uppercase text-slate-500">Cantidad</span>
+                      <input v-model.number="line.cantidad" type="number" min="1" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncReturnEventPrice(line); clearEventResult()">
+                    </label>
+                    <label class="block lg:col-span-2">
+                      <span class="text-xs font-semibold uppercase text-slate-500">Descripcion</span>
+                      <input v-model="line.descripcion" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="clearEventResult">
+                    </label>
+                  </div>
+                  <div class="mt-3 grid gap-3 md:grid-cols-4 xl:grid-cols-8">
+                    <label class="block"><span class="text-xs font-semibold uppercase text-slate-500">No sujetas</span><input v-model.number="line.ventaNoSuj" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncReturnEventPrice(line); clearEventResult()"></label>
+                    <label class="block"><span class="text-xs font-semibold uppercase text-slate-500">Exentas</span><input v-model.number="line.ventaExenta" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncReturnEventPrice(line); clearEventResult()"></label>
+                    <label class="block"><span class="text-xs font-semibold uppercase text-slate-500">Gravadas</span><input v-model.number="line.ventaGravada" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncReturnEventPrice(line); clearEventResult()"></label>
+                    <label class="block"><span class="text-xs font-semibold uppercase text-slate-500">Compra</span><input v-model.number="line.compra" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncReturnEventPrice(line); clearEventResult()"></label>
+                    <label class="block"><span class="text-xs font-semibold uppercase text-slate-500">No gravado</span><input v-model.number="line.noGravado" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncReturnEventPrice(line); clearEventResult()"></label>
+                    <label class="block"><span class="text-xs font-semibold uppercase text-slate-500">Seguro</span><input v-model.number="line.seguro" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncReturnEventPrice(line); clearEventResult()"></label>
+                    <label class="block"><span class="text-xs font-semibold uppercase text-slate-500">Flete</span><input v-model.number="line.flete" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" @input="syncReturnEventPrice(line); clearEventResult()"></label>
+                    <div class="rounded-md bg-slate-50 px-3 py-2"><p class="text-xs font-semibold uppercase text-slate-500">Total</p><p class="mt-1 text-sm font-bold text-slate-950">{{ currency(returnEventLineTotal(line)) }}</p></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <aside class="min-w-0 rounded-md border border-slate-200 p-4">
+            <p class="text-base font-semibold text-slate-950">Resumen</p>
+            <dl class="mt-4 space-y-3 text-sm">
+              <div class="flex items-center justify-between gap-3"><dt class="text-slate-500">Ventas</dt><dd class="font-semibold text-slate-950">{{ currency(retornoTotals.totalNoSuj + retornoTotals.totalExenta + retornoTotals.totalGravada) }}</dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-slate-500">Compra</dt><dd class="font-semibold text-slate-950">{{ currency(retornoTotals.totalCompra) }}</dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-slate-500">Seguro/flete</dt><dd class="font-semibold text-slate-950">{{ currency(retornoTotals.totalSeguro + retornoTotals.totalFlete) }}</dd></div>
+              <div class="flex items-center justify-between gap-3"><dt class="text-slate-500">IVA</dt><dd class="font-semibold text-slate-950">{{ currency(retornoTotals.totalIva) }}</dd></div>
+              <div class="rounded-md bg-sky-50 px-3 py-3 flex items-center justify-between gap-3"><dt class="font-semibold text-sky-900">Total</dt><dd class="text-lg font-bold text-sky-950">{{ currency(retornoTotals.total) }}</dd></div>
+            </dl>
+          </aside>
         </div>
+      </UiCard>
+
+      <div class="pointer-events-none fixed inset-x-0 bottom-4 z-30 px-4">
+        <section class="pointer-events-auto mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-700/70 bg-slate-950/95 px-3 py-2 text-white shadow-xl shadow-slate-950/25 backdrop-blur">
+          <div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <p class="min-w-0 max-w-[260px] truncate"><span class="text-slate-400">Empresa</span><span class="ml-2 font-bold text-white">{{ selectedRetornoEmpresa?.nombre_comercial ?? selectedRetornoEmpresa?.razon_social ?? 'Pendiente' }}</span></p>
+            <p class="min-w-0 max-w-[220px] truncate"><span class="text-slate-400">Items</span><span class="ml-2 font-semibold text-white">{{ retornoLineas.length }}</span></p>
+            <p class="min-w-0 max-w-[220px] truncate"><span class="text-slate-400">Total</span><span class="ml-2 font-semibold text-white">{{ currency(retornoTotals.total) }}</span></p>
+          </div>
+          <div class="flex shrink-0 items-center justify-end gap-2">
+            <span class="rounded-md bg-sky-600 px-3 py-2 text-sm font-bold text-white shadow-sm shadow-sky-950/30">{{ actionStatusLabel }}</span>
+            <UiButton class="min-w-[170px]" :disabled="!canReportRetorno || processing" @click="reportReturnEvent">
+              {{ processing ? 'Procesando...' : 'Reportar retorno' }}
+            </UiButton>
+          </div>
+        </section>
       </div>
-    </UiCard>
+    </div>
 
     <div v-else-if="isOperacionesEspeciales" class="grid gap-6 pb-24">
       <BillingProcessModal
