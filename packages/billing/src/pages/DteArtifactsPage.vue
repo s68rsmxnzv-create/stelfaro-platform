@@ -17,7 +17,7 @@ type ArtifactTab = 'dte' | 'events';
 type PageItem = number | 'ellipsis';
 
 const supportedTypes = new Set(['01', '03', '05', '06', '14']);
-const supportedEventTypes = new Set(['invalidacion']);
+const supportedEventTypes = new Set(['invalidacion', 'retorno']);
 const pageSize = 10;
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const activeTab = ref<ArtifactTab>('dte');
@@ -30,6 +30,7 @@ const resendingEmailId = ref<number | null>(null);
 const error = ref<string | null>(null);
 const query = ref('');
 const tipoDte = ref('');
+const eventType = ref('');
 const documents = ref<DteDraftSummary[]>([]);
 const events = ref<MhFiscalEventSummary[]>([]);
 const dtePage = ref(1);
@@ -76,6 +77,11 @@ watch(tipoDte, () => {
   if (activeTab.value === 'dte') void loadDocuments();
 });
 
+watch(eventType, () => {
+  eventPage.value = 1;
+  if (activeTab.value === 'events') void loadEvents();
+});
+
 watch(activeTab, () => {
   error.value = null;
   void loadActiveTab();
@@ -120,7 +126,7 @@ async function loadEvents(): Promise<void> {
     const response = await client.value.mhEvents({
       q: query.value.trim(),
       estado: 'accepted',
-      event_type: 'invalidacion',
+      event_type: eventType.value,
       limit: pageSize,
       page: eventPage.value
     });
@@ -402,10 +408,18 @@ function typeLabel(code: string): string {
 
 function eventLabel(type: string): string {
   const labels: Record<string, string> = {
-    invalidacion: 'Evento de invalidacion'
+    invalidacion: 'Evento de invalidacion',
+    retorno: 'Evento de retorno'
   };
 
   return labels[type] ?? type;
+}
+
+function eventEmptyMessage(): string {
+  if (eventType.value === 'invalidacion') return 'No hay eventos de invalidacion aceptados para mostrar.';
+  if (eventType.value === 'retorno') return 'No hay eventos de retorno aceptados para mostrar.';
+
+  return 'No hay eventos de invalidacion o retorno aceptados para mostrar.';
 }
 
 function formatDate(value?: string | null): string {
@@ -467,11 +481,12 @@ function formatDate(value?: string | null): string {
             <label class="text-sm font-semibold text-slate-900" for="event-type">Tipo de evento</label>
             <select
               id="event-type"
-              value="invalidacion"
-              disabled
-              class="mt-2 block w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 shadow-sm"
+              v-model="eventType"
+              class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
             >
+              <option value="">Invalidacion y retorno</option>
               <option value="invalidacion">Invalidacion</option>
+              <option value="retorno">Retorno</option>
             </select>
           </div>
 
@@ -508,7 +523,7 @@ function formatDate(value?: string | null): string {
         </div>
 
         <div v-else-if="emptyState" class="px-4 py-10 text-sm text-slate-600">
-          {{ activeTab === 'dte' ? 'No hay comprobantes aceptados para mostrar.' : 'No hay eventos de invalidacion aceptados para mostrar.' }}
+          {{ activeTab === 'dte' ? 'No hay comprobantes aceptados para mostrar.' : eventEmptyMessage() }}
         </div>
 
         <div v-else-if="activeTab === 'dte'" class="divide-y divide-slate-100">
