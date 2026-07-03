@@ -23,7 +23,7 @@ const props = withDefaults(defineProps<{
   authToken: null,
   requestCredentials: undefined,
   enabledDocumentTypes: () => ['01', '03', '05', '06', '14'],
-  enabledEventTypes: () => ['invalidacion', 'contingencia', 'operaciones_especiales'],
+  enabledEventTypes: () => ['invalidacion', 'contingencia', 'retorno', 'operaciones_especiales'],
   showToasts: true
 });
 

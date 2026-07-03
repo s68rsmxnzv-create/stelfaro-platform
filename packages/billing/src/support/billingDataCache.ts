@@ -1,6 +1,7 @@
 import { CoreDteClient, type BillingCatalogs, type BillingContext } from '@stelfaro/api-client';
 
 const ttlMs = 5 * 60 * 1000;
+const cacheVersion = 'v2';
 
 type CacheRecord<T> = {
   expiresAt: number;
@@ -11,7 +12,7 @@ const memory = new Map<string, CacheRecord<unknown>>();
 const pending = new Map<string, Promise<unknown>>();
 
 function storageKey(key: string): string {
-  return `stelfaro.billing.cache.${encodeURIComponent(key)}`;
+  return `stelfaro.billing.cache.${cacheVersion}.${encodeURIComponent(key)}`;
 }
 
 function read<T>(key: string): T | null {

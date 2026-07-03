@@ -43,6 +43,7 @@ const dteOptions = [
 const eventOptions = [
   { code: 'invalidacion', label: 'Invalidacion', short: 'INV' },
   { code: 'contingencia', label: 'Contingencia', short: 'CONT' },
+  { code: 'retorno', label: 'Retorno', short: 'RET' },
   { code: 'operaciones_especiales', label: 'Operaciones especiales', short: 'OPE' }
 ];
 const selectedDteCodes = ref<string[]>(dteOptions.map((option) => option.code));
