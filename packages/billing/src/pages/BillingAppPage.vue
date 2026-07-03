@@ -632,7 +632,7 @@ function navigateFromMenu(event, href) {
               :title="`Ayuda sobre ${currentHelp.title}`"
               @click="openHelpModal"
             >
-              <CircleQuestionMark class="h-5 w-5" aria-hidden="true" />
+              <CircleQuestionMark class="h-6 w-6" aria-hidden="true" />
             </button>
           </div>
         </div>
