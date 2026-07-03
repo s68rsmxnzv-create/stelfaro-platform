@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { CoreDteClient } from '@stelfaro/api-client';
-import { UiInfoIcon } from '@stelfaro/ui';
+import { CircleQuestionMark } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingAppNav from '../components/BillingAppNav.vue';
 import BillingHelpModal from '../components/BillingHelpModal.vue';
@@ -632,7 +632,7 @@ function navigateFromMenu(event, href) {
               :title="`Ayuda sobre ${currentHelp.title}`"
               @click="openHelpModal"
             >
-              <UiInfoIcon class="h-5 w-5" />
+              <CircleQuestionMark class="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
         </div>
