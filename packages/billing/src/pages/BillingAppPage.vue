@@ -118,9 +118,9 @@ const dteHelpByType = {
     summary: 'Para ventas al consumidor final.',
     use: 'Usala cuando tu cliente no necesita credito fiscal. Si el monto es alto, identifica al cliente antes de emitir.',
     details: [
-      'Es el DTE natural para consumidores finales.',
-      'Puede emitirse con cliente generico cuando la operacion lo permite.',
-      'No traslada credito fiscal al receptor.'
+      'Es la opcion habitual para ventas a personas que compran para uso propio.',
+      'Puedes usar cliente generico cuando la venta lo permite.',
+      'No entrega credito fiscal al comprador.'
     ]
   },
   '03': {
@@ -128,9 +128,9 @@ const dteHelpByType = {
     summary: 'Para clientes que declaran IVA.',
     use: 'Usalo cuando vendes a una empresa o contribuyente que necesita usar la compra como credito fiscal.',
     details: [
-      'Requiere identificar correctamente al receptor contribuyente.',
-      'El IVA queda separado para efectos de credito fiscal.',
-      'Es el documento base para notas de credito o debito.'
+      'Identifica bien al cliente antes de emitir.',
+      'El IVA queda separado para que el comprador pueda declararlo.',
+      'Si despues hay ajustes, normalmente se relacionan con este documento.'
     ]
   },
   '05': {
@@ -138,9 +138,9 @@ const dteHelpByType = {
     summary: 'Para bajar o anular valores de un CCF.',
     use: 'Usala cuando hubo devolucion, descuento posterior o necesitas corregir a favor del cliente.',
     details: [
-      'Debe relacionarse con el DTE origen correspondiente.',
-      'Disminuye valores facturados cuando aplica.',
-      'No debe usarse como sustituto de invalidacion si el DTE original debe quedar sin efecto.'
+      'Elige el documento original que vas a corregir.',
+      'Sirve para disminuir montos ya facturados.',
+      'Si el documento completo no debe existir, revisa si corresponde invalidarlo.'
     ]
   },
   '06': {
@@ -148,9 +148,9 @@ const dteHelpByType = {
     summary: 'Para aumentar valores de un CCF.',
     use: 'Usala cuando faltaron cargos, se agregaron productos o debes cobrar una diferencia.',
     details: [
-      'Debe relacionarse con el DTE origen correspondiente.',
-      'Incrementa valores facturados cuando aplica.',
-      'Conviene revisar concepto, cantidades e impuestos antes de emitir.'
+      'Elige el documento original que vas a complementar.',
+      'Sirve para aumentar montos ya facturados.',
+      'Revisa concepto, cantidades e impuestos antes de emitir.'
     ]
   },
   '14': {
@@ -158,8 +158,8 @@ const dteHelpByType = {
     summary: 'Para compras a personas fuera del IVA.',
     use: 'Usala cuando compras bienes o servicios a alguien que no emite DTE ni factura con IVA.',
     details: [
-      'Registra compras a proveedores que no emiten DTE.',
-      'No se comporta como una venta al cliente final.',
+      'Registra compras hechas a proveedores que no facturan con IVA.',
+      'No se usa para venderle a un cliente final.',
       'Revisa retenciones y datos del proveedor antes de emitir.'
     ]
   }
@@ -168,42 +168,42 @@ const eventHelpByType = {
   invalidacion: {
     title: 'Evento de invalidacion',
     summary: 'Para dejar sin efecto un DTE aceptado.',
-    use: 'Usalo cuando el documento origen no debe seguir produciendo efectos por errores, rescision de la operacion u otra causal permitida.',
+    use: 'Usalo cuando un documento aceptado ya no debe seguir vigente, por ejemplo por un error importante o porque la operacion se cancelo.',
     details: [
-      'El DTE debe estar aceptado por Hacienda y tener sello de recepcion.',
-      'La invalidacion no corrige montos parciales: deja sin efecto el documento completo.',
-      'Si el documento ya requiere otro tratamiento fiscal, revisa si corresponde retorno o un nuevo DTE.'
+      'El documento debe tener sello de recepcion.',
+      'La invalidacion deja sin efecto el documento completo.',
+      'Si solo necesitas corregir una parte, revisa si corresponde una nota, un retorno o un nuevo documento.'
     ]
   },
   contingencia: {
     title: 'Evento de contingencia',
     summary: 'Para informar emision diferida.',
-    use: 'Usalo cuando emitiste DTE bajo contingencia por una interrupcion tecnica y necesitas reportar el lote correspondiente.',
+    use: 'Usalo cuando emitiste documentos en contingencia y necesitas informarlos despues a Hacienda.',
     details: [
-      'Relaciona documentos emitidos con modelo diferido.',
-      'Completa fecha, hora y motivo de la contingencia cuando aplique.',
-      'Despues de reportar, verifica las respuestas MH del lote.'
+      'Selecciona los documentos que emitiste durante ese periodo.',
+      'Completa fecha, hora y motivo cuando aplique.',
+      'Despues de enviar, revisa que Hacienda haya aceptado el reporte.'
     ]
   },
   retorno: {
     title: 'Evento de retorno',
     summary: 'Para devoluciones o reembolsos sobre FE, FEXE o FSEE.',
-    use: 'Selecciona DTE origen con sello de recepcion. El sistema descarta documentos vencidos, sin sello, de tipo no permitido o sin remanente disponible.',
+    use: 'Usalo cuando te devuelven bienes, haces un reembolso o recuperas envases y necesitas reflejarlo sobre un documento ya aceptado.',
     details: [
-      'El plazo general es de 3 meses desde el sello de recepcion del DTE relacionado.',
-      'Puedes relacionar hasta 50 DTE del mismo tipo; cada documento se referencia una sola vez por evento.',
-      'Si agregas mas de un DTE, todos deben corresponder al mismo emisor, receptor, tercero y ambiente.',
-      'El retorno no debe exceder el valor vendido o comprado del DTE origen.'
+      'El documento original debe tener sello de recepcion y estar dentro del plazo permitido.',
+      'Puedes relacionar hasta 50 documentos del mismo tipo.',
+      'Si agregas varios documentos, deben corresponder a las mismas partes y al mismo ambiente.',
+      'El monto del retorno no debe superar el valor del documento original.'
     ]
   },
   operaciones_especiales: {
     title: 'Evento de operaciones especiales',
     summary: 'Para reportes especiales definidos por normativa.',
-    use: 'Usalo cuando necesitas reportar operaciones especiales activas o anuladas con el detalle requerido por Hacienda.',
+    use: 'Usalo cuando necesitas informar operaciones especiales activas o anuladas.',
     details: [
-      'Selecciona empresa, ambiente, tipo de documento y modalidad antes de reportar.',
-      'Cada linea debe identificar rangos o documentos individuales segun la modalidad elegida.',
-      'Revisa totales y referencias antes de transmitir el evento.'
+      'Selecciona empresa, ambiente, tipo de documento y modalidad.',
+      'Agrega el detalle de las operaciones o rangos que vas a reportar.',
+      'Revisa totales y referencias antes de enviar.'
     ]
   }
 };
@@ -648,7 +648,7 @@ function navigateFromMenu(event, href) {
           <h1 class="text-3xl font-bold tracking-tight text-slate-950 dark:text-text">{{ pageTitle }}</h1>
           <div v-if="currentHelp">
             <button
-              class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm shadow-slate-950/5 transition hover:border-sky-300 hover:text-sky-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500 dark:border-line dark:bg-surface-muted dark:text-muted dark:shadow-black/20 dark:hover:border-primary dark:hover:text-primary"
+              class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-sky-600 bg-sky-600 text-white shadow-sm shadow-sky-950/20 transition hover:border-sky-700 hover:bg-sky-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500 dark:border-primary dark:bg-primary dark:text-primary-contrast dark:shadow-black/20 dark:hover:border-primary-hover dark:hover:bg-primary-hover"
               type="button"
               :aria-label="`Ayuda sobre ${currentHelp.title}`"
               :aria-describedby="helpTooltip ? 'billing-help-tooltip' : undefined"
