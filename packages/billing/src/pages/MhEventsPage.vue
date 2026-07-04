@@ -1797,7 +1797,14 @@ function isValidSpecialOperationLine(line: SpecialOperationLine): boolean {
   if (specialOperationLineTotal(line) <= 0) return false;
 
   if (form.operacionesMode === 'range') {
-    return Boolean(String(line.docDel).trim() && String(line.docAl).trim());
+    const rangeQuantity = specialOperationRangeQuantity(line);
+
+    return Boolean(
+      String(line.docDel).trim()
+      && String(line.docAl).trim()
+      && rangeQuantity !== 0
+      && (rangeQuantity === null || Number(line.cantidad) === rangeQuantity)
+    );
   }
 
   return Boolean(String(line.numDocumento).trim() && String(line.fechaEmision).trim() && Number(line.cantidad) === 1);
@@ -1805,6 +1812,9 @@ function isValidSpecialOperationLine(line: SpecialOperationLine): boolean {
 
 function specialOperationLinePayload(line: SpecialOperationLine): Record<string, unknown> {
   const isRange = form.operacionesMode === 'range';
+  if (isRange) {
+    syncSpecialOperationRange(line);
+  }
 
   return {
     codigoGeneracionRef: form.operacionesStatus === 'annulled' ? nullableString(line.codigoGeneracionRef) : null,
@@ -1821,6 +1831,48 @@ function specialOperationLinePayload(line: SpecialOperationLine): Record<string,
     ventaGravada: roundMoney(line.ventaGravada),
     tributos: numberValue(line.ventaGravada) > 0 ? ['20'] : null,
   };
+}
+
+function unsignedIntegerText(value: unknown): string | null {
+  const text = String(value ?? '').trim();
+  if (!/^\d+$/.test(text)) return null;
+
+  return text.replace(/^0+(?=\d)/, '');
+}
+
+function specialOperationRangeQuantity(line: SpecialOperationLine): number | null {
+  const startText = unsignedIntegerText(line.docDel);
+  const endText = unsignedIntegerText(line.docAl);
+  if (startText === null || endText === null) return null;
+
+  const start = BigInt(startText);
+  const end = BigInt(endText);
+  if (end < start) return 0;
+
+  const quantity = end - start + 1n;
+  if (quantity > BigInt(Number.MAX_SAFE_INTEGER)) return null;
+
+  return Number(quantity);
+}
+
+function syncSpecialOperationRange(line: SpecialOperationLine): void {
+  if (form.operacionesMode !== 'range') return;
+
+  const quantity = specialOperationRangeQuantity(line);
+  if (quantity === null || quantity < 1) return;
+
+  line.cantidad = quantity;
+  syncSpecialOperationPrice(line);
+}
+
+function specialOperationRangeHelp(line: SpecialOperationLine): string {
+  if (form.operacionesMode !== 'range') return '';
+
+  const quantity = specialOperationRangeQuantity(line);
+  if (quantity === 0) return 'Doc. Al debe ser mayor o igual a Doc. Del.';
+  if (quantity !== null) return `Cantidad calculada: ${quantity}.`;
+
+  return 'Completa un rango numerico para calcular la cantidad.';
 }
 
 function syncSpecialOperationPrice(line: SpecialOperationLine): void {
@@ -2569,7 +2621,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                         v-model="line.docDel"
                         class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
                         placeholder="1"
-                        @input="clearEventResult"
+                        @input="syncSpecialOperationRange(line); clearEventResult()"
                       >
                     </label>
                     <label v-if="form.operacionesMode === 'range'" class="block">
@@ -2578,7 +2630,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                         v-model="line.docAl"
                         class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
                         placeholder="25"
-                        @input="clearEventResult"
+                        @input="syncSpecialOperationRange(line); clearEventResult()"
                       >
                     </label>
 
@@ -2588,10 +2640,11 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                         v-model.number="line.cantidad"
                         type="number"
                         min="1"
-                        :readonly="form.operacionesMode === 'single'"
-                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
+                        :readonly="form.operacionesMode === 'single' || (form.operacionesMode === 'range' && specialOperationRangeQuantity(line) !== null)"
+                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 readonly:bg-slate-50"
                         @input="syncSpecialOperationPrice(line); clearEventResult()"
                       >
+                      <span v-if="form.operacionesMode === 'range'" class="mt-1 block text-xs text-slate-500">{{ specialOperationRangeHelp(line) }}</span>
                     </label>
                     <label class="block lg:col-span-2">
                       <span class="text-xs font-semibold uppercase text-slate-500">Descripcion</span>
