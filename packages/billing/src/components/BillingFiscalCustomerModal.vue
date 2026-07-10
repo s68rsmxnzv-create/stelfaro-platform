@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { UiButton, UiEmailInput, UiFiscalDocumentInput, UiInput, UiPhoneInput, UiSaveIcon, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
 import BillingModalShell from './BillingModalShell.vue';
 
@@ -60,6 +60,7 @@ const form = reactive({
   email: '',
   phone: ''
 });
+const commercialNameTouched = ref(false);
 
 const detection = reactive<FiscalDocumentDetection>({
   valid: false,
@@ -78,6 +79,12 @@ const documentIsValid = computed(() => {
   const digits = form.document.replace(/\D+/g, '');
   return detection.valid || digits.length === 9 || digits.length === 14;
 });
+const commercialNameNeedsReview = computed(() => Boolean(
+  props.initialValue
+  && !commercialNameTouched.value
+  && form.nombreComercial.trim() !== ''
+  && form.nombreComercial.trim() === form.name.trim()
+));
 const canSave = computed(() => Boolean(
   form.name.trim()
   && documentIsValid.value
@@ -95,8 +102,9 @@ const canSave = computed(() => Boolean(
 
 watch(() => props.open, (open) => {
   if (!open) return;
+  commercialNameTouched.value = false;
   form.name = props.initialValue?.name ?? '';
-  form.document = props.initialValue?.document_number ?? props.initialValue?.nit ?? '';
+  form.document = formatFiscalDocument(props.initialValue?.document_number ?? props.initialValue?.nit ?? '');
   form.nrc = props.initialValue?.nrc ?? '';
   form.actividad = props.initialValue?.cod_actividad ?? '';
   form.nombreComercial = props.initialValue?.nombre_comercial ?? '';
@@ -129,6 +137,30 @@ function updateDetection(value: FiscalDocumentDetection): void {
   detection.typeLabel = value.typeLabel;
   detection.number = value.number;
   detection.message = value.message;
+}
+
+function updateCommercialName(value: string): void {
+  commercialNameTouched.value = true;
+  form.nombreComercial = value;
+}
+
+function formatFiscalDocument(value: string): string {
+  const digits = value.replace(/\D+/g, '').slice(0, 14);
+
+  if (digits.length <= 8) {
+    return digits;
+  }
+
+  if (digits.length <= 9) {
+    return `${digits.slice(0, 8)}-${digits.slice(8)}`;
+  }
+
+  return [
+    digits.slice(0, 4),
+    digits.slice(4, 10),
+    digits.slice(10, 13),
+    digits.slice(13, 14)
+  ].filter(Boolean).join('-');
 }
 
 function submit(): void {
@@ -171,7 +203,17 @@ function submit(): void {
   >
     <div class="grid gap-4 md:grid-cols-2">
       <UiInput v-model="form.name" label="Nombre fiscal / razon social" />
-      <UiInput v-model="form.nombreComercial" label="Nombre comercial" />
+      <div>
+        <UiInput
+          :model-value="form.nombreComercial"
+          label="Nombre comercial"
+          :class="commercialNameNeedsReview ? 'border-orange-300 bg-orange-50 text-orange-950 focus:border-orange-500 focus:ring-orange-100 dark:border-orange-400/70 dark:bg-orange-950/25 dark:text-orange-100' : ''"
+          @update:model-value="updateCommercialName"
+        />
+        <p v-if="commercialNameNeedsReview" class="mt-1 text-xs font-medium text-orange-700 dark:text-orange-300">
+          Se completo con el nombre fiscal. Cambialo si la tarjeta muestra otro nombre comercial.
+        </p>
+      </div>
     </div>
 
     <div class="grid gap-4 md:grid-cols-2">
