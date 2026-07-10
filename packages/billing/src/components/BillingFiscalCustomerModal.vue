@@ -34,8 +34,10 @@ const props = withDefaults(defineProps<{
   departamentoOptions: SelectOption[];
   municipioOptions: SelectOption[];
   distritoOptions: SelectOption[];
+  initialValue?: Partial<BillingFiscalCustomerModalPayload> | null;
 }>(), {
-  loading: false
+  loading: false,
+  initialValue: null
 });
 
 const emit = defineEmits<{
@@ -68,9 +70,17 @@ const detection = reactive<FiscalDocumentDetection>({
 });
 
 const selectedActividad = computed(() => props.actividadOptions.find((option) => option.value === form.actividad) ?? null);
+const title = computed(() => props.initialValue ? 'Completar datos fiscales' : 'Nuevo cliente fiscal');
+const description = computed(() => props.initialValue
+  ? 'Agrega solo la informacion fiscal que falta para emitir Comprobante de Credito Fiscal.'
+  : 'Datos fiscales requeridos para emitir Comprobante de Credito Fiscal.');
+const documentIsValid = computed(() => {
+  const digits = form.document.replace(/\D+/g, '');
+  return detection.valid || digits.length === 9 || digits.length === 14;
+});
 const canSave = computed(() => Boolean(
   form.name.trim()
-  && detection.valid
+  && documentIsValid.value
   && form.nrc.trim()
   && form.actividad.trim()
   && selectedActividad.value
@@ -85,17 +95,17 @@ const canSave = computed(() => Boolean(
 
 watch(() => props.open, (open) => {
   if (!open) return;
-  form.name = '';
-  form.document = '';
-  form.nrc = '';
-  form.actividad = '';
-  form.nombreComercial = '';
-  form.departamento = '';
-  form.municipio = '';
-  form.distrito = '';
-  form.direccion = '';
-  form.email = '';
-  form.phone = '';
+  form.name = props.initialValue?.name ?? '';
+  form.document = props.initialValue?.document_number ?? props.initialValue?.nit ?? '';
+  form.nrc = props.initialValue?.nrc ?? '';
+  form.actividad = props.initialValue?.cod_actividad ?? '';
+  form.nombreComercial = props.initialValue?.nombre_comercial ?? '';
+  form.departamento = props.initialValue?.departamento ?? '';
+  form.municipio = props.initialValue?.municipio ?? '';
+  form.distrito = props.initialValue?.distrito ?? '';
+  form.direccion = props.initialValue?.direccion_complemento ?? '';
+  form.email = props.initialValue?.email ?? '';
+  form.phone = props.initialValue?.phone ?? '';
 }, { immediate: true });
 
 watch(() => form.departamento, (value, oldValue) => {
@@ -150,8 +160,8 @@ function submit(): void {
   <BillingModalShell
     :open="open"
     eyebrow="Receptor CCF"
-    title="Nuevo cliente fiscal"
-    description="Datos fiscales requeridos para emitir Comprobante de Credito Fiscal."
+    :title="title"
+    :description="description"
     max-width="max-w-3xl"
     panel-as="form"
     panel-class="max-h-[92vh] overflow-hidden"
@@ -211,7 +221,7 @@ function submit(): void {
       <UiPhoneInput v-model="form.phone" label="Telefono" />
     </div>
 
-    <p v-if="form.document.trim() && !detection.valid" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+    <p v-if="form.document.trim() && !documentIsValid" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
       Usa NIT de 14 digitos o DUI homologado de 9 digitos. En CCF viajará como NIT del receptor.
     </p>
 

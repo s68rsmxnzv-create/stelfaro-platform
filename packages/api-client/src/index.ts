@@ -1998,6 +1998,10 @@ export class CoreDteClient {
     return this.http.post('billing/customers', { json: payload }).json();
   }
 
+  updateCustomer(customerId: number, payload: Partial<BillingCustomer>): Promise<{ customer: BillingCustomer }> {
+    return this.http.patch(`billing/customers/${customerId}`, { json: payload }).json();
+  }
+
   previewCorrelativo(payload: CorrelativoRequest): Promise<CorrelativoReservation> {
     return this.http.post('billing/correlativos/preview', { json: payload }).json();
   }
@@ -2174,6 +2178,7 @@ export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewReques
   const isAdjustmentNote = input.documentType === '05' || input.documentType === '06';
   const isSujetoExcluido = input.documentType === '14';
   const isFiscalStyle = input.documentType === '03' || isAdjustmentNote;
+  const finalConsumerAddress = optionalAddress(input);
   const priceIncludesIva = input.documentType === '03' && input.priceIncludesIva !== false;
   const ivaRetention = input.documentType === '03' && input.retainIva10
     ? roundMoney(totalTaxableBase(input.items, priceIncludesIva) * 0.01)
@@ -2261,7 +2266,7 @@ export function buildFacturaRequest(input: ManualInvoiceInput): DtePreviewReques
         nrc: null,
         codActividad: null,
         descActividad: null,
-        direccion: null,
+        direccion: finalConsumerAddress,
         telefono: input.customerPhone,
         correo: input.customerEmail
       },
@@ -2361,6 +2366,19 @@ function normalizeDistrict(value: string | null | undefined): string | null {
   if (!digits) return null;
 
   return digits.padStart(2, '0');
+}
+
+function optionalAddress(input: ManualInvoiceInput): Record<string, string | null> | null {
+  if (!input.customerDepartment || !input.customerMunicipality || !input.customerAddress) {
+    return null;
+  }
+
+  return {
+    departamento: input.customerDepartment,
+    municipio: input.customerMunicipality,
+    distrito: normalizeDistrict(input.customerDistrict),
+    complemento: input.customerAddress,
+  };
 }
 
 function normalizeRecipientDocument(type: string | null | undefined, value: string | null | undefined): { documentType: string | null; documentNumber: string | null } {

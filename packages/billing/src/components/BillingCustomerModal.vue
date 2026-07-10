@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue';
-import { UiButton, UiEmailInput, UiFiscalDocumentInput, UiInput, UiPhoneInput, UiSaveIcon, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { computed, reactive, ref, watch } from 'vue';
+import { UiButton, UiEmailInput, UiFiscalDocumentInput, UiInput, UiPhoneInput, UiSaveIcon, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
 import BillingModalShell from './BillingModalShell.vue';
 
 export type BillingCustomerModalMode = 'new' | 'quick';
+type SelectOption = {
+  value: string;
+  label: string;
+  hint?: string;
+};
 
 export type BillingCustomerModalPayload = {
   name: string;
@@ -11,6 +16,10 @@ export type BillingCustomerModalPayload = {
   document_number: string | null;
   email: string | null;
   phone: string | null;
+  departamento?: string | null;
+  municipio?: string | null;
+  distrito?: string | null;
+  direccion_complemento?: string | null;
 };
 
 const props = withDefaults(defineProps<{
@@ -18,22 +27,35 @@ const props = withDefaults(defineProps<{
   mode: BillingCustomerModalMode;
   loading?: boolean;
   initialValue?: Partial<BillingCustomerModalPayload> | null;
+  departamentoOptions?: SelectOption[];
+  municipioOptions?: SelectOption[];
+  distritoOptions?: SelectOption[];
 }>(), {
   loading: false,
-  initialValue: null
+  initialValue: null,
+  departamentoOptions: () => [],
+  municipioOptions: () => [],
+  distritoOptions: () => []
 });
 
 const emit = defineEmits<{
   close: [];
   save: [payload: BillingCustomerModalPayload];
+  'update:departamento': [value: string];
+  'update:municipio': [value: string];
 }>();
 
 const form = reactive({
   name: '',
   document: '',
   email: '',
-  phone: ''
+  phone: '',
+  departamento: '',
+  municipio: '',
+  distrito: '',
+  direccion: ''
 });
+const showAddress = ref(false);
 
 const detection = reactive<FiscalDocumentDetection>({
   valid: false,
@@ -57,7 +79,27 @@ watch(() => props.open, (open) => {
   form.document = props.initialValue?.document_number ?? '';
   form.email = props.initialValue?.email ?? '';
   form.phone = props.initialValue?.phone ?? '';
+  form.departamento = props.initialValue?.departamento ?? '';
+  form.municipio = props.initialValue?.municipio ?? '';
+  form.distrito = props.initialValue?.distrito ?? '';
+  form.direccion = props.initialValue?.direccion_complemento ?? '';
+  showAddress.value = Boolean(form.departamento || form.municipio || form.distrito || form.direccion);
 }, { immediate: true });
+
+watch(() => form.departamento, (value, oldValue) => {
+  emit('update:departamento', value);
+  if (oldValue !== undefined && value !== oldValue) {
+    form.municipio = '';
+    form.distrito = '';
+  }
+});
+
+watch(() => form.municipio, (value, oldValue) => {
+  emit('update:municipio', value);
+  if (oldValue !== undefined && value !== oldValue) {
+    form.distrito = '';
+  }
+});
 
 function updateDetection(value: FiscalDocumentDetection): void {
   detection.valid = value.valid;
@@ -75,7 +117,11 @@ function submit(): void {
     document_type: form.document.trim() === '' ? null : detection.typeLabel === 'NIT' ? '36' : '13',
     document_number: form.document.trim() === '' ? null : form.document.replace(/\D+/g, ''),
     email: form.email.trim() || null,
-    phone: form.phone.trim() || null
+    phone: form.phone.trim() || null,
+    departamento: showAddress.value ? form.departamento || null : null,
+    municipio: showAddress.value ? form.municipio || null : null,
+    distrito: showAddress.value && form.distrito ? form.distrito.replace(/\D+/g, '').padStart(2, '0') : null,
+    direccion_complemento: showAddress.value ? form.direccion.trim() || null : null
   });
 }
 </script>
@@ -100,6 +146,38 @@ function submit(): void {
     <div class="grid gap-4 sm:grid-cols-2">
       <UiEmailInput v-model="form.email" label="Correo" />
       <UiPhoneInput v-model="form.phone" label="Telefono" />
+    </div>
+    <button
+      type="button"
+      class="text-left text-sm font-semibold text-sky-700 transition hover:text-sky-600 dark:text-primary"
+      @click="showAddress = !showAddress"
+    >
+      {{ showAddress ? 'Ocultar direccion opcional' : 'Agregar direccion opcional' }}
+    </button>
+    <div v-if="showAddress" class="grid gap-4 rounded-md border border-blue-100 bg-blue-50/40 p-4 dark:border-line dark:bg-surface-muted">
+      <div class="grid gap-4 md:grid-cols-2">
+        <UiSearchSelect
+          v-model="form.departamento"
+          label="Departamento"
+          :options="departamentoOptions"
+          placeholder="Seleccionar departamento"
+        />
+        <UiSearchSelect
+          v-model="form.municipio"
+          label="Municipio"
+          :options="municipioOptions"
+          :disabled="!form.departamento"
+          placeholder="Seleccionar municipio"
+        />
+      </div>
+      <UiSearchSelect
+        v-model="form.distrito"
+        label="Distrito"
+        :options="distritoOptions"
+        :disabled="!form.municipio"
+        placeholder="Seleccionar distrito"
+      />
+      <UiInput v-model="form.direccion" label="Direccion" />
     </div>
     <template #footer>
       <UiButton variant="secondary" type="button" @click="emit('close')">Cancelar</UiButton>

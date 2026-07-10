@@ -94,6 +94,7 @@ const customerSearch = ref('');
 const customerSearchLocked = ref(false);
 const selectedCustomerId = ref<number | null>(null);
 const selectedCustomerRecord = ref<BillingCustomer | null>(null);
+const fiscalCustomerTarget = ref<BillingCustomer | null>(null);
 const sourceDocumentSearch = ref('');
 const sourceDocuments = ref<DteDraftSummary[]>([]);
 const selectedSourceDocument = ref<DteDraftSummary | null>(null);
@@ -510,6 +511,11 @@ const issueEventMessage = (event: DteIssueProgressEvent): string => {
 };
 const selectedCustomer = computed(() => selectedCustomerRecord.value);
 const hasReceptorCard = computed(() => Boolean(selectedCustomer.value || (isAdjustmentNote.value && selectedSourceDocument.value)));
+const selectedCustomerNeedsFiscalComplement = computed(() => Boolean(
+  selectedCustomer.value
+  && isCreditoFiscal.value
+  && !isCustomerReadyForCreditoFiscal(selectedCustomer.value)
+));
 const selectedDocumentType = computed(() => availableDocumentTypes.value.find((type) => type.code === form.documentType) ?? null);
 const documentLabel = computed(() => `${form.documentType} · ${selectedDocumentType.value?.label ?? (isAdjustmentNote.value ? adjustmentNoteLabel.value : 'Factura Electronica')}`);
 const customerResults = computed(() => !customerSearchLocked.value && customerSearch.value.trim().length >= 2 ? customers.value : []);
@@ -782,6 +788,7 @@ watch([
 watch(() => form.documentType, () => {
   selectedCustomerId.value = null;
   selectedCustomerRecord.value = null;
+  fiscalCustomerTarget.value = null;
   customerSearch.value = '';
   customerSearchLocked.value = false;
   customers.value = [];
@@ -969,6 +976,7 @@ watch(customerMode, (mode) => {
 
     selectedCustomerId.value = null;
     selectedCustomerRecord.value = null;
+    fiscalCustomerTarget.value = null;
     setGenericCustomer();
   }
 
@@ -981,6 +989,7 @@ watch(customerMode, (mode) => {
 watch(() => form.documentType, (documentType) => {
   selectedCustomerId.value = null;
   selectedCustomerRecord.value = null;
+  fiscalCustomerTarget.value = null;
   customerSearch.value = '';
   customerSearchLocked.value = false;
   customers.value = [];
@@ -1016,6 +1025,7 @@ watch(requiresCustomerIdentificationByAmount, (required) => {
 
   selectedCustomerId.value = null;
   selectedCustomerRecord.value = null;
+  fiscalCustomerTarget.value = null;
   customerSearchLocked.value = false;
   customerSearch.value = '';
   customers.value = [];
@@ -1321,6 +1331,7 @@ function resetInvoiceForm(): void {
   issuePhaseIndex.value = 0;
   selectedCustomerId.value = null;
   selectedCustomerRecord.value = null;
+  fiscalCustomerTarget.value = null;
   customerSearch.value = '';
   customerSearchLocked.value = false;
   customers.value = [];
@@ -1569,11 +1580,16 @@ function selectCustomerMode(mode: CustomerMode): void {
       return;
     }
 
+    fiscalCustomerTarget.value = null;
+    fiscalModalDepartamento.value = '';
+    fiscalModalMunicipio.value = '';
     fiscalCustomerModalOpen.value = true;
     return;
   }
 
   if (mode === 'new' || mode === 'quick') {
+    fiscalModalDepartamento.value = form.customerDepartment;
+    fiscalModalMunicipio.value = form.customerMunicipality;
     customerModalMode.value = mode;
     return;
   }
@@ -1584,22 +1600,73 @@ function selectCustomerMode(mode: CustomerMode): void {
   }
 }
 
+function isCustomerReadyForCreditoFiscal(customer: BillingCustomer): boolean {
+  return Boolean(
+    (customer.nit || customer.document_number)
+    && customer.nrc
+    && customer.cod_actividad
+    && customer.desc_actividad
+    && customer.departamento
+    && customer.municipio
+    && customer.distrito
+    && customer.direccion_complemento
+    && customer.email
+  );
+}
+
+function fiscalCustomerInitialValue(customer: BillingCustomer | null): Partial<BillingFiscalCustomerModalPayload> | null {
+  if (!customer) return null;
+
+  return {
+    name: customer.name,
+    document_type: '36',
+    document_number: customer.nit ?? customer.document_number ?? '',
+    nit: customer.nit ?? customer.document_number ?? '',
+    nrc: customer.nrc ?? '',
+    cod_actividad: customer.cod_actividad ?? '',
+    desc_actividad: customer.desc_actividad ?? '',
+    nombre_comercial: customer.nombre_comercial ?? customer.name,
+    departamento: customer.departamento ?? '',
+    municipio: customer.municipio ?? '',
+    distrito: customer.distrito ?? '',
+    direccion_complemento: customer.direccion_complemento ?? '',
+    email: customer.email ?? '',
+    phone: customer.phone ?? '',
+  };
+}
+
+function openFiscalComplement(customer: BillingCustomer): void {
+  fiscalCustomerTarget.value = customer;
+  fiscalModalDepartamento.value = customer.departamento ?? '';
+  fiscalModalMunicipio.value = customer.municipio ?? '';
+  fiscalCustomerModalOpen.value = true;
+}
+
+function closeFiscalCustomerModal(): void {
+  fiscalCustomerModalOpen.value = false;
+  fiscalCustomerTarget.value = null;
+}
+
 async function handleFiscalCustomerSave(payload: BillingFiscalCustomerModalPayload): Promise<void> {
   if (!selectedEmpresa.value) {
     error.value = 'Selecciona una empresa emisora antes de guardar clientes.';
     return;
   }
 
-  const response = await run(() => client.value.saveCustomer({
-    empresa_id: selectedEmpresa.value!.id,
-    ...payload
-  }));
+  const target = fiscalCustomerTarget.value;
+  const response = await run(() => target
+    ? client.value.updateCustomer(target.id, payload)
+    : client.value.saveCustomer({
+      empresa_id: selectedEmpresa.value!.id,
+      ...payload
+    }));
 
   if (response) {
     await loadCustomers();
     customerMode.value = 'base';
     applyCustomer(response.customer);
     fiscalCustomerModalOpen.value = false;
+    fiscalCustomerTarget.value = null;
   }
 }
 
@@ -1630,6 +1697,10 @@ function applyQuickCustomer(payload: BillingCustomerModalPayload): void {
   form.customerDocument = payload.document_number ?? '';
   form.customerEmail = payload.email ?? '';
   form.customerPhone = payload.phone ?? '';
+  form.customerDepartment = payload.departamento ?? '';
+  form.customerMunicipality = payload.municipio ?? '';
+  form.customerDistrict = payload.distrito ?? '';
+  form.customerAddress = payload.direccion_complemento ?? '';
 }
 
 async function handleCustomerModalSave(payload: BillingCustomerModalPayload): Promise<void> {
@@ -1651,6 +1722,10 @@ async function handleCustomerModalSave(payload: BillingCustomerModalPayload): Pr
     phone: payload.phone,
     document_type: payload.document_type,
     document_number: payload.document_number,
+    departamento: payload.departamento,
+    municipio: payload.municipio,
+    distrito: payload.distrito,
+    direccion_complemento: payload.direccion_complemento,
     allowed_dte_codes: [form.documentType],
   }));
 
@@ -1711,11 +1786,16 @@ function applyCustomer(customer: BillingCustomer): void {
   customerSearch.value = customerSearchLabel(customer);
   customers.value = [];
   customerSearchModalOpen.value = false;
+
+  if (isCreditoFiscal.value && !isCustomerReadyForCreditoFiscal(customer)) {
+    openFiscalComplement(customer);
+  }
 }
 
 function clearSelectedCustomer(): void {
   selectedCustomerId.value = null;
   selectedCustomerRecord.value = null;
+  fiscalCustomerTarget.value = null;
   customerSearchLocked.value = false;
   customerSearch.value = '';
   customers.value = [];
@@ -1727,6 +1807,7 @@ function updateCustomerSearch(value: string): void {
   customerSearchLocked.value = false;
   selectedCustomerId.value = null;
   selectedCustomerRecord.value = null;
+  fiscalCustomerTarget.value = null;
 }
 
 function customerSearchLabel(customer: BillingCustomer): string {
@@ -2177,24 +2258,34 @@ function updatePaymentCondition(value: string): void {
       :open="Boolean(customerModalMode)"
       :mode="customerModalMode"
       :loading="loading"
+      :departamento-options="departamentoOptions"
+      :municipio-options="municipioOptions"
+      :distrito-options="distritoOptions"
       :initial-value="customerModalMode === 'quick' ? {
         name: form.customerName,
         document_number: form.customerDocument,
         email: form.customerEmail,
-        phone: form.customerPhone
+        phone: form.customerPhone,
+        departamento: form.customerDepartment,
+        municipio: form.customerMunicipality,
+        distrito: form.customerDistrict,
+        direccion_complemento: form.customerAddress
       } : null"
       @close="customerModalMode = null"
       @save="handleCustomerModalSave"
+      @update:departamento="fiscalModalDepartamento = $event"
+      @update:municipio="fiscalModalMunicipio = $event"
     />
 
     <BillingFiscalCustomerModal
       :open="fiscalCustomerModalOpen"
       :loading="loading"
+      :initial-value="fiscalCustomerInitialValue(fiscalCustomerTarget)"
       :actividad-options="actividadOptions"
       :departamento-options="departamentoOptions"
       :municipio-options="municipioOptions"
       :distrito-options="distritoOptions"
-      @close="fiscalCustomerModalOpen = false"
+      @close="closeFiscalCustomerModal"
       @save="handleFiscalCustomerSave"
       @update:departamento="fiscalModalDepartamento = $event"
       @update:municipio="fiscalModalMunicipio = $event"
@@ -2629,18 +2720,27 @@ function updatePaymentCondition(value: string): void {
                   <template v-if="requiresStructuredCustomer">
                     <p v-if="!isSujetoExcluido">
                       <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">NRC</span>
-                      <span class="block font-semibold text-slate-950 dark:text-text">{{ form.customerNrc }}</span>
+                      <span class="block font-semibold text-slate-950 dark:text-text">{{ form.customerNrc || 'Pendiente' }}</span>
                     </p>
                     <p>
                       <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Actividad</span>
-                      <span class="block truncate font-semibold text-slate-950 dark:text-text">{{ form.customerActivityCode }} · {{ form.customerActivityDescription }}</span>
+                      <span class="block truncate font-semibold text-slate-950 dark:text-text">{{ form.customerActivityCode && form.customerActivityDescription ? `${form.customerActivityCode} · ${form.customerActivityDescription}` : 'Pendiente' }}</span>
                     </p>
                     <p class="min-w-0 sm:col-span-2">
                       <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Direccion</span>
-                      <span class="block truncate font-semibold text-slate-950 dark:text-text">{{ form.customerDepartment }} / {{ form.customerMunicipality }} / {{ form.customerDistrict }} · {{ form.customerAddress }}</span>
+                      <span class="block truncate font-semibold text-slate-950 dark:text-text">{{ form.customerDepartment && form.customerMunicipality && form.customerAddress ? `${form.customerDepartment} / ${form.customerMunicipality} / ${form.customerDistrict} · ${form.customerAddress}` : 'Pendiente' }}</span>
                     </p>
                   </template>
                 </div>
+                <UiButton
+                  v-if="selectedCustomerNeedsFiscalComplement && selectedCustomer"
+                  class="mt-4"
+                  variant="primary"
+                  type="button"
+                  @click="openFiscalComplement(selectedCustomer)"
+                >
+                  Completar datos fiscales
+                </UiButton>
               </div>
               <button
                 class="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-red-50 text-sm font-bold text-red-600 transition hover:bg-red-600 hover:text-white"
