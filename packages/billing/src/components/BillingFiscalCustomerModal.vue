@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, nextTick, reactive, ref, watch } from 'vue';
 import { UiButton, UiEmailInput, UiFiscalDocumentInput, UiInput, UiPhoneInput, UiSaveIcon, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
 import BillingModalShell from './BillingModalShell.vue';
 
@@ -61,6 +61,7 @@ const form = reactive({
   phone: ''
 });
 const commercialNameTouched = ref(false);
+const hydrating = ref(false);
 
 const detection = reactive<FiscalDocumentDetection>({
   valid: false,
@@ -102,6 +103,7 @@ const canSave = computed(() => Boolean(
 
 watch(() => props.open, (open) => {
   if (!open) return;
+  hydrating.value = true;
   commercialNameTouched.value = false;
   form.name = props.initialValue?.name ?? '';
   form.document = formatFiscalDocument(props.initialValue?.document_number ?? props.initialValue?.nit ?? '');
@@ -114,11 +116,14 @@ watch(() => props.open, (open) => {
   form.direccion = props.initialValue?.direccion_complemento ?? '';
   form.email = props.initialValue?.email ?? '';
   form.phone = props.initialValue?.phone ?? '';
+  nextTick(() => {
+    hydrating.value = false;
+  });
 }, { immediate: true });
 
 watch(() => form.departamento, (value, oldValue) => {
   emit('update:departamento', value);
-  if (oldValue !== undefined && value !== oldValue) {
+  if (!hydrating.value && oldValue !== undefined && value !== oldValue) {
     form.municipio = '';
     form.distrito = '';
   }
@@ -126,7 +131,7 @@ watch(() => form.departamento, (value, oldValue) => {
 
 watch(() => form.municipio, (value, oldValue) => {
   emit('update:municipio', value);
-  if (oldValue !== undefined && value !== oldValue) {
+  if (!hydrating.value && oldValue !== undefined && value !== oldValue) {
     form.distrito = '';
   }
 });
