@@ -6,7 +6,7 @@ import {
   type DteHistoryEntry
 } from '@stelfaro/api-client';
 import { currency, fiscalDateTime } from '@stelfaro/shared';
-import { UiButton, UiCard, UiLoadingMark, UiSearchInput } from '@stelfaro/ui';
+import { UiButton, UiCard, UiLoadingMark, UiSearchInput, UiSelect } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -27,6 +27,13 @@ const documents = ref<DteDraftSummary[]>([]);
 const selected = ref<DteDraftSummary | null>(null);
 const history = ref<DteHistoryEntry[]>([]);
 let searchTimer: ReturnType<typeof window.setTimeout> | null = null;
+const statusOptions = [
+  { value: '', label: 'Todos' },
+  { value: 'accepted', label: 'Aceptados' },
+  { value: 'rejected', label: 'Rechazados' },
+  { value: 'sent', label: 'Transmitidos' },
+  { value: 'signed', label: 'Firmados' }
+];
 
 const selectedAttempts = computed(() => selected.value?.transmission_attempts ?? []);
 const selectedRawMh = computed(() => selected.value?.mh_response
@@ -229,20 +236,7 @@ function copyText(value: string): void {
           @search="loadDocuments"
         />
 
-        <div>
-          <label class="text-sm font-semibold text-slate-900" for="mh-status">Estado</label>
-          <select
-            id="mh-status"
-            v-model="estado"
-            class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-          >
-            <option value="">Todos</option>
-            <option value="accepted">Aceptados</option>
-            <option value="rejected">Rechazados</option>
-            <option value="sent">Transmitidos</option>
-            <option value="signed">Firmados</option>
-          </select>
-        </div>
+        <UiSelect v-model="estado" label="Estado" :options="statusOptions" />
 
         <div class="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600">
           <p class="text-xs font-semibold uppercase text-slate-500">Resultados</p>

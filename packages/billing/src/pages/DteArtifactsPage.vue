@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { CoreDteClient, type DteDraftSummary, type MhFiscalEventSummary, type PaginationMeta } from '@stelfaro/api-client';
 import { currency, fiscalDateTime } from '@stelfaro/shared';
-import { UiActionDropdown, UiCard, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiMailIcon, UiSearchInput } from '@stelfaro/ui';
+import { UiActionDropdown, UiCard, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiMailIcon, UiSearchInput, UiSelect } from '@stelfaro/ui';
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
 
 const props = withDefaults(defineProps<{
@@ -18,6 +18,20 @@ type PageItem = number | 'ellipsis';
 
 const supportedTypes = new Set(['01', '03', '05', '06', '14']);
 const supportedEventTypes = new Set(['invalidacion', 'retorno', 'operaciones_especiales']);
+const dteTypeOptions = [
+  { value: '', label: 'Todos' },
+  { value: '01', label: 'Factura electronica' },
+  { value: '03', label: 'Credito fiscal' },
+  { value: '05', label: 'Nota de credito' },
+  { value: '06', label: 'Nota de debito' },
+  { value: '14', label: 'Sujeto excluido' }
+];
+const artifactEventTypeOptions = [
+  { value: '', label: 'Todos' },
+  { value: 'invalidacion', label: 'Invalidacion' },
+  { value: 'retorno', label: 'Retorno' },
+  { value: 'operaciones_especiales', label: 'Operaciones especiales' }
+];
 const pageSize = 10;
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const activeTab = ref<ArtifactTab>('dte');
@@ -463,35 +477,19 @@ function formatDate(value?: string | null): string {
             @search="loadActiveTab"
           />
 
-          <div v-if="activeTab === 'dte'">
-            <label class="text-sm font-semibold text-slate-900" for="artifact-type">Tipo DTE</label>
-            <select
-              id="artifact-type"
-              v-model="tipoDte"
-              class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-            >
-              <option value="">Todos</option>
-              <option value="01">Factura electronica</option>
-              <option value="03">Credito fiscal</option>
-              <option value="05">Nota de credito</option>
-              <option value="06">Nota de debito</option>
-              <option value="14">Sujeto excluido</option>
-            </select>
-          </div>
+          <UiSelect
+            v-if="activeTab === 'dte'"
+            v-model="tipoDte"
+            label="Tipo DTE"
+            :options="dteTypeOptions"
+          />
 
-          <div v-else>
-            <label class="text-sm font-semibold text-slate-900" for="event-type">Tipo de evento</label>
-            <select
-              id="event-type"
-              v-model="eventType"
-              class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-            >
-              <option value="">Todos</option>
-              <option value="invalidacion">Invalidacion</option>
-              <option value="retorno">Retorno</option>
-              <option value="operaciones_especiales">Operaciones especiales</option>
-            </select>
-          </div>
+          <UiSelect
+            v-else
+            v-model="eventType"
+            label="Tipo de evento"
+            :options="artifactEventTypeOptions"
+          />
 
           <div class="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600">
             <p class="text-xs font-semibold uppercase text-slate-500">Resultados</p>
