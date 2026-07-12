@@ -8,7 +8,7 @@ withDefaults(defineProps<{
 }>(), {
   placeholder: 'Buscar',
   buttonLabel: 'Buscar',
-  showButton: true
+  showButton: false
 });
 
 defineEmits<{

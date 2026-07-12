@@ -3,7 +3,7 @@
 import { CoreDteClient, type BillingCatalogs, type BillingContext, type BillingCustomer } from '@stelfaro/api-client';
 import { UiButton, UiCard, UiDataTable, UiLoadingMark, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import { BadgeCheck, CircleAlert, FileText, Pencil, RefreshCw, Trash2, UserPlus } from 'lucide-vue-next';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import BillingFiscalCustomerModal, { type BillingFiscalCustomerModalPayload } from '../components/BillingFiscalCustomerModal.vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
@@ -45,6 +45,7 @@ const fiscalCustomerTarget = ref<BillingCustomer | null>(null);
 const modalDepartamento = ref('');
 const modalMunicipio = ref('');
 const toasts = ref([]);
+let searchTimer: ReturnType<typeof window.setTimeout> | null = null;
 
 const empresas = computed(() => context.value?.empresas ?? []);
 const selectedEmpresa = computed(() => empresas.value.find((empresa) => Number(empresa.id) === Number(selectedEmpresaId.value)) ?? empresas.value[0] ?? null);
@@ -80,8 +81,26 @@ watch(selectedEmpresaId, () => {
   loadCustomers();
 });
 
+watch(() => filters.value.q, () => {
+  if (searchTimer) window.clearTimeout(searchTimer);
+  searchTimer = window.setTimeout(() => {
+    const query = filters.value.q.trim();
+    if (query.length === 0 || query.length >= 2) {
+      void loadCustomers();
+    }
+  }, 250);
+});
+
+watch(() => filters.value.tipoDte, () => {
+  void loadCustomers();
+});
+
 onMounted(() => {
   initialize();
+});
+
+onBeforeUnmount(() => {
+  if (searchTimer) window.clearTimeout(searchTimer);
 });
 
 async function initialize(): Promise<void> {
@@ -330,10 +349,9 @@ function messageFromError(error): string {
           v-model="filters.q"
           label="Buscar cliente"
           placeholder="Nombre, documento, NRC, correo o teléfono"
-          button-label="Buscar"
           @search="loadCustomers"
         />
-        <UiSelect v-model="filters.tipoDte" label="Uso" :options="tipoOptions" @change="loadCustomers" />
+        <UiSelect v-model="filters.tipoDte" label="Uso" :options="tipoOptions" />
         <div class="flex items-end">
           <UiButton variant="secondary" :disabled="loading" @click="loadCustomers">
             <RefreshCw class="mr-2 h-5 w-5" aria-hidden="true" />

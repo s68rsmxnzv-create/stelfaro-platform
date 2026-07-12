@@ -2,7 +2,7 @@
 // @ts-nocheck
 import { PlatformClient } from '@stelfaro/api-client';
 import { UiButton, UiDataTable, UiInput, UiLoadingMark, UiModalShell, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
 import CatalogItemForm from '../components/CatalogItemForm.vue';
 import CatalogModeBadge from '../components/CatalogModeBadge.vue';
@@ -33,6 +33,7 @@ const filters = ref({
   controls_inventory: ''
 });
 const toasts = ref([]);
+let searchTimer: ReturnType<typeof window.setTimeout> | null = null;
 
 const typeLabels = {
   product: 'Producto',
@@ -65,7 +66,25 @@ watch(tenantId, () => {
   loadCatalog();
 });
 
+watch(() => filters.value.q, () => {
+  if (searchTimer) window.clearTimeout(searchTimer);
+  searchTimer = window.setTimeout(() => {
+    const query = filters.value.q.trim();
+    if (query.length === 0 || query.length >= 2) {
+      void loadCatalog();
+    }
+  }, 250);
+});
+
+watch(() => [filters.value.item_type, filters.value.controls_inventory, filters.value.status], () => {
+  void loadCatalog();
+});
+
 onMounted(loadCatalog);
+
+onBeforeUnmount(() => {
+  if (searchTimer) window.clearTimeout(searchTimer);
+});
 
 async function loadCatalog(): Promise<void> {
   if (!tenantId.value) return;
@@ -223,7 +242,7 @@ function messageFromError(error): string {
 
     <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-none">
       <div class="grid gap-3 lg:grid-cols-[1fr_180px_180px_180px_auto]">
-        <UiSearchInput v-model="filters.q" label="Buscar" placeholder="Nombre o código" button-label="Filtrar" @search="loadCatalog" />
+        <UiSearchInput v-model="filters.q" label="Buscar" placeholder="Nombre o código" @search="loadCatalog" />
         <UiSelect v-model="filters.item_type" label="Tipo" :options="filterTypeOptions" />
         <UiSelect v-model="filters.controls_inventory" label="Modo" :options="inventoryOptions" />
         <UiSelect v-model="filters.status" label="Estado" :options="statusOptions" />
