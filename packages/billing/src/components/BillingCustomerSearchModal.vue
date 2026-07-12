@@ -19,7 +19,7 @@ const emit = defineEmits<{
 }>();
 
 function customerDocumentLabel(customer: BillingCustomer): string {
-  const value = customer.nit ?? customer.document_number ?? '';
+  const value = customer.document_number ?? customer.nit ?? '';
   const digits = value.replace(/\D+/g, '');
   const label = digits.length === 14 ? 'NIT' : digits.length === 9 ? 'DUI' : customer.document_type ?? 'Doc';
 

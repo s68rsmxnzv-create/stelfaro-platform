@@ -1773,7 +1773,7 @@ function applyCustomer(customer: BillingCustomer): void {
   form.customerName = customer.name;
   form.customerEmail = customer.email ?? '';
   form.customerPhone = customer.phone ?? '';
-  const normalized = normalizeCustomerDocument(customer.document_type ?? (customer.nit ? '36' : ''), customer.nit ?? customer.document_number ?? '');
+  const normalized = customerDocumentForCurrentDte(customer);
   form.customerDocumentType = isCreditoFiscal.value && normalized.documentNumber ? '36' : normalized.documentType;
   form.customerDocument = normalized.documentNumber;
   form.customerNrc = onlyDigits(customer.nrc ?? '');
@@ -1812,10 +1812,21 @@ function updateCustomerSearch(value: string): void {
 }
 
 function customerSearchLabel(customer: BillingCustomer): string {
-  const normalized = normalizeCustomerDocument(customer.document_type ?? (customer.nit ? '36' : ''), customer.nit ?? customer.document_number ?? '');
+  const normalized = customerDocumentForCurrentDte(customer);
   const doc = normalized.documentNumber ? ` · ${normalized.documentType} ${normalized.documentNumber}` : '';
 
   return `${customer.name}${doc}`;
+}
+
+function customerDocumentForCurrentDte(customer: BillingCustomer): { documentType: string; documentNumber: string } {
+  const documentValue = isCreditoFiscal.value
+    ? customer.nit ?? customer.document_number ?? ''
+    : customer.document_number ?? customer.nit ?? '';
+  const documentType = isCreditoFiscal.value
+    ? '36'
+    : customer.document_type ?? (customer.nit && !customer.document_number ? '36' : '');
+
+  return normalizeCustomerDocument(documentType, documentValue);
 }
 
 function onlyDigits(value: string | null | undefined): string {
