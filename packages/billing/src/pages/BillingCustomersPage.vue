@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { CoreDteClient, type BillingCatalogs, type BillingContext, type BillingCustomer } from '@stelfaro/api-client';
-import { UiButton, UiCard, UiDataTable, UiLoadingMark, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
-import { BadgeCheck, CircleAlert, FileText, Pencil, RefreshCw, Trash2, UserPlus } from 'lucide-vue-next';
+import { UiActionDropdown, UiActionMenuItem, UiButton, UiCard, UiDataTable, UiLoadingMark, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
+import { BadgeCheck, CircleAlert, FileText, RefreshCw, UserPlus } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import BillingFiscalCustomerModal, { type BillingFiscalCustomerModalPayload } from '../components/BillingFiscalCustomerModal.vue';
@@ -416,20 +416,11 @@ function messageFromError(error): string {
               </UiStatusBadge>
             </td>
             <td class="px-4 py-3">
-              <div class="flex justify-end gap-2">
-                <UiButton size="sm" variant="secondary" @click="openEdit(customer)">
-                  <Pencil class="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  Editar
-                </UiButton>
-                <UiButton size="sm" variant="secondary" @click="openFiscal(customer)">
-                  <BadgeCheck class="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  Fiscal
-                </UiButton>
-                <UiButton size="sm" variant="ghost" :disabled="saving" @click="deactivateCustomer(customer)">
-                  <Trash2 class="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  Desactivar
-                </UiButton>
-              </div>
+              <UiActionDropdown :label="`Abrir acciones de ${customer.name}`" menu-width="w-48">
+                <UiActionMenuItem @select="openEdit(customer)">Editar</UiActionMenuItem>
+                <UiActionMenuItem @select="openFiscal(customer)">Datos fiscales</UiActionMenuItem>
+                <UiActionMenuItem tone="danger" :disabled="saving" @select="deactivateCustomer(customer)">Desactivar</UiActionMenuItem>
+              </UiActionDropdown>
             </td>
           </tr>
         </tbody>
