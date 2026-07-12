@@ -38,7 +38,7 @@ defineEmits<{
       <button
         v-if="showButton"
         type="button"
-        class="absolute right-1.5 top-1.5 h-9 rounded bg-sky-600 px-3 text-xs font-semibold leading-5 text-white shadow-sm transition hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+        class="absolute inset-y-1.5 right-1.5 inline-flex items-center justify-center rounded bg-sky-600 px-3 text-xs font-semibold leading-none text-white shadow-sm transition hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
         @click="$emit('search')"
       >
         {{ buttonLabel }}
