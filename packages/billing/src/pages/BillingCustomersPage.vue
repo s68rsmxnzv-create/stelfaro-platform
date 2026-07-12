@@ -2,7 +2,7 @@
 // @ts-nocheck
 import { CoreDteClient, type BillingCatalogs, type BillingContext, type BillingCustomer } from '@stelfaro/api-client';
 import { UiButton, UiCard, UiDataTable, UiLoadingMark, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
-import { BadgeCheck, CircleAlert, FileText, Pencil, RefreshCw, Trash2, UserPlus, Users } from 'lucide-vue-next';
+import { BadgeCheck, CircleAlert, FileText, Pencil, RefreshCw, Trash2, UserPlus } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import BillingFiscalCustomerModal, { type BillingFiscalCustomerModalPayload } from '../components/BillingFiscalCustomerModal.vue';
@@ -72,13 +72,6 @@ const distritoOptions = computed(() => distritos.value.map((item) => ({
   hint: item.code
 })));
 const actividadOptions = computed(() => actividadesEconomicas.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
-const stats = computed(() => ({
-  total: customers.value.length,
-  fe: customers.value.filter((customer) => isAllowed(customer, '01')).length,
-  ccf: customers.value.filter((customer) => isAllowed(customer, '03')).length,
-  pendingFiscal: customers.value.filter((customer) => isAllowed(customer, '01') && !isFiscalReady(customer)).length
-}));
-
 watch(() => props.authToken, () => {
   initialize();
 }, { immediate: true });
@@ -326,46 +319,7 @@ function messageFromError(error): string {
     <BillingFloatingToastStack :toasts="toasts" />
 
     <UiCard>
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div class="flex items-center gap-3">
-            <span class="grid h-11 w-11 place-items-center rounded-md bg-sky-600 text-white shadow-sm shadow-sky-950/20">
-              <Users class="h-6 w-6" aria-hidden="true" />
-            </span>
-            <div>
-              <h2 class="text-2xl font-bold tracking-tight text-slate-950 dark:text-text">Clientes</h2>
-              <p class="mt-1 text-sm text-slate-500 dark:text-muted">Gestiona clientes para consumidor final y crédito fiscal desde un solo registro.</p>
-            </div>
-          </div>
-        </div>
-        <UiButton :disabled="contextLoading || !selectedEmpresa" @click="openCreate">
-          <UserPlus class="mr-2 h-5 w-5" aria-hidden="true" />
-          Nuevo cliente
-        </UiButton>
-      </div>
-
-      <div class="mt-6 grid gap-3 md:grid-cols-4">
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 dark:border-line dark:bg-surface-muted">
-          <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Clientes visibles</p>
-          <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ stats.total }}</p>
-        </div>
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 dark:border-line dark:bg-surface-muted">
-          <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Consumidor final</p>
-          <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ stats.fe }}</p>
-        </div>
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 dark:border-line dark:bg-surface-muted">
-          <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Crédito fiscal</p>
-          <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ stats.ccf }}</p>
-        </div>
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 dark:border-line dark:bg-surface-muted">
-          <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Por completar fiscal</p>
-          <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ stats.pendingFiscal }}</p>
-        </div>
-      </div>
-    </UiCard>
-
-    <UiCard>
-      <div class="grid gap-3 lg:grid-cols-[220px_1fr_180px_auto]">
+      <div class="grid gap-3 lg:grid-cols-[220px_1fr_180px_auto_auto]">
         <UiSelect
           v-model.number="selectedEmpresaId"
           label="Empresa"
@@ -384,6 +338,12 @@ function messageFromError(error): string {
           <UiButton variant="secondary" :disabled="loading" @click="loadCustomers">
             <RefreshCw class="mr-2 h-5 w-5" aria-hidden="true" />
             Actualizar
+          </UiButton>
+        </div>
+        <div class="flex items-end">
+          <UiButton :disabled="contextLoading || !selectedEmpresa" @click="openCreate">
+            <UserPlus class="mr-2 h-5 w-5" aria-hidden="true" />
+            Nuevo cliente
           </UiButton>
         </div>
       </div>
