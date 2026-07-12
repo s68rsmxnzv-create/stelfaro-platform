@@ -14,6 +14,7 @@ const props = withDefaults(defineProps<{
 
 const open = ref(false);
 const root = ref<HTMLElement | null>(null);
+const trigger = ref<HTMLElement | null>(null);
 const menu = ref<HTMLElement | null>(null);
 const resolvedPlacement = ref<'bottom' | 'top'>('bottom');
 const menuStyle = ref<Record<string, string>>({});
@@ -52,7 +53,7 @@ function resolvePlacement(): void {
     return;
   }
 
-  const rect = root.value?.getBoundingClientRect();
+  const rect = trigger.value?.getBoundingClientRect();
   if (!rect) return;
 
   const menuHeight = menu.value?.offsetHeight ?? 160;
@@ -62,8 +63,10 @@ function resolvePlacement(): void {
 }
 
 function positionMenu(): void {
+  if (!open.value) return;
+
   nextTick(() => {
-    const rect = root.value?.getBoundingClientRect();
+    const rect = trigger.value?.getBoundingClientRect();
     const menuWidth = menu.value?.offsetWidth ?? 208;
     const menuHeight = menu.value?.offsetHeight ?? 160;
     if (!rect) return;
@@ -103,6 +106,7 @@ onBeforeUnmount(() => {
 <template>
   <div ref="root" class="relative flex justify-start md:justify-end">
     <button
+      ref="trigger"
       type="button"
       class="grid h-10 w-10 place-items-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-muted dark:shadow-none dark:hover:border-line-strong dark:hover:bg-surface-muted dark:hover:text-text dark:focus:ring-primary-soft"
       :aria-expanded="open ? 'true' : 'false'"
@@ -120,7 +124,7 @@ onBeforeUnmount(() => {
         menuWidth,
         resolvedPlacement === 'top' ? 'origin-bottom-right' : 'origin-top-right'
       ]"
-      :style="menuStyle"
+      :style="{ visibility: menuStyle.top ? 'visible' : 'hidden', ...menuStyle }"
       @click="close"
     >
       <slot />
