@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import AdminHomePage from './pages/AdminHomePage.vue';
+import AuditPage from './pages/AuditPage.vue';
 import FiscalCompaniesPage from './pages/FiscalCompaniesPage.vue';
 import FiscalOnboardingPage from './pages/FiscalOnboardingPage.vue';
 import MailTransportPage from './pages/MailTransportPage.vue';
@@ -14,6 +15,7 @@ export const router = createRouter({
     { path: '/empresas', name: 'companies', component: FiscalCompaniesPage },
     { path: '/tenants', redirect: '/empresas' },
     { path: '/subscriptions', name: 'subscriptions', component: SubscriptionsPage },
+    { path: '/audit', name: 'audit', component: AuditPage },
     { path: '/fiscal', redirect: '/empresas' },
     { path: '/fiscal/onboarding', name: 'fiscal-onboarding', component: FiscalOnboardingPage },
     { path: '/notifications/sender-aliases', name: 'sender-aliases', component: SenderAliasesPage },

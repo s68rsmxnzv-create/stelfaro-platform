@@ -218,6 +218,42 @@ export type PlatformTenantUsersResponse = {
   invitations: PlatformUserInvitation[];
 };
 
+export type PlatformAuditLog = {
+  id: string;
+  source: 'platform' | 'security' | string;
+  created_at: string | null;
+  action: string;
+  result: string | null;
+  severity: string | null;
+  status_code: number | null;
+  method: string | null;
+  url: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  resource_type: string | null;
+  resource_id: string | null;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+  } | null;
+  tenant: {
+    id: number;
+    name: string;
+    slug: string;
+  } | null;
+  metadata: Record<string, unknown> | null;
+};
+
+export type PlatformAuditLogsResponse = {
+  data: PlatformAuditLog[];
+  meta: {
+    limit: number;
+    total_returned: number;
+    source: string;
+  };
+};
+
 export type PlatformCatalogCategory = {
   id: number;
   tenant_id: number;
@@ -1593,6 +1629,10 @@ export class PlatformClient {
 
   globalUsers(): Promise<{ users: PlatformGlobalUser[] }> {
     return this.http.get('admin/platform/users').json();
+  }
+
+  auditLogs(params: { source?: string; q?: string; result?: string; date_from?: string; date_to?: string; limit?: number } = {}): Promise<PlatformAuditLogsResponse> {
+    return this.http.get('admin/platform/audit-logs', { searchParams: compactParams(params) }).json();
   }
 
   subscriptions(): Promise<PlatformSubscriptionsResponse> {
