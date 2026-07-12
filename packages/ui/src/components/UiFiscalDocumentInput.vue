@@ -104,21 +104,21 @@ function formatFiscalDocument(value: string): string {
 
 <template>
   <label class="block">
-    <span class="text-sm font-medium text-slate-700">{{ label }}</span>
+    <span class="text-sm font-medium text-slate-700 dark:text-muted">{{ label }}</span>
     <span class="relative mt-1 block">
       <input
         :value="modelValue ?? ''"
-        class="w-full rounded-md border border-slate-300 py-2 pl-3 pr-24 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+        class="h-12 w-full rounded-md border border-blue-100 bg-white/90 py-0 pl-3 pr-24 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised"
         :placeholder="placeholder"
         inputmode="numeric"
         maxlength="17"
         @input="formatInput"
       >
-      <span v-if="detected.valid" class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+      <span v-if="detected.valid" class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
         <span class="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-[10px]">✓</span>
         {{ detected.typeLabel }}
       </span>
     </span>
-    <span v-if="showMessage && !detected.valid && detected.message" class="mt-1 block text-xs text-slate-500">{{ detected.message }}</span>
+    <span v-if="showMessage && !detected.valid && detected.message" class="mt-1 block text-xs text-slate-500 dark:text-soft">{{ detected.message }}</span>
   </label>
 </template>

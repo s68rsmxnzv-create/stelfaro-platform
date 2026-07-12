@@ -44,7 +44,7 @@ function updateValue(event: Event): void {
         maxlength="9"
         :value="modelValue ?? ''"
         :placeholder="placeholder ?? '0000-0000'"
-        class="w-full rounded-md border border-blue-100 bg-white/90 py-2 pl-10 pr-3 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50 disabled:text-slate-500 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised dark:disabled:bg-surface-muted"
+        class="h-12 w-full rounded-md border border-blue-100 bg-white/90 py-0 pl-10 pr-3 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50 disabled:text-slate-500 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised dark:disabled:bg-surface-muted"
         @input="updateValue"
       >
     </span>

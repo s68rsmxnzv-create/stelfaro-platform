@@ -18,7 +18,7 @@ withDefaults(defineProps<{
   <button
     :type="type"
     :disabled="disabled || loading"
-    class="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold tracking-wide text-white transition-colors duration-200 hover:bg-sky-500 focus:outline-none focus:ring focus:ring-sky-300 focus:ring-opacity-80 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-primary-soft dark:text-white dark:hover:bg-primary"
+    class="inline-flex h-12 items-center justify-center rounded-lg bg-sky-600 px-4 text-sm font-semibold tracking-wide text-white transition-colors duration-200 hover:bg-sky-500 focus:outline-none focus:ring focus:ring-sky-300 focus:ring-opacity-80 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-primary-soft dark:text-white dark:hover:bg-primary"
   >
     <svg
       class="mr-2 h-5 w-5"
