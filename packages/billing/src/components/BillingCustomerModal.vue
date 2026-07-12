@@ -82,9 +82,6 @@ const title = computed(() => {
   if (props.mode === 'edit') return 'Editar cliente';
   return props.mode === 'new' ? 'Nuevo cliente' : 'Cliente rapido';
 });
-const description = computed(() => props.mode === 'edit'
-  ? 'Perfil completo del cliente para consumidor final y credito fiscal.'
-  : null);
 const documentRequired = computed(() => props.mode === 'new');
 const documentIsValid = computed(() => {
   if (!form.document.trim()) return !documentRequired.value;
@@ -209,7 +206,6 @@ function submit(): void {
     :open="open"
     eyebrow="Receptor"
     :title="title"
-    :description="description"
     :max-width="isEditMode ? 'max-w-3xl' : 'max-w-xl'"
     panel-as="form"
     :panel-class="isEditMode ? 'max-h-[92vh] overflow-hidden' : ''"
