@@ -2,7 +2,7 @@
 // @ts-nocheck
 import { CoreDteClient, type BillingCatalogs, type BillingContext, type BillingCustomer } from '@stelfaro/api-client';
 import { UiActionDropdown, UiActionMenuItem, UiButton, UiCard, UiDataTable, UiLoadingMark, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
-import { BadgeCheck, CircleAlert, FileText, RefreshCw, UserPlus } from 'lucide-vue-next';
+import { BadgeCheck, CircleAlert, FileText, Pencil, RefreshCw, Trash2, UserCog, UserPlus } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import BillingFiscalCustomerModal, { type BillingFiscalCustomerModalPayload } from '../components/BillingFiscalCustomerModal.vue';
@@ -417,9 +417,18 @@ function messageFromError(error): string {
             </td>
             <td class="px-4 py-3">
               <UiActionDropdown :label="`Abrir acciones de ${customer.name}`" menu-width="w-48">
-                <UiActionMenuItem @select="openEdit(customer)">Editar</UiActionMenuItem>
-                <UiActionMenuItem @select="openFiscal(customer)">Datos fiscales</UiActionMenuItem>
-                <UiActionMenuItem tone="danger" :disabled="saving" @select="deactivateCustomer(customer)">Desactivar</UiActionMenuItem>
+                <UiActionMenuItem @select="openEdit(customer)">
+                  <template #icon><Pencil class="h-5 w-5 text-sky-600" aria-hidden="true" /></template>
+                  Editar
+                </UiActionMenuItem>
+                <UiActionMenuItem @select="openFiscal(customer)">
+                  <template #icon><UserCog class="h-5 w-5 text-sky-600" aria-hidden="true" /></template>
+                  Datos fiscales
+                </UiActionMenuItem>
+                <UiActionMenuItem separated tone="danger" :disabled="saving" @select="deactivateCustomer(customer)">
+                  <template #icon><Trash2 class="h-5 w-5" aria-hidden="true" /></template>
+                  Desactivar
+                </UiActionMenuItem>
               </UiActionDropdown>
             </td>
           </tr>
