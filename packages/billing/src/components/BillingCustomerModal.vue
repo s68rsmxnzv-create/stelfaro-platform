@@ -3,7 +3,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import { UiButton, UiEmailInput, UiFiscalDocumentInput, UiInput, UiPhoneInput, UiSaveIcon, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
 import BillingModalShell from './BillingModalShell.vue';
 
-export type BillingCustomerModalMode = 'new' | 'quick';
+export type BillingCustomerModalMode = 'new' | 'quick' | 'edit';
 type SelectOption = {
   value: string;
   label: string;
@@ -65,7 +65,10 @@ const detection = reactive<FiscalDocumentDetection>({
   message: ''
 });
 
-const title = computed(() => props.mode === 'new' ? 'Nuevo cliente' : 'Cliente rapido');
+const title = computed(() => {
+  if (props.mode === 'edit') return 'Editar cliente';
+  return props.mode === 'new' ? 'Nuevo cliente' : 'Cliente rapido';
+});
 const documentRequired = computed(() => props.mode === 'new');
 const documentIsValid = computed(() => {
   if (!form.document.trim()) return !documentRequired.value;
@@ -181,9 +184,9 @@ function submit(): void {
     </div>
     <template #footer>
       <UiButton variant="secondary" type="button" @click="emit('close')">Cancelar</UiButton>
-      <UiButton :variant="mode === 'new' ? 'success' : 'primary'" type="submit" :disabled="!canSave">
-        <UiSaveIcon v-if="mode === 'new' && !loading" class="mr-2 h-5 w-5" />
-        <span>{{ loading ? 'Guardando...' : mode === 'new' ? 'Guardar cliente' : 'Usar cliente' }}</span>
+      <UiButton :variant="mode === 'quick' ? 'primary' : 'success'" type="submit" :disabled="!canSave">
+        <UiSaveIcon v-if="mode !== 'quick' && !loading" class="mr-2 h-5 w-5" />
+        <span>{{ loading ? 'Guardando...' : mode === 'quick' ? 'Usar cliente' : mode === 'edit' ? 'Guardar cambios' : 'Guardar cliente' }}</span>
       </UiButton>
     </template>
   </BillingModalShell>

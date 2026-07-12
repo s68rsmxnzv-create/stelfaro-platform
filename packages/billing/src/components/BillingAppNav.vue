@@ -274,6 +274,15 @@ function navigate(event, href) {
     </div>
 
     <a
+      :href="hrefFor('/clientes')"
+      class="rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
+      :class="module === 'customers' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
+      @click="navigate($event, hrefFor('/clientes'))"
+    >
+      Clientes
+    </a>
+
+    <a
       :href="hrefFor('/catalogo')"
       class="rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
       :class="module === 'catalog' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"

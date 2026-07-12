@@ -7,6 +7,7 @@ import BillingAppNav from '../components/BillingAppNav.vue';
 import BillingHelpModal from '../components/BillingHelpModal.vue';
 import BillingTooltip from '../components/BillingTooltip.vue';
 import BillingCompanySettingsPage from './BillingCompanySettingsPage.vue';
+import BillingCustomersPage from './BillingCustomersPage.vue';
 import CatalogPage from './CatalogPage.vue';
 import BillingDashboardPage from './BillingDashboardPage.vue';
 import BillingOperationalPlaceholderPage from './BillingOperationalPlaceholderPage.vue';
@@ -218,6 +219,7 @@ const moduleComponents = {
   dashboard: BillingDashboardPage,
   'operational-placeholder': BillingOperationalPlaceholderPage,
   billing: BillingWorkspace,
+  customers: BillingCustomersPage,
   catalog: CatalogPage,
   inventory: InventoryPage,
   artifacts: DteArtifactsPage,
@@ -306,6 +308,7 @@ const pageTitle = computed(() => {
   }
 
   if (props.module === 'catalog') return 'Catálogo';
+  if (props.module === 'customers') return 'Clientes';
   if (props.module === 'inventory') return 'Inventario';
 
   if (props.module === 'mh-events') {

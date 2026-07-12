@@ -2002,6 +2002,10 @@ export class CoreDteClient {
     return this.http.patch(`billing/customers/${customerId}`, { json: payload }).json();
   }
 
+  deleteCustomer(customerId: number): Promise<void> {
+    return this.http.delete(`billing/customers/${customerId}`).then(() => undefined);
+  }
+
   previewCorrelativo(payload: CorrelativoRequest): Promise<CorrelativoReservation> {
     return this.http.post('billing/correlativos/preview', { json: payload }).json();
   }
