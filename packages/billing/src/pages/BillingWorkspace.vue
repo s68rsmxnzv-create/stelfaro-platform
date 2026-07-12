@@ -101,6 +101,7 @@ const selectedSourceDocument = ref<DteDraftSummary | null>(null);
 const catalogLineSuggestions = ref<PlatformCatalogItem[]>([]);
 const catalogLineSuggestionsOpen = ref(false);
 const catalogLineLoading = ref(false);
+let catalogLineSearchToken = 0;
 const customerModalMode = ref<'new' | 'quick' | null>(null);
 const fiscalCustomerModalOpen = ref(false);
 const sujetoExcluidoModalOpen = ref(false);
@@ -2096,13 +2097,13 @@ function scheduleCatalogLineSearch(value: string): void {
   clearCatalogLineSearchTimer();
 
   if (!canUseCatalogLineSearch.value || value.trim().length < 2) {
-    catalogLineSuggestions.value = [];
-    catalogLineSuggestionsOpen.value = false;
+    resetCatalogLineSuggestions();
     return;
   }
 
+  const token = ++catalogLineSearchToken;
   catalogLineSearchTimer = window.setTimeout(() => {
-    void loadCatalogLineSuggestions(value);
+    void loadCatalogLineSuggestions(value, token);
   }, 220);
 }
 
@@ -2113,7 +2114,14 @@ function clearCatalogLineSearchTimer(): void {
   }
 }
 
-async function loadCatalogLineSuggestions(value: string): Promise<void> {
+function resetCatalogLineSuggestions(): void {
+  catalogLineSearchToken += 1;
+  catalogLineSuggestions.value = [];
+  catalogLineSuggestionsOpen.value = false;
+  catalogLineLoading.value = false;
+}
+
+async function loadCatalogLineSuggestions(value: string, token: number): Promise<void> {
   const query = value.trim();
   if (!platformTenantId.value || query.length < 2) return;
 
@@ -2124,13 +2132,20 @@ async function loadCatalogLineSuggestions(value: string): Promise<void> {
       status: 'active',
       per_page: 8,
     });
+    if (token !== catalogLineSearchToken || normalizedLineSearchText(draftLine.value.description) !== normalizedLineSearchText(query)) {
+      return;
+    }
+
     catalogLineSuggestions.value = response.data;
     catalogLineSuggestionsOpen.value = true;
   } catch {
-    catalogLineSuggestions.value = [];
-    catalogLineSuggestionsOpen.value = false;
+    if (token === catalogLineSearchToken) {
+      resetCatalogLineSuggestions();
+    }
   } finally {
-    catalogLineLoading.value = false;
+    if (token === catalogLineSearchToken) {
+      catalogLineLoading.value = false;
+    }
   }
 }
 
@@ -2150,8 +2165,7 @@ function selectCatalogItemForDraft(item: PlatformCatalogItem): void {
     controlsInventory: item.controls_inventory,
     itemPriceIncludesIva: item.base_price_includes_tax,
   };
-  catalogLineSuggestions.value = [];
-  catalogLineSuggestionsOpen.value = false;
+  resetCatalogLineSuggestions();
 }
 
 function closeCatalogLineSuggestions(): void {
@@ -2191,6 +2205,7 @@ function addLine(): void {
     sourceLine: false,
   }];
   draftLine.value = newInvoiceLine();
+  resetCatalogLineSuggestions();
   error.value = null;
 }
 
