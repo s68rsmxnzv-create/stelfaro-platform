@@ -1101,6 +1101,11 @@ async function issueDocument(): Promise<void> {
   let keepInventoryReservation = false;
 
   try {
+    if (!await refreshSelectedCustomerForIssue()) {
+      currentIssueIdempotencyKey = null;
+      return;
+    }
+
     const payload = buildPayloadOrNull(correlativoPreview.value ?? {
       correlativo_id: 0,
       correlativo: 1,
@@ -1181,6 +1186,27 @@ async function confirmZeroValueLineWarning(): Promise<void> {
   zeroValueLineWarningOpen.value = false;
   zeroValueLineWarningConfirmed.value = true;
   await issueDocument();
+}
+
+async function refreshSelectedCustomerForIssue(): Promise<boolean> {
+  if (!selectedCustomerId.value) {
+    return true;
+  }
+
+  try {
+    const response = await client.value.customer(selectedCustomerId.value);
+    applyCustomer(response.customer);
+
+    if (isCreditoFiscal.value && !isCustomerReadyForCreditoFiscal(response.customer)) {
+      error.value = 'Completa los datos fiscales actualizados del cliente antes de emitir CCF.';
+      return false;
+    }
+
+    return true;
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible actualizar los datos del cliente seleccionado.';
+    return false;
+  }
 }
 
 function issueIdempotencyKey(): string {

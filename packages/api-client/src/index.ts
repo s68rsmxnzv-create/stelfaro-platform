@@ -1994,6 +1994,10 @@ export class CoreDteClient {
     }).json();
   }
 
+  customer(customerId: number): Promise<{ customer: BillingCustomer }> {
+    return this.http.get(`billing/customers/${customerId}`).json();
+  }
+
   saveCustomer(payload: Partial<BillingCustomer> & { empresa_id: number; name: string }): Promise<{ customer: BillingCustomer }> {
     return this.http.post('billing/customers', { json: payload }).json();
   }
