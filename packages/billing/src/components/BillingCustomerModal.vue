@@ -16,10 +16,16 @@ export type BillingCustomerModalPayload = {
   document_number: string | null;
   email: string | null;
   phone: string | null;
+  nit?: string | null;
+  nrc?: string | null;
+  cod_actividad?: string | null;
+  desc_actividad?: string | null;
+  nombre_comercial?: string | null;
   departamento?: string | null;
   municipio?: string | null;
   distrito?: string | null;
   direccion_complemento?: string | null;
+  allowed_dte_codes?: string[];
 };
 
 const props = withDefaults(defineProps<{
@@ -27,12 +33,14 @@ const props = withDefaults(defineProps<{
   mode: BillingCustomerModalMode;
   loading?: boolean;
   initialValue?: Partial<BillingCustomerModalPayload> | null;
+  actividadOptions?: SelectOption[];
   departamentoOptions?: SelectOption[];
   municipioOptions?: SelectOption[];
   distritoOptions?: SelectOption[];
 }>(), {
   loading: false,
   initialValue: null,
+  actividadOptions: () => [],
   departamentoOptions: () => [],
   municipioOptions: () => [],
   distritoOptions: () => []
@@ -50,12 +58,16 @@ const form = reactive({
   document: '',
   email: '',
   phone: '',
+  nombreComercial: '',
+  nrc: '',
+  actividad: '',
   departamento: '',
   municipio: '',
   distrito: '',
   direccion: ''
 });
 const showAddress = ref(false);
+const commercialNameTouched = ref(false);
 const hydrating = ref(false);
 
 const detection = reactive<FiscalDocumentDetection>({
@@ -70,25 +82,64 @@ const title = computed(() => {
   if (props.mode === 'edit') return 'Editar cliente';
   return props.mode === 'new' ? 'Nuevo cliente' : 'Cliente rapido';
 });
+const description = computed(() => props.mode === 'edit'
+  ? 'Perfil completo del cliente para consumidor final y credito fiscal.'
+  : null);
 const documentRequired = computed(() => props.mode === 'new');
 const documentIsValid = computed(() => {
   if (!form.document.trim()) return !documentRequired.value;
-  return detection.valid;
+  const digits = form.document.replace(/\D+/g, '');
+  return detection.valid || digits.length === 9 || digits.length === 14;
 });
-const canSave = computed(() => Boolean(form.name.trim()) && documentIsValid.value && !props.loading);
+const selectedActividad = computed(() => props.actividadOptions.find((option) => option.value === form.actividad) ?? null);
+const isEditMode = computed(() => props.mode === 'edit');
+const hasFiscalIntent = computed(() => Boolean(
+  isEditMode.value
+  && (
+    form.nrc.trim()
+    || form.actividad.trim()
+    || (props.initialValue?.allowed_dte_codes ?? []).includes('03')
+  )
+));
+const fiscalComplete = computed(() => Boolean(
+  !hasFiscalIntent.value
+  || (
+    documentIsValid.value
+    && form.nrc.trim()
+    && form.actividad.trim()
+    && selectedActividad.value
+    && form.departamento.trim()
+    && form.municipio.trim()
+    && form.distrito.trim()
+    && form.direccion.trim()
+    && form.email.trim()
+    && form.phone.trim()
+  )
+));
+const commercialNameNeedsReview = computed(() => Boolean(
+  isEditMode.value
+  && !commercialNameTouched.value
+  && form.nombreComercial.trim() !== ''
+  && form.nombreComercial.trim() === form.name.trim()
+));
+const canSave = computed(() => Boolean(form.name.trim()) && documentIsValid.value && fiscalComplete.value && !props.loading);
 
 watch(() => props.open, (open) => {
   if (!open) return;
   hydrating.value = true;
+  commercialNameTouched.value = false;
   form.name = props.initialValue?.name ?? '';
   form.document = props.initialValue?.document_number ?? '';
   form.email = props.initialValue?.email ?? '';
   form.phone = props.initialValue?.phone ?? '';
+  form.nombreComercial = props.initialValue?.nombre_comercial ?? '';
+  form.nrc = props.initialValue?.nrc ?? '';
+  form.actividad = props.initialValue?.cod_actividad ?? '';
   form.departamento = props.initialValue?.departamento ?? '';
   form.municipio = props.initialValue?.municipio ?? '';
   form.distrito = props.initialValue?.distrito ?? '';
   form.direccion = props.initialValue?.direccion_complemento ?? '';
-  showAddress.value = Boolean(form.departamento || form.municipio || form.distrito || form.direccion);
+  showAddress.value = isEditMode.value || Boolean(form.departamento || form.municipio || form.distrito || form.direccion);
   nextTick(() => {
     hydrating.value = false;
   });
@@ -117,19 +168,38 @@ function updateDetection(value: FiscalDocumentDetection): void {
   detection.message = value.message;
 }
 
+function updateCommercialName(value: string): void {
+  commercialNameTouched.value = true;
+  form.nombreComercial = value;
+}
+
 function submit(): void {
   if (!canSave.value) return;
 
+  const documentDigits = form.document.replace(/\D+/g, '');
+  const activity = selectedActividad.value;
+  const allowedDteCodes = new Set(props.initialValue?.allowed_dte_codes ?? []);
+  if (hasFiscalIntent.value && fiscalComplete.value) {
+    allowedDteCodes.add('03');
+    allowedDteCodes.add('01');
+  }
+
   emit('save', {
     name: form.name.trim(),
-    document_type: form.document.trim() === '' ? null : detection.typeLabel === 'NIT' ? '36' : '13',
-    document_number: form.document.trim() === '' ? null : form.document.replace(/\D+/g, ''),
+    document_type: form.document.trim() === '' ? null : detection.typeLabel === 'NIT' || documentDigits.length === 14 ? '36' : '13',
+    document_number: form.document.trim() === '' ? null : documentDigits,
     email: form.email.trim() || null,
     phone: form.phone.trim() || null,
+    nit: hasFiscalIntent.value ? documentDigits || null : props.initialValue?.nit ?? null,
+    nrc: hasFiscalIntent.value ? form.nrc.replace(/\D+/g, '') || null : props.initialValue?.nrc ?? null,
+    cod_actividad: hasFiscalIntent.value ? form.actividad || null : props.initialValue?.cod_actividad ?? null,
+    desc_actividad: hasFiscalIntent.value ? activity?.label ?? null : props.initialValue?.desc_actividad ?? null,
+    nombre_comercial: isEditMode.value ? form.nombreComercial.trim() || null : props.initialValue?.nombre_comercial ?? null,
     departamento: showAddress.value ? form.departamento || null : null,
     municipio: showAddress.value ? form.municipio || null : null,
     distrito: showAddress.value && form.distrito ? form.distrito.replace(/\D+/g, '').padStart(2, '0') : null,
-    direccion_complemento: showAddress.value ? form.direccion.trim() || null : null
+    direccion_complemento: showAddress.value ? form.direccion.trim() || null : null,
+    allowed_dte_codes: isEditMode.value ? Array.from(allowedDteCodes) : undefined
   });
 }
 </script>
@@ -139,23 +209,53 @@ function submit(): void {
     :open="open"
     eyebrow="Receptor"
     :title="title"
-    max-width="max-w-xl"
+    :description="description"
+    :max-width="isEditMode ? 'max-w-3xl' : 'max-w-xl'"
     panel-as="form"
-    body-class="grid gap-4 px-5 py-5"
+    :panel-class="isEditMode ? 'max-h-[92vh] overflow-hidden' : ''"
+    :body-class="isEditMode ? 'grid min-h-0 gap-4 overflow-y-auto px-5 py-5' : 'grid gap-4 px-5 py-5'"
     @close="emit('close')"
     @submit="submit"
   >
-    <UiInput v-model="form.name" :label="mode === 'quick' ? 'Nombre en factura' : 'Nombre del cliente'" />
-    <UiFiscalDocumentInput
-      v-model="form.document"
-      :label="documentRequired ? 'DUI/NIT del cliente' : 'DUI/NIT del cliente (opcional)'"
-      @detected="updateDetection"
+    <div class="grid gap-4" :class="isEditMode ? 'md:grid-cols-2' : ''">
+      <UiInput v-model="form.name" :label="mode === 'quick' ? 'Nombre en factura' : 'Nombre del cliente'" />
+      <div v-if="isEditMode">
+        <UiInput
+          :model-value="form.nombreComercial"
+          label="Nombre comercial"
+          :class="commercialNameNeedsReview ? 'border-orange-300 bg-orange-50 text-orange-950 focus:border-orange-500 focus:ring-orange-100 dark:border-orange-400/70 dark:bg-orange-950/25 dark:text-orange-100' : ''"
+          @update:model-value="updateCommercialName"
+        />
+        <p v-if="commercialNameNeedsReview" class="mt-1 text-xs font-medium text-orange-700 dark:text-orange-300">
+          Se completo con el nombre del cliente. Cambialo si la tarjeta muestra otro nombre comercial.
+        </p>
+      </div>
+    </div>
+
+    <div class="grid gap-4 md:grid-cols-2">
+      <UiFiscalDocumentInput
+        v-model="form.document"
+        :label="documentRequired ? 'DUI/NIT del cliente' : 'DUI/NIT del cliente (opcional)'"
+        @detected="updateDetection"
+      />
+      <UiInput v-if="isEditMode" v-model="form.nrc" label="NRC" />
+    </div>
+
+    <UiSearchSelect
+      v-if="isEditMode"
+      v-model="form.actividad"
+      label="Actividad economica"
+      :options="actividadOptions"
+      placeholder="Buscar por codigo o descripcion"
     />
+
     <div class="grid gap-4 sm:grid-cols-2">
       <UiEmailInput v-model="form.email" label="Correo" />
       <UiPhoneInput v-model="form.phone" label="Telefono" />
     </div>
+
     <button
+      v-if="!isEditMode"
       type="button"
       class="text-left text-sm font-semibold text-sky-700 transition hover:text-sky-600 dark:text-primary"
       @click="showAddress = !showAddress"
@@ -163,6 +263,7 @@ function submit(): void {
       {{ showAddress ? 'Ocultar direccion opcional' : 'Agregar direccion opcional' }}
     </button>
     <div v-if="showAddress" class="grid gap-4 rounded-md border border-blue-100 bg-blue-50/40 p-4 dark:border-line dark:bg-surface-muted">
+      <p v-if="isEditMode" class="text-sm font-semibold text-slate-700 dark:text-muted">Direccion</p>
       <div class="grid gap-4 md:grid-cols-2">
         <UiSearchSelect
           v-model="form.departamento"
@@ -187,6 +288,11 @@ function submit(): void {
       />
       <UiInput v-model="form.direccion" label="Direccion" />
     </div>
+
+    <p v-if="isEditMode && hasFiscalIntent && !fiscalComplete" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800 dark:bg-warning-soft dark:text-warning">
+      Para usar este cliente en Credito Fiscal completa NIT/DUI, NRC, actividad, direccion, correo y telefono.
+    </p>
+
     <template #footer>
       <UiButton variant="secondary" type="button" @click="emit('close')">Cancelar</UiButton>
       <UiButton :variant="mode === 'quick' ? 'primary' : 'success'" type="submit" :disabled="!canSave">

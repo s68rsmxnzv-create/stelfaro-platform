@@ -3,10 +3,9 @@
 import { CoreDteClient, type BillingCatalogs, type BillingContext, type BillingCustomer, type DteDraftSummary, type PaginationMeta } from '@stelfaro/api-client';
 import { currency, fiscalDateTime } from '@stelfaro/shared';
 import { UiActionDropdown, UiActionMenuItem, UiButton, UiCard, UiDataTable, UiLoadingMark, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
-import { BadgeCheck, CircleAlert, FileJson, FileText, History, Pencil, RefreshCw, Trash2, UserCog, UserPlus } from 'lucide-vue-next';
+import { BadgeCheck, CircleAlert, FileJson, FileText, History, Pencil, RefreshCw, Trash2, UserPlus } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
-import BillingFiscalCustomerModal, { type BillingFiscalCustomerModalPayload } from '../components/BillingFiscalCustomerModal.vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
 import BillingModalShell from '../components/BillingModalShell.vue';
 import { getBillingCatalogs, getBillingContext, peekBillingCatalogs, peekBillingContext } from '../support/billingDataCache';
@@ -42,8 +41,6 @@ const filters = ref({
 const customerModalOpen = ref(false);
 const customerModalMode = ref<'new' | 'edit'>('new');
 const editingCustomer = ref<BillingCustomer | null>(null);
-const fiscalCustomerModalOpen = ref(false);
-const fiscalCustomerTarget = ref<BillingCustomer | null>(null);
 const historyModalOpen = ref(false);
 const historyCustomer = ref<BillingCustomer | null>(null);
 const historyDocuments = ref<DteDraftSummary[]>([]);
@@ -172,13 +169,6 @@ function openEdit(customer: BillingCustomer): void {
   customerModalOpen.value = true;
 }
 
-function openFiscal(customer: BillingCustomer): void {
-  fiscalCustomerTarget.value = customer;
-  modalDepartamento.value = customer.departamento ?? '';
-  modalMunicipio.value = customer.municipio ?? '';
-  fiscalCustomerModalOpen.value = true;
-}
-
 function openHistory(customer: BillingCustomer): void {
   const document = customerHistoryDocument(customer);
   if (!document) {
@@ -275,10 +265,16 @@ async function saveCustomer(payload: BillingCustomerModalPayload): Promise<void>
         phone: payload.phone,
         document_type: payload.document_type,
         document_number: payload.document_number,
+        nit: payload.nit,
+        nrc: payload.nrc,
+        cod_actividad: payload.cod_actividad,
+        desc_actividad: payload.desc_actividad,
+        nombre_comercial: payload.nombre_comercial,
         departamento: payload.departamento,
         municipio: payload.municipio,
         distrito: payload.distrito,
-        direccion_complemento: payload.direccion_complemento
+        direccion_complemento: payload.direccion_complemento,
+        allowed_dte_codes: payload.allowed_dte_codes
       });
       notify('Cliente actualizado', 'Los cambios quedaron guardados.', 'success');
     } else {
@@ -294,23 +290,6 @@ async function saveCustomer(payload: BillingCustomerModalPayload): Promise<void>
     await loadCustomers();
   } catch (error) {
     notify('No se pudo guardar el cliente', messageFromError(error), 'error');
-  } finally {
-    saving.value = false;
-  }
-}
-
-async function saveFiscalCustomer(payload: BillingFiscalCustomerModalPayload): Promise<void> {
-  if (!selectedEmpresa.value || !fiscalCustomerTarget.value) return;
-
-  saving.value = true;
-  try {
-    await client.value.updateCustomer(fiscalCustomerTarget.value.id, payload);
-    notify('Datos fiscales guardados', 'El cliente ya puede usarse para Crédito Fiscal.', 'success');
-    fiscalCustomerModalOpen.value = false;
-    fiscalCustomerTarget.value = null;
-    await loadCustomers();
-  } catch (error) {
-    notify('No se pudieron guardar los datos fiscales', messageFromError(error), 'error');
   } finally {
     saving.value = false;
   }
@@ -340,31 +319,16 @@ function customerInitialValue(customer: BillingCustomer | null): Partial<Billing
     document_number: formatFiscalDocument(customer.document_number ?? customer.nit ?? ''),
     email: customer.email,
     phone: customer.phone,
+    nit: customer.nit,
+    nrc: customer.nrc,
+    cod_actividad: customer.cod_actividad,
+    desc_actividad: customer.desc_actividad,
+    nombre_comercial: customer.nombre_comercial,
     departamento: customer.departamento,
     municipio: customer.municipio,
     distrito: customer.distrito,
-    direccion_complemento: customer.direccion_complemento
-  };
-}
-
-function fiscalInitialValue(customer: BillingCustomer | null): Partial<BillingFiscalCustomerModalPayload> | null {
-  if (!customer) return null;
-
-  return {
-    name: customer.name,
-    document_type: '36',
-    document_number: customer.nit ?? customer.document_number ?? '',
-    nit: customer.nit ?? customer.document_number ?? '',
-    nrc: customer.nrc ?? '',
-    cod_actividad: customer.cod_actividad ?? '',
-    desc_actividad: customer.desc_actividad ?? '',
-    nombre_comercial: customer.nombre_comercial ?? customer.name,
-    departamento: customer.departamento ?? '',
-    municipio: customer.municipio ?? '',
-    distrito: customer.distrito ?? '',
-    direccion_complemento: customer.direccion_complemento ?? '',
-    email: customer.email ?? '',
-    phone: customer.phone ?? ''
+    direccion_complemento: customer.direccion_complemento,
+    allowed_dte_codes: customer.allowed_dte_codes
   };
 }
 
@@ -598,10 +562,6 @@ function messageFromError(error): string {
                   <template #icon><Pencil class="h-5 w-5 text-sky-600" aria-hidden="true" /></template>
                   Editar
                 </UiActionMenuItem>
-                <UiActionMenuItem @select="openFiscal(customer)">
-                  <template #icon><UserCog class="h-5 w-5 text-sky-600" aria-hidden="true" /></template>
-                  Datos fiscales
-                </UiActionMenuItem>
                 <UiActionMenuItem @select="openHistory(customer)">
                   <template #icon><History class="h-5 w-5 text-sky-600" aria-hidden="true" /></template>
                   Historial de facturación
@@ -622,25 +582,12 @@ function messageFromError(error): string {
       :mode="customerModalMode"
       :loading="saving"
       :initial-value="customerInitialValue(editingCustomer)"
+      :actividad-options="actividadOptions"
       :departamento-options="departamentoOptions"
       :municipio-options="municipioOptions"
       :distrito-options="distritoOptions"
       @close="customerModalOpen = false"
       @save="saveCustomer"
-      @update:departamento="modalDepartamento = $event"
-      @update:municipio="modalMunicipio = $event"
-    />
-
-    <BillingFiscalCustomerModal
-      :open="fiscalCustomerModalOpen"
-      :loading="saving"
-      :initial-value="fiscalInitialValue(fiscalCustomerTarget)"
-      :actividad-options="actividadOptions"
-      :departamento-options="departamentoOptions"
-      :municipio-options="municipioOptions"
-      :distrito-options="distritoOptions"
-      @close="fiscalCustomerModalOpen = false"
-      @save="saveFiscalCustomer"
       @update:departamento="modalDepartamento = $event"
       @update:municipio="modalMunicipio = $event"
     />
