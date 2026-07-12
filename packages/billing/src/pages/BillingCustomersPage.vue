@@ -1,12 +1,14 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { CoreDteClient, type BillingCatalogs, type BillingContext, type BillingCustomer } from '@stelfaro/api-client';
+import { CoreDteClient, type BillingCatalogs, type BillingContext, type BillingCustomer, type DteDraftSummary, type PaginationMeta } from '@stelfaro/api-client';
+import { currency, fiscalDateTime } from '@stelfaro/shared';
 import { UiActionDropdown, UiActionMenuItem, UiButton, UiCard, UiDataTable, UiLoadingMark, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
-import { BadgeCheck, CircleAlert, FileText, Pencil, RefreshCw, Trash2, UserCog, UserPlus } from 'lucide-vue-next';
+import { BadgeCheck, CircleAlert, FileJson, FileText, History, Pencil, RefreshCw, Trash2, UserCog, UserPlus } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import BillingFiscalCustomerModal, { type BillingFiscalCustomerModalPayload } from '../components/BillingFiscalCustomerModal.vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
+import BillingModalShell from '../components/BillingModalShell.vue';
 import { getBillingCatalogs, getBillingContext, peekBillingCatalogs, peekBillingContext } from '../support/billingDataCache';
 
 type SelectOption = {
@@ -42,10 +44,19 @@ const customerModalMode = ref<'new' | 'edit'>('new');
 const editingCustomer = ref<BillingCustomer | null>(null);
 const fiscalCustomerModalOpen = ref(false);
 const fiscalCustomerTarget = ref<BillingCustomer | null>(null);
+const historyModalOpen = ref(false);
+const historyCustomer = ref<BillingCustomer | null>(null);
+const historyDocuments = ref<DteDraftSummary[]>([]);
+const historyMeta = ref<PaginationMeta | null>(null);
+const historyPage = ref(1);
+const historyLoading = ref(false);
+const openingPdfId = ref<number | null>(null);
+const openingJsonId = ref<number | null>(null);
 const modalDepartamento = ref('');
 const modalMunicipio = ref('');
 const toasts = ref([]);
 let searchTimer: ReturnType<typeof window.setTimeout> | null = null;
+const historyPageSize = 8;
 
 const empresas = computed(() => context.value?.empresas ?? []);
 const selectedEmpresa = computed(() => empresas.value.find((empresa) => Number(empresa.id) === Number(selectedEmpresaId.value)) ?? empresas.value[0] ?? null);
@@ -166,6 +177,90 @@ function openFiscal(customer: BillingCustomer): void {
   modalDepartamento.value = customer.departamento ?? '';
   modalMunicipio.value = customer.municipio ?? '';
   fiscalCustomerModalOpen.value = true;
+}
+
+function openHistory(customer: BillingCustomer): void {
+  const document = customerHistoryDocument(customer);
+  if (!document) {
+    notify('Sin documento', 'Agrega DUI o NIT para buscar el historial de facturacion.', 'error');
+    return;
+  }
+
+  historyCustomer.value = customer;
+  historyDocuments.value = [];
+  historyMeta.value = null;
+  historyPage.value = 1;
+  historyModalOpen.value = true;
+  void loadCustomerHistory();
+}
+
+async function loadCustomerHistory(): Promise<void> {
+  if (!selectedEmpresa.value || !historyCustomer.value) return;
+
+  const document = customerHistoryDocument(historyCustomer.value);
+  if (!document) return;
+
+  historyLoading.value = true;
+  try {
+    const response = await client.value.documents({
+      empresa_id: selectedEmpresa.value.id,
+      receptor_document: document,
+      estado: 'accepted',
+      limit: historyPageSize,
+      page: historyPage.value
+    });
+    historyDocuments.value = response.data;
+    historyMeta.value = response.meta ?? null;
+  } catch (error) {
+    historyDocuments.value = [];
+    notify('No se pudo cargar el historial', messageFromError(error), 'error');
+  } finally {
+    historyLoading.value = false;
+  }
+}
+
+function goToHistoryPage(page: number): void {
+  const lastPage = historyMeta.value?.last_page ?? 1;
+  const nextPage = Math.min(Math.max(page, 1), lastPage);
+  if (nextPage === historyPage.value) return;
+
+  historyPage.value = nextPage;
+  void loadCustomerHistory();
+}
+
+async function openHistoryPdf(document: DteDraftSummary): Promise<void> {
+  const target = window.open('about:blank', '_blank');
+  openingPdfId.value = document.id;
+  try {
+    const pdf = await client.value.graphicRepresentationPdf(document.id);
+    openBlob(target, pdf, 'PDF');
+  } catch (error) {
+    if (target) target.close();
+    notify('No se pudo abrir el PDF', messageFromError(error), 'error');
+  } finally {
+    openingPdfId.value = null;
+  }
+}
+
+async function openHistoryJson(document: DteDraftSummary): Promise<void> {
+  const target = window.open('about:blank', '_blank');
+  openingJsonId.value = document.id;
+  try {
+    const detail = await client.value.document(document.id);
+    const payload = detail.payload ?? detail.dte_json;
+    if (!payload) {
+      if (target) target.close();
+      notify('JSON no disponible', 'Este comprobante no tiene JSON para mostrar.', 'error');
+      return;
+    }
+
+    openJsonBlob(target, clientDteJson(detail, payload));
+  } catch (error) {
+    if (target) target.close();
+    notify('No se pudo abrir el JSON', messageFromError(error), 'error');
+  } finally {
+    openingJsonId.value = null;
+  }
 }
 
 async function saveCustomer(payload: BillingCustomerModalPayload): Promise<void> {
@@ -302,6 +397,88 @@ function customerContactLabel(customer: BillingCustomer): string {
   return [customer.email, customer.phone].filter(Boolean).join(' · ') || 'Sin contacto';
 }
 
+function customerHistoryDocument(customer: BillingCustomer): string {
+  return String(customer.document_number ?? customer.nit ?? '').replace(/\D+/g, '');
+}
+
+function typeLabel(code: string): string {
+  const labels: Record<string, string> = {
+    '01': 'Factura electronica',
+    '03': 'Credito fiscal',
+    '05': 'Nota de credito',
+    '06': 'Nota de debito',
+    '14': 'Sujeto excluido'
+  };
+
+  return labels[code] ?? code;
+}
+
+function statusTone(status: string): 'success' | 'warning' | 'danger' | 'neutral' | 'info' {
+  const normalized = String(status || '').toLowerCase();
+  if (['accepted', 'received_by_mh'].includes(normalized)) return 'success';
+  if (['rejected', 'failed'].includes(normalized)) return 'danger';
+  if (['draft', 'ready_to_sign', 'signed', 'sent'].includes(normalized)) return 'warning';
+
+  return 'neutral';
+}
+
+function statusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    accepted: 'Aceptado',
+    received_by_mh: 'Aceptado',
+    rejected: 'Rechazado',
+    draft: 'Borrador',
+    ready_to_sign: 'Listo',
+    signed: 'Firmado',
+    sent: 'Enviado'
+  };
+
+  return labels[status] ?? status;
+}
+
+function historyTotal(): number {
+  return historyDocuments.value.reduce((total, document) => total + Number(document.totalPagar ?? 0), 0);
+}
+
+function openBlob(target: Window | null, blob: Blob, label: string): void {
+  const url = URL.createObjectURL(blob);
+
+  if (target) {
+    target.location.href = url;
+    target.focus();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return;
+  }
+
+  URL.revokeObjectURL(url);
+  notify(`No se pudo abrir ${label}`, 'El navegador bloqueo la nueva pestana.', 'error');
+}
+
+function openJsonBlob(target: Window | null, payload: Record<string, unknown>): void {
+  const json = JSON.stringify(payload, null, 2);
+  openBlob(target, new Blob([json], { type: 'application/json;charset=utf-8' }), 'JSON');
+}
+
+function clientDteJson(detail: DteDraftSummary, payload: Record<string, unknown>): Record<string, unknown> {
+  const bundle = asRecord(detail.signed_bundle);
+  const bundlePayload = asRecord(bundle.payload);
+  const dte = Object.keys(bundlePayload).length > 0 ? bundlePayload : payload;
+
+  return {
+    ...dte,
+    firmaElectronica: stringValue(detail.signedDocument ?? bundle.firmaElectronica ?? bundle.firma),
+    selloRecibido: stringValue(detail.selloRecibido ?? bundle.selloRecibido),
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() !== '' ? value : null;
+}
+
 function formatFiscalDocument(value: string): string {
   const digits = String(value || '').replace(/\D+/g, '').slice(0, 14);
   if (digits.length <= 8) return digits;
@@ -425,6 +602,10 @@ function messageFromError(error): string {
                   <template #icon><UserCog class="h-5 w-5 text-sky-600" aria-hidden="true" /></template>
                   Datos fiscales
                 </UiActionMenuItem>
+                <UiActionMenuItem @select="openHistory(customer)">
+                  <template #icon><History class="h-5 w-5 text-sky-600" aria-hidden="true" /></template>
+                  Historial de facturación
+                </UiActionMenuItem>
                 <UiActionMenuItem separated tone="danger" :disabled="saving" @select="deactivateCustomer(customer)">
                   <template #icon><Trash2 class="h-5 w-5" aria-hidden="true" /></template>
                   Desactivar
@@ -463,5 +644,87 @@ function messageFromError(error): string {
       @update:departamento="modalDepartamento = $event"
       @update:municipio="modalMunicipio = $event"
     />
+
+    <BillingModalShell
+      :open="historyModalOpen"
+      eyebrow="CLIENTE"
+      title="Historial de facturación"
+      :description="historyCustomer ? `${historyCustomer.name} · ${customerDocumentLabel(historyCustomer)}` : null"
+      max-width="max-w-5xl"
+      body-class="space-y-4 px-5 py-5"
+      @close="historyModalOpen = false"
+    >
+      <div class="grid gap-3 md:grid-cols-3">
+        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 dark:border-line dark:bg-surface-muted">
+          <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Comprobantes</p>
+          <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ historyMeta?.total ?? historyDocuments.length }}</p>
+        </div>
+        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 dark:border-line dark:bg-surface-muted">
+          <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Total visible</p>
+          <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ currency(historyTotal()) }}</p>
+        </div>
+        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 dark:border-line dark:bg-surface-muted">
+          <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Documento</p>
+          <p class="mt-2 truncate text-lg font-bold text-slate-950 dark:text-text">{{ historyCustomer ? customerDocumentLabel(historyCustomer) : 'Sin documento' }}</p>
+        </div>
+      </div>
+
+      <div class="overflow-hidden rounded-md border border-slate-200 dark:border-line">
+        <UiDataTable overflow="auto" min-width="min-w-[780px]">
+          <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
+            <tr>
+              <th class="px-4 py-3">Comprobante</th>
+              <th class="px-4 py-3">Tipo</th>
+              <th class="px-4 py-3">Fecha</th>
+              <th class="px-4 py-3 text-right">Total</th>
+              <th class="px-4 py-3">Estado</th>
+              <th class="px-4 py-3 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 dark:divide-line">
+            <tr v-if="historyLoading">
+              <td class="px-4 py-8" colspan="6">
+                <UiLoadingMark label="Cargando historial" />
+              </td>
+            </tr>
+            <tr v-else-if="historyDocuments.length === 0">
+              <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="6">No hay comprobantes aceptados para este cliente.</td>
+            </tr>
+            <tr v-for="document in historyDocuments" v-else :key="document.id" class="text-sm">
+              <td class="min-w-0 px-4 py-3">
+                <p class="truncate font-semibold text-slate-950 dark:text-text">{{ document.numeroControl }}</p>
+                <p class="mt-1 truncate font-mono text-xs text-slate-500 dark:text-soft">{{ document.codigoGeneracion }}</p>
+              </td>
+              <td class="px-4 py-3 text-slate-700 dark:text-muted">{{ typeLabel(document.tipoDte) }}</td>
+              <td class="px-4 py-3 text-slate-700 dark:text-muted">{{ fiscalDateTime(document.processed_at ?? document.created_at) }}</td>
+              <td class="px-4 py-3 text-right font-semibold text-slate-950 dark:text-text">{{ currency(document.totalPagar ?? 0) }}</td>
+              <td class="px-4 py-3">
+                <UiStatusBadge :tone="statusTone(document.estado)">{{ statusLabel(document.estado) }}</UiStatusBadge>
+              </td>
+              <td class="px-4 py-3">
+                <UiActionDropdown label="Abrir acciones del comprobante" menu-width="w-52">
+                  <UiActionMenuItem :disabled="openingPdfId === document.id" @select="openHistoryPdf(document)">
+                    <template #icon><FileText class="h-5 w-5 text-sky-600" aria-hidden="true" /></template>
+                    {{ openingPdfId === document.id ? 'Abriendo PDF...' : 'Abrir PDF' }}
+                  </UiActionMenuItem>
+                  <UiActionMenuItem @select="openHistoryJson(document)">
+                    <template #icon><FileJson class="h-5 w-5 text-sky-600" aria-hidden="true" /></template>
+                    {{ openingJsonId === document.id ? 'Abriendo JSON...' : 'Abrir JSON' }}
+                  </UiActionMenuItem>
+                </UiActionDropdown>
+              </td>
+            </tr>
+          </tbody>
+        </UiDataTable>
+      </div>
+
+      <template v-if="historyMeta && historyMeta.last_page > 1" #footer>
+        <UiButton variant="secondary" :disabled="historyLoading || historyPage <= 1" @click="goToHistoryPage(historyPage - 1)">Anterior</UiButton>
+        <span class="self-center text-sm font-semibold text-slate-600 dark:text-muted">
+          Página {{ historyMeta.current_page }} de {{ historyMeta.last_page }}
+        </span>
+        <UiButton variant="secondary" :disabled="historyLoading || historyPage >= historyMeta.last_page" @click="goToHistoryPage(historyPage + 1)">Siguiente</UiButton>
+      </template>
+    </BillingModalShell>
   </section>
 </template>

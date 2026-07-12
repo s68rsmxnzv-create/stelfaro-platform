@@ -2082,7 +2082,7 @@ export class CoreDteClient {
     return finalResult;
   }
 
-  documents(params: { q?: string; estado?: string; tipo_dte?: string; empresa_id?: number; limit?: number; page?: number; include_payload?: boolean; include_audit?: boolean; retorno_eligible?: boolean } = {}): Promise<DteDocumentListResponse> {
+  documents(params: { q?: string; estado?: string; tipo_dte?: string; empresa_id?: number; receptor_document?: string; limit?: number; page?: number; include_payload?: boolean; include_audit?: boolean; retorno_eligible?: boolean } = {}): Promise<DteDocumentListResponse> {
     return this.http.get('dte/drafts', { searchParams: compactParams(params) }).json();
   }
 
