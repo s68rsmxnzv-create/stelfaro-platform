@@ -22,12 +22,14 @@ const menuStyle = ref<Record<string, string>>({});
 function toggle(): void {
   open.value = !open.value;
   if (open.value) {
+    menuStyle.value = {};
     positionMenu();
   }
 }
 
 function close(): void {
   open.value = false;
+  menuStyle.value = {};
 }
 
 function closeOnOutsidePointerDown(event: PointerEvent): void {
@@ -35,6 +37,9 @@ function closeOnOutsidePointerDown(event: PointerEvent): void {
 
   const target = event.target;
   if (target instanceof Node && root.value?.contains(target)) {
+    return;
+  }
+  if (target instanceof Node && menu.value?.contains(target)) {
     return;
   }
 
@@ -116,18 +121,20 @@ onBeforeUnmount(() => {
       <UiDotsVerticalIcon class="h-5 w-5" />
     </button>
 
-    <div
-      v-if="open"
-      ref="menu"
-      class="fixed z-[70] rounded-md border border-slate-200 bg-white py-2 text-sm shadow-xl shadow-slate-950/10 dark:border-line dark:bg-surface dark:shadow-black/25"
-      :class="[
-        menuWidth,
-        resolvedPlacement === 'top' ? 'origin-bottom-right' : 'origin-top-right'
-      ]"
-      :style="{ visibility: menuStyle.top ? 'visible' : 'hidden', ...menuStyle }"
-      @click="close"
-    >
-      <slot />
-    </div>
+    <Teleport to="body">
+      <div
+        v-if="open"
+        ref="menu"
+        class="fixed z-[9999] rounded-md border border-slate-200 bg-white py-2 text-sm shadow-xl shadow-slate-950/10 dark:border-line dark:bg-surface dark:shadow-black/25"
+        :class="[
+          menuWidth,
+          resolvedPlacement === 'top' ? 'origin-bottom-right' : 'origin-top-right'
+        ]"
+        :style="{ visibility: menuStyle.top ? 'visible' : 'hidden', ...menuStyle }"
+        @click="close"
+      >
+        <slot />
+      </div>
+    </Teleport>
   </div>
 </template>
