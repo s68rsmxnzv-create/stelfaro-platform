@@ -850,6 +850,17 @@ export type DteDeliveryNotification = {
   resend_count?: number | null;
 };
 
+export type FiscalActorSummary = {
+  user_id?: number | null;
+  platform_user_id?: number | null;
+  platform_session_id?: string | null;
+  billing_access_token_id?: number | null;
+  name?: string | null;
+  email?: string | null;
+  role?: string | null;
+  recorded_at?: string | null;
+};
+
 export type DteDraftSummary = {
   id: number;
   estado: string;
@@ -870,6 +881,7 @@ export type DteDraftSummary = {
     razon_social: string;
     nit: string;
   } | null;
+  performed_by?: FiscalActorSummary | null;
   payload?: Record<string, unknown>;
   dte_json?: Record<string, unknown>;
   signedDocument?: string | null;
@@ -1017,6 +1029,8 @@ export type MhFiscalEventSummary = {
     razon_social: string;
     nit: string;
   } | null;
+  performed_by?: FiscalActorSummary | null;
+  transmitted_by?: FiscalActorSummary | null;
   payload: Record<string, unknown>;
   relations: Array<{
     id: number;
@@ -2126,7 +2140,7 @@ export class CoreDteClient {
     return finalResult;
   }
 
-  documents(params: { q?: string; estado?: string; tipo_dte?: string; empresa_id?: number; receptor_document?: string; limit?: number; page?: number; include_payload?: boolean; include_audit?: boolean; retorno_eligible?: boolean } = {}): Promise<DteDocumentListResponse> {
+  documents(params: { q?: string; estado?: string; tipo_dte?: string; empresa_id?: number; receptor_document?: string; platform_user_id?: number; performed_by_platform_user_id?: number; issued_by_user_id?: number; limit?: number; page?: number; include_payload?: boolean; include_audit?: boolean; retorno_eligible?: boolean } = {}): Promise<DteDocumentListResponse> {
     return this.http.get('dte/drafts', { searchParams: compactParams(params) }).json();
   }
 
@@ -2196,7 +2210,7 @@ export class CoreDteClient {
     return this.http.get(`dte/drafts/${id}/history`).json();
   }
 
-  mhEvents(params: { q?: string; estado?: string; event_type?: string; empresa_id?: number; limit?: number; page?: number } = {}): Promise<MhFiscalEventListResponse> {
+  mhEvents(params: { q?: string; estado?: string; event_type?: string; empresa_id?: number; platform_user_id?: number; performed_by_platform_user_id?: number; transmitted_by_platform_user_id?: number; limit?: number; page?: number } = {}): Promise<MhFiscalEventListResponse> {
     return this.http.get('mh/events', { searchParams: compactParams(params) }).json();
   }
 
