@@ -7,6 +7,7 @@ import BillingAppNav from '../components/BillingAppNav.vue';
 import BillingHelpModal from '../components/BillingHelpModal.vue';
 import BillingTooltip from '../components/BillingTooltip.vue';
 import BillingCompanySettingsPage from './BillingCompanySettingsPage.vue';
+import BillingAuditPage from './BillingAuditPage.vue';
 import BillingCustomersPage from './BillingCustomersPage.vue';
 import CatalogPage from './CatalogPage.vue';
 import BillingDashboardPage from './BillingDashboardPage.vue';
@@ -226,6 +227,7 @@ const moduleComponents = {
   'mh-events': MhEventsPage,
   'mh-responses': MhResponsesPage,
   'mh-event-responses': MhEventResponsesPage,
+  audit: BillingAuditPage,
   settings: BillingCompanySettingsPage
 };
 const eventOptions = [
@@ -236,7 +238,7 @@ const eventOptions = [
 ];
 
 const selectedComponent = computed(() => moduleComponents[props.module] || BillingWorkspace);
-const requiresFiscalSession = computed(() => !['catalog', 'inventory', 'operational-placeholder'].includes(props.module));
+const requiresFiscalSession = computed(() => !['audit', 'catalog', 'inventory', 'operational-placeholder'].includes(props.module));
 const selectedDocumentType = computed(() => documentTypeBySlug[props.documentSlug] || '01');
 const selectedEventType = computed(() => eventTypeBySlug[props.eventSlug] || 'invalidacion');
 const billingOptions = computed(() => {
@@ -296,6 +298,14 @@ const selectedComponentProps = computed(() => {
     };
   }
 
+  if (props.module === 'audit') {
+    return {
+      ...baseProps,
+      platformSession: props.platformSession,
+      platformBaseUrl: props.platformBaseUrl
+    };
+  }
+
   return baseProps;
 });
 const dashboardHref = computed(() => props.dashboardUrl || props.appBaseUrl || '/');
@@ -318,6 +328,7 @@ const pageTitle = computed(() => {
   if (props.module === 'artifacts') return 'Comprobantes';
   if (props.module === 'mh-responses') return 'Respuestas MH';
   if (props.module === 'mh-event-responses') return 'Respuestas MH - Eventos';
+  if (props.module === 'audit') return 'Auditoría';
   if (props.module === 'settings') return 'Configuracion';
 
   return props.app.name;

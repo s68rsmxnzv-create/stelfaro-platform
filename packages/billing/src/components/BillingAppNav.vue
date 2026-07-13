@@ -47,6 +47,7 @@ const responsesMenuOpen = ref(false);
 const navRef = ref(null);
 const documentTypes = ref([]);
 const enabledEventTypes = ref([]);
+const userRole = ref('');
 
 const billingSlugByType = {
   '01': 'fe',
@@ -139,11 +140,14 @@ watch(() => props.authToken, async (token) => {
 function applyBillingContext(context) {
     const enabled = new Set(context.empresas.flatMap((empresa) => empresa.enabled_document_types ?? []));
     enabledEventTypes.value = Array.from(new Set(context.empresas.flatMap((empresa) => empresa.enabled_event_types ?? [])));
+    userRole.value = context.user?.role ?? '';
     documentTypes.value = context.documentTypes.map((type) => ({
       ...type,
       implemented: Boolean(type.implemented) && (['05', '06', '14'].includes(type.code) || enabled.size === 0 || enabled.has(type.code))
     }));
 }
+
+const canViewAudit = computed(() => ['super_admin', 'admin_fiscal', 'company_admin'].includes(userRole.value));
 
 function toggleOperationalMenu() {
   const next = !operationalMenuOpen.value;
@@ -371,6 +375,16 @@ function navigate(event, href) {
       @click="navigate($event, hrefFor('/comprobantes'))"
     >
       Comprobantes
+    </a>
+
+    <a
+      v-if="canViewAudit"
+      :href="hrefFor('/auditoria')"
+      class="rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
+      :class="module === 'audit' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
+      @click="navigate($event, hrefFor('/auditoria'))"
+    >
+      Auditoría
     </a>
   </div>
 </template>

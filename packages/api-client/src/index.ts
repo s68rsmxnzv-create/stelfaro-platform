@@ -1649,6 +1649,10 @@ export class PlatformClient {
     return this.http.get('admin/platform/audit-logs', { searchParams: compactParams(params) }).json();
   }
 
+  tenantAuditLogs(tenantId: number, params: { q?: string; result?: string; date_from?: string; date_to?: string; limit?: number } = {}): Promise<PlatformAuditLogsResponse> {
+    return this.http.get(`platform/tenants/${tenantId}/audit-logs`, { searchParams: compactParams(params) }).json();
+  }
+
   subscriptions(): Promise<PlatformSubscriptionsResponse> {
     return this.http.get('admin/platform/subscriptions').json();
   }
