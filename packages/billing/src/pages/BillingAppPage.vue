@@ -8,6 +8,7 @@ import BillingHelpModal from '../components/BillingHelpModal.vue';
 import BillingTooltip from '../components/BillingTooltip.vue';
 import BillingCompanySettingsPage from './BillingCompanySettingsPage.vue';
 import BillingAuditPage from './BillingAuditPage.vue';
+import BillingAnnexesPage from './BillingAnnexesPage.vue';
 import BillingCustomersPage from './BillingCustomersPage.vue';
 import CatalogPage from './CatalogPage.vue';
 import BillingDashboardPage from './BillingDashboardPage.vue';
@@ -224,6 +225,7 @@ const moduleComponents = {
   catalog: CatalogPage,
   inventory: InventoryPage,
   artifacts: DteArtifactsPage,
+  annexes: BillingAnnexesPage,
   'mh-events': MhEventsPage,
   'mh-responses': MhResponsesPage,
   'mh-event-responses': MhEventResponsesPage,
@@ -306,6 +308,10 @@ const selectedComponentProps = computed(() => {
     };
   }
 
+  if (props.module === 'annexes') {
+    return baseProps;
+  }
+
   return baseProps;
 });
 const dashboardHref = computed(() => props.dashboardUrl || props.appBaseUrl || '/');
@@ -326,6 +332,7 @@ const pageTitle = computed(() => {
   }
 
   if (props.module === 'artifacts') return 'Comprobantes';
+  if (props.module === 'annexes') return 'Anexos';
   if (props.module === 'mh-responses') return 'Respuestas MH';
   if (props.module === 'mh-event-responses') return 'Respuestas MH - Eventos';
   if (props.module === 'audit') return 'Auditoría';

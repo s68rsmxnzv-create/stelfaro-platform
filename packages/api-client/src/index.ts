@@ -952,6 +952,33 @@ export type DteDocumentListResponse = {
   meta?: PaginationMeta;
 };
 
+export type DteSalesAnnexBookKey = 'ventas_contribuyente' | 'ventas_consumidor_final';
+
+export type DteSalesAnnexDataset = {
+  official_rows: string[][];
+  preview: Array<{
+    fecha_emision?: string;
+    tipo_dte?: string;
+    numero_control?: string;
+    codigo_generacion?: string;
+    receptor_nombre?: string;
+    total_pagar?: number;
+    [key: string]: unknown;
+  }>;
+  issues: string[];
+};
+
+export type DteSalesAnnexResponse = {
+  data: Record<DteSalesAnnexBookKey, DteSalesAnnexDataset>;
+  meta: {
+    from: string | null;
+    to: string | null;
+    empresa_id: number | null;
+    counts: Record<DteSalesAnnexBookKey, number>;
+  };
+  headers: Record<DteSalesAnnexBookKey, string[]>;
+};
+
 export type DteEmailResendResponse = {
   message: string;
   notification: {
@@ -2146,6 +2173,17 @@ export class CoreDteClient {
 
   documents(params: { q?: string; estado?: string; tipo_dte?: string; empresa_id?: number; receptor_document?: string; platform_user_id?: number; performed_by_platform_user_id?: number; issued_by_user_id?: number; limit?: number; page?: number; include_payload?: boolean; include_audit?: boolean; retorno_eligible?: boolean } = {}): Promise<DteDocumentListResponse> {
     return this.http.get('dte/drafts', { searchParams: compactParams(params) }).json();
+  }
+
+  salesAnnex(params: { empresa_id?: number; tenant_id?: number; from?: string; to?: string; ventas_tipo_operacion_renta?: string; ventas_tipo_ingreso_renta?: string } = {}): Promise<DteSalesAnnexResponse> {
+    return this.http.get('dte/annexes/sales', { searchParams: compactParams(params) }).json();
+  }
+
+  salesAnnexCsv(book: DteSalesAnnexBookKey, params: { empresa_id?: number; tenant_id?: number; from?: string; to?: string; ventas_tipo_operacion_renta?: string; ventas_tipo_ingreso_renta?: string } = {}): Promise<Blob> {
+    return this.http.get(`dte/annexes/sales/${book}/csv`, {
+      searchParams: compactParams(params),
+      headers: { Accept: 'text/csv' }
+    }).blob();
   }
 
   dashboardSummary(params: { empresa_id?: number } = {}): Promise<DteDashboardSummary> {

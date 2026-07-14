@@ -375,5 +375,14 @@ function navigate(event, href) {
       Comprobantes
     </a>
 
+    <a
+      :href="hrefFor('/anexos')"
+      class="rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
+      :class="module === 'annexes' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
+      @click="navigate($event, hrefFor('/anexos'))"
+    >
+      Anexos
+    </a>
+
   </div>
 </template>
