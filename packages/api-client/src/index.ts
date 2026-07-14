@@ -1003,6 +1003,19 @@ export type DteSalesAnnexResponse = {
   headers: Record<DteSalesAnnexBookKey, string[]>;
 };
 
+export type DteInvalidatedAnnexBookKey = 'documentos_invalidados';
+
+export type DteInvalidatedAnnexResponse = {
+  data: Record<DteInvalidatedAnnexBookKey, DteSalesAnnexDataset>;
+  meta: {
+    from?: string | null;
+    to?: string | null;
+    empresa_id?: number | null;
+    counts: Record<DteInvalidatedAnnexBookKey, number>;
+  };
+  headers: Record<DteInvalidatedAnnexBookKey, string[]>;
+};
+
 export type DteEmailResendResponse = {
   message: string;
   notification: {
@@ -2216,6 +2229,17 @@ export class CoreDteClient {
 
   salesAnnexCsv(book: DteSalesAnnexBookKey, params: { empresa_id?: number; tenant_id?: number; from?: string; to?: string; ventas_tipo_operacion_renta?: string; ventas_tipo_ingreso_renta?: string } = {}): Promise<Blob> {
     return this.http.get(`dte/annexes/sales/${book}/csv`, {
+      searchParams: compactParams(params),
+      headers: { Accept: 'text/csv' }
+    }).blob();
+  }
+
+  invalidatedAnnex(params: { empresa_id?: number; tenant_id?: number; from?: string; to?: string } = {}): Promise<DteInvalidatedAnnexResponse> {
+    return this.http.get('dte/annexes/invalidated', { searchParams: compactParams(params) }).json();
+  }
+
+  invalidatedAnnexCsv(params: { empresa_id?: number; tenant_id?: number; from?: string; to?: string } = {}): Promise<Blob> {
+    return this.http.get('dte/annexes/invalidated/csv', {
       searchParams: compactParams(params),
       headers: { Accept: 'text/csv' }
     }).blob();
