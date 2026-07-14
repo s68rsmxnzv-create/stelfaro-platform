@@ -6,6 +6,7 @@ import BillingSectionLayout from '../components/BillingSectionLayout.vue';
 import BillingSettingsPage from './BillingSettingsPage.vue';
 
 type CompanyView = 'summary' | 'requests' | 'profile' | 'subscription' | 'printer' | 'security' | 'support';
+type CompanyNavId = CompanyView | 'audit';
 type SettingsCompanyView = 'summary' | 'data' | 'fiscal' | 'sucursales' | 'correlativos';
 type NavIcon = 'summary' | 'requests' | 'profile' | 'subscription' | 'printer' | 'security' | 'support';
 type SelectedCompany = {
@@ -60,7 +61,8 @@ const wompiCheckoutUrls: Partial<Record<MarketingPlanCard['key'], string>> = {
 };
 
 const companyTitle = computed(() => selectedCompany.value?.tradeName || selectedCompany.value?.name || 'Mi empresa');
-const activeItem = computed(() => navItems.find((item) => item.id === activeView.value) ?? navItems[0]);
+const auditHref = computed(() => `${props.appBaseUrl.replace(/\/$/, '')}/auditoria`);
+const activeItem = computed(() => navItems.value.find((item) => item.id === activeView.value) ?? navItems.value[0]);
 const subscription = computed(() => subscriptionRow.value?.subscription ?? null);
 const fiscalEnvironment = computed(() => selectedCompany.value?.ambiente ?? subscriptionRow.value?.tenant.environment ?? null);
 const isFiscalTesting = computed(() => fiscalEnvironment.value === '00');
@@ -80,20 +82,22 @@ const status = computed(() => {
 
   return subscription.value.status;
 });
-const navItems: Array<{
-  id: CompanyView;
+const navItems = computed<Array<{
+  id: CompanyNavId;
   label: string;
   detail: string;
   icon: NavIcon;
-}> = [
+  href?: string;
+}>>(() => [
   { id: 'summary', label: 'Resumen', detail: 'Información de empresa', icon: 'summary' },
   { id: 'requests', label: 'Solicitudes', detail: 'Cambios sensibles', icon: 'requests' },
   { id: 'profile', label: 'Perfil', detail: 'Datos de contacto', icon: 'profile' },
   { id: 'subscription', label: 'Suscripción', detail: 'Plan y vigencia', icon: 'subscription' },
   { id: 'printer', label: 'Impresora', detail: 'Preferencias locales', icon: 'printer' },
   { id: 'security', label: 'Seguridad', detail: 'Contraseña y acceso', icon: 'security' },
+  { id: 'audit', label: 'Auditoría', detail: 'Actividad de la empresa', icon: 'security', href: auditHref.value },
   { id: 'support', label: 'Soporte', detail: 'Canales de ayuda', icon: 'support' }
-];
+]);
 
 const currentPlanKey = computed<MarketingPlanCard['key']>(() => {
   if (subscription.value?.plan?.key === 'starter') return 'entrepreneur';

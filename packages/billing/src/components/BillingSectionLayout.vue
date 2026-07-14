@@ -36,6 +36,7 @@ type NavItem = {
   detail: string;
   icon: string;
   group?: string;
+  href?: string;
 };
 
 const props = withDefaults(defineProps<{
@@ -132,6 +133,12 @@ function hideSidebarTooltip(): void {
   sidebarTooltip.value = null;
 }
 
+function selectNavItem(item: NavItem): void {
+  hideSidebarTooltip();
+  if (item.href) return;
+  emit('select', item.id);
+}
+
 const activeItem = computed(() => props.navItems.find((item) => item.id === props.activeId) ?? props.navItems[0]);
 const homeSectionItem = computed(() => props.navItems[0] ?? null);
 const canReturnToSectionHome = computed(() => Boolean(homeSectionItem.value && homeSectionItem.value.id !== props.activeId));
@@ -198,10 +205,12 @@ const navGroups = computed(() => {
             <p v-if="group.label && !compactSidebar" class="px-3 pb-1 text-[11px] font-black uppercase tracking-wide text-slate-400 dark:text-soft">
               {{ group.label }}
             </p>
-            <button
+            <component
               v-for="item in group.items"
               :key="item.id"
-              type="button"
+              :is="item.href ? 'a' : 'button'"
+              :href="item.href || undefined"
+              :type="item.href ? undefined : 'button'"
               class="group relative flex min-h-14 w-full items-center rounded-lg text-base transition"
               :aria-label="compactSidebar ? `${item.label}: ${item.detail}` : undefined"
               :class="[
@@ -212,7 +221,7 @@ const navGroups = computed(() => {
               @mouseleave="hideSidebarTooltip"
               @focus="showSidebarTooltip(item, $event)"
               @blur="hideSidebarTooltip"
-              @click="emit('select', item.id)"
+              @click="selectNavItem(item)"
             >
               <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md" :class="activeId === item.id ? 'bg-white text-sky-700 dark:bg-surface-raised dark:text-primary' : 'text-slate-500 dark:text-soft'">
                 <component :is="iconComponent(item.icon)" class="h-[22px] w-[22px]" aria-hidden="true" />
@@ -221,7 +230,7 @@ const navGroups = computed(() => {
                 <span class="block truncate">{{ item.label }}</span>
                 <span class="block truncate text-xs font-medium text-slate-500 dark:text-soft">{{ item.detail }}</span>
               </span>
-            </button>
+            </component>
           </div>
         </div>
       </nav>

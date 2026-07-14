@@ -147,8 +147,6 @@ function applyBillingContext(context) {
     }));
 }
 
-const canViewAudit = computed(() => ['super_admin', 'admin_fiscal', 'company_admin'].includes(userRole.value));
-
 function toggleOperationalMenu() {
   const next = !operationalMenuOpen.value;
   operationalMenuOpen.value = next;
@@ -377,14 +375,5 @@ function navigate(event, href) {
       Comprobantes
     </a>
 
-    <a
-      v-if="canViewAudit"
-      :href="hrefFor('/auditoria')"
-      class="rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
-      :class="module === 'audit' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
-      @click="navigate($event, hrefFor('/auditoria'))"
-    >
-      Auditoría
-    </a>
   </div>
 </template>
