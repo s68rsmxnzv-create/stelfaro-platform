@@ -29,6 +29,10 @@ const props = defineProps({
   eventSlug: {
     type: String,
     default: 'invalidacion'
+  },
+  artifactSlug: {
+    type: String,
+    default: 'dte'
   }
 });
 
@@ -45,6 +49,10 @@ const eventTypeBySlug = {
   retorno: 'retorno',
   'operaciones-especiales': 'operaciones_especiales'
 };
+const artifactTypeBySlug = {
+  dte: 'dte',
+  eventos: 'events'
+};
 const moduleComponents = {
   billing: BillingWorkspace,
   artifacts: DteArtifactsPage,
@@ -57,6 +65,7 @@ const moduleComponents = {
 const selectedComponent = computed(() => moduleComponents[props.module] || BillingWorkspace);
 const selectedDocumentType = computed(() => documentTypeBySlug[props.documentSlug] || '01');
 const selectedEventType = computed(() => eventTypeBySlug[props.eventSlug] || 'invalidacion');
+const selectedArtifactType = computed(() => artifactTypeBySlug[props.artifactSlug] || 'dte');
 const selectedComponentProps = computed(() => {
   const baseProps = {
     authToken: props.authToken,
@@ -74,6 +83,13 @@ const selectedComponentProps = computed(() => {
     return {
       ...baseProps,
       initialEventType: selectedEventType.value
+    };
+  }
+
+  if (props.module === 'artifacts') {
+    return {
+      ...baseProps,
+      initialArtifactType: selectedArtifactType.value
     };
   }
 

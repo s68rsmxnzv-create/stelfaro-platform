@@ -29,6 +29,10 @@ const props = defineProps({
     type: String,
     default: 'invalidacion'
   },
+  artifactSlug: {
+    type: String,
+    default: 'dte'
+  },
   billingContextCacheScope: {
     type: String,
     default: 'default'
@@ -45,6 +49,7 @@ const billingMenuOpen = ref(false);
 const managementMenuOpen = ref(false);
 const eventMenuOpen = ref(false);
 const responsesMenuOpen = ref(false);
+const artifactsMenuOpen = ref(false);
 const navRef = ref(null);
 const documentTypes = ref([]);
 const enabledEventTypes = ref([]);
@@ -80,9 +85,14 @@ const responseOptions = [
   { label: 'DTE', path: '/respuestas-mh', module: 'mh-responses' },
   { label: 'Eventos', path: '/respuestas-eventos-mh', module: 'mh-event-responses' }
 ];
+const artifactOptions = [
+  { label: 'DTE', path: '/comprobantes/dte', slug: 'dte' },
+  { label: 'Eventos', path: '/comprobantes/eventos', slug: 'eventos' }
+];
 
 const baseUrl = computed(() => props.appBaseUrl.replace(/\/$/, ''));
 const responsesMenuActive = computed(() => ['mh-responses', 'mh-event-responses'].includes(props.module));
+const artifactsMenuActive = computed(() => props.module === 'artifacts');
 const operationalMenuActive = computed(() => props.extraNavItems.some((item) => item.active));
 const managementMenuActive = computed(() => ['customers', 'catalog', 'inventory'].includes(props.module));
 const hrefFor = (path) => `${baseUrl.value}${path}`;
@@ -161,6 +171,7 @@ function toggleOperationalMenu() {
   managementMenuOpen.value = false;
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
+  artifactsMenuOpen.value = false;
 }
 
 function toggleBillingMenu() {
@@ -170,6 +181,7 @@ function toggleBillingMenu() {
   managementMenuOpen.value = false;
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
+  artifactsMenuOpen.value = false;
 }
 
 function toggleManagementMenu() {
@@ -179,6 +191,7 @@ function toggleManagementMenu() {
   billingMenuOpen.value = false;
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
+  artifactsMenuOpen.value = false;
 }
 
 function toggleEventMenu() {
@@ -188,6 +201,7 @@ function toggleEventMenu() {
   billingMenuOpen.value = false;
   managementMenuOpen.value = false;
   responsesMenuOpen.value = false;
+  artifactsMenuOpen.value = false;
 }
 
 function toggleResponsesMenu() {
@@ -197,6 +211,17 @@ function toggleResponsesMenu() {
   billingMenuOpen.value = false;
   managementMenuOpen.value = false;
   eventMenuOpen.value = false;
+  artifactsMenuOpen.value = false;
+}
+
+function toggleArtifactsMenu() {
+  const next = !artifactsMenuOpen.value;
+  artifactsMenuOpen.value = next;
+  operationalMenuOpen.value = false;
+  billingMenuOpen.value = false;
+  managementMenuOpen.value = false;
+  eventMenuOpen.value = false;
+  responsesMenuOpen.value = false;
 }
 
 function closeMenus() {
@@ -205,10 +230,11 @@ function closeMenus() {
   managementMenuOpen.value = false;
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
+  artifactsMenuOpen.value = false;
 }
 
 function closeMenusOnOutsidePointerDown(event) {
-  if (!operationalMenuOpen.value && !billingMenuOpen.value && !managementMenuOpen.value && !eventMenuOpen.value && !responsesMenuOpen.value) return;
+  if (!operationalMenuOpen.value && !billingMenuOpen.value && !managementMenuOpen.value && !eventMenuOpen.value && !responsesMenuOpen.value && !artifactsMenuOpen.value) return;
   if (navRef.value?.contains(event.target)) return;
 
   closeMenus();
@@ -360,14 +386,37 @@ function navigate(event, href) {
       </div>
     </div>
 
-    <a
-      :href="hrefFor('/comprobantes')"
-      class="rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
-      :class="module === 'artifacts' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
-      @click="navigate($event, hrefFor('/comprobantes'))"
-    >
-      Comprobantes
-    </a>
+    <div class="relative">
+      <button
+        class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
+        :class="artifactsMenuActive ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
+        type="button"
+        @click="toggleArtifactsMenu"
+      >
+        Comprobantes
+        <span
+          class="h-1.5 w-1.5 rotate-45 border-b-2 border-r-2 border-current text-slate-400 transition"
+          :class="artifactsMenuOpen ? 'rotate-[225deg]' : ''"
+          aria-hidden="true"
+        />
+      </button>
+
+      <div
+        v-if="artifactsMenuOpen"
+        class="sf-app-menu absolute left-0 z-30 mt-2 w-44 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+      >
+        <a
+          v-for="option in artifactOptions"
+          :key="option.path"
+          :href="hrefFor(option.path)"
+          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
+          :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === 'artifacts' && artifactSlug === option.slug }"
+          @click="navigate($event, hrefFor(option.path))"
+        >
+          {{ option.label }}
+        </a>
+      </div>
+    </div>
 
     <a
       :href="hrefFor('/anexos')"

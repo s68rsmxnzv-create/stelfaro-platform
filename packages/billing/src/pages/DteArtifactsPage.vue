@@ -8,9 +8,11 @@ import BillingFloatingToastStack, { type BillingFloatingToast } from '../compone
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
   authToken?: string | null;
+  initialArtifactType?: ArtifactTab;
 }>(), {
   coreBaseUrl: '/api/v1',
-  authToken: null
+  authToken: null,
+  initialArtifactType: 'dte'
 });
 
 type ArtifactTab = 'dte' | 'events';
@@ -34,7 +36,7 @@ const artifactEventTypeOptions = [
 ];
 const pageSize = 10;
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
-const activeTab = ref<ArtifactTab>('dte');
+const activeTab = ref<ArtifactTab>(props.initialArtifactType === 'events' ? 'events' : 'dte');
 const loading = ref(false);
 const openingPdfId = ref<number | null>(null);
 const openingJsonId = ref<number | null>(null);
@@ -99,6 +101,13 @@ watch(eventType, () => {
 watch(activeTab, () => {
   error.value = null;
   void loadActiveTab();
+});
+
+watch(() => props.initialArtifactType, (value) => {
+  const next = value === 'events' ? 'events' : 'dte';
+  if (activeTab.value !== next) {
+    activeTab.value = next;
+  }
 });
 
 async function loadActiveTab(): Promise<void> {
@@ -450,25 +459,6 @@ function formatDate(value?: string | null): string {
 
     <UiCard>
       <div class="space-y-4 p-1">
-        <div class="inline-flex rounded-md border border-slate-200 bg-slate-50 p-1">
-          <button
-            type="button"
-            class="rounded px-4 py-2 text-sm font-semibold transition"
-            :class="activeTab === 'dte' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'"
-            @click="activeTab = 'dte'"
-          >
-            DTE
-          </button>
-          <button
-            type="button"
-            class="rounded px-4 py-2 text-sm font-semibold transition"
-            :class="activeTab === 'events' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'"
-            @click="activeTab = 'events'"
-          >
-            Eventos
-          </button>
-        </div>
-
         <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_240px_120px] md:items-end">
           <UiSearchInput
             v-model="query"

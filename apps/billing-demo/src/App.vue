@@ -13,6 +13,7 @@ const userMenuOpen = ref(false);
 const billingMenuOpen = ref(false);
 const eventMenuOpen = ref(false);
 const responsesMenuOpen = ref(false);
+const artifactsMenuOpen = ref(false);
 const dteHelpModalOpen = ref(false);
 const appNav = ref<HTMLElement | null>(null);
 const documentTypes = ref<BillingDocumentType[]>([]);
@@ -93,6 +94,11 @@ const responseOptions = computed(() => [
   { label: 'Eventos', to: '/mh-event-responses', show: !auth.isBackoffice },
 ].filter((item) => item.show));
 const responsesMenuActive = computed(() => responseOptions.value.some((item) => item.to === route.path));
+const artifactOptions = computed(() => [
+  { label: 'DTE', to: '/comprobantes/dte', show: !auth.isBackoffice },
+  { label: 'Eventos', to: '/comprobantes/eventos', show: !auth.isBackoffice },
+].filter((item) => item.show));
+const artifactsMenuActive = computed(() => route.path.startsWith('/comprobantes'));
 const eventOptions = computed(() => [
   { label: 'Invalidacion', to: '/mh-events/invalidacion', enabled: true },
   { label: 'Contingencia', to: '/mh-events/contingencia', enabled: true },
@@ -210,6 +216,7 @@ function closeOpenMenus(): void {
   billingMenuOpen.value = false;
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
+  artifactsMenuOpen.value = false;
 }
 
 function closeMenusOnOutsideClick(event: MouseEvent): void {
@@ -225,6 +232,7 @@ function toggleBillingMenu(): void {
   billingMenuOpen.value = next;
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
+  artifactsMenuOpen.value = false;
 }
 
 function toggleEventMenu(): void {
@@ -232,6 +240,7 @@ function toggleEventMenu(): void {
   eventMenuOpen.value = next;
   billingMenuOpen.value = false;
   responsesMenuOpen.value = false;
+  artifactsMenuOpen.value = false;
 }
 
 function toggleResponsesMenu(): void {
@@ -239,6 +248,15 @@ function toggleResponsesMenu(): void {
   responsesMenuOpen.value = next;
   billingMenuOpen.value = false;
   eventMenuOpen.value = false;
+  artifactsMenuOpen.value = false;
+}
+
+function toggleArtifactsMenu(): void {
+  const next = !artifactsMenuOpen.value;
+  artifactsMenuOpen.value = next;
+  billingMenuOpen.value = false;
+  eventMenuOpen.value = false;
+  responsesMenuOpen.value = false;
 }
 
 function toggleUserMenu(): void {
@@ -246,6 +264,7 @@ function toggleUserMenu(): void {
   billingMenuOpen.value = false;
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
+  artifactsMenuOpen.value = false;
 }
 
 function openDteHelpModal(): void {
@@ -389,14 +408,36 @@ function initializeTheme(): void {
                 </div>
               </div>
 
-              <RouterLink
-                v-if="!auth.isBackoffice"
-                to="/comprobantes"
-                class="rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
-                active-class="bg-slate-950/70 text-white"
-              >
-                Comprobantes
-              </RouterLink>
+              <div v-if="artifactOptions.length" class="relative">
+                <button
+                  class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
+                  :class="artifactsMenuActive ? 'bg-slate-950/70 text-white' : ''"
+                  type="button"
+                  @click="toggleArtifactsMenu"
+                >
+                  Comprobantes
+                  <span
+                    class="h-1.5 w-1.5 rotate-45 border-b-2 border-r-2 border-current text-slate-500 transition"
+                    :class="artifactsMenuOpen ? 'rotate-[225deg] text-slate-200' : ''"
+                    aria-hidden="true"
+                  ></span>
+                </button>
+
+                <div
+                  v-if="artifactsMenuOpen"
+                  class="sf-app-menu absolute left-0 z-30 mt-2 w-44 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+                >
+                  <RouterLink
+                    v-for="option in artifactOptions"
+                    :key="option.to"
+                    :to="option.to"
+                    class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
+                    active-class="bg-sky-500 text-white shadow-sm shadow-sky-950/20"
+                  >
+                    {{ option.label }}
+                  </RouterLink>
+                </div>
+              </div>
 
               <a
                 v-if="canAccessPlatformAdmin"
@@ -538,14 +579,20 @@ function initializeTheme(): void {
             </div>
           </div>
 
-          <RouterLink
-            v-if="!auth.isBackoffice"
-            to="/comprobantes"
-            class="block rounded-md px-3 py-2 text-base font-medium text-slate-300 hover:bg-white/5 hover:text-white"
-            active-class="bg-slate-950/70 text-white"
-          >
-            Comprobantes
-          </RouterLink>
+          <div v-if="artifactOptions.length" class="rounded-md bg-white/5 px-3 py-2">
+            <p class="text-base font-semibold text-white">Comprobantes</p>
+            <div class="mt-1 space-y-1">
+              <RouterLink
+                v-for="option in artifactOptions"
+                :key="option.to"
+                :to="option.to"
+                class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
+                active-class="bg-sky-500 text-white shadow-sm"
+              >
+                {{ option.label }}
+              </RouterLink>
+            </div>
+          </div>
 
           <a
             v-if="canAccessPlatformAdmin"

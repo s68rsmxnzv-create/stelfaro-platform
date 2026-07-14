@@ -66,6 +66,10 @@ const props = defineProps({
     type: String,
     default: 'invalidacion'
   },
+  artifactSlug: {
+    type: String,
+    default: 'dte'
+  },
   extraNavItems: {
     type: Array,
     default: () => []
@@ -114,6 +118,10 @@ const eventTypeBySlug = {
   contingencia: 'contingencia',
   retorno: 'retorno',
   'operaciones-especiales': 'operaciones_especiales'
+};
+const artifactTypeBySlug = {
+  dte: 'dte',
+  eventos: 'events'
 };
 const dteHelpByType = {
   '01': {
@@ -243,6 +251,7 @@ const selectedComponent = computed(() => moduleComponents[props.module] || Billi
 const requiresFiscalSession = computed(() => !['audit', 'catalog', 'inventory', 'operational-placeholder'].includes(props.module));
 const selectedDocumentType = computed(() => documentTypeBySlug[props.documentSlug] || '01');
 const selectedEventType = computed(() => eventTypeBySlug[props.eventSlug] || 'invalidacion');
+const selectedArtifactType = computed(() => artifactTypeBySlug[props.artifactSlug] || 'dte');
 const billingOptions = computed(() => {
   const source = documentTypes.value.length ? documentTypes.value : fallbackBillingTypes;
 
@@ -316,6 +325,13 @@ const selectedComponentProps = computed(() => {
     };
   }
 
+  if (props.module === 'artifacts') {
+    return {
+      ...baseProps,
+      initialArtifactType: selectedArtifactType.value
+    };
+  }
+
   return baseProps;
 });
 const dashboardHref = computed(() => props.dashboardUrl || props.appBaseUrl || '/');
@@ -335,7 +351,7 @@ const pageTitle = computed(() => {
     return eventOptions.find((item) => item.slug === props.eventSlug)?.label ?? 'Eventos MH';
   }
 
-  if (props.module === 'artifacts') return 'Comprobantes';
+  if (props.module === 'artifacts') return selectedArtifactType.value === 'events' ? 'Comprobantes de eventos' : 'Comprobantes DTE';
   if (props.module === 'annexes') return 'Anexos';
   if (props.module === 'mh-responses') return 'Respuestas MH';
   if (props.module === 'mh-event-responses') return 'Respuestas MH - Eventos';
@@ -538,6 +554,7 @@ function navigateFromMenu(event, href) {
                 :core-base-url="coreBaseUrl"
                 :document-slug="documentSlug"
                 :event-slug="eventSlug"
+                :artifact-slug="artifactSlug"
                 :extra-nav-items="extraNavItems"
                 :module="module"
                 :app-base-url="appBaseUrl"

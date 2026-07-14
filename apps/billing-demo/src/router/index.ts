@@ -12,6 +12,7 @@ import { useAuthStore } from '../stores/auth';
 
 const billingSlugs = new Set(['fe', 'ccf', 'nc', 'nd', 'se']);
 const eventSlugs = new Set(['invalidacion', 'contingencia', 'retorno', 'operaciones-especiales']);
+const artifactSlugs = new Set(['dte', 'eventos']);
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -22,7 +23,8 @@ export const router = createRouter({
     { path: '/companies', name: 'companies', component: SettingsPage, meta: { requiresAuth: true, requiresFiscalSettings: true } },
     { path: '/billing', redirect: '/billing/fe' },
     { path: '/billing/:documentSlug', name: 'billing', component: BillingPage, meta: { requiresAuth: true, requiresBilling: true } },
-    { path: '/comprobantes', name: 'comprobantes', component: DteArtifactsPage, meta: { requiresAuth: true, requiresBilling: true } },
+    { path: '/comprobantes', redirect: '/comprobantes/dte' },
+    { path: '/comprobantes/:artifactSlug', name: 'comprobantes', component: DteArtifactsPage, meta: { requiresAuth: true, requiresBilling: true } },
     { path: '/mh-events', redirect: '/mh-events/invalidacion' },
     { path: '/mh-events/:eventSlug', name: 'mh-events', component: MhEventsPage, meta: { requiresAuth: true, requiresBilling: true } },
     { path: '/mh-responses', name: 'mh-responses', component: MhResponsesPage, meta: { requiresAuth: true, requiresBilling: true } },
@@ -67,6 +69,13 @@ router.beforeEach(async (to) => {
     const eventSlug = String(to.params.eventSlug ?? '');
     if (!eventSlugs.has(eventSlug)) {
       return { path: '/mh-events/invalidacion' };
+    }
+  }
+
+  if (to.name === 'comprobantes') {
+    const artifactSlug = String(to.params.artifactSlug ?? '');
+    if (!artifactSlugs.has(artifactSlug)) {
+      return { path: '/comprobantes/dte' };
     }
   }
 
