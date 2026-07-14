@@ -34,9 +34,7 @@ const activeBook = ref<string>('ventas_contribuyente');
 
 const filters = reactive({
   from: firstDayOfMonth(),
-  to: today(),
-  ventasTipoOperacion: '1',
-  ventasTipoIngreso: '10'
+  to: today()
 });
 
 const bookLabels: Record<string, string> = {
@@ -51,9 +49,7 @@ const selectedEmpresa = computed(() => empresas.value.find((empresa) => Number(e
 const requestParams = computed(() => ({
   empresa_id: selectedEmpresa.value?.id,
   from: filters.from || undefined,
-  to: filters.to || undefined,
-  ventas_tipo_operacion_renta: filters.ventasTipoOperacion || undefined,
-  ventas_tipo_ingreso_renta: filters.ventasTipoIngreso || undefined
+  to: filters.to || undefined
 }));
 const purchaseRequestParams = computed(() => ({
   from: filters.from || undefined,
@@ -199,29 +195,9 @@ function messageFromError(caught: unknown): string {
 <template>
   <section class="space-y-5">
     <UiPanel variant="raised">
-      <div class="grid gap-4 lg:grid-cols-[160px_160px_160px_160px_auto] lg:items-end">
+      <div class="grid gap-4 lg:grid-cols-[160px_160px_auto] lg:items-end">
         <UiInput v-model="filters.from" label="Desde" type="date" />
         <UiInput v-model="filters.to" label="Hasta" type="date" />
-        <UiSelect
-          v-model="filters.ventasTipoOperacion"
-          label="Operación renta"
-          :options="[
-            { value: '1', label: '1' },
-            { value: '2', label: '2' },
-            { value: '3', label: '3' },
-            { value: '4', label: '4' }
-          ]"
-        />
-        <UiSelect
-          v-model="filters.ventasTipoIngreso"
-          label="Ingreso renta"
-          :options="[
-            { value: '10', label: '10' },
-            { value: '1', label: '1' },
-            { value: '2', label: '2' },
-            { value: '3', label: '3' }
-          ]"
-        />
         <UiButton variant="primary" :disabled="loading" @click="load">Generar</UiButton>
       </div>
     </UiPanel>
