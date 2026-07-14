@@ -42,6 +42,7 @@ const emit = defineEmits(['navigate']);
 
 const operationalMenuOpen = ref(false);
 const billingMenuOpen = ref(false);
+const managementMenuOpen = ref(false);
 const eventMenuOpen = ref(false);
 const responsesMenuOpen = ref(false);
 const navRef = ref(null);
@@ -83,7 +84,13 @@ const responseOptions = [
 const baseUrl = computed(() => props.appBaseUrl.replace(/\/$/, ''));
 const responsesMenuActive = computed(() => ['mh-responses', 'mh-event-responses'].includes(props.module));
 const operationalMenuActive = computed(() => props.extraNavItems.some((item) => item.active));
+const managementMenuActive = computed(() => ['customers', 'catalog', 'inventory'].includes(props.module));
 const hrefFor = (path) => `${baseUrl.value}${path}`;
+const managementOptions = computed(() => [
+  { label: 'Clientes', href: hrefFor('/clientes'), module: 'customers' },
+  { label: 'Catálogo', href: hrefFor('/catalogo'), module: 'catalog' },
+  { label: 'Inventario', href: hrefFor('/inventario'), module: 'inventory' }
+]);
 const billingOptions = computed(() => {
   const source = documentTypes.value.length ? documentTypes.value : fallbackBillingTypes;
 
@@ -151,6 +158,7 @@ function toggleOperationalMenu() {
   const next = !operationalMenuOpen.value;
   operationalMenuOpen.value = next;
   billingMenuOpen.value = false;
+  managementMenuOpen.value = false;
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
 }
@@ -159,6 +167,16 @@ function toggleBillingMenu() {
   const next = !billingMenuOpen.value;
   billingMenuOpen.value = next;
   operationalMenuOpen.value = false;
+  managementMenuOpen.value = false;
+  eventMenuOpen.value = false;
+  responsesMenuOpen.value = false;
+}
+
+function toggleManagementMenu() {
+  const next = !managementMenuOpen.value;
+  managementMenuOpen.value = next;
+  operationalMenuOpen.value = false;
+  billingMenuOpen.value = false;
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
 }
@@ -168,6 +186,7 @@ function toggleEventMenu() {
   eventMenuOpen.value = next;
   operationalMenuOpen.value = false;
   billingMenuOpen.value = false;
+  managementMenuOpen.value = false;
   responsesMenuOpen.value = false;
 }
 
@@ -176,18 +195,20 @@ function toggleResponsesMenu() {
   responsesMenuOpen.value = next;
   operationalMenuOpen.value = false;
   billingMenuOpen.value = false;
+  managementMenuOpen.value = false;
   eventMenuOpen.value = false;
 }
 
 function closeMenus() {
   operationalMenuOpen.value = false;
   billingMenuOpen.value = false;
+  managementMenuOpen.value = false;
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
 }
 
 function closeMenusOnOutsidePointerDown(event) {
-  if (!operationalMenuOpen.value && !billingMenuOpen.value && !eventMenuOpen.value && !responsesMenuOpen.value) return;
+  if (!operationalMenuOpen.value && !billingMenuOpen.value && !managementMenuOpen.value && !eventMenuOpen.value && !responsesMenuOpen.value) return;
   if (navRef.value?.contains(event.target)) return;
 
   closeMenus();
@@ -275,32 +296,37 @@ function navigate(event, href) {
       </div>
     </div>
 
-    <a
-      :href="hrefFor('/clientes')"
-      class="rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
-      :class="module === 'customers' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
-      @click="navigate($event, hrefFor('/clientes'))"
-    >
-      Clientes
-    </a>
+    <div class="relative">
+      <button
+        class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
+        :class="managementMenuActive ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
+        type="button"
+        @click="toggleManagementMenu"
+      >
+        Gestión
+        <span
+          class="h-1.5 w-1.5 rotate-45 border-b-2 border-r-2 border-current text-slate-400 transition"
+          :class="managementMenuOpen ? 'rotate-[225deg]' : ''"
+          aria-hidden="true"
+        />
+      </button>
 
-    <a
-      :href="hrefFor('/catalogo')"
-      class="rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
-      :class="module === 'catalog' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
-      @click="navigate($event, hrefFor('/catalogo'))"
-    >
-      Catálogo
-    </a>
-
-    <a
-      :href="hrefFor('/inventario')"
-      class="rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
-      :class="module === 'inventory' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
-      @click="navigate($event, hrefFor('/inventario'))"
-    >
-      Inventario
-    </a>
+      <div
+        v-if="managementMenuOpen"
+        class="sf-app-menu absolute left-0 z-30 mt-2 w-52 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+      >
+        <a
+          v-for="option in managementOptions"
+          :key="option.href"
+          :href="option.href"
+          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
+          :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === option.module }"
+          @click="navigate($event, option.href)"
+        >
+          {{ option.label }}
+        </a>
+      </div>
+    </div>
 
     <div class="relative">
       <button
