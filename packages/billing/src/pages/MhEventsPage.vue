@@ -779,7 +779,7 @@ async function loadBillingCompanies(): Promise<void> {
   try {
     const context = await client.value.billingContext();
     billingCompanies.value = context.empresas.filter((empresa) => empresa.lifecycle_status === 'active');
-    if (!form.operacionesEmpresaId && billingCompanies.value.length === 1) {
+    if (!form.operacionesEmpresaId && billingCompanies.value[0]) {
       form.operacionesEmpresaId = billingCompanies.value[0].id;
       form.operacionesAmbiente = billingCompanies.value[0].ambiente;
     }
@@ -2503,21 +2503,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
       <UiCard>
         <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div class="min-w-0 space-y-5">
-            <div class="grid gap-4 rounded-md border border-slate-200 p-4 lg:grid-cols-3">
-              <label class="block">
-                <span class="text-sm font-semibold text-slate-900">Empresa</span>
-                <select
-                  v-model.number="form.operacionesEmpresaId"
-                  class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  @change="clearEventResult"
-                >
-                  <option :value="null">Selecciona empresa</option>
-                  <option v-for="empresa in billingCompanies" :key="empresa.id" :value="empresa.id">
-                    {{ empresa.razon_social || empresa.nombre_comercial }}
-                  </option>
-                </select>
-              </label>
-
+            <div class="grid gap-4 rounded-md border border-slate-200 p-4 lg:grid-cols-2">
               <label class="block">
                 <span class="text-sm font-semibold text-slate-900">Documento</span>
                 <select

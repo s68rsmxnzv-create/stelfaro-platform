@@ -69,10 +69,6 @@ const resultOptions = [
 
 const empresas = computed(() => context.value?.empresas ?? []);
 const selectedEmpresa = computed(() => empresas.value.find((empresa) => Number(empresa.id) === Number(selectedEmpresaId.value)) ?? empresas.value[0] ?? null);
-const empresaOptions = computed(() => empresas.value.map((empresa) => ({
-  value: empresa.id,
-  label: empresa.nombre_comercial || empresa.razon_social || `Empresa ${empresa.id}`
-})));
 
 const rows = computed<AuditRow[]>(() => {
   const query = fold(filters.q.trim());
@@ -354,8 +350,7 @@ function messageFromError(caught: unknown): string {
     </div>
 
     <UiPanel variant="raised">
-      <div class="grid gap-4 lg:grid-cols-[1fr_1.4fr_0.75fr_0.75fr_0.75fr_0.75fr] lg:items-end">
-        <UiSelect v-model="selectedEmpresaId" label="Empresa" :options="empresaOptions" />
+      <div class="grid gap-4 lg:grid-cols-[1.4fr_0.75fr_0.75fr_0.75fr_0.75fr] lg:items-end">
         <UiSearchInput v-model="filters.q" label="Buscar" placeholder="Usuario, correo, documento, evento o ruta" @keyup.enter="load" />
         <UiSelect v-model="filters.source" label="Origen" :options="sourceOptions" />
         <UiSelect v-model="filters.result" label="Resultado" :options="resultOptions" />

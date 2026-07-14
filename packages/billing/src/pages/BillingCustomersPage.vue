@@ -10,12 +10,6 @@ import BillingFloatingToastStack from '../components/BillingFloatingToastStack.v
 import BillingModalShell from '../components/BillingModalShell.vue';
 import { getBillingCatalogs, getBillingContext, peekBillingCatalogs, peekBillingContext } from '../support/billingDataCache';
 
-type SelectOption = {
-  value: string | number;
-  label: string;
-  hint?: string;
-};
-
 const props = withDefaults(defineProps<{
   authToken?: string | null;
   coreBaseUrl?: string;
@@ -57,10 +51,6 @@ const historyPageSize = 8;
 
 const empresas = computed(() => context.value?.empresas ?? []);
 const selectedEmpresa = computed(() => empresas.value.find((empresa) => Number(empresa.id) === Number(selectedEmpresaId.value)) ?? empresas.value[0] ?? null);
-const empresaOptions = computed<SelectOption[]>(() => empresas.value.map((empresa) => ({
-  value: empresa.id,
-  label: empresa.nombre_comercial || empresa.razon_social || `Empresa ${empresa.id}`
-})));
 const tipoOptions = [
   { value: '', label: 'Todos' },
   { value: '01', label: 'Consumidor final' },
@@ -479,13 +469,7 @@ function messageFromError(error): string {
     <BillingFloatingToastStack :toasts="toasts" />
 
     <UiCard>
-      <div class="grid gap-3 lg:grid-cols-[220px_1fr_180px_auto_auto]">
-        <UiSelect
-          v-model.number="selectedEmpresaId"
-          label="Empresa"
-          :options="empresaOptions"
-          :disabled="empresaOptions.length <= 1"
-        />
+      <div class="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_180px_auto_auto]">
         <UiSearchInput
           v-model="filters.q"
           label="Buscar cliente"

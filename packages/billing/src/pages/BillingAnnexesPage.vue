@@ -48,10 +48,6 @@ const bookLabels: Record<string, string> = {
 
 const empresas = computed(() => context.value?.empresas ?? []);
 const selectedEmpresa = computed(() => empresas.value.find((empresa) => Number(empresa.id) === Number(selectedEmpresaId.value)) ?? empresas.value[0] ?? null);
-const empresaOptions = computed(() => empresas.value.map((empresa) => ({
-  value: empresa.id,
-  label: empresa.nombre_comercial || empresa.razon_social || `Empresa ${empresa.id}`
-})));
 const requestParams = computed(() => ({
   empresa_id: selectedEmpresa.value?.id,
   from: filters.from || undefined,
@@ -191,8 +187,7 @@ function messageFromError(caught: unknown): string {
 <template>
   <section class="space-y-5">
     <UiPanel variant="raised">
-      <div class="grid gap-4 lg:grid-cols-[minmax(220px,1fr)_160px_160px_160px_160px_auto] lg:items-end">
-        <UiSelect v-model="selectedEmpresaId" label="Empresa" :options="empresaOptions" />
+      <div class="grid gap-4 lg:grid-cols-[160px_160px_160px_160px_auto] lg:items-end">
         <UiInput v-model="filters.from" label="Desde" type="date" />
         <UiInput v-model="filters.to" label="Hasta" type="date" />
         <UiSelect
