@@ -89,7 +89,7 @@ const hrefFor = (path) => `${baseUrl.value}${path}`;
 const managementOptions = computed(() => [
   { label: 'Clientes', href: hrefFor('/clientes'), module: 'customers' },
   { label: 'Catálogo', href: hrefFor('/catalogo'), module: 'catalog' },
-  { label: 'Inventario', href: hrefFor('/inventario'), module: 'inventory' }
+  { label: 'Inventario', href: hrefFor('/inventario'), module: 'inventory', newTab: true }
 ]);
 const billingOptions = computed(() => {
   const source = documentTypes.value.length ? documentTypes.value : fallbackBillingTypes;
@@ -401,9 +401,11 @@ function navigate(event, href) {
           v-for="option in managementOptions"
           :key="option.href"
           :href="option.href"
+          :target="option.newTab ? '_blank' : undefined"
+          :rel="option.newTab ? 'noopener noreferrer' : undefined"
           class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
           :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === option.module }"
-          @click="navigate($event, option.href)"
+          @click="option.newTab ? closeMenus() : navigate($event, option.href)"
         >
           {{ option.label }}
         </a>
