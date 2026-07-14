@@ -309,7 +309,11 @@ const selectedComponentProps = computed(() => {
   }
 
   if (props.module === 'annexes') {
-    return baseProps;
+    return {
+      ...baseProps,
+      platformSession: props.platformSession,
+      platformBaseUrl: props.platformBaseUrl
+    };
   }
 
   return baseProps;

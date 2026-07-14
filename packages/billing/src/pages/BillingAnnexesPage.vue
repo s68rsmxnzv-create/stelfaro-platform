@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { CoreDteClient, type DteSalesAnnexBookKey, type DteSalesAnnexResponse } from '@stelfaro/api-client';
+import { CoreDteClient, PlatformClient, type DteSalesAnnexBookKey, type DteSalesAnnexResponse, type PlatformPurchaseAnnexResponse } from '@stelfaro/api-client';
 import { UiButton, UiInput, UiPanel, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import { Download, FileSpreadsheet, TriangleAlert } from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
@@ -9,21 +9,27 @@ import { getBillingContext, peekBillingContext } from '../support/billingDataCac
 const props = withDefaults(defineProps<{
   authToken?: string | null;
   coreBaseUrl?: string;
+  platformBaseUrl?: string;
+  platformSession?: Record<string, any> | null;
   billingContextCacheScope?: string;
 }>(), {
   authToken: null,
   coreBaseUrl: '/api/v1',
+  platformBaseUrl: '/api/v1',
+  platformSession: null,
   billingContextCacheScope: 'default'
 });
 
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
+const platformClient = computed(() => new PlatformClient(props.platformBaseUrl, { authToken: props.authToken }));
 const context = ref(peekBillingContext(props.coreBaseUrl, props.billingContextCacheScope));
 const selectedEmpresaId = ref<number | null>(null);
 const loading = ref(false);
-const downloading = ref<DteSalesAnnexBookKey | null>(null);
+const downloading = ref<string | null>(null);
 const error = ref<string | null>(null);
 const annex = ref<DteSalesAnnexResponse | null>(null);
-const activeBook = ref<DteSalesAnnexBookKey>('ventas_contribuyente');
+const purchaseAnnex = ref<PlatformPurchaseAnnexResponse | null>(null);
+const activeBook = ref<string>('ventas_contribuyente');
 
 const filters = reactive({
   from: firstDayOfMonth(),
@@ -32,9 +38,10 @@ const filters = reactive({
   ventasTipoIngreso: '10'
 });
 
-const bookLabels: Record<DteSalesAnnexBookKey, string> = {
+const bookLabels: Record<string, string> = {
   ventas_contribuyente: 'Ventas a contribuyente',
-  ventas_consumidor_final: 'Ventas consumidor final'
+  ventas_consumidor_final: 'Ventas consumidor final',
+  compras: 'Compras'
 };
 
 const empresas = computed(() => context.value?.empresas ?? []);
@@ -50,10 +57,30 @@ const requestParams = computed(() => ({
   ventas_tipo_operacion_renta: filters.ventasTipoOperacion || undefined,
   ventas_tipo_ingreso_renta: filters.ventasTipoIngreso || undefined
 }));
-const currentDataset = computed(() => annex.value?.data?.[activeBook.value] ?? { official_rows: [], preview: [], issues: [] });
-const currentHeaders = computed(() => annex.value?.headers?.[activeBook.value] ?? []);
-const counts = computed(() => annex.value?.meta?.counts ?? { ventas_contribuyente: 0, ventas_consumidor_final: 0 });
-const totalIssues = computed(() => Object.values(annex.value?.data ?? {}).reduce((sum, dataset) => sum + (dataset.issues?.length ?? 0), 0));
+const purchaseRequestParams = computed(() => ({
+  from: filters.from || undefined,
+  to: filters.to || undefined
+}));
+const tenantId = computed(() => Number(props.platformSession?.tenant?.id ?? props.platformSession?.active_membership?.tenant_id ?? 0) || null);
+const currentDataset = computed(() => {
+  if (activeBook.value === 'compras') {
+    return purchaseAnnex.value?.data?.compras ?? { official_rows: [], preview: [], issues: [] };
+  }
+
+  return annex.value?.data?.[activeBook.value] ?? { official_rows: [], preview: [], issues: [] };
+});
+const currentHeaders = computed(() => activeBook.value === 'compras'
+  ? (purchaseAnnex.value?.headers?.compras ?? [])
+  : (annex.value?.headers?.[activeBook.value] ?? []));
+const counts = computed(() => ({
+  ventas_contribuyente: annex.value?.meta?.counts?.ventas_contribuyente ?? 0,
+  ventas_consumidor_final: annex.value?.meta?.counts?.ventas_consumidor_final ?? 0,
+  compras: purchaseAnnex.value?.meta?.counts?.compras ?? 0
+}));
+const totalIssues = computed(() => {
+  const salesIssues = Object.values(annex.value?.data ?? {}).reduce((sum, dataset) => sum + (dataset.issues?.length ?? 0), 0);
+  return salesIssues + (purchaseAnnex.value?.data?.compras?.issues?.length ?? 0);
+});
 
 watch(() => props.authToken, () => {
   void initialize();
@@ -82,23 +109,32 @@ async function load(): Promise<void> {
   error.value = null;
 
   try {
-    annex.value = await client.value.salesAnnex(requestParams.value);
+    const [sales, purchases] = await Promise.all([
+      client.value.salesAnnex(requestParams.value),
+      tenantId.value ? platformClient.value.inventoryPurchaseAnnexOfficial(tenantId.value, purchaseRequestParams.value) : Promise.resolve(null)
+    ]);
+    annex.value = sales;
+    purchaseAnnex.value = purchases;
   } catch (caught) {
     annex.value = null;
+    purchaseAnnex.value = null;
     error.value = messageFromError(caught);
   } finally {
     loading.value = false;
   }
 }
 
-async function downloadCsv(book: DteSalesAnnexBookKey): Promise<void> {
+async function downloadCsv(book: string): Promise<void> {
   if (!props.authToken || !selectedEmpresa.value) return;
+  if (book === 'compras' && !tenantId.value) return;
 
   downloading.value = book;
   error.value = null;
 
   try {
-    const blob = await client.value.salesAnnexCsv(book, requestParams.value);
+    const blob = book === 'compras'
+      ? await platformClient.value.inventoryPurchaseAnnexCsv(tenantId.value, purchaseRequestParams.value)
+      : await client.value.salesAnnexCsv(book as DteSalesAnnexBookKey, requestParams.value);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -168,7 +204,7 @@ function messageFromError(caught: unknown): string {
       {{ error }}
     </div>
 
-    <div class="grid gap-4 md:grid-cols-3">
+    <div class="grid gap-4 md:grid-cols-4">
       <UiPanel variant="raised">
         <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Ventas contribuyente</p>
         <p class="mt-3 text-3xl font-black text-slate-950 dark:text-text">{{ counts.ventas_contribuyente }}</p>
@@ -176,6 +212,10 @@ function messageFromError(caught: unknown): string {
       <UiPanel variant="raised">
         <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Consumidor final</p>
         <p class="mt-3 text-3xl font-black text-slate-950 dark:text-text">{{ counts.ventas_consumidor_final }}</p>
+      </UiPanel>
+      <UiPanel variant="raised">
+        <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Compras</p>
+        <p class="mt-3 text-3xl font-black text-slate-950 dark:text-text">{{ counts.compras }}</p>
       </UiPanel>
       <UiPanel variant="raised">
         <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Observaciones</p>
@@ -224,19 +264,19 @@ function messageFromError(caught: unknown): string {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-200 dark:divide-line">
-            <tr v-for="row in currentDataset.preview" :key="`${row.tipo_dte}-${row.numero_control}-${row.codigo_generacion}`">
+            <tr v-for="row in currentDataset.preview" :key="`${row.tipo_dte}-${row.numero_control || row.numero_documento}-${row.codigo_generacion || row.purchase_id}`">
               <td class="px-4 py-4">
                 <div class="flex items-center gap-2 font-bold text-slate-950 dark:text-text">
                   <FileSpreadsheet class="h-4 w-4 text-sky-600 dark:text-primary" aria-hidden="true" />
-                  {{ row.tipo_dte }} · {{ row.numero_control }}
+                  {{ row.tipo_dte }} · {{ row.numero_control || row.numero_documento }}
                 </div>
               </td>
-              <td class="px-4 py-4 text-slate-700 dark:text-muted">{{ row.receptor_nombre }}</td>
+              <td class="px-4 py-4 text-slate-700 dark:text-muted">{{ row.receptor_nombre || row.proveedor_nombre }}</td>
               <td class="px-4 py-4 text-slate-700 dark:text-muted">{{ row.fecha_emision }}</td>
               <td class="px-4 py-4 text-right font-bold text-slate-950 dark:text-text">{{ money(row.total_pagar) }}</td>
             </tr>
             <tr v-if="!loading && currentDataset.preview.length === 0">
-              <td class="px-4 py-8 text-center text-slate-500 dark:text-muted" colspan="4">Sin documentos aceptados para este periodo.</td>
+              <td class="px-4 py-8 text-center text-slate-500 dark:text-muted" colspan="4">Sin documentos para este periodo.</td>
             </tr>
             <tr v-if="loading">
               <td class="px-4 py-8 text-center text-slate-500 dark:text-muted" colspan="4">Cargando anexos...</td>

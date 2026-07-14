@@ -620,6 +620,30 @@ export type PlatformInventoryPurchaseAnnexRow = {
   import_metadata: Record<string, unknown> | null;
 };
 
+export type PlatformPurchaseAnnexDataset = {
+  official_rows: string[][];
+  preview: Array<Record<string, unknown>>;
+  issues: string[];
+};
+
+export type PlatformPurchaseAnnexResponse = {
+  data: {
+    compras: PlatformPurchaseAnnexDataset;
+  };
+  headers: {
+    compras: string[];
+  };
+  meta: {
+    counts: {
+      compras: number;
+    };
+    period: {
+      from: string | null;
+      to: string | null;
+    };
+  };
+};
+
 export type PlatformInventoryCountPayload = {
   core_sucursal_id?: number | null;
   core_sucursal_code?: string | null;
@@ -1830,6 +1854,17 @@ export class PlatformClient {
 
   inventoryPurchaseAnnexReport(tenantId: number, params: { from?: string; to?: string } = {}): Promise<{ data: PlatformInventoryPurchaseAnnexRow[] }> {
     return this.http.get(`platform/tenants/${tenantId}/inventory/reports/purchase-annex`, { searchParams: compactParams(params) }).json();
+  }
+
+  inventoryPurchaseAnnexOfficial(tenantId: number, params: { from?: string; to?: string } = {}): Promise<PlatformPurchaseAnnexResponse> {
+    return this.http.get(`platform/tenants/${tenantId}/inventory/reports/purchase-annex/official`, { searchParams: compactParams(params) }).json();
+  }
+
+  inventoryPurchaseAnnexCsv(tenantId: number, params: { from?: string; to?: string } = {}): Promise<Blob> {
+    return this.http.get(`platform/tenants/${tenantId}/inventory/reports/purchase-annex/csv`, {
+      searchParams: compactParams(params),
+      headers: { Accept: 'text/csv' }
+    }).blob();
   }
 
   tenantFiscalScope(tenantId: number): Promise<PlatformFiscalScopeResponse> {
