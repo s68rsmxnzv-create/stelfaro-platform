@@ -299,38 +299,6 @@ function navigate(event, href) {
     <div class="relative">
       <button
         class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
-        :class="managementMenuActive ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
-        type="button"
-        @click="toggleManagementMenu"
-      >
-        Gestión
-        <span
-          class="h-1.5 w-1.5 rotate-45 border-b-2 border-r-2 border-current text-slate-400 transition"
-          :class="managementMenuOpen ? 'rotate-[225deg]' : ''"
-          aria-hidden="true"
-        />
-      </button>
-
-      <div
-        v-if="managementMenuOpen"
-        class="sf-app-menu absolute left-0 z-30 mt-2 w-52 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
-      >
-        <a
-          v-for="option in managementOptions"
-          :key="option.href"
-          :href="option.href"
-          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
-          :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === option.module }"
-          @click="navigate($event, option.href)"
-        >
-          {{ option.label }}
-        </a>
-      </div>
-    </div>
-
-    <div class="relative">
-      <button
-        class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
         :class="module === 'mh-events' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
         type="button"
         @click="toggleEventMenu"
@@ -409,6 +377,38 @@ function navigate(event, href) {
     >
       Anexos
     </a>
+
+    <div class="relative">
+      <button
+        class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
+        :class="managementMenuActive ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
+        type="button"
+        @click="toggleManagementMenu"
+      >
+        Gestión
+        <span
+          class="h-1.5 w-1.5 rotate-45 border-b-2 border-r-2 border-current text-slate-400 transition"
+          :class="managementMenuOpen ? 'rotate-[225deg]' : ''"
+          aria-hidden="true"
+        />
+      </button>
+
+      <div
+        v-if="managementMenuOpen"
+        class="sf-app-menu absolute left-0 z-30 mt-2 w-52 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+      >
+        <a
+          v-for="option in managementOptions"
+          :key="option.href"
+          :href="option.href"
+          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
+          :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === option.module }"
+          @click="navigate($event, option.href)"
+        >
+          {{ option.label }}
+        </a>
+      </div>
+    </div>
 
   </div>
 </template>
