@@ -81,6 +81,12 @@ const counts = computed(() => ({
   compras: purchaseAnnex.value?.meta?.counts?.compras ?? 0,
   documentos_invalidados: invalidatedAnnex.value?.meta?.counts?.documentos_invalidados ?? 0
 }));
+const documentCounts = computed(() => ({
+  ventas_contribuyente: counts.value.ventas_contribuyente,
+  ventas_consumidor_final: sumDocumentCount(annex.value?.data?.ventas_consumidor_final?.preview, counts.value.ventas_consumidor_final),
+  compras: counts.value.compras,
+  documentos_invalidados: counts.value.documentos_invalidados
+}));
 const totalIssues = computed(() => {
   const salesIssues = Object.values(annex.value?.data ?? {}).reduce((sum, dataset) => sum + (dataset.issues?.length ?? 0), 0);
   return salesIssues
@@ -179,6 +185,12 @@ function totalLabel(row: Record<string, unknown>): string {
   return row.total_pagar === undefined || row.total_pagar === null ? '-' : money(row.total_pagar);
 }
 
+function sumDocumentCount(preview: Array<Record<string, unknown>> | undefined, fallback: number): number {
+  if (!preview?.length) return fallback;
+
+  return preview.reduce((sum, row) => sum + Number(row.document_count || 1), 0);
+}
+
 function messageFromError(caught: unknown): string {
   return caught instanceof Error ? caught.message : 'No fue posible cargar anexos.';
 }
@@ -221,11 +233,11 @@ function messageFromError(caught: unknown): string {
     <div class="grid gap-4 md:grid-cols-5">
       <UiPanel variant="raised">
         <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Ventas contribuyente</p>
-        <p class="mt-3 text-3xl font-black text-slate-950 dark:text-text">{{ counts.ventas_contribuyente }}</p>
+        <p class="mt-3 text-3xl font-black text-slate-950 dark:text-text">{{ documentCounts.ventas_contribuyente }}</p>
       </UiPanel>
       <UiPanel variant="raised">
-        <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Consumidor final</p>
-        <p class="mt-3 text-3xl font-black text-slate-950 dark:text-text">{{ counts.ventas_consumidor_final }}</p>
+        <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">DTE consumidor final</p>
+        <p class="mt-3 text-3xl font-black text-slate-950 dark:text-text">{{ documentCounts.ventas_consumidor_final }}</p>
       </UiPanel>
       <UiPanel variant="raised">
         <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Compras</p>
@@ -288,6 +300,7 @@ function messageFromError(caught: unknown): string {
                   <FileSpreadsheet class="h-4 w-4 text-sky-600 dark:text-primary" aria-hidden="true" />
                   {{ row.tipo_dte }} · {{ row.numero_control || row.numero_documento }}
                   <UiStatusBadge v-if="row.is_combustible" tone="warning">Combustible</UiStatusBadge>
+                  <UiStatusBadge v-if="Number(row.document_count || 0) > 1" tone="info">{{ row.document_count }} DTE</UiStatusBadge>
                 </div>
               </td>
               <td class="px-4 py-4 text-slate-700 dark:text-muted">{{ row.receptor_nombre || row.proveedor_nombre || row.detalle }}</td>
