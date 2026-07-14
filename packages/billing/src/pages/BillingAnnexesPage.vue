@@ -269,6 +269,7 @@ function messageFromError(caught: unknown): string {
                 <div class="flex items-center gap-2 font-bold text-slate-950 dark:text-text">
                   <FileSpreadsheet class="h-4 w-4 text-sky-600 dark:text-primary" aria-hidden="true" />
                   {{ row.tipo_dte }} · {{ row.numero_control || row.numero_documento }}
+                  <UiStatusBadge v-if="row.is_combustible" tone="warning">Combustible</UiStatusBadge>
                 </div>
               </td>
               <td class="px-4 py-4 text-slate-700 dark:text-muted">{{ row.receptor_nombre || row.proveedor_nombre }}</td>
