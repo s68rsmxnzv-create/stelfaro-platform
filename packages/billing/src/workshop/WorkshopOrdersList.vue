@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue';
-import { ChevronLeft, ChevronRight, ClipboardList, Search } from 'lucide-vue-next';
-import { UiButton, UiCard, UiInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
+import { ChevronLeft, ChevronRight, ClipboardList } from 'lucide-vue-next';
+import { UiButton, UiCard, UiInput, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import type { WorkshopOrder } from '@stelfaro/api-client';
 
 const props = defineProps<{ orders: WorkshopOrder[]; stats: Record<string, number>; meta: { current_page: number; last_page: number; per_page: number; total: number }; loading?: boolean }>();
@@ -30,7 +30,7 @@ onBeforeUnmount(() => { if (timer) clearTimeout(timer); });
 <template>
   <div class="space-y-4">
     <UiCard class="overflow-hidden">
-      <div class="flex flex-col gap-4 border-b border-line p-5 lg:flex-row lg:items-center lg:justify-between"><div class="flex items-center gap-3"><span class="grid h-11 w-11 place-items-center rounded-md bg-primary-soft text-primary"><ClipboardList class="h-5 w-5" /></span><div><h2 class="font-semibold text-text">Órdenes de servicio</h2><p class="text-sm text-muted">{{ meta.total }} órdenes encontradas</p></div></div><div class="w-full lg:w-96"><UiInput v-model="query" label="Buscar órdenes" placeholder="Ticket, cliente, teléfono, equipo, IMEI o falla" @input="searchLater"><template #prefix><Search class="h-4 w-4" /></template></UiInput></div></div>
+      <div class="flex flex-col gap-4 border-b border-line p-5 lg:flex-row lg:items-center lg:justify-between"><div class="flex items-center gap-3"><span class="grid h-11 w-11 place-items-center rounded-md bg-primary-soft text-primary"><ClipboardList class="h-5 w-5" /></span><div><h2 class="font-semibold text-text">Órdenes de servicio</h2><p class="text-sm text-muted">{{ meta.total }} órdenes encontradas</p></div></div><div class="w-full lg:w-96"><UiSearchInput v-model="query" label="Buscar órdenes" placeholder="Ticket, cliente, teléfono, equipo, IMEI o falla" @update:model-value="searchLater" @search="apply" /></div></div>
 
       <div class="grid grid-cols-3 gap-2 border-b border-line bg-surface-muted p-4 sm:grid-cols-5 lg:grid-cols-9">
         <button v-for="option in statusOptions" :key="option.value || 'all'" type="button" class="rounded-md border px-2 py-2 text-left transition" :class="status === option.value ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-surface text-muted hover:border-primary/50'" @click="chooseStatus(option.value)"><span class="block text-xs font-medium">{{ option.label }}</span><strong class="mt-1 block text-base">{{ option.value ? (stats[option.value] || 0) : totalStats }}</strong></button>
