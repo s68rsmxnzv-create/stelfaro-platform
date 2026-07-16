@@ -46,7 +46,7 @@ const whatsappUrl = computed(() => {
     'Conserva este mensaje como constancia de recepción. El diagnóstico y el valor final serán confirmados antes de realizar trabajos adicionales.',
   ];
   const message = lines.join('\n');
-  return phone ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` : '';
+  return phone ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}` : '';
 });
 onMounted(async () => { if (props.photoUrl) qr.value = await QRCode.toDataURL(props.photoUrl, { width: 280, margin: 1, errorCorrectionLevel: 'M' }); });
 </script>
