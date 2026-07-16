@@ -28,10 +28,12 @@ function size(bytes: number) { return bytes < 1024 * 1024 ? `${Math.round(bytes 
       <UiButton variant="secondary" :disabled="loading" @click="$emit('refresh')"><RefreshCw class="mr-2 h-4 w-4" :class="{ 'animate-spin': loading }" />Actualizar</UiButton>
     </div>
 
-    <div v-if="photos.length" class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-      <button v-for="(photo, index) in photos" :key="photo.id" type="button" class="group relative aspect-[4/5] overflow-hidden rounded-2xl border border-line bg-surface-muted text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary" @click="select(index)">
-        <img :src="photo.url" :alt="`Fotografía ${photos.length - index} del equipo`" class="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]" loading="lazy">
-        <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-4 pb-4 pt-14 text-white">
+    <div v-if="photos.length" class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      <button v-for="(photo, index) in photos" :key="photo.id" type="button" class="group relative aspect-[4/3] overflow-hidden rounded-xl border border-line bg-surface-muted text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary" @click="select(index)">
+        <img :src="photo.url" alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-45 blur-xl" loading="lazy">
+        <div class="absolute inset-0 bg-black/10"></div>
+        <img :src="photo.url" :alt="`Fotografía ${photos.length - index} del equipo`" class="relative h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]" loading="lazy">
+        <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-3 pb-3 pt-10 text-white">
           <strong class="block truncate text-sm">Fotografía {{ photos.length - index }}</strong><small class="mt-0.5 block text-white/75">{{ size(photo.size) }}</small>
         </span>
       </button>
