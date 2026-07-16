@@ -14,6 +14,7 @@ const conditionLabels: Record<string, string> = { scratches: 'Rayones', dents: '
 const powerLabels: Record<string, string> = { on: 'Enciende', off: 'No enciende', not_tested: 'No comprobado' };
 const deviceLabels: Record<string, string> = { phone: 'Celular', tablet: 'Tablet', laptop: 'Laptop', desktop: 'Computadora', console: 'Consola', controller: 'Mando', instrument: 'Instrumento', tv: 'Televisor', audio: 'Equipo de audio', other: 'Equipo electrónico' };
 const money = (value: number) => new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(value);
+const emoji = { greeting: '\u{1F44B}', receipt: '\u{1F527}', ticket: '\u{1F3AB}', calendar: '\u{1F4C5}', device: '\u{1F4F1}', fault: '\u{1F6E0}\u{FE0F}', condition: '\u{1F50D}', accessories: '\u{1F392}', money: '\u{1F4B5}', status: '\u{1F4CC}' };
 const whatsappUrl = computed(() => {
   let phone = (props.order.customer.phone || '').replace(/\D/g, '');
   if (phone.length === 8) phone = `503${phone}`;
@@ -21,28 +22,28 @@ const whatsappUrl = computed(() => {
   const conditions = props.order.physical_conditions.map(condition => conditionLabels[condition] || condition);
   if (props.order.physical_condition) conditions.push(props.order.physical_condition);
   const lines = [
-    `Hola *${props.order.customer.name}* 👋`,
+    `Hola *${props.order.customer.name}* ${emoji.greeting}`,
     '',
-    '🔧 *COMPROBANTE DE RECEPCIÓN*',
-    `🎫 *Orden:* ${props.order.ticket}`,
-    `📅 *Fecha:* ${new Date(props.order.received_at).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' })}`,
+    `${emoji.receipt} *COMPROBANTE DE RECEPCIÓN*`,
+    `${emoji.ticket} *Orden:* ${props.order.ticket}`,
+    `${emoji.calendar} *Fecha:* ${new Date(props.order.received_at).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' })}`,
     '',
-    '📱 *EQUIPO RECIBIDO*',
+    `${emoji.device} *EQUIPO RECIBIDO*`,
     `• ${deviceLabels[props.order.device.type] || props.order.device.type}: ${props.order.device.brand} ${props.order.device.model}`,
     `• ${identifier}`,
     `• Encendido: ${powerLabels[props.order.device.power_status] || props.order.device.power_status}`,
     '',
-    '🛠️ *FALLA REPORTADA*',
+    `${emoji.fault} *FALLA REPORTADA*`,
     props.order.reported_fault,
-    ...(conditions.length ? ['', '🔍 *CONDICIÓN AL RECIBIR*', conditions.join(' · ')] : []),
-    ...(props.order.accessories.length ? ['', '🎒 *ACCESORIOS RECIBIDOS*', props.order.accessories.join(', ')] : []),
+    ...(conditions.length ? ['', `${emoji.condition} *CONDICIÓN AL RECIBIR*`, conditions.join(' · ')] : []),
+    ...(props.order.accessories.length ? ['', `${emoji.accessories} *ACCESORIOS RECIBIDOS*`, props.order.accessories.join(', ')] : []),
     '',
-    '💵 *VALORES REGISTRADOS*',
+    `${emoji.money} *VALORES REGISTRADOS*`,
     props.order.estimated_total !== null ? `• Monto estimado: ${money(props.order.estimated_total)}` : '• Monto estimado: Pendiente de diagnóstico',
     `• Anticipo recibido: ${money(props.order.paid_total)}`,
     ...(props.order.estimated_total !== null ? [`• Saldo estimado: ${money(props.order.balance)}`] : []),
     '',
-    '📌 El equipo quedó registrado y pendiente de revisión técnica.',
+    `${emoji.status} El equipo quedó registrado y pendiente de revisión técnica.`,
     'Conserva este mensaje como constancia de recepción. El diagnóstico y el valor final serán confirmados antes de realizar trabajos adicionales.',
   ];
   const message = lines.join('\n');
