@@ -1,5 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { CoreDteClient, PlatformClient, type BillingCustomer, type WorkshopOrder, type WorkshopOrderPayload } from '@stelfaro/api-client';
+import { CoreDteClient, PlatformClient, type BillingCustomer, type WorkshopOrder, type WorkshopOrderPayload, type WorkshopOrderPhoto } from '@stelfaro/api-client';
 import type { BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 
 export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authToken: string | null, tenantId: number) {
@@ -10,6 +10,8 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
   const empresaId = ref(0);
   const loading = ref(false);
   const customerLoading = ref(false);
+  const photoLoading = ref(false);
+  const photos = ref<WorkshopOrderPhoto[]>([]);
   const error = ref<string | null>(null);
   let customerSearchTimer: ReturnType<typeof window.setTimeout> | null = null;
   let customerSearchVersion = 0;
@@ -54,6 +56,12 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
   async function createPhotoSession(orderId: number) {
     return (await platform.createWorkshopPhotoSession(tenantId, orderId)).data;
   }
+  async function loadPhotos(orderId: number) {
+    photoLoading.value = true;
+    try { photos.value = (await platform.workshopOrderPhotos(tenantId, orderId)).data; }
+    catch (reason) { error.value = reason instanceof Error ? reason.message : 'No fue posible cargar las fotografías.'; }
+    finally { photoLoading.value = false; }
+  }
   async function createCustomer(payload: BillingCustomerModalPayload) {
     if (!empresaId.value) throw new Error('No hay una empresa activa para registrar el cliente.');
     error.value = null;
@@ -78,5 +86,5 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
   }
   onMounted(initialize);
   onBeforeUnmount(() => { if (customerSearchTimer) window.clearTimeout(customerSearchTimer); });
-  return { orders, customers, loading, customerLoading, error, openOrders: computed(() => orders.value.filter((o) => !['delivered', 'cancelled'].includes(o.status))), searchCustomers, createCustomer, createOrder, createPhotoSession, updateOrder };
+  return { orders, customers, photos, loading, customerLoading, photoLoading, error, openOrders: computed(() => orders.value.filter((o) => !['delivered', 'cancelled'].includes(o.status))), searchCustomers, createCustomer, createOrder, createPhotoSession, loadPhotos, updateOrder };
 }

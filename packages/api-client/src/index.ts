@@ -324,6 +324,10 @@ export type WorkshopOrder = {
   device: { id: number; type: string; brand: string; model: string; color: string | null; imei: string | null; serial_number: string | null; identifier_not_visible: boolean; power_status: string; functional_tests: Record<string, string>; is_locked: boolean; access_type: string | null; has_access_secret: boolean };
 };
 
+export type WorkshopOrderPhoto = {
+  id: number; url: string; stage: string; original_name: string; mime_type: string; size: number; created_at: string;
+};
+
 export type WorkshopOrderPayload = {
   customer: { core_customer_id: number; name: string; phone?: string | null; email?: string | null };
   device: { type: string; brand: string; model: string; color?: string | null; imei?: string | null; serial_number?: string | null; identifier_not_visible?: boolean; power_status: string; functional_tests?: Record<string, string>; is_locked?: boolean; access_type?: string | null; access_secret?: string | null };
@@ -1782,6 +1786,10 @@ export class PlatformClient {
 
   createWorkshopPhotoSession(tenantId: number, orderId: number): Promise<{ data: { url: string; expires_at: string } }> {
     return this.http.post(`platform/tenants/${tenantId}/workshop/orders/${orderId}/photo-session`).json();
+  }
+
+  workshopOrderPhotos(tenantId: number, orderId: number): Promise<{ data: WorkshopOrderPhoto[] }> {
+    return this.http.get(`platform/tenants/${tenantId}/workshop/orders/${orderId}/photos`).json();
   }
 
   catalogCategories(tenantId: number, params: { status?: string } = {}): Promise<{ data: PlatformCatalogCategory[] }> {
