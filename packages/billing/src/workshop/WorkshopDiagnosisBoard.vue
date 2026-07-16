@@ -1,13 +1,69 @@
 <script setup lang="ts">
-import { reactive } from 'vue';
-import { Microscope } from 'lucide-vue-next';
-import { UiButton, UiCard, UiInput, UiSelect, UiTextarea } from '@stelfaro/ui';
+import { reactive, ref } from 'vue';
+import { CheckCircle2, ChevronRight, ClipboardCheck, Microscope, Play, Wrench, XCircle } from 'lucide-vue-next';
+import { UiButton, UiCard, UiInput, UiSelect, UiStatusBadge, UiTextarea } from '@stelfaro/ui';
 import type { WorkshopOrder } from '@stelfaro/api-client';
+
 defineProps<{ orders: WorkshopOrder[] }>();
-const emit = defineEmits<{ update: [id: number, payload: { status: string; diagnosis: string; estimated_total: number | null }] }>();
-const drafts = reactive<Record<number, { diagnosis: string; estimated_total: string; status: string }>>({});
-const statuses = [{value:'diagnosing',label:'Diagnosticando'},{value:'awaiting_approval',label:'Esperando aprobación'},{value:'approved',label:'Aprobado'},{value:'repairing',label:'En reparación'},{value:'ready',label:'Listo'}];
-function draft(order: WorkshopOrder) { return drafts[order.id] ||= { diagnosis: order.diagnosis || '', estimated_total: order.estimated_total?.toString() || '', status: order.status === 'received' ? 'diagnosing' : order.status }; }
-function save(order: WorkshopOrder) { const value = draft(order); emit('update', order.id, { status: value.status, diagnosis: value.diagnosis, estimated_total: value.estimated_total ? Number(value.estimated_total) : null }); }
+const emit = defineEmits<{ update: [id: number, payload: Record<string, unknown>] }>();
+const drafts = reactive<Record<number, { diagnosis: string; estimatedTotal: string; approvalMethod: string; approvalNotes: string }>>({});
+const saving = ref<number | null>(null);
+const approvalMethods = [{ value: 'whatsapp', label: 'WhatsApp' }, { value: 'call', label: 'Llamada' }, { value: 'in_person', label: 'Presencial' }];
+const statusLabels: Record<string, string> = { received: 'Recibido', diagnosing: 'En diagnóstico', awaiting_approval: 'Esperando aprobación', approved: 'Aprobado', repairing: 'En reparación', ready: 'Listo' };
+const testLabels: Record<string, string> = { display: 'Imagen', touch_controls: 'Touch / controles', charging: 'Carga', cameras: 'Cámaras', audio: 'Audio', microphone: 'Micrófono', buttons: 'Botones', connectivity: 'Conectividad' };
+const resultLabels: Record<string, string> = { passed: 'Funciona', failed: 'Falla', not_tested: 'No probado' };
+
+function draft(order: WorkshopOrder) {
+  return drafts[order.id] ||= { diagnosis: order.diagnosis || '', estimatedTotal: order.estimated_total?.toString() || '', approvalMethod: 'whatsapp', approvalNotes: '' };
+}
+function submit(order: WorkshopOrder, payload: Record<string, unknown>) {
+  saving.value = order.id;
+  emit('update', order.id, payload);
+  window.setTimeout(() => { if (saving.value === order.id) saving.value = null; }, 600);
+}
+function saveDiagnosis(order: WorkshopOrder, requestApproval = false) {
+  const value = draft(order);
+  submit(order, { status: requestApproval ? 'awaiting_approval' : 'diagnosing', diagnosis: value.diagnosis.trim(), estimated_total: value.estimatedTotal === '' ? null : Number(value.estimatedTotal) });
+}
+function decide(order: WorkshopOrder, decision: 'approved' | 'rejected') {
+  const value = draft(order);
+  submit(order, { approval_decision: decision, approval_method: value.approvalMethod, approval_notes: value.approvalNotes.trim() || null });
+}
 </script>
-<template><div class="grid gap-4 lg:grid-cols-2"><UiCard v-for="order in orders" :key="order.id" class="p-5"><div class="flex items-start justify-between gap-3"><div class="flex gap-3"><Microscope class="mt-1 h-5 w-5 text-primary" /><div><p class="font-semibold text-text">{{ order.ticket }} · {{ order.device.brand }} {{ order.device.model }}</p><p class="text-sm text-muted">{{ order.customer.name }} — {{ order.reported_fault }}</p></div></div></div><div class="mt-4 grid gap-3"><UiTextarea v-model="draft(order).diagnosis" label="Diagnóstico técnico" /><div class="grid gap-3 sm:grid-cols-2"><UiInput v-model="draft(order).estimated_total" label="Presupuesto" type="number" min="0" step="0.01" /><UiSelect v-model="draft(order).status" label="Estado" :options="statuses" /></div><div class="flex justify-end"><UiButton @click="save(order)">Guardar diagnóstico</UiButton></div></div></UiCard><UiCard v-if="orders.length === 0" class="p-10 text-center text-muted lg:col-span-2">No hay equipos pendientes de diagnóstico.</UiCard></div></template>
+
+<template>
+  <div class="grid gap-4">
+    <UiCard v-for="order in orders" :key="order.id" class="p-5 sm:p-6">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="flex gap-3"><Microscope class="mt-1 h-5 w-5 shrink-0 text-primary" /><div><p class="font-semibold text-text">{{ order.ticket }} · {{ order.device.brand }} {{ order.device.model }}</p><p class="mt-1 text-sm text-muted">{{ order.customer.name }} · {{ order.reported_fault }}</p></div></div>
+        <UiStatusBadge :tone="order.status === 'ready' ? 'success' : 'neutral'">{{ statusLabels[order.status] || order.status }}</UiStatusBadge>
+      </div>
+
+      <div v-if="Object.keys(order.device.functional_tests).length" class="mt-5 border-t border-line pt-4">
+        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Pruebas de recepción</p>
+        <div class="flex flex-wrap gap-2"><UiStatusBadge v-for="(result, test) in order.device.functional_tests" :key="test" :tone="result === 'passed' ? 'success' : result === 'failed' ? 'danger' : 'neutral'">{{ testLabels[test] || test }}: {{ resultLabels[result] || result }}</UiStatusBadge></div>
+      </div>
+
+      <div v-if="order.status === 'received'" class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface-muted p-4">
+        <div><p class="font-semibold text-text">Iniciar revisión técnica</p><p class="text-sm text-muted">La orden quedará identificada como equipo en diagnóstico.</p></div>
+        <UiButton :disabled="saving === order.id" @click="submit(order, { status: 'diagnosing' })"><Play class="h-4 w-4" />Iniciar diagnóstico</UiButton>
+      </div>
+
+      <div v-else-if="order.status === 'diagnosing'" class="mt-5 grid gap-4 border-t border-line pt-5">
+        <UiTextarea v-model="draft(order).diagnosis" label="Diagnóstico técnico" :rows="3" placeholder="Describe la causa encontrada y el trabajo recomendado" />
+        <UiInput v-model="draft(order).estimatedTotal" class="max-w-sm" label="Presupuesto estimado" type="number" min="0" step="0.01" />
+        <div class="flex flex-wrap justify-end gap-2"><UiButton variant="secondary" :disabled="saving === order.id" @click="saveDiagnosis(order)">Guardar avance</UiButton><UiButton :disabled="saving === order.id || !draft(order).diagnosis.trim() || draft(order).estimatedTotal === ''" @click="saveDiagnosis(order, true)"><ClipboardCheck class="h-4 w-4" />Solicitar aprobación<ChevronRight class="h-4 w-4" /></UiButton></div>
+      </div>
+
+      <div v-else-if="order.status === 'awaiting_approval'" class="mt-5 grid gap-4 border-t border-line pt-5">
+        <div class="rounded-lg border border-warning bg-warning-soft p-4"><p class="font-semibold text-warning">Presupuesto pendiente de decisión</p><p class="mt-1 text-sm text-text">{{ order.diagnosis }}</p><p class="mt-2 text-lg font-semibold text-text">${{ Number(order.estimated_total || 0).toFixed(2) }}</p></div>
+        <div class="grid gap-3 sm:grid-cols-2"><UiSelect v-model="draft(order).approvalMethod" label="¿Cómo respondió el cliente?" :options="approvalMethods" /><UiInput v-model="draft(order).approvalNotes" label="Nota de confirmación" placeholder="Opcional" /></div>
+        <div class="flex flex-wrap justify-end gap-2"><UiButton variant="secondary" class="text-danger" :disabled="saving === order.id" @click="decide(order, 'rejected')"><XCircle class="h-4 w-4" />Rechazó presupuesto</UiButton><UiButton :disabled="saving === order.id" @click="decide(order, 'approved')"><CheckCircle2 class="h-4 w-4" />Aprobó presupuesto</UiButton></div>
+      </div>
+
+      <div v-else-if="order.status === 'approved'" class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-success bg-success-soft p-4"><div><p class="font-semibold text-success">Trabajo autorizado por el cliente</p><p class="text-sm text-text">Ya puede iniciar la reparación.</p></div><UiButton :disabled="saving === order.id" @click="submit(order, { status: 'repairing' })"><Wrench class="h-4 w-4" />Iniciar reparación</UiButton></div>
+      <div v-else-if="order.status === 'repairing'" class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface-muted p-4"><div><p class="font-semibold text-text">Reparación en proceso</p><p class="text-sm text-muted">Marca la orden como lista cuando finalicen las pruebas.</p></div><UiButton :disabled="saving === order.id" @click="submit(order, { status: 'ready' })"><CheckCircle2 class="h-4 w-4" />Marcar como listo</UiButton></div>
+    </UiCard>
+    <UiCard v-if="orders.length === 0" class="p-10 text-center text-muted">No hay equipos pendientes de diagnóstico.</UiCard>
+  </div>
+</template>

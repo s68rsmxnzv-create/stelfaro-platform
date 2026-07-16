@@ -320,6 +320,7 @@ export type WorkshopOrder = {
   id: number; ticket: string; status: string; priority: string; reported_fault: string;
   physical_condition: string | null; physical_conditions: string[]; accessories: string[]; diagnosis: string | null;
   estimated_total: number | null; paid_total: number; balance: number; received_at: string; photo_count: number;
+  approval: { decision: string | null; method: string | null; notes: string | null; decided_at: string | null };
   customer: { id: number; name: string; phone: string | null };
   device: { id: number; type: string; brand: string; model: string; color: string | null; imei: string | null; serial_number: string | null; identifier_not_visible: boolean; power_status: string; functional_tests: Record<string, string>; is_locked: boolean; access_type: string | null; has_access_secret: boolean };
 };
@@ -1786,7 +1787,7 @@ export class PlatformClient {
     return this.http.post(`platform/tenants/${tenantId}/workshop/orders`, { json: payload }).json();
   }
 
-  updateWorkshopOrder(tenantId: number, orderId: number, payload: { status?: string; diagnosis?: string | null; estimated_total?: number | null }): Promise<{ data: WorkshopOrder }> {
+  updateWorkshopOrder(tenantId: number, orderId: number, payload: { status?: string; diagnosis?: string | null; estimated_total?: number | null; approval_decision?: 'approved' | 'rejected'; approval_method?: 'whatsapp' | 'call' | 'in_person'; approval_notes?: string | null }): Promise<{ data: WorkshopOrder }> {
     return this.http.patch(`platform/tenants/${tenantId}/workshop/orders/${orderId}`, { json: payload }).json();
   }
 

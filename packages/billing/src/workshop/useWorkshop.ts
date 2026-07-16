@@ -86,14 +86,16 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
       throw reason;
     }
   }
-  async function updateOrder(id: number, payload: { status?: string; diagnosis?: string | null; estimated_total?: number | null }) {
+  async function updateOrder(id: number, payload: { status?: string; diagnosis?: string | null; estimated_total?: number | null; approval_decision?: 'approved' | 'rejected'; approval_method?: 'whatsapp' | 'call' | 'in_person'; approval_notes?: string | null }) {
     error.value = null;
     try {
       const result = await platform.updateWorkshopOrder(tenantId, id, payload);
       const index = orders.value.findIndex((order) => order.id === id);
       if (index >= 0) orders.value[index] = result.data;
+      return result.data;
     } catch (reason) {
       error.value = reason instanceof Error ? reason.message : 'No fue posible actualizar la orden.';
+      throw reason;
     }
   }
   onMounted(initialize);
