@@ -18,19 +18,22 @@ function size(bytes: number) { return bytes < 1024 * 1024 ? `${Math.round(bytes 
 </script>
 
 <template>
-  <section class="mt-7 border-t border-line pt-6">
-    <div class="flex items-center justify-between gap-3">
-      <div class="flex items-center gap-3">
-        <span class="grid h-10 w-10 place-items-center rounded-md bg-primary-soft text-primary"><Images class="h-5 w-5" /></span>
-        <div><h3 class="font-semibold text-text">Fotos del equipo</h3><p class="text-sm text-muted">{{ photos.length }} {{ photos.length === 1 ? 'fotografía guardada' : 'fotografías guardadas' }}</p></div>
+  <section class="mt-7 border-t border-line pt-7">
+    <div class="flex items-end justify-between gap-4">
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-wide text-primary">Vista previa</p>
+        <h3 class="mt-1 text-2xl font-bold text-text">Fotografías del equipo</h3>
+        <p class="mt-2 text-sm text-muted">Haz clic en una fotografía para abrirla y navegar por la galería.</p>
       </div>
       <UiButton variant="secondary" :disabled="loading" @click="$emit('refresh')"><RefreshCw class="mr-2 h-4 w-4" :class="{ 'animate-spin': loading }" />Actualizar</UiButton>
     </div>
 
-    <div v-if="photos.length" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-      <button v-for="(photo, index) in photos" :key="photo.id" type="button" class="group overflow-hidden rounded-lg border border-line bg-surface-muted text-left transition hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary" @click="select(index)">
-        <div class="aspect-[4/3] overflow-hidden bg-surface"><img :src="photo.url" :alt="`Foto ${index + 1} del equipo`" class="h-full w-full object-contain transition group-hover:scale-[1.02]" loading="lazy"></div>
-        <div class="px-3 py-2"><p class="truncate text-xs font-medium text-text">Foto {{ photos.length - index }}</p><p class="mt-0.5 text-xs text-muted">{{ size(photo.size) }}</p></div>
+    <div v-if="photos.length" class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <button v-for="(photo, index) in photos" :key="photo.id" type="button" class="group relative aspect-[4/5] overflow-hidden rounded-2xl border border-line bg-surface-muted text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary" @click="select(index)">
+        <img :src="photo.url" :alt="`Fotografía ${photos.length - index} del equipo`" class="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]" loading="lazy">
+        <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-4 pb-4 pt-14 text-white">
+          <strong class="block truncate text-sm">Fotografía {{ photos.length - index }}</strong><small class="mt-0.5 block text-white/75">{{ size(photo.size) }}</small>
+        </span>
       </button>
     </div>
     <div v-else class="mt-4 rounded-lg border border-dashed border-line bg-surface-muted px-4 py-8 text-center"><Images class="mx-auto h-8 w-8 text-muted" /><p class="mt-2 text-sm font-medium text-text">Aún no hay fotografías</p><p class="mt-1 text-xs text-muted">Después de subirlas desde el QR, pulsa Actualizar.</p></div>
