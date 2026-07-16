@@ -51,6 +51,9 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
       throw reason;
     }
   }
+  async function createPhotoSession(orderId: number) {
+    return (await platform.createWorkshopPhotoSession(tenantId, orderId)).data;
+  }
   async function createCustomer(payload: BillingCustomerModalPayload) {
     if (!empresaId.value) throw new Error('No hay una empresa activa para registrar el cliente.');
     error.value = null;
@@ -75,5 +78,5 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
   }
   onMounted(initialize);
   onBeforeUnmount(() => { if (customerSearchTimer) window.clearTimeout(customerSearchTimer); });
-  return { orders, customers, loading, customerLoading, error, openOrders: computed(() => orders.value.filter((o) => !['delivered', 'cancelled'].includes(o.status))), searchCustomers, createCustomer, createOrder, updateOrder };
+  return { orders, customers, loading, customerLoading, error, openOrders: computed(() => orders.value.filter((o) => !['delivered', 'cancelled'].includes(o.status))), searchCustomers, createCustomer, createOrder, createPhotoSession, updateOrder };
 }
