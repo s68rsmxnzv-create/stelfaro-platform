@@ -37,13 +37,15 @@ const props = withDefaults(defineProps<{
   departamentoOptions?: SelectOption[];
   municipioOptions?: SelectOption[];
   distritoOptions?: SelectOption[];
+  allowOptionalAddress?: boolean;
 }>(), {
   loading: false,
   initialValue: null,
   actividadOptions: () => [],
   departamentoOptions: () => [],
   municipioOptions: () => [],
-  distritoOptions: () => []
+  distritoOptions: () => [],
+  allowOptionalAddress: true
 });
 
 const emit = defineEmits<{
@@ -251,7 +253,7 @@ function submit(): void {
     </div>
 
     <button
-      v-if="!isEditMode"
+      v-if="!isEditMode && allowOptionalAddress"
       type="button"
       class="text-left text-sm font-semibold text-sky-700 transition hover:text-sky-600 dark:text-primary"
       @click="showAddress = !showAddress"

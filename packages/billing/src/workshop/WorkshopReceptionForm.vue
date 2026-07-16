@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
-import { Camera, Check, ChevronLeft, ChevronRight, Search, SlidersHorizontal, Smartphone, UserRound } from 'lucide-vue-next';
-import { UiButton, UiCard, UiInput, UiSelect, UiTextarea } from '@stelfaro/ui';
+import { Camera, Check, ChevronLeft, ChevronRight, SlidersHorizontal, Smartphone, UserRound } from 'lucide-vue-next';
+import { UiButton, UiCard, UiInput, UiSearchInput, UiSelect, UiTextarea } from '@stelfaro/ui';
 import type { BillingCustomer, WorkshopOrderPayload } from '@stelfaro/api-client';
-import BillingCustomerSearchModal from '../components/BillingCustomerSearchModal.vue';
+import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 
-const props = defineProps<{ customers: BillingCustomer[]; customerLoading?: boolean; onSave: (payload: WorkshopOrderPayload) => Promise<unknown> }>();
+const props = defineProps<{ customers: BillingCustomer[]; customerLoading?: boolean; onCreateCustomer: (payload: BillingCustomerModalPayload) => Promise<BillingCustomer>; onSave: (payload: WorkshopOrderPayload) => Promise<unknown> }>();
 const emit = defineEmits<{ search: [query: string] }>();
 const step = ref(1);
 const selected = ref<BillingCustomer | null>(null);
 const customerQuery = ref('');
-const customerSearchOpen = ref(false);
+const customerCreateOpen = ref(false);
+const customerCreateLoading = ref(false);
 const optionalOpen = ref(false);
 const accessoriesText = ref('');
 const saving = ref(false);
@@ -22,10 +23,14 @@ const mobileDevice = computed(() => ['phone', 'tablet'].includes(form.type));
 const selectedTypeLabel = computed(() => deviceTypes.find(option => option.value === form.type)?.label ?? 'Equipo');
 const progress = computed(() => `${Math.round((step.value / 3) * 100)}%`);
 
-function openCustomerSearch() { customerSearchOpen.value = true; }
 function updateCustomerSearch(value: string) { customerQuery.value = value; emit('search', value); }
 function clearCustomerSearch() { customerQuery.value = ''; emit('search', ''); }
-function choose(customer: BillingCustomer) { selected.value = customer; customerQuery.value = customer.name; customerSearchOpen.value = false; validationMessage.value = ''; }
+function choose(customer: BillingCustomer) { selected.value = customer; customerQuery.value = customer.name; emit('search', ''); validationMessage.value = ''; }
+async function createCustomer(payload: BillingCustomerModalPayload) {
+  customerCreateLoading.value = true;
+  try { choose(await props.onCreateCustomer(payload)); customerCreateOpen.value = false; }
+  finally { customerCreateLoading.value = false; }
+}
 function next() {
   validationMessage.value = '';
   if (step.value === 1 && !selected.value) { validationMessage.value = 'Selecciona un cliente para continuar.'; return; }
@@ -45,9 +50,9 @@ async function submit() {
 </script>
 
 <template>
-  <BillingCustomerSearchModal :open="customerSearchOpen" :search="customerQuery" :results="props.customers" :loading="props.customerLoading" :selected-customer-id="selected?.id ?? null" @close="customerSearchOpen = false" @clear="clearCustomerSearch" @select="choose" @update:search="updateCustomerSearch" />
+  <BillingCustomerModal :open="customerCreateOpen" mode="new" :loading="customerCreateLoading" :allow-optional-address="false" @close="customerCreateOpen = false" @save="createCustomer" />
 
-  <UiCard class="mx-auto max-w-3xl overflow-hidden">
+  <UiCard class="w-full overflow-hidden">
     <div class="border-b border-line px-5 py-4 sm:px-7">
       <div class="flex items-center justify-between gap-4 text-sm"><span class="font-semibold text-primary">Paso {{ step }} de 3</span><span class="text-muted">{{ step === 1 ? 'Cliente' : step === 2 ? 'Equipo y falla' : 'Confirmar' }}</span></div>
       <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-muted"><div class="h-full rounded-full bg-primary transition-all" :style="{ width: progress }"></div></div>
@@ -55,10 +60,12 @@ async function submit() {
 
     <form class="p-5 sm:p-7" @submit.prevent="submit">
       <section v-if="step === 1">
-        <div class="flex items-start gap-3"><UserRound class="mt-0.5 h-6 w-6 text-primary" /><div><h2 class="text-xl font-semibold text-text">¿Quién trae el equipo?</h2><p class="mt-1 text-sm text-muted">Busca un cliente guardado o créalo previamente desde Clientes.</p></div></div>
-        <button type="button" class="mt-6 flex w-full items-center justify-between rounded-lg border border-line bg-surface-muted p-4 text-left transition hover:border-primary" @click="openCustomerSearch">
-          <span><strong class="block text-text">{{ selected?.name || 'Buscar cliente' }}</strong><span class="mt-1 block text-sm text-muted">{{ selected ? (selected.phone || selected.document_number || 'Sin contacto') : 'Nombre, documento o teléfono' }}</span></span><Search class="h-5 w-5 text-primary" />
-        </button>
+        <div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3"><UserRound class="h-6 w-6 text-primary" /><h2 class="text-xl font-semibold text-text">¿Quién trae el equipo?</h2></div><UiButton type="button" variant="secondary" @click="customerCreateOpen = true">Nuevo cliente</UiButton></div>
+        <div class="mt-6"><UiSearchInput :model-value="customerQuery" label="Buscar cliente" placeholder="Nombre, documento o teléfono" @update:model-value="updateCustomerSearch" /></div>
+        <div v-if="customerLoading" class="mt-2 text-sm text-muted">Buscando clientes…</div>
+        <div v-else-if="customerQuery.trim().length >= 2 && customers.length" class="mt-2 max-h-64 divide-y divide-line overflow-y-auto rounded-md border border-line bg-surface-raised"><button v-for="customer in customers" :key="customer.id" type="button" class="block w-full px-4 py-3 text-left hover:bg-primary-soft" @click="choose(customer)"><strong class="block text-text">{{ customer.name }}</strong><span class="mt-1 block text-xs text-muted">{{ customer.document_number || 'Sin documento' }}<template v-if="customer.phone"> · {{ customer.phone }}</template></span></button></div>
+        <p v-else-if="customerQuery.trim().length >= 2" class="mt-2 rounded-md bg-surface-muted px-4 py-3 text-sm text-muted">No encontramos clientes con esa búsqueda.</p>
+        <div v-if="selected" class="mt-4 flex items-center justify-between rounded-md border border-success bg-success-soft px-4 py-3"><span><strong class="block text-text">{{ selected.name }}</strong><span class="text-sm text-muted">{{ selected.phone || selected.document_number || 'Sin contacto' }}</span></span><UiButton type="button" variant="ghost" size="sm" @click="selected = null; clearCustomerSearch()">Cambiar</UiButton></div>
       </section>
 
       <section v-else-if="step === 2">

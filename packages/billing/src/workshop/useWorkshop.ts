@@ -1,5 +1,6 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { CoreDteClient, PlatformClient, type BillingCustomer, type WorkshopOrder, type WorkshopOrderPayload } from '@stelfaro/api-client';
+import type { BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 
 export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authToken: string | null, tenantId: number) {
   const core = new CoreDteClient(coreBaseUrl, { authToken });
@@ -50,6 +51,18 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
       throw reason;
     }
   }
+  async function createCustomer(payload: BillingCustomerModalPayload) {
+    if (!empresaId.value) throw new Error('No hay una empresa activa para registrar el cliente.');
+    error.value = null;
+    try {
+      const result = await core.saveCustomer({ empresa_id: empresaId.value, ...payload, allowed_dte_codes: ['01'] });
+      customers.value = [result.customer, ...customers.value.filter(customer => customer.id !== result.customer.id)];
+      return result.customer;
+    } catch (reason) {
+      error.value = reason instanceof Error ? reason.message : 'No fue posible registrar el cliente.';
+      throw reason;
+    }
+  }
   async function updateOrder(id: number, payload: { status?: string; diagnosis?: string | null; estimated_total?: number | null }) {
     error.value = null;
     try {
@@ -62,5 +75,5 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
   }
   onMounted(initialize);
   onBeforeUnmount(() => { if (customerSearchTimer) window.clearTimeout(customerSearchTimer); });
-  return { orders, customers, loading, customerLoading, error, openOrders: computed(() => orders.value.filter((o) => !['delivered', 'cancelled'].includes(o.status))), searchCustomers, createOrder, updateOrder };
+  return { orders, customers, loading, customerLoading, error, openOrders: computed(() => orders.value.filter((o) => !['delivered', 'cancelled'].includes(o.status))), searchCustomers, createCustomer, createOrder, updateOrder };
 }

@@ -351,7 +351,7 @@ const dashboardHref = computed(() => props.dashboardUrl || props.appBaseUrl || '
 const pageTitle = computed(() => {
   if (props.module === 'dashboard') return 'Dashboard';
   if (props.module === 'operational-placeholder') return props.operationalPage?.title ?? props.app.name;
-  if (props.module === 'workshop-reception') return 'Recepción';
+  if (props.module === 'workshop-reception') return 'Recepción de equipos';
   if (props.module === 'workshop-diagnosis') return 'Diagnóstico';
   if (props.module === 'workshop-orders') return 'Órdenes';
 
