@@ -1,4 +1,4 @@
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { CoreDteClient, PlatformClient, type BillingCustomer, type WorkshopOrder, type WorkshopOrderPayload } from '@stelfaro/api-client';
 
 export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authToken: string | null, tenantId: number) {
@@ -8,7 +8,10 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
   const customers = ref<BillingCustomer[]>([]);
   const empresaId = ref(0);
   const loading = ref(false);
+  const customerLoading = ref(false);
   const error = ref<string | null>(null);
+  let customerSearchTimer: ReturnType<typeof window.setTimeout> | null = null;
+  let customerSearchVersion = 0;
 
   async function initialize() {
     loading.value = true;
@@ -19,9 +22,22 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
     } catch (reason) { error.value = reason instanceof Error ? reason.message : 'No fue posible cargar Taller.'; }
     finally { loading.value = false; }
   }
-  async function searchCustomers(q: string) {
-    if (!empresaId.value || q.trim().length < 2) { customers.value = []; return; }
-    customers.value = (await core.customers({ empresa_id: empresaId.value, q })).data;
+  function searchCustomers(q: string) {
+    if (customerSearchTimer) window.clearTimeout(customerSearchTimer);
+    const query = q.trim();
+    if (!empresaId.value || query.length < 2) { customers.value = []; customerLoading.value = false; return; }
+    const version = ++customerSearchVersion;
+    customerLoading.value = true;
+    customerSearchTimer = window.setTimeout(async () => {
+      try {
+        const result = await core.customers({ empresa_id: empresaId.value, q: query });
+        if (version === customerSearchVersion) customers.value = result.data;
+      } catch (reason) {
+        if (version === customerSearchVersion) error.value = reason instanceof Error ? reason.message : 'No fue posible buscar clientes.';
+      } finally {
+        if (version === customerSearchVersion) customerLoading.value = false;
+      }
+    }, 250);
   }
   async function createOrder(payload: WorkshopOrderPayload) {
     error.value = null;
@@ -45,5 +61,6 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
     }
   }
   onMounted(initialize);
-  return { orders, customers, loading, error, openOrders: computed(() => orders.value.filter((o) => !['delivered', 'cancelled'].includes(o.status))), searchCustomers, createOrder, updateOrder };
+  onBeforeUnmount(() => { if (customerSearchTimer) window.clearTimeout(customerSearchTimer); });
+  return { orders, customers, loading, customerLoading, error, openOrders: computed(() => orders.value.filter((o) => !['delivered', 'cancelled'].includes(o.status))), searchCustomers, createOrder, updateOrder };
 }

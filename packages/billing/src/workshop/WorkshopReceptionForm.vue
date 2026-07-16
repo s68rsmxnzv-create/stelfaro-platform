@@ -3,19 +3,23 @@ import { reactive, ref } from 'vue';
 import { Camera, Search, Smartphone, Wrench } from 'lucide-vue-next';
 import { UiButton, UiCard, UiInput, UiSelect, UiTextarea } from '@stelfaro/ui';
 import type { BillingCustomer, WorkshopOrderPayload } from '@stelfaro/api-client';
+import BillingCustomerSearchModal from '../components/BillingCustomerSearchModal.vue';
 
-const props = defineProps<{ customers: BillingCustomer[]; onSave: (payload: WorkshopOrderPayload) => Promise<unknown> }>();
+const props = defineProps<{ customers: BillingCustomer[]; customerLoading?: boolean; onSave: (payload: WorkshopOrderPayload) => Promise<unknown> }>();
 const emit = defineEmits<{ search: [query: string] }>();
 const selected = ref<BillingCustomer | null>(null);
 const customerQuery = ref('');
+const customerSearchOpen = ref(false);
 const accessoriesText = ref('');
 const saving = ref(false);
 const form = reactive({ type: 'phone', brand: '', model: '', color: '', imei: '', serial_number: '', reported_fault: '', physical_condition: '', priority: 'normal', advance_amount: '', advance_method: 'cash', advance_reference: '' });
 const deviceTypes = [{ value: 'phone', label: 'Celular' }, { value: 'tablet', label: 'Tablet' }, { value: 'laptop', label: 'Laptop' }, { value: 'desktop', label: 'Computadora' }, { value: 'console', label: 'Consola' }, { value: 'controller', label: 'Mando' }, { value: 'instrument', label: 'Instrumento' }, { value: 'tv', label: 'Televisor' }, { value: 'audio', label: 'Audio' }, { value: 'other', label: 'Otro' }];
 const priorities = [{ value: 'low', label: 'Baja' }, { value: 'normal', label: 'Normal' }, { value: 'high', label: 'Alta' }, { value: 'urgent', label: 'Urgente' }];
 
-function search() { selected.value = null; emit('search', customerQuery.value); }
-function choose(customer: BillingCustomer) { selected.value = customer; customerQuery.value = customer.name; }
+function openCustomerSearch() { customerSearchOpen.value = true; }
+function updateCustomerSearch(value: string) { customerQuery.value = value; emit('search', value); }
+function clearCustomerSearch() { customerQuery.value = ''; emit('search', ''); }
+function choose(customer: BillingCustomer) { selected.value = customer; customerQuery.value = customer.name; customerSearchOpen.value = false; }
 async function submit() {
   if (!selected.value) return;
   saving.value = true;
@@ -32,14 +36,25 @@ async function submit() {
 </script>
 
 <template>
+  <BillingCustomerSearchModal
+    :open="customerSearchOpen"
+    :search="customerQuery"
+    :results="props.customers"
+    :loading="props.customerLoading"
+    :selected-customer-id="selected?.id ?? null"
+    @close="customerSearchOpen = false"
+    @clear="clearCustomerSearch"
+    @select="choose"
+    @update:search="updateCustomerSearch"
+  />
   <form class="grid gap-5 xl:grid-cols-2" @submit.prevent="submit">
     <UiCard class="p-5">
       <div class="flex items-center gap-3"><Search class="h-5 w-5 text-primary" /><div><h2 class="font-semibold text-text">Cliente</h2><p class="text-sm text-muted">Se reutiliza el perfil disponible en facturación.</p></div></div>
-      <div class="mt-4 flex gap-2"><UiInput v-model="customerQuery" label="Buscar cliente" placeholder="Nombre, documento o teléfono" @keyup.enter.prevent="search" /><UiButton class="mt-6" type="button" variant="secondary" @click="search">Buscar</UiButton></div>
-      <div v-if="!selected && props.customers.length" class="mt-2 divide-y divide-line rounded-md border border-line bg-surface">
-        <button v-for="customer in props.customers" :key="customer.id" type="button" class="block w-full px-3 py-2 text-left text-sm text-text hover:bg-surface-muted" @click="choose(customer)"><strong>{{ customer.name }}</strong><span class="ml-2 text-muted">{{ customer.phone || customer.document_number }}</span></button>
+      <div class="mt-4 rounded-md border border-line bg-surface-muted p-4">
+        <p v-if="selected" class="text-sm text-text"><strong>{{ selected.name }}</strong><span class="ml-2 text-muted">{{ selected.phone || selected.document_number || 'Sin contacto' }}</span></p>
+        <p v-else class="text-sm text-muted">Selecciona un cliente guardado para continuar.</p>
+        <UiButton class="mt-3" type="button" variant="secondary" @click="openCustomerSearch"><Search class="mr-2 h-4 w-4" />{{ selected ? 'Cambiar cliente' : 'Buscar cliente' }}</UiButton>
       </div>
-      <p v-if="selected" class="mt-3 rounded-md bg-primary-soft px-3 py-2 text-sm text-primary"><strong>{{ selected.name }}</strong> · {{ selected.phone || 'Sin teléfono' }}</p>
     </UiCard>
     <UiCard class="p-5">
       <div class="flex items-center gap-3"><Smartphone class="h-5 w-5 text-primary" /><h2 class="font-semibold text-text">Equipo físico</h2></div>
