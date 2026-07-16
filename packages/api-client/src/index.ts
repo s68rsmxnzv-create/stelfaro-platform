@@ -316,6 +316,21 @@ export type PlatformCatalogItemsResponse = {
   meta?: PaginationMeta;
 };
 
+export type WorkshopOrder = {
+  id: number; ticket: string; status: string; priority: string; reported_fault: string;
+  physical_condition: string | null; accessories: string[]; diagnosis: string | null;
+  estimated_total: number | null; paid_total: number; balance: number; received_at: string;
+  customer: { id: number; name: string; phone: string | null };
+  device: { id: number; type: string; brand: string; model: string; color: string | null; imei: string | null; serial_number: string | null };
+};
+
+export type WorkshopOrderPayload = {
+  customer: { core_customer_id: number; name: string; phone?: string | null; email?: string | null };
+  device: { type: string; brand: string; model: string; color?: string | null; imei?: string | null; serial_number?: string | null };
+  reported_fault: string; physical_condition?: string | null; accessories?: string[]; priority?: string;
+  advance?: { amount?: number | null; method?: string; reference?: string | null };
+};
+
 export type PlatformInventorySupplier = {
   id: number;
   tenant_id: number;
@@ -1751,6 +1766,18 @@ export class PlatformClient {
 
   tenantUsers(tenantId: number): Promise<PlatformTenantUsersResponse> {
     return this.http.get(`platform/tenants/${tenantId}/users`).json();
+  }
+
+  workshopOrders(tenantId: number, params: { q?: string; status?: string } = {}): Promise<{ data: WorkshopOrder[] }> {
+    return this.http.get(`platform/tenants/${tenantId}/workshop/orders`, { searchParams: compactParams(params) }).json();
+  }
+
+  createWorkshopOrder(tenantId: number, payload: WorkshopOrderPayload): Promise<{ data: WorkshopOrder }> {
+    return this.http.post(`platform/tenants/${tenantId}/workshop/orders`, { json: payload }).json();
+  }
+
+  updateWorkshopOrder(tenantId: number, orderId: number, payload: { status?: string; diagnosis?: string | null; estimated_total?: number | null }): Promise<{ data: WorkshopOrder }> {
+    return this.http.patch(`platform/tenants/${tenantId}/workshop/orders/${orderId}`, { json: payload }).json();
   }
 
   catalogCategories(tenantId: number, params: { status?: string } = {}): Promise<{ data: PlatformCatalogCategory[] }> {

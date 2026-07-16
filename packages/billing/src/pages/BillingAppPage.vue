@@ -14,6 +14,7 @@ import CatalogPage from './CatalogPage.vue';
 import BillingDashboardPage from './BillingDashboardPage.vue';
 import BillingOperationalPlaceholderPage from './BillingOperationalPlaceholderPage.vue';
 import BillingWorkspace from './BillingWorkspace.vue';
+import WorkshopAppPage from '../workshop/WorkshopAppPage.vue';
 import DteArtifactsPage from './DteArtifactsPage.vue';
 import InventoryPage from './InventoryPage.vue';
 import MhEventResponsesPage from './MhEventResponsesPage.vue';
@@ -228,6 +229,9 @@ const fallbackBillingTypes = [
 const moduleComponents = {
   dashboard: BillingDashboardPage,
   'operational-placeholder': BillingOperationalPlaceholderPage,
+  'workshop-reception': WorkshopAppPage,
+  'workshop-diagnosis': WorkshopAppPage,
+  'workshop-orders': WorkshopAppPage,
   billing: BillingWorkspace,
   customers: BillingCustomersPage,
   catalog: CatalogPage,
@@ -294,6 +298,15 @@ const selectedComponentProps = computed(() => {
     return props.operationalPage ?? {};
   }
 
+  if (props.module.startsWith('workshop-')) {
+    return {
+      ...baseProps,
+      platformBaseUrl: props.platformBaseUrl,
+      tenantId: Number(props.platformSession?.tenant?.id || 0),
+      view: props.module.replace('workshop-', '')
+    };
+  }
+
   if (props.module === 'catalog') {
     return {
       platformSession: props.platformSession,
@@ -338,6 +351,9 @@ const dashboardHref = computed(() => props.dashboardUrl || props.appBaseUrl || '
 const pageTitle = computed(() => {
   if (props.module === 'dashboard') return 'Dashboard';
   if (props.module === 'operational-placeholder') return props.operationalPage?.title ?? props.app.name;
+  if (props.module === 'workshop-reception') return 'Recepción';
+  if (props.module === 'workshop-diagnosis') return 'Diagnóstico';
+  if (props.module === 'workshop-orders') return 'Órdenes';
 
   if (props.module === 'billing') {
     return billingOptions.value.find((item) => item.slug === props.documentSlug)?.label ?? 'Facturacion';
