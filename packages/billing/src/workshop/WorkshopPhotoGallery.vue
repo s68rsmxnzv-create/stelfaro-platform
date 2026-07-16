@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Camera, ChevronLeft, ChevronRight, Images, RefreshCw, X } from 'lucide-vue-next';
 import { UiButton } from '@stelfaro/ui';
 import type { WorkshopOrderPhoto } from '@stelfaro/api-client';
@@ -14,7 +14,10 @@ function move(offset: number) {
   if (selectedIndex.value === null || !props.photos.length) return;
   selectedIndex.value = (selectedIndex.value + offset + props.photos.length) % props.photos.length;
 }
+function handleKeydown(event: KeyboardEvent) { if (!selected.value) return; if (event.key === 'Escape') close(); else if (event.key === 'ArrowLeft') move(-1); else if (event.key === 'ArrowRight') move(1); }
 function size(bytes: number) { return bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`; }
+onMounted(() => window.addEventListener('keydown', handleKeydown));
+onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown));
 </script>
 
 <template>
