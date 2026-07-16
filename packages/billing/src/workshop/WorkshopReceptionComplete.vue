@@ -10,10 +10,42 @@ const props = defineProps<{ order: WorkshopOrder; photos: WorkshopOrderPhoto[]; 
 defineEmits<{ reset: []; refreshPhotos: [] }>();
 const qr = ref('');
 const ticketMessage = ref('');
+const conditionLabels: Record<string, string> = { scratches: 'Rayones', dents: 'Golpes', cracked: 'Quebraduras', missing_parts: 'Piezas faltantes', moisture: 'Humedad visible', opened: 'Abierto previamente', tampered_screws: 'Tornillos manipulados', no_accessories: 'Sin accesorios' };
+const powerLabels: Record<string, string> = { on: 'Enciende', off: 'No enciende', not_tested: 'No comprobado' };
+const deviceLabels: Record<string, string> = { phone: 'Celular', tablet: 'Tablet', laptop: 'Laptop', desktop: 'Computadora', console: 'Consola', controller: 'Mando', instrument: 'Instrumento', tv: 'Televisor', audio: 'Equipo de audio', other: 'Equipo electrónico' };
+const money = (value: number) => new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(value);
 const whatsappUrl = computed(() => {
   let phone = (props.order.customer.phone || '').replace(/\D/g, '');
   if (phone.length === 8) phone = `503${phone}`;
-  const message = `Hola ${props.order.customer.name}, recibimos tu ${props.order.device.brand} ${props.order.device.model}. Tu orden es ${props.order.ticket}.`;
+  const identifier = props.order.device.imei ? `IMEI: ${props.order.device.imei}` : props.order.device.serial_number ? `Serie: ${props.order.device.serial_number}` : 'Sin identificador visible';
+  const conditions = props.order.physical_conditions.map(condition => conditionLabels[condition] || condition);
+  if (props.order.physical_condition) conditions.push(props.order.physical_condition);
+  const lines = [
+    `Hola *${props.order.customer.name}* 👋`,
+    '',
+    '🔧 *COMPROBANTE DE RECEPCIÓN*',
+    `🎫 *Orden:* ${props.order.ticket}`,
+    `📅 *Fecha:* ${new Date(props.order.received_at).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' })}`,
+    '',
+    '📱 *EQUIPO RECIBIDO*',
+    `• ${deviceLabels[props.order.device.type] || props.order.device.type}: ${props.order.device.brand} ${props.order.device.model}`,
+    `• ${identifier}`,
+    `• Encendido: ${powerLabels[props.order.device.power_status] || props.order.device.power_status}`,
+    '',
+    '🛠️ *FALLA REPORTADA*',
+    props.order.reported_fault,
+    ...(conditions.length ? ['', '🔍 *CONDICIÓN AL RECIBIR*', conditions.join(' · ')] : []),
+    ...(props.order.accessories.length ? ['', '🎒 *ACCESORIOS RECIBIDOS*', props.order.accessories.join(', ')] : []),
+    '',
+    '💵 *VALORES REGISTRADOS*',
+    props.order.estimated_total !== null ? `• Monto estimado: ${money(props.order.estimated_total)}` : '• Monto estimado: Pendiente de diagnóstico',
+    `• Anticipo recibido: ${money(props.order.paid_total)}`,
+    ...(props.order.estimated_total !== null ? [`• Saldo estimado: ${money(props.order.balance)}`] : []),
+    '',
+    '📌 El equipo quedó registrado y pendiente de revisión técnica.',
+    'Conserva este mensaje como constancia de recepción. El diagnóstico y el valor final serán confirmados antes de realizar trabajos adicionales.',
+  ];
+  const message = lines.join('\n');
   return phone ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` : '';
 });
 onMounted(async () => { if (props.photoUrl) qr.value = await QRCode.toDataURL(props.photoUrl, { width: 280, margin: 1, errorCorrectionLevel: 'M' }); });
