@@ -328,6 +328,12 @@ export type WorkshopOrderPhoto = {
   id: number; url: string; stage: string; original_name: string; mime_type: string; size: number; created_at: string;
 };
 
+export type WorkshopOrdersResponse = {
+  data: WorkshopOrder[];
+  meta: { current_page: number; last_page: number; per_page: number; total: number };
+  stats: Record<string, number>;
+};
+
 export type WorkshopOrderPayload = {
   customer: { core_customer_id: number; name: string; phone?: string | null; email?: string | null };
   device: { type: string; brand: string; model: string; color?: string | null; imei?: string | null; serial_number?: string | null; identifier_not_visible?: boolean; power_status: string; functional_tests?: Record<string, string>; is_locked?: boolean; access_type?: string | null; access_secret?: string | null };
@@ -1772,7 +1778,7 @@ export class PlatformClient {
     return this.http.get(`platform/tenants/${tenantId}/users`).json();
   }
 
-  workshopOrders(tenantId: number, params: { q?: string; status?: string } = {}): Promise<{ data: WorkshopOrder[] }> {
+  workshopOrders(tenantId: number, params: { q?: string; status?: string; priority?: string; date_from?: string; date_to?: string; page?: number; per_page?: number } = {}): Promise<WorkshopOrdersResponse> {
     return this.http.get(`platform/tenants/${tenantId}/workshop/orders`, { searchParams: compactParams(params) }).json();
   }
 

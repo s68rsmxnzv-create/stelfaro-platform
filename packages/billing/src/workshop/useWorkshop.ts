@@ -2,7 +2,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { CoreDteClient, PlatformClient, type BillingCustomer, type WorkshopOrder, type WorkshopOrderPayload, type WorkshopOrderPhoto } from '@stelfaro/api-client';
 import type { BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 
-export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authToken: string | null, tenantId: number) {
+export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authToken: string | null, tenantId: number, initialPerPage = 100) {
   const core = new CoreDteClient(coreBaseUrl, { authToken });
   const platform = new PlatformClient(platformBaseUrl, { credentials: 'same-origin' });
   const orders = ref<WorkshopOrder[]>([]);
@@ -12,6 +12,8 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
   const customerLoading = ref(false);
   const photoLoading = ref(false);
   const photos = ref<WorkshopOrderPhoto[]>([]);
+  const orderStats = ref<Record<string, number>>({});
+  const orderMeta = ref({ current_page: 1, last_page: 1, per_page: 15, total: 0 });
   const error = ref<string | null>(null);
   let customerSearchTimer: ReturnType<typeof window.setTimeout> | null = null;
   let customerSearchVersion = 0;
@@ -19,9 +21,11 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
   async function initialize() {
     loading.value = true;
     try {
-      const [context, orderResult] = await Promise.all([core.billingContext(), platform.workshopOrders(tenantId)]);
+      const [context, orderResult] = await Promise.all([core.billingContext(), platform.workshopOrders(tenantId, { per_page: initialPerPage })]);
       empresaId.value = context.empresas[0]?.id ?? 0;
       orders.value = orderResult.data;
+      orderStats.value = orderResult.stats;
+      orderMeta.value = orderResult.meta;
     } catch (reason) { error.value = reason instanceof Error ? reason.message : 'No fue posible cargar Taller.'; }
     finally { loading.value = false; }
   }
@@ -56,6 +60,14 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
   async function createPhotoSession(orderId: number) {
     return (await platform.createWorkshopPhotoSession(tenantId, orderId)).data;
   }
+  async function loadOrders(params: { q?: string; status?: string; priority?: string; date_from?: string; date_to?: string; page?: number; per_page?: number } = {}) {
+    loading.value = true; error.value = null;
+    try {
+      const result = await platform.workshopOrders(tenantId, { per_page: 15, ...params });
+      orders.value = result.data; orderStats.value = result.stats; orderMeta.value = result.meta;
+    } catch (reason) { error.value = reason instanceof Error ? reason.message : 'No fue posible cargar las órdenes.'; }
+    finally { loading.value = false; }
+  }
   async function loadPhotos(orderId: number) {
     photoLoading.value = true;
     try { photos.value = (await platform.workshopOrderPhotos(tenantId, orderId)).data; }
@@ -86,5 +98,5 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
   }
   onMounted(initialize);
   onBeforeUnmount(() => { if (customerSearchTimer) window.clearTimeout(customerSearchTimer); });
-  return { orders, customers, photos, loading, customerLoading, photoLoading, error, openOrders: computed(() => orders.value.filter((o) => !['delivered', 'cancelled'].includes(o.status))), searchCustomers, createCustomer, createOrder, createPhotoSession, loadPhotos, updateOrder };
+  return { orders, customers, photos, orderStats, orderMeta, loading, customerLoading, photoLoading, error, openOrders: computed(() => orders.value.filter((o) => !['delivered', 'cancelled'].includes(o.status))), searchCustomers, createCustomer, createOrder, createPhotoSession, loadOrders, loadPhotos, updateOrder };
 }
