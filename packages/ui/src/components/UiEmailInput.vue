@@ -27,7 +27,7 @@ const inputClass = computed(() => props.variant === 'dark'
 
 <template>
   <label class="block">
-    <span class="text-sm font-medium" :class="labelClass">{{ label }}</span>
+    <span class="block text-sm font-medium" :class="labelClass">{{ label }}</span>
 
     <span class="relative mt-1 flex items-center">
       <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3" :class="iconClass">

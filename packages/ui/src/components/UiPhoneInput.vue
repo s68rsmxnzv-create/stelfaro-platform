@@ -28,7 +28,7 @@ function updateValue(event: Event): void {
 
 <template>
   <label class="block">
-    <span class="text-sm font-medium text-slate-700 dark:text-muted">{{ label }}</span>
+    <span class="block text-sm font-medium text-slate-700 dark:text-muted">{{ label }}</span>
 
     <span class="relative mt-1 flex items-center">
       <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 dark:text-soft">

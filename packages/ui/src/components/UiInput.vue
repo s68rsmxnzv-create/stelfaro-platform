@@ -35,7 +35,7 @@ function updateValue(event: Event) {
   <label class="block">
     <span
       v-if="label"
-      class="text-sm font-medium text-slate-700 dark:text-muted"
+      class="block text-sm font-medium text-slate-700 dark:text-muted"
       :class="{ 'sr-only': hideLabel }"
     >
       {{ label }}
