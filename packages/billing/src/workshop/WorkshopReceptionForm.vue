@@ -26,11 +26,13 @@ const priorities = [{ value: 'low', label: 'Baja' }, { value: 'normal', label: '
 const testOptions = [{key:'display',label:'Imagen'},{key:'touch_controls',label:'Touch / controles'},{key:'charging',label:'Carga'},{key:'cameras',label:'Cámaras'},{key:'audio',label:'Audio'},{key:'microphone',label:'Micrófono'},{key:'buttons',label:'Botones'},{key:'connectivity',label:'Conectividad'}];
 const conditionOptions = [{key:'scratches',label:'Rayones'},{key:'dents',label:'Golpes'},{key:'cracked',label:'Quebraduras'},{key:'missing_parts',label:'Piezas faltantes'},{key:'moisture',label:'Humedad visible'},{key:'opened',label:'Abierto previamente'},{key:'tampered_screws',label:'Tornillos manipulados'},{key:'no_accessories',label:'Sin accesorios'}];
 const selectedTypeLabel = computed(() => deviceTypes.find(option => option.value === form.type)?.label ?? 'Equipo');
-const progress = computed(() => `${Math.round((step.value / 3) * 100)}%`);
+const progress = computed(() => `${Math.round((step.value / 4) * 100)}%`);
 const imeiSuggestion = computed(() => /^\d{14}$/.test(form.identifier) ? `${form.identifier}${imeiCheckDigit(form.identifier)}` : '');
 const estimated = computed(() => Number(form.estimated_total || 0));
 const advance = computed(() => Number(form.advance_amount || 0));
 const balance = computed(() => Math.max(estimated.value - advance.value, 0));
+const selectedConditionLabels = computed(() => conditionOptions.filter(option => physicalConditions.value.includes(option.key)).map(option => option.label));
+const testedFunctions = computed(() => testOptions.filter(option => functionalTests[option.key] && functionalTests[option.key] !== 'not_tested').map(option => `${option.label}: ${functionalTests[option.key] === 'passed' ? 'funciona' : 'falla'}`));
 
 function updateCustomerSearch(value: string) { if (selected.value && value !== selected.value.name) selected.value = null; customerQuery.value = value; emit('search', value); }
 function clearCustomerSearch() { selected.value = null; customerQuery.value = ''; emit('search', ''); }
@@ -48,16 +50,15 @@ function next() {
   validationMessage.value = '';
   if (step.value === 1 && !selected.value) { validationMessage.value = 'Selecciona un cliente para continuar.'; return; }
   if (step.value === 2 && (!form.brand.trim() || !form.model.trim() || !form.reported_fault.trim())) { validationMessage.value = 'Completa marca, modelo y falla reportada.'; return; }
-  step.value = Math.min(3, step.value + 1);
+  if (step.value === 3 && !validateCompletion()) return;
+  step.value = Math.min(4, step.value + 1);
 }
 function previous() { validationMessage.value = ''; step.value = Math.max(1, step.value - 1); }
 async function submit() {
   if (!selected.value || saving.value) return;
   saving.value = true;
   try {
-    if (form.advance_amount && (!form.estimated_total || advance.value > estimated.value)) { validationMessage.value = 'El anticipo requiere un monto estimado y no puede superarlo.'; return; }
-    if (form.is_locked && form.access_type === 'code' && !/^\d{4,12}$/.test(form.access_secret)) { validationMessage.value = 'El código debe tener entre 4 y 12 dígitos.'; return; }
-    if (form.is_locked && form.access_type === 'pattern' && form.access_secret.split('-').filter(Boolean).length < 4) { validationMessage.value = 'El patrón debe tener al menos 4 puntos.'; return; }
+    if (!validateCompletion()) return;
     const identifier = imeiSuggestion.value || form.identifier.trim();
     const imei = /^\d{15}$/.test(identifier);
     await props.onSave({ customer: { core_customer_id: selected.value.id, name: selected.value.name, phone: selected.value.phone, email: selected.value.email }, device: { type: form.type, brand: form.brand, model: form.model, color: form.color || null, imei: !form.identifier_not_visible && imei ? identifier : null, serial_number: !form.identifier_not_visible && !imei ? identifier || null : null, identifier_not_visible: form.identifier_not_visible, power_status: form.power_status, functional_tests: form.power_status === 'on' ? {...functionalTests} : {}, is_locked: form.is_locked, access_type: form.is_locked ? form.access_type : null, access_secret: form.is_locked ? form.access_secret || null : null }, reported_fault: form.reported_fault, physical_condition: form.physical_condition || null, physical_conditions: physicalConditions.value, accessories: accessoriesText.value.split(',').map(value => value.trim()).filter(Boolean), priority: form.priority, estimated_total: form.estimated_total ? estimated.value : null, advance: form.advance_amount ? { amount: advance.value, method: form.advance_method, reference: form.advance_reference || null } : undefined });
@@ -66,6 +67,12 @@ async function submit() {
     Object.assign(form, { type: 'phone', brand: '', model: '', color: '', identifier: '', identifier_not_visible: false, power_status: 'not_tested', reported_fault: '', physical_condition: '', priority: 'normal', estimated_total: '', advance_amount: '', advance_method: 'cash', advance_reference: '', is_locked: false, access_type: 'code', access_secret: '' });
   } finally { saving.value = false; }
 }
+function validateCompletion() {
+  if (form.advance_amount && (!form.estimated_total || advance.value > estimated.value)) { validationMessage.value = 'El anticipo requiere un monto estimado y no puede superarlo.'; return false; }
+  if (form.is_locked && form.access_type === 'code' && !/^\d{4,12}$/.test(form.access_secret)) { validationMessage.value = 'El código debe tener entre 4 y 12 dígitos.'; return false; }
+  if (form.is_locked && form.access_type === 'pattern' && form.access_secret.split('-').filter(Boolean).length < 4) { validationMessage.value = 'El patrón debe tener al menos 4 puntos.'; return false; }
+  return true;
+}
 </script>
 
 <template>
@@ -73,7 +80,7 @@ async function submit() {
 
   <UiCard class="w-full overflow-hidden">
     <div class="border-b border-line px-5 py-4 sm:px-7">
-      <div class="flex items-center justify-between gap-4 text-sm"><span class="font-semibold text-primary">Paso {{ step }} de 3</span><span class="text-muted">{{ step === 1 ? 'Cliente' : step === 2 ? 'Equipo y falla' : 'Confirmar' }}</span></div>
+      <div class="flex items-center justify-between gap-4 text-sm"><span class="font-semibold text-primary">Paso {{ step }} de 4</span><span class="text-muted">{{ step === 1 ? 'Cliente' : step === 2 ? 'Equipo y pruebas' : step === 3 ? 'Detalles y valores' : 'Resumen' }}</span></div>
       <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-muted"><div class="h-full rounded-full bg-primary transition-all" :style="{ width: progress }"></div></div>
     </div>
 
@@ -95,13 +102,8 @@ async function submit() {
         <p v-else-if="form.power_status === 'off'" class="mt-4 rounded-md bg-warning-soft px-4 py-3 text-sm text-warning">Se registrará que no fue posible realizar pruebas funcionales porque el equipo no encendió.</p>
       </section>
 
-      <section v-else>
-        <div class="flex items-start gap-3"><Check class="mt-0.5 h-6 w-6 text-success" /><div><h2 class="text-xl font-semibold text-text">Revisa y completa la recepción</h2><p class="mt-1 text-sm text-muted">Confirma el acceso y los valores acordados antes de registrar.</p></div></div>
-        <div class="mt-6 divide-y divide-line rounded-lg border border-line bg-surface-muted px-4">
-          <div class="py-4"><p class="text-xs font-semibold uppercase tracking-wide text-muted">Cliente</p><p class="mt-1 font-semibold text-text">{{ selected?.name }}</p></div>
-          <div class="py-4"><p class="text-xs font-semibold uppercase tracking-wide text-muted">Equipo</p><p class="mt-1 font-semibold text-text">{{ selectedTypeLabel }} · {{ form.brand }} {{ form.model }}</p><p class="mt-1 text-sm text-muted">{{ form.identifier_not_visible ? 'IMEI / serial no visible' : form.identifier || 'Sin identificador' }} · {{ form.power_status === 'on' ? 'Enciende' : form.power_status === 'off' ? 'No enciende' : 'Encendido no comprobado' }}</p></div>
-          <div class="py-4"><p class="text-xs font-semibold uppercase tracking-wide text-muted">Falla reportada</p><p class="mt-1 text-sm text-text">{{ form.reported_fault }}</p></div>
-        </div>
+      <section v-else-if="step === 3">
+        <div class="flex items-start gap-3"><SlidersHorizontal class="mt-0.5 h-6 w-6 text-primary" /><div><h2 class="text-xl font-semibold text-text">Completa la recepción</h2><p class="mt-1 text-sm text-muted">Acceso, presupuesto y condiciones acordadas con el cliente.</p></div></div>
 
         <div class="mt-5 rounded-lg border border-line bg-surface p-4"><div class="flex items-center justify-between"><div><p class="font-semibold text-text">Acceso al equipo</p><p class="text-xs text-muted">Actívalo si el cliente proporciona código o patrón.</p></div><UiToggle v-model="form.is_locked" aria-label="Equipo con bloqueo" /></div><div v-if="form.is_locked" class="mt-4"><UiSelect v-model="form.access_type" label="Tipo de acceso" :options="[{value:'code',label:'Código numérico'},{value:'pattern',label:'Patrón Android'}]" /><UiInput v-if="form.access_type === 'code'" v-model="form.access_secret" class="mt-3" label="Código" type="password" inputmode="numeric" /><WorkshopPatternInput v-else v-model="form.access_secret" class="mt-4" /></div></div>
 
@@ -117,8 +119,20 @@ async function submit() {
         <p class="mt-4 inline-flex items-center gap-2 text-sm text-muted"><Camera class="h-4 w-4" />Las fotos se podrán agregar después desde la orden.</p>
       </section>
 
+      <section v-else>
+        <div class="flex items-start gap-3"><Check class="mt-0.5 h-6 w-6 text-success" /><div><h2 class="text-xl font-semibold text-text">Resumen de recepción</h2><p class="mt-1 text-sm text-muted">Confirma toda la información antes de registrar el equipo.</p></div></div>
+        <div class="mt-6 grid gap-4 md:grid-cols-2">
+          <div class="rounded-lg border border-line bg-surface-muted p-4"><p class="text-xs font-semibold uppercase tracking-wide text-muted">Cliente</p><p class="mt-2 font-semibold text-text">{{ selected?.name }}</p><p class="mt-1 text-sm text-muted">{{ selected?.phone || selected?.document_number || 'Sin contacto' }}</p></div>
+          <div class="rounded-lg border border-line bg-surface-muted p-4"><p class="text-xs font-semibold uppercase tracking-wide text-muted">Equipo</p><p class="mt-2 font-semibold text-text">{{ selectedTypeLabel }} · {{ form.brand }} {{ form.model }}</p><p class="mt-1 text-sm text-muted">{{ form.identifier_not_visible ? 'IMEI / serial no visible' : form.identifier || 'Sin identificador' }} · {{ form.power_status === 'on' ? 'Enciende' : form.power_status === 'off' ? 'No enciende' : 'Encendido no comprobado' }}</p></div>
+          <div class="rounded-lg border border-line bg-surface-muted p-4 md:col-span-2"><p class="text-xs font-semibold uppercase tracking-wide text-muted">Falla y pruebas</p><p class="mt-2 text-sm text-text">{{ form.reported_fault }}</p><p v-if="testedFunctions.length" class="mt-2 text-xs text-muted">{{ testedFunctions.join(' · ') }}</p><p v-else class="mt-2 text-xs text-muted">Sin pruebas funcionales registradas.</p></div>
+          <div class="rounded-lg border border-line bg-surface-muted p-4"><p class="text-xs font-semibold uppercase tracking-wide text-muted">Acceso</p><p class="mt-2 text-sm text-text">{{ form.is_locked ? (form.access_type === 'pattern' ? `Patrón registrado (${form.access_secret.split('-').filter(Boolean).length} puntos)` : 'Código registrado') : 'Sin acceso proporcionado' }}</p></div>
+          <div class="rounded-lg border border-line bg-surface-muted p-4"><p class="text-xs font-semibold uppercase tracking-wide text-muted">Presupuesto</p><p class="mt-2 text-sm text-text">Estimado: {{ form.estimated_total ? `$${estimated.toFixed(2)}` : 'No registrado' }}</p><p class="mt-1 text-sm text-muted">Anticipo: ${{ advance.toFixed(2) }} · Saldo: ${{ balance.toFixed(2) }}</p></div>
+          <div v-if="selectedConditionLabels.length || form.physical_condition || accessoriesText" class="rounded-lg border border-line bg-surface-muted p-4 md:col-span-2"><p class="text-xs font-semibold uppercase tracking-wide text-muted">Condición y accesorios</p><p v-if="selectedConditionLabels.length" class="mt-2 text-sm text-text">{{ selectedConditionLabels.join(' · ') }}</p><p v-if="form.physical_condition" class="mt-1 text-sm text-muted">{{ form.physical_condition }}</p><p v-if="accessoriesText" class="mt-1 text-sm text-muted">Accesorios: {{ accessoriesText }}</p></div>
+        </div>
+      </section>
+
       <p v-if="validationMessage" class="mt-5 rounded-md bg-danger-soft px-4 py-3 text-sm font-medium text-danger">{{ validationMessage }}</p>
-      <div class="mt-7 flex items-center justify-between border-t border-line pt-5"><UiButton v-if="step > 1" type="button" variant="secondary" @click="previous"><ChevronLeft class="mr-2 h-4 w-4" />Atrás</UiButton><span v-else></span><UiButton v-if="step < 3" type="button" @click="next">Siguiente<ChevronRight class="ml-2 h-4 w-4" /></UiButton><UiButton v-else type="submit" :disabled="saving">{{ saving ? 'Registrando…' : 'Registrar equipo' }}</UiButton></div>
+      <div class="mt-7 flex items-center justify-between border-t border-line pt-5"><UiButton v-if="step > 1" type="button" variant="secondary" @click="previous"><ChevronLeft class="mr-2 h-4 w-4" />Atrás</UiButton><span v-else></span><UiButton v-if="step < 4" type="button" @click="next">Siguiente<ChevronRight class="ml-2 h-4 w-4" /></UiButton><UiButton v-else type="submit" :disabled="saving">{{ saving ? 'Registrando…' : 'Registrar equipo' }}</UiButton></div>
     </form>
   </UiCard>
 </template>
