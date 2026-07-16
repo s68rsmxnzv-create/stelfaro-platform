@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { ChevronLeft, ChevronRight, Images, RefreshCw, X } from 'lucide-vue-next';
+import { Camera, ChevronLeft, ChevronRight, Images, RefreshCw, X } from 'lucide-vue-next';
 import { UiButton } from '@stelfaro/ui';
 import type { WorkshopOrderPhoto } from '@stelfaro/api-client';
 
-const props = defineProps<{ photos: WorkshopOrderPhoto[]; loading?: boolean }>();
-defineEmits<{ refresh: [] }>();
+const props = defineProps<{ photos: WorkshopOrderPhoto[]; loading?: boolean; allowAdd?: boolean }>();
+defineEmits<{ refresh: []; addPhotos: [] }>();
 const selectedIndex = ref<number | null>(null);
 const selected = computed(() => selectedIndex.value === null ? null : props.photos[selectedIndex.value] ?? null);
 function select(index: number) { selectedIndex.value = index; }
@@ -25,7 +25,7 @@ function size(bytes: number) { return bytes < 1024 * 1024 ? `${Math.round(bytes 
         <h3 class="mt-1 text-2xl font-bold text-text">Fotografías del equipo</h3>
         <p class="mt-2 text-sm text-muted">Haz clic en una fotografía para abrirla y navegar por la galería.</p>
       </div>
-      <UiButton variant="secondary" :disabled="loading" @click="$emit('refresh')"><RefreshCw class="mr-2 h-4 w-4" :class="{ 'animate-spin': loading }" />Actualizar</UiButton>
+      <div class="flex flex-wrap gap-2"><UiButton v-if="allowAdd" @click="$emit('addPhotos')"><Camera class="mr-2 h-4 w-4" />{{ photos.length ? 'Agregar fotos' : 'Agregar primera foto' }}</UiButton><UiButton variant="secondary" :disabled="loading" @click="$emit('refresh')"><RefreshCw class="mr-2 h-4 w-4" :class="{ 'animate-spin': loading }" />Actualizar</UiButton></div>
     </div>
 
     <div v-if="photos.length" class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
