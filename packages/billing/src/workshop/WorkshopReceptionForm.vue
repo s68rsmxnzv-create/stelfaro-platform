@@ -61,7 +61,7 @@ async function submit() {
     <form class="p-5 sm:p-7" @submit.prevent="submit">
       <section v-if="step === 1">
         <div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3"><UserRound class="h-6 w-6 text-primary" /><h2 class="text-xl font-semibold text-text">¿Quién trae el equipo?</h2></div><UiButton type="button" variant="secondary" @click="customerCreateOpen = true">Nuevo cliente</UiButton></div>
-        <div class="mt-6"><UiSearchInput :model-value="customerQuery" label="Buscar cliente" placeholder="Nombre, documento o teléfono" @update:model-value="updateCustomerSearch"><template v-if="selected" #trailing><button type="button" class="grid h-8 w-8 place-items-center rounded-md text-danger transition hover:bg-danger-soft" aria-label="Quitar cliente seleccionado" @click="clearCustomerSearch"><X class="h-4 w-4" /></button></template></UiSearchInput></div>
+        <div class="workshop-customer-search relative mt-6"><UiSearchInput :model-value="customerQuery" label="Buscar cliente" placeholder="Nombre, documento o teléfono" @update:model-value="updateCustomerSearch" /><button v-if="selected" type="button" class="absolute bottom-2 right-2 grid h-8 w-8 place-items-center rounded-md text-danger transition hover:bg-danger-soft" aria-label="Quitar cliente seleccionado" @click="clearCustomerSearch"><X class="h-4 w-4" /></button></div>
         <div v-if="customerLoading" class="mt-2 text-sm text-muted">Buscando clientes…</div>
         <div v-else-if="!selected && customerQuery.trim().length >= 2 && customers.length" class="mt-2 max-h-64 divide-y divide-line overflow-y-auto rounded-md border border-line bg-surface-raised"><button v-for="customer in customers" :key="customer.id" type="button" class="block w-full px-4 py-3 text-left hover:bg-primary-soft" @click="choose(customer)"><strong class="block text-text">{{ customer.name }}</strong><span class="mt-1 block text-xs text-muted">{{ customer.document_number || 'Sin documento' }}<template v-if="customer.phone"> · {{ customer.phone }}</template></span></button></div>
         <p v-else-if="!selected && customerQuery.trim().length >= 2" class="mt-2 rounded-md bg-surface-muted px-4 py-3 text-sm text-muted">No encontramos clientes con esa búsqueda.</p>
@@ -93,3 +93,10 @@ async function submit() {
     </form>
   </UiCard>
 </template>
+
+<style scoped>
+.workshop-customer-search :deep(input[type='search']::-webkit-search-cancel-button) {
+  display: none;
+  appearance: none;
+}
+</style>
