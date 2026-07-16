@@ -318,16 +318,16 @@ export type PlatformCatalogItemsResponse = {
 
 export type WorkshopOrder = {
   id: number; ticket: string; status: string; priority: string; reported_fault: string;
-  physical_condition: string | null; accessories: string[]; diagnosis: string | null;
+  physical_condition: string | null; physical_conditions: string[]; accessories: string[]; diagnosis: string | null;
   estimated_total: number | null; paid_total: number; balance: number; received_at: string;
   customer: { id: number; name: string; phone: string | null };
-  device: { id: number; type: string; brand: string; model: string; color: string | null; imei: string | null; serial_number: string | null };
+  device: { id: number; type: string; brand: string; model: string; color: string | null; imei: string | null; serial_number: string | null; identifier_not_visible: boolean; power_status: string; functional_tests: Record<string, string>; is_locked: boolean; access_type: string | null; has_access_secret: boolean };
 };
 
 export type WorkshopOrderPayload = {
   customer: { core_customer_id: number; name: string; phone?: string | null; email?: string | null };
-  device: { type: string; brand: string; model: string; color?: string | null; imei?: string | null; serial_number?: string | null };
-  reported_fault: string; physical_condition?: string | null; accessories?: string[]; priority?: string;
+  device: { type: string; brand: string; model: string; color?: string | null; imei?: string | null; serial_number?: string | null; identifier_not_visible?: boolean; power_status: string; functional_tests?: Record<string, string>; is_locked?: boolean; access_type?: string | null; access_secret?: string | null };
+  reported_fault: string; physical_condition?: string | null; physical_conditions?: string[]; accessories?: string[]; priority?: string; estimated_total?: number | null;
   advance?: { amount?: number | null; method?: string; reference?: string | null };
 };
 
