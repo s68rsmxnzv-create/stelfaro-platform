@@ -230,7 +230,6 @@ const moduleComponents = {
   dashboard: BillingDashboardPage,
   'operational-placeholder': BillingOperationalPlaceholderPage,
   'workshop-reception': WorkshopAppPage,
-  'workshop-diagnosis': WorkshopAppPage,
   'workshop-orders': WorkshopAppPage,
   billing: BillingWorkspace,
   customers: BillingCustomersPage,
@@ -352,7 +351,6 @@ const pageTitle = computed(() => {
   if (props.module === 'dashboard') return 'Dashboard';
   if (props.module === 'operational-placeholder') return props.operationalPage?.title ?? props.app.name;
   if (props.module === 'workshop-reception') return 'Recepción de equipos';
-  if (props.module === 'workshop-diagnosis') return 'Diagnóstico';
   if (props.module === 'workshop-orders') return 'Órdenes';
 
   if (props.module === 'billing') {
