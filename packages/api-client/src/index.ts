@@ -2196,7 +2196,7 @@ export class CoreDteClient {
     return this.http.post('billing/mh/bearer', { json: payload }).json();
   }
 
-  customers(params: { empresa_id: number; tipo_dte?: string; q?: string }): Promise<{ data: BillingCustomer[] }> {
+  customers(params: { empresa_id: number; tipo_dte?: string; q?: string; page?: number; per_page?: number }): Promise<{ data: BillingCustomer[]; meta: PaginationMeta }> {
     return this.http.get('billing/customers', {
       searchParams: compactParams(params)
     }).json();

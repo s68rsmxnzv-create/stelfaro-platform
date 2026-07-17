@@ -24,6 +24,8 @@ const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: 
 const context = ref<BillingContext | null>(peekBillingContext(props.coreBaseUrl, props.billingContextCacheScope));
 const catalogs = ref<BillingCatalogs | null>(peekBillingCatalogs(props.coreBaseUrl, props.billingContextCacheScope));
 const customers = ref<BillingCustomer[]>([]);
+const customerMeta = ref<PaginationMeta>({ current_page: 1, last_page: 1, per_page: 20, total: 0 });
+const customerPage = ref(1);
 const loading = ref(false);
 const contextLoading = ref(false);
 const saving = ref(false);
@@ -76,6 +78,7 @@ watch(() => props.authToken, () => {
 }, { immediate: true });
 
 watch(selectedEmpresaId, () => {
+  customerPage.value = 1;
   loadCustomers();
 });
 
@@ -84,12 +87,14 @@ watch(() => filters.value.q, () => {
   searchTimer = window.setTimeout(() => {
     const query = filters.value.q.trim();
     if (query.length === 0 || query.length >= 2) {
+      customerPage.value = 1;
       void loadCustomers();
     }
   }, 250);
 });
 
 watch(() => filters.value.tipoDte, () => {
+  customerPage.value = 1;
   void loadCustomers();
 });
 
@@ -124,6 +129,7 @@ async function initialize(): Promise<void> {
 async function loadCustomers(): Promise<void> {
   if (!props.authToken || !selectedEmpresa.value) {
     customers.value = [];
+    customerMeta.value = { current_page: 1, last_page: 1, per_page: 20, total: 0 };
     return;
   }
 
@@ -132,15 +138,29 @@ async function loadCustomers(): Promise<void> {
     const response = await client.value.customers({
       empresa_id: selectedEmpresa.value.id,
       tipo_dte: filters.value.tipoDte || undefined,
-      q: filters.value.q.trim() || undefined
+      q: filters.value.q.trim() || undefined,
+      page: customerPage.value,
+      per_page: customerMeta.value.per_page
     });
     customers.value = response.data;
+    customerMeta.value = response.meta;
+    if (response.meta.total > 0 && response.meta.current_page > response.meta.last_page) {
+      customerPage.value = response.meta.last_page;
+      await loadCustomers();
+    }
   } catch (error) {
     customers.value = [];
     notify('No se pudo actualizar la lista', messageFromError(error), 'error');
   } finally {
     loading.value = false;
   }
+}
+
+function goToCustomerPage(page: number): void {
+  const next = Math.min(Math.max(page, 1), customerMeta.value.last_page);
+  if (next === customerPage.value) return;
+  customerPage.value = next;
+  void loadCustomers();
 }
 
 function openCreate(): void {
@@ -474,7 +494,7 @@ function messageFromError(error): string {
           v-model="filters.q"
           label="Buscar cliente"
           placeholder="Nombre, documento, NRC, correo o teléfono"
-          @search="loadCustomers"
+          @search="customerPage = 1; loadCustomers()"
         />
         <UiSelect v-model="filters.tipoDte" label="Uso" :options="tipoOptions" />
         <div class="flex items-end">
@@ -559,6 +579,10 @@ function messageFromError(error): string {
           </tr>
         </tbody>
       </UiDataTable>
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 dark:border-line">
+        <p class="text-sm text-slate-500 dark:text-muted">{{ customerMeta.total }} clientes · Página {{ customerMeta.current_page }} de {{ customerMeta.last_page }}</p>
+        <div class="flex gap-2"><UiButton variant="secondary" size="sm" :disabled="loading || customerPage <= 1" @click="goToCustomerPage(customerPage - 1)">Anterior</UiButton><UiButton variant="secondary" size="sm" :disabled="loading || customerPage >= customerMeta.last_page" @click="goToCustomerPage(customerPage + 1)">Siguiente</UiButton></div>
+      </div>
     </UiCard>
 
     <BillingCustomerModal
