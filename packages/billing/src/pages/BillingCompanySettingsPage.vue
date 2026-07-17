@@ -4,6 +4,7 @@ import { PlatformClient, type PlatformSubscriptionTenantRow } from '@stelfaro/ap
 import { UiButton, UiPanel, UiRefreshButton, UiStatusBadge, UiSubscriptionPlanCard } from '@stelfaro/ui';
 import BillingSectionLayout from '../components/BillingSectionLayout.vue';
 import BillingSettingsPage from './BillingSettingsPage.vue';
+import PrinterSettingsPanel from '../printing/PrinterSettingsPanel.vue';
 
 type CompanyView = 'summary' | 'requests' | 'profile' | 'subscription' | 'printer' | 'security' | 'support';
 type CompanyNavId = CompanyView | 'audit';
@@ -471,10 +472,7 @@ function daysUntil(value: string | null | undefined): number | null {
           </template>
         </div>
 
-        <div v-else-if="activeView === 'printer'" class="mt-6 rounded-md border border-slate-200 p-4">
-          <p class="text-sm font-bold text-slate-950">Configuración de impresora</p>
-          <p class="mt-2 text-sm leading-6 text-slate-600">Aquí configuraremos preferencias locales de impresión, formato y dispositivo predeterminado.</p>
-        </div>
+        <div v-else-if="activeView === 'printer'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><PrinterSettingsPanel /></div>
 
         <div v-else-if="activeView === 'security'" class="mt-6 rounded-md border border-slate-200 p-4">
           <p class="text-sm font-bold text-slate-950">Cambio de contraseña</p>
