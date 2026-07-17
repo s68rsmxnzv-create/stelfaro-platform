@@ -1,0 +1,20 @@
+<service>
+  <id>StelfaroPrintAgent</id>
+  <name>Stelfaro Print Agent</name>
+  <description>Servicio local de impresion termica ESC/POS para Stelfaro.</description>
+  <executable>%BASE%\dist\stelfaro-print-agent.exe</executable>
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+  <stoptimeout>15sec</stoptimeout>
+  <logpath>%BASE%\logs</logpath>
+  <log mode="roll-by-size-time">
+    <sizeThreshold>10240</sizeThreshold>
+    <pattern>yyyyMMdd</pattern>
+    <autoRollAtTime>00:00:00</autoRollAtTime>
+    <zipOlderThanNumDays>7</zipOlderThanNumDays>
+    <keepFiles>14</keepFiles>
+  </log>
+  <onfailure action="restart" delay="10 sec" />
+  <onfailure action="restart" delay="30 sec" />
+  <onfailure action="none" />
+</service>
