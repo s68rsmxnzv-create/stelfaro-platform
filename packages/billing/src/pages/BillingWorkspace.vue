@@ -1194,7 +1194,8 @@ async function issueDocument(): Promise<void> {
             await platformClient.value.linkWorkshopOrderInvoice(platformTenantId.value, workshopOrderId, {
               core_dte_document_id: result.document.id,
               dte_number: result.document.numeroControl,
-              dte_generation_code: result.document.codigoGeneracion,
+            dte_generation_code: result.document.codigoGeneracion,
+            dte_type: result.document.tipoDte === '03' ? '03' : '01',
             });
           } catch {
             pushIssueLog('El DTE fue emitido, pero quedó pendiente vincularlo con la orden de taller.', 'error');

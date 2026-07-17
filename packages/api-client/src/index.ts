@@ -321,7 +321,7 @@ export type WorkshopOrder = {
   physical_condition: string | null; physical_conditions: string[]; accessories: string[]; diagnosis: string | null;
   estimated_total: number | null; paid_total: number; refunded_total: number; balance: number; received_at: string; photo_count: number;
   financial: { status: 'pending' | 'settled' | string; final_total: number | null; closed_at: string | null };
-  billing: { status: 'unbilled' | 'pending' | 'invoiced' | string; core_document_id: number | null; number: string | null; generation_code: string | null; invoiced_at: string | null };
+  billing: { status: 'unbilled' | 'pending' | 'invoiced' | string; dte_type: '01' | '03' | null; core_document_id: number | null; number: string | null; generation_code: string | null; invoiced_at: string | null };
   approval: { decision: string | null; method: string | null; notes: string | null; decided_at: string | null };
   customer: { id: number; name: string; phone: string | null };
   device: { id: number; type: string; brand: string; model: string; color: string | null; imei: string | null; serial_number: string | null; identifier_not_visible: boolean; power_status: string; functional_tests: Record<string, string>; is_locked: boolean; access_type: string | null; has_access_secret: boolean };
@@ -1797,11 +1797,11 @@ export class PlatformClient {
     return this.http.patch(`platform/tenants/${tenantId}/workshop/orders/${orderId}`, { json: payload }).json();
   }
 
-  settleWorkshopOrder(tenantId: number, orderId: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null; document_choice?: 'work_order' | 'dte' }): Promise<{ data: WorkshopOrder }> {
+  settleWorkshopOrder(tenantId: number, orderId: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null; document_choice?: 'work_order' | 'dte'; dte_type?: '01' | '03' }): Promise<{ data: WorkshopOrder }> {
     return this.http.post(`platform/tenants/${tenantId}/workshop/orders/${orderId}/settlement`, { json: payload }).json();
   }
 
-  linkWorkshopOrderInvoice(tenantId: number, orderId: number, payload: { core_dte_document_id: number; dte_number: string; dte_generation_code: string }): Promise<{ data: WorkshopOrder }> {
+  linkWorkshopOrderInvoice(tenantId: number, orderId: number, payload: { core_dte_document_id: number; dte_number: string; dte_generation_code: string; dte_type: '01' | '03' }): Promise<{ data: WorkshopOrder }> {
     return this.http.post(`platform/tenants/${tenantId}/workshop/orders/${orderId}/invoice-link`, { json: payload }).json();
   }
 
