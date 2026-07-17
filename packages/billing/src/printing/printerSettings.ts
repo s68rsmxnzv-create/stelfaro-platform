@@ -41,10 +41,20 @@ export function normalizeAgentUrl(value: unknown): string {
 }
 
 export async function requestPrintAgent<T>(settings: PrinterSettings, path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${normalizeAgentUrl(settings.agentUrl)}${path}`, init);
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.ok === false) throw new Error(data.message || `El agente respondió HTTP ${response.status}.`);
-  return data as T;
+  try {
+    const response = await fetch(`${normalizeAgentUrl(settings.agentUrl)}${path}`, init);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false) throw new Error(data.message || `El agente respondió HTTP ${response.status}.`);
+    return data as T;
+  } catch (error) {
+    if (error instanceof TypeError) {
+      const mobile = /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent);
+      throw new Error(mobile
+        ? 'No encontramos un agente en este dispositivo. En móvil necesitaremos el agente Android o la dirección de un agente accesible en la red local.'
+        : 'No encontramos el agente local. Verifica que esté iniciado y que puedas abrir su página de salud.');
+    }
+    throw error;
+  }
 }
 
 function clamp(value: unknown, min: number, max: number, fallback: number): number {

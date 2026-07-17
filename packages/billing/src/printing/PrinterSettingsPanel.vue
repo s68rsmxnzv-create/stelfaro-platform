@@ -40,6 +40,9 @@ async function testPrint() {
   } catch (error) { status.value = 'error'; message.value = error instanceof Error ? error.message : 'No fue posible imprimir la prueba.'; }
   finally { checking.value = false; }
 }
+function openHealth() {
+  window.open(`${settings.agentUrl.replace(/\/+$/, '')}/health`, '_blank', 'noopener,noreferrer');
+}
 </script>
 
 <template>
@@ -50,6 +53,6 @@ async function testPrint() {
 
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><UiSelect v-model="settings.paperWidth" label="Ancho de papel" :options="[{value:'58',label:'58 mm'},{value:'80',label:'80 mm'}]" /><UiInput v-model.number="settings.cutLines" label="Líneas antes del corte" type="number" min="1" max="12" /><UiInput v-model.number="settings.qrWidth" label="Ancho del QR" type="number" min="120" max="420" /><div class="grid content-end gap-2 pb-2"><label class="flex items-center gap-2 text-sm text-text"><input v-model="settings.qrEnabled" type="checkbox" class="h-4 w-4 accent-primary">Imprimir QR cuando aplique</label><label class="flex items-center gap-2 text-sm text-text"><input v-model="settings.openDrawer" type="checkbox" class="h-4 w-4 accent-primary">Abrir gaveta al cobrar</label></div></div>
 
-    <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface-muted p-4"><div class="flex items-center gap-3"><Cable class="h-5 w-5" :class="status === 'ok' ? 'text-success' : status === 'error' ? 'text-danger' : 'text-muted'" /><div><UiStatusBadge :tone="status === 'ok' ? 'success' : status === 'error' ? 'danger' : 'neutral'">{{ status === 'ok' ? 'Conectado' : status === 'error' ? 'Sin conexión' : 'Sin comprobar' }}</UiStatusBadge><p class="mt-1 text-sm text-muted">{{ message }}</p></div></div><div class="flex gap-2"><UiButton variant="secondary" :disabled="checking" @click="checkAgent(false)">Comprobar</UiButton><UiButton :disabled="checking || !settings.printer" @click="testPrint"><TestTube2 class="h-4 w-4" />Imprimir prueba</UiButton></div></div>
+    <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface-muted p-4"><div class="flex min-w-0 items-center gap-3"><Cable class="h-5 w-5 shrink-0" :class="status === 'ok' ? 'text-success' : status === 'error' ? 'text-danger' : 'text-muted'" /><div class="min-w-0"><UiStatusBadge :tone="status === 'ok' ? 'success' : status === 'error' ? 'danger' : 'neutral'">{{ status === 'ok' ? 'Conectado' : status === 'error' ? 'Sin conexión' : 'Sin comprobar' }}</UiStatusBadge><p class="mt-1 max-w-2xl text-sm text-muted">{{ message }}</p><button v-if="status === 'error'" type="button" class="mt-2 text-xs font-semibold text-primary hover:underline" @click="openHealth">Abrir página de salud del agente</button></div></div><div class="flex flex-wrap gap-2"><UiButton variant="secondary" :disabled="checking" @click="checkAgent(false)">Comprobar</UiButton><UiButton :disabled="checking || !settings.printer" @click="testPrint"><TestTube2 class="h-4 w-4" />Imprimir prueba</UiButton></div></div>
   </div>
 </template>
