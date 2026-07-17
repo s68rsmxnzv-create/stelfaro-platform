@@ -63,6 +63,7 @@ type PlatformSessionProp = {
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const platformClient = computed(() => new PlatformClient(props.platformBaseUrl, { credentials: 'same-origin' }));
 const platformTenantId = computed(() => Number((props.platformSession as PlatformSessionProp)?.tenant?.id || 0));
+const workshopOrderId = Number(new URLSearchParams(window.location.search).get('workshop_order') || 0);
 const loading = ref(false);
 const contextLoading = ref(false);
 const correlativoLoading = ref(false);
@@ -733,10 +734,37 @@ function resetPayments(): void {
   paymentLines.value = supportsAdvancedPayments.value ? [newPaymentLine(roundMoney(totalLabel.value))] : [];
 }
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('keydown', handleIssueModalKeydown);
-  void loadContext();
+  await loadContext();
+  await loadWorkshopOrderPrefill();
 });
+
+async function loadWorkshopOrderPrefill(): Promise<void> {
+  if (!workshopOrderId || !platformTenantId.value) return;
+  try {
+    const order = (await platformClient.value.workshopOrder(platformTenantId.value, workshopOrderId)).data;
+    if (order.billing.status === 'invoiced') {
+      error.value = `La orden ${order.ticket} ya está vinculada al DTE ${order.billing.number || ''}.`;
+      return;
+    }
+    if (order.financial.status !== 'settled' || order.status === 'cancelled') {
+      error.value = 'Solo una orden de trabajo cerrada puede prepararse para facturación.';
+      return;
+    }
+    const customer = (await client.value.customer(order.customer.id)).customer;
+    customerMode.value = 'base';
+    applyCustomer(customer);
+    const line = newInvoiceLine();
+    line.description = `Servicio de reparación ${order.device.brand} ${order.device.model} · ${order.ticket}`;
+    line.unitPrice = Number(order.financial.final_total ?? 0);
+    lines.value = [line];
+    form.observations = `Generado desde orden de trabajo ${order.ticket}.`;
+    resetPayments();
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible cargar la orden de trabajo para facturación.';
+  }
+}
 
 onBeforeUnmount(() => {
   unmounted = true;
@@ -1161,6 +1189,17 @@ async function issueDocument(): Promise<void> {
       }
       if (!rejected) {
         await recordInventorySale(result);
+        if (workshopOrderId && platformTenantId.value) {
+          try {
+            await platformClient.value.linkWorkshopOrderInvoice(platformTenantId.value, workshopOrderId, {
+              core_dte_document_id: result.document.id,
+              dte_number: result.document.numeroControl,
+              dte_generation_code: result.document.codigoGeneracion,
+            });
+          } catch {
+            pushIssueLog('El DTE fue emitido, pero quedó pendiente vincularlo con la orden de taller.', 'error');
+          }
+        }
       }
       issueResult.value = result;
       draft.value = result.document;

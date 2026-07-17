@@ -5,8 +5,8 @@ import { UiButton, UiInput, UiModalShell, UiSelect, UiTextarea } from '@stelfaro
 import type { WorkshopOrder } from '@stelfaro/api-client';
 
 const props = defineProps<{ order: WorkshopOrder | null }>();
-const emit = defineEmits<{ close: []; settle: [id: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null }] }>();
-const form = reactive({ finalTotal: '', retainedAmount: '0', method: 'cash' as 'cash'|'card'|'transfer'|'other', reference: '', notes: '' });
+const emit = defineEmits<{ close: []; settle: [id: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null; document_choice?: 'work_order'|'dte' }] }>();
+const form = reactive({ finalTotal: '', retainedAmount: '0', method: 'cash' as 'cash'|'card'|'transfer'|'other', reference: '', notes: '', documentChoice: 'work_order' as 'work_order'|'dte' });
 const saving = ref(false);
 const isCancellation = computed(() => props.order?.status === 'cancelled');
 const finalTotal = computed(() => Math.max(0, Number(form.finalTotal || 0)));
@@ -19,14 +19,14 @@ const money = (value: number) => new Intl.NumberFormat('es-SV', { style: 'curren
 watch(() => props.order, (order) => {
   if (!order) return;
   form.finalTotal = String(order.estimated_total ?? order.paid_total ?? 0);
-  form.retainedAmount = '0'; form.method = 'cash'; form.reference = ''; form.notes = '';
+  form.retainedAmount = '0'; form.method = 'cash'; form.reference = ''; form.notes = ''; form.documentChoice = 'work_order';
 }, { immediate: true });
 function submit() {
   if (!props.order || saving.value) return;
   saving.value = true;
   emit('settle', props.order.id, isCancellation.value
     ? { action: 'cancel_close', retained_amount: retained.value, method: amountToRefund.value > 0 ? form.method : undefined, reference: form.reference || null, notes: form.notes || null }
-    : { action: 'deliver_close', final_total: finalTotal.value, method: amountToCollect.value > 0 ? form.method : undefined, reference: form.reference || null, notes: form.notes || null });
+    : { action: 'deliver_close', final_total: finalTotal.value, method: amountToCollect.value > 0 ? form.method : undefined, reference: form.reference || null, notes: form.notes || null, document_choice: form.documentChoice });
   window.setTimeout(() => { saving.value = false; }, 700);
 }
 </script>
@@ -51,6 +51,8 @@ function submit() {
 
       <div v-if="(isCancellation ? amountToRefund : amountToCollect) > 0" class="grid gap-3 sm:grid-cols-2"><UiSelect v-model="form.method" :label="isCancellation ? 'Forma de devolución' : 'Forma de pago'" :options="methods" /><UiInput v-model="form.reference" label="Referencia" placeholder="Opcional" /></div>
       <UiTextarea v-model="form.notes" label="Observación" :rows="2" placeholder="Opcional" />
+
+      <div v-if="!isCancellation"><p class="mb-2 text-sm font-medium text-text">¿Qué deseas hacer después del cierre?</p><div class="grid gap-2 sm:grid-cols-2"><button type="button" class="rounded-lg border p-3 text-left transition" :class="form.documentChoice === 'work_order' ? 'border-primary bg-primary-soft' : 'border-line bg-surface hover:border-primary/50'" @click="form.documentChoice = 'work_order'"><strong class="text-sm text-text">Solo cerrar orden</strong><p class="mt-1 text-xs text-muted">Orden de trabajo cobrada, sin documento fiscal por ahora.</p></button><button type="button" class="rounded-lg border p-3 text-left transition" :class="form.documentChoice === 'dte' ? 'border-primary bg-primary-soft' : 'border-line bg-surface hover:border-primary/50'" @click="form.documentChoice = 'dte'"><strong class="text-sm text-text">Preparar DTE</strong><p class="mt-1 text-xs text-muted">Abrir facturación con cliente, concepto y total precargados.</p></button></div></div>
 
       <div class="flex justify-end gap-2 border-t border-line pt-4"><UiButton variant="secondary" :disabled="saving" @click="$emit('close')">Volver</UiButton><UiButton :variant="isCancellation ? 'secondary' : 'success'" :disabled="saving || (isCancellation && retained > order.paid_total)" @click="submit"><CircleDollarSign class="h-4 w-4" />{{ isCancellation ? 'Registrar y cerrar' : 'Cobrar, entregar y cerrar' }}</UiButton></div>
     </div>

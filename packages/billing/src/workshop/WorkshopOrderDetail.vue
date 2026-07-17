@@ -12,6 +12,7 @@ const conditionLabels: Record<string, string> = { scratches: 'Rayones', dents: '
 const testLabels: Record<string, string> = { display: 'Imagen', touch_controls: 'Touch / controles', charging: 'Carga', cameras: 'Cámaras', audio: 'Audio', microphone: 'Micrófono', buttons: 'Botones', connectivity: 'Conectividad' };
 const resultLabels: Record<string, string> = { passed: 'Funciona', failed: 'Falla', not_tested: 'No probado' };
 const approvalMethodLabels: Record<string, string> = { whatsapp: 'WhatsApp', call: 'Llamada', in_person: 'Presencial' };
+const statusTone = (status: string): 'neutral'|'success'|'warning'|'danger'|'info' => status === 'cancelled' ? 'danger' : ['ready','delivered'].includes(status) ? 'success' : ['diagnosing','awaiting_approval'].includes(status) ? 'warning' : ['received','approved','repairing'].includes(status) ? 'info' : 'neutral';
 const money = (value: number) => new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(value);
 </script>
 
@@ -19,7 +20,7 @@ const money = (value: number) => new Intl.NumberFormat('es-SV', { style: 'curren
   <UiModalShell :open="Boolean(order)" :title="order?.ticket || 'Orden'" :description="order ? `${order.customer.name} · ${order.device.brand} ${order.device.model}` : null" max-width="max-w-6xl" @close="$emit('close')">
     <div v-if="order" class="max-h-[75vh] overflow-y-auto pr-1">
       <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface-muted p-4">
-        <div><p class="text-sm text-muted">Estado actual</p><UiStatusBadge class="mt-1" :tone="order.status === 'ready' ? 'success' : order.status === 'cancelled' ? 'danger' : 'neutral'">{{ statusLabels[order.status] || order.status }}</UiStatusBadge></div>
+        <div><p class="text-sm text-muted">Estado actual</p><UiStatusBadge class="mt-1" :tone="statusTone(order.status)">{{ statusLabels[order.status] || order.status }}</UiStatusBadge></div>
         <div class="text-right"><p class="text-sm text-muted">Ingreso</p><p class="font-semibold text-text">{{ new Date(order.received_at).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' }) }}</p></div>
       </div>
 

@@ -12,6 +12,7 @@ const approvalMethods = [{ value: 'whatsapp', label: 'WhatsApp' }, { value: 'cal
 const statusLabels: Record<string, string> = { received: 'Recibido', diagnosing: 'En diagnóstico', awaiting_approval: 'Esperando aprobación', approved: 'Aprobado', repairing: 'En reparación', ready: 'Listo' };
 const testLabels: Record<string, string> = { display: 'Imagen', touch_controls: 'Touch / controles', charging: 'Carga', cameras: 'Cámaras', audio: 'Audio', microphone: 'Micrófono', buttons: 'Botones', connectivity: 'Conectividad' };
 const resultLabels: Record<string, string> = { passed: 'Funciona', failed: 'Falla', not_tested: 'No probado' };
+const statusTone = (status: string): 'neutral'|'success'|'warning'|'danger'|'info' => status === 'cancelled' ? 'danger' : ['ready','delivered'].includes(status) ? 'success' : ['diagnosing','awaiting_approval'].includes(status) ? 'warning' : ['received','approved','repairing'].includes(status) ? 'info' : 'neutral';
 
 function draft(order: WorkshopOrder) {
   return drafts[order.id] ||= { diagnosis: order.diagnosis || '', estimatedTotal: order.estimated_total?.toString() || '', approvalMethod: 'whatsapp', approvalNotes: '' };
@@ -36,7 +37,7 @@ function decide(order: WorkshopOrder, decision: 'approved' | 'rejected') {
     <UiCard v-for="order in orders" :key="order.id" class="p-5 sm:p-6">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="flex gap-3"><Microscope class="mt-1 h-5 w-5 shrink-0 text-primary" /><div><p class="font-semibold text-text">{{ order.ticket }} · {{ order.device.brand }} {{ order.device.model }}</p><p class="mt-1 text-sm text-muted">{{ order.customer.name }} · {{ order.reported_fault }}</p></div></div>
-        <UiStatusBadge :tone="order.status === 'ready' ? 'success' : 'neutral'">{{ statusLabels[order.status] || order.status }}</UiStatusBadge>
+        <UiStatusBadge :tone="statusTone(order.status)">{{ statusLabels[order.status] || order.status }}</UiStatusBadge>
       </div>
 
       <div v-if="Object.keys(order.device.functional_tests).length" class="mt-5 border-t border-line pt-4">
