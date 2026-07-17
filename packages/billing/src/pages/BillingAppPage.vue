@@ -284,6 +284,14 @@ const selectedComponentProps = computed(() => {
     };
   }
 
+  if (props.module === 'dashboard') {
+    return {
+      ...baseProps,
+      platformBaseUrl: props.platformBaseUrl,
+      tenantId: Number(props.platformSession?.tenant?.id || 0)
+    };
+  }
+
   if (props.module === 'mh-events') {
     return {
       ...baseProps,

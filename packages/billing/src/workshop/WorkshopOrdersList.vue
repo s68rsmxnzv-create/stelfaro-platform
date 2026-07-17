@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { Camera, ChevronLeft, ChevronRight, FileText, HandCoins, MessageCircle, Microscope, PackageCheck, Printer } from 'lucide-vue-next';
 import { UiActionDropdown, UiActionMenuItem, UiButton, UiCard, UiInput, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import type { WorkshopOrder } from '@stelfaro/api-client';
@@ -29,6 +29,13 @@ function sendWhatsApp(order: WorkshopOrder) { const url = workshopWhatsAppUrl(or
 function workActionLabel(status: string) { return status === 'received' ? 'Iniciar diagnóstico' : status === 'diagnosing' ? 'Continuar diagnóstico' : status === 'awaiting_approval' ? 'Registrar respuesta del cliente' : status === 'approved' ? 'Iniciar reparación' : 'Gestionar reparación'; }
 function statusTone(status: string): 'neutral'|'success'|'warning'|'danger'|'info' { if (status === 'cancelled') return 'danger'; if (['ready','delivered'].includes(status)) return 'success'; if (['diagnosing','awaiting_approval'].includes(status)) return 'warning'; if (['received','approved','repairing'].includes(status)) return 'info'; return 'neutral'; }
 onBeforeUnmount(() => { if (timer) clearTimeout(timer); });
+onMounted(() => {
+  const params = new URLSearchParams(window.location.search);
+  query.value = params.get('q') || '';
+  status.value = params.get('status') || '';
+  priority.value = params.get('priority') || '';
+  if (query.value || status.value || priority.value) apply();
+});
 </script>
 
 <template>

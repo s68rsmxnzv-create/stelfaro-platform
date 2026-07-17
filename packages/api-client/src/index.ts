@@ -337,6 +337,13 @@ export type WorkshopOrdersResponse = {
   stats: Record<string, number>;
 };
 
+export type WorkshopDashboard = {
+  generated_at: string;
+  orders: { active: number; received_today: number; awaiting_approval: number; ready: number; urgent: number };
+  commercial: { sales_today: number; sales_month: number; receivables: number };
+  recent_orders: WorkshopOrder[];
+};
+
 export type WorkshopOrderPayload = {
   customer: { core_customer_id: number; name: string; phone?: string | null; email?: string | null };
   device: { type: string; brand: string; model: string; color?: string | null; imei?: string | null; serial_number?: string | null; identifier_not_visible?: boolean; power_status: string; functional_tests?: Record<string, string>; is_locked?: boolean; access_type?: string | null; access_secret?: string | null };
@@ -1783,6 +1790,10 @@ export class PlatformClient {
 
   workshopOrders(tenantId: number, params: { q?: string; status?: string; priority?: string; date_from?: string; date_to?: string; page?: number; per_page?: number } = {}): Promise<WorkshopOrdersResponse> {
     return this.http.get(`platform/tenants/${tenantId}/workshop/orders`, { searchParams: compactParams(params) }).json();
+  }
+
+  workshopDashboard(tenantId: number): Promise<WorkshopDashboard> {
+    return this.http.get(`platform/tenants/${tenantId}/workshop/dashboard`).json();
   }
 
   workshopOrder(tenantId: number, orderId: number): Promise<{ data: WorkshopOrder }> {
