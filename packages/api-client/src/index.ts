@@ -1797,8 +1797,12 @@ export class PlatformClient {
     return this.http.patch(`platform/tenants/${tenantId}/workshop/orders/${orderId}`, { json: payload }).json();
   }
 
-  settleWorkshopOrder(tenantId: number, orderId: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null; document_choice?: 'work_order' | 'dte'; dte_type?: '01' | '03' }): Promise<{ data: WorkshopOrder }> {
+  settleWorkshopOrder(tenantId: number, orderId: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null; document_choice?: 'work_order' | 'dte'; dte_type?: '01' | '03'; payment_timing?: 'paid_now' | 'credit' }): Promise<{ data: WorkshopOrder }> {
     return this.http.post(`platform/tenants/${tenantId}/workshop/orders/${orderId}/settlement`, { json: payload }).json();
+  }
+
+  recordWorkshopOrderPayment(tenantId: number, orderId: number, payload: { amount: number; method: 'cash'|'card'|'transfer'|'other'; reference?: string|null; notes?: string|null }): Promise<{ data: WorkshopOrder }> {
+    return this.http.post(`platform/tenants/${tenantId}/workshop/orders/${orderId}/payments`, { json: payload }).json();
   }
 
   linkWorkshopOrderInvoice(tenantId: number, orderId: number, payload: { core_dte_document_id: number; dte_number: string; dte_generation_code: string; dte_type: '01' | '03' }): Promise<{ data: WorkshopOrder }> {

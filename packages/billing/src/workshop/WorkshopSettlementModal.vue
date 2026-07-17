@@ -5,8 +5,8 @@ import { UiButton, UiInput, UiModalShell, UiSelect, UiTextarea } from '@stelfaro
 import type { WorkshopOrder } from '@stelfaro/api-client';
 
 const props = defineProps<{ order: WorkshopOrder | null }>();
-const emit = defineEmits<{ close: []; settle: [id: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null; document_choice?: 'work_order'|'dte'; dte_type?: '01'|'03' }] }>();
-const form = reactive({ finalTotal: '', retainedAmount: '0', method: 'cash' as 'cash'|'card'|'transfer'|'other', reference: '', notes: '', documentChoice: 'work_order' as 'work_order'|'dte', dteType: '01' as '01'|'03' });
+const emit = defineEmits<{ close: []; settle: [id: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null; document_choice?: 'work_order'|'dte'; dte_type?: '01'|'03'; payment_timing?: 'paid_now'|'credit' }] }>();
+const form = reactive({ finalTotal: '', retainedAmount: '0', method: 'cash' as 'cash'|'card'|'transfer'|'other', reference: '', notes: '', documentChoice: 'work_order' as 'work_order'|'dte', dteType: '01' as '01'|'03', paymentTiming: 'paid_now' as 'paid_now'|'credit' });
 const saving = ref(false);
 const isCancellation = computed(() => props.order?.status === 'cancelled');
 const finalTotal = computed(() => Math.max(0, Number(form.finalTotal || 0)));
@@ -19,14 +19,14 @@ const money = (value: number) => new Intl.NumberFormat('es-SV', { style: 'curren
 watch(() => props.order, (order) => {
   if (!order) return;
   form.finalTotal = String(order.estimated_total ?? order.paid_total ?? 0);
-  form.retainedAmount = '0'; form.method = 'cash'; form.reference = ''; form.notes = ''; form.documentChoice = 'work_order'; form.dteType = '01';
+  form.retainedAmount = '0'; form.method = 'cash'; form.reference = ''; form.notes = ''; form.documentChoice = 'work_order'; form.dteType = '01'; form.paymentTiming = 'paid_now';
 }, { immediate: true });
 function submit() {
   if (!props.order || saving.value) return;
   saving.value = true;
   emit('settle', props.order.id, isCancellation.value
     ? { action: 'cancel_close', retained_amount: retained.value, method: amountToRefund.value > 0 ? form.method : undefined, reference: form.reference || null, notes: form.notes || null }
-    : { action: 'deliver_close', final_total: finalTotal.value, method: amountToCollect.value > 0 ? form.method : undefined, reference: form.reference || null, notes: form.notes || null, document_choice: form.documentChoice, dte_type: form.documentChoice === 'dte' ? form.dteType : undefined });
+    : { action: 'deliver_close', final_total: finalTotal.value, method: form.paymentTiming === 'paid_now' && amountToCollect.value > 0 ? form.method : undefined, reference: form.reference || null, notes: form.notes || null, document_choice: form.documentChoice, dte_type: form.documentChoice === 'dte' ? form.dteType : undefined, payment_timing: form.paymentTiming });
   window.setTimeout(() => { saving.value = false; }, 700);
 }
 </script>
@@ -38,24 +38,26 @@ function submit() {
         <div class="flex gap-3"><RotateCcw class="mt-0.5 h-5 w-5 shrink-0 text-warning" /><div><p class="font-semibold text-text">Anticipo recibido: {{ money(order.paid_total) }}</p><p class="mt-1 text-sm text-muted">Indica si una parte se aplicará a diagnóstico o trabajo realizado. El resto quedará registrado como devolución.</p></div></div>
       </div>
       <div v-else class="rounded-lg border border-success bg-success-soft p-4">
-        <div class="flex gap-3"><Truck class="mt-0.5 h-5 w-5 shrink-0 text-success" /><div><p class="font-semibold text-text">Entrega y cobro en un solo paso</p><p class="mt-1 text-sm text-muted">Se registrará el saldo recibido, la entrega del equipo y el cierre administrativo. Esto no genera factura.</p></div></div>
+        <div class="flex gap-3"><Truck class="mt-0.5 h-5 w-5 shrink-0 text-success" /><div><p class="font-semibold text-text">Entrega y cierre en un solo paso</p><p class="mt-1 text-sm text-muted">Puedes cobrar ahora o entregar con saldo pendiente. El cierre registra la venta comercial, pero no genera factura.</p></div></div>
       </div>
 
       <UiInput v-if="isCancellation" v-model="form.retainedAmount" label="Aplicar a diagnóstico o trabajo realizado" type="number" min="0" :max="order.paid_total" step="0.01" />
       <UiInput v-else v-model="form.finalTotal" label="Total final del trabajo" type="number" min="0" step="0.01" />
 
+      <div v-if="!isCancellation"><p class="mb-2 text-sm font-medium text-text">Forma de cierre</p><div class="grid grid-cols-2 gap-2"><button type="button" class="rounded-lg border p-3 text-left transition" :class="form.paymentTiming === 'paid_now' ? 'border-success bg-success-soft' : 'border-line bg-surface'" @click="form.paymentTiming = 'paid_now'"><strong class="text-sm text-text">Cobrar ahora</strong><p class="mt-1 text-xs text-muted">Registra el saldo completo al entregar.</p></button><button type="button" class="rounded-lg border p-3 text-left transition" :class="form.paymentTiming === 'credit' ? 'border-warning bg-warning-soft' : 'border-line bg-surface'" @click="form.paymentTiming = 'credit'"><strong class="text-sm text-text">Dejar por cobrar</strong><p class="mt-1 text-xs text-muted">Entrega el equipo y conserva el saldo pendiente.</p></button></div></div>
+
       <div class="grid grid-cols-2 gap-3 rounded-lg border border-line bg-surface-muted p-4 text-sm">
         <div><p class="text-muted">{{ isCancellation ? 'Se aplicará' : 'Ya recibido' }}</p><p class="mt-1 font-semibold text-text">{{ money(isCancellation ? retained : order.paid_total) }}</p></div>
-        <div><p class="text-muted">{{ isCancellation ? 'A devolver' : 'Cobrar ahora' }}</p><p class="mt-1 text-lg font-bold" :class="isCancellation ? 'text-warning' : 'text-success'">{{ money(isCancellation ? amountToRefund : amountToCollect) }}</p></div>
+        <div><p class="text-muted">{{ isCancellation ? 'A devolver' : form.paymentTiming === 'credit' ? 'Quedará por cobrar' : 'Cobrar ahora' }}</p><p class="mt-1 text-lg font-bold" :class="isCancellation || form.paymentTiming === 'credit' ? 'text-warning' : 'text-success'">{{ money(isCancellation ? amountToRefund : amountToCollect) }}</p></div>
       </div>
 
-      <div v-if="(isCancellation ? amountToRefund : amountToCollect) > 0" class="grid gap-3 sm:grid-cols-2"><UiSelect v-model="form.method" :label="isCancellation ? 'Forma de devolución' : 'Forma de pago'" :options="methods" /><UiInput v-model="form.reference" label="Referencia" placeholder="Opcional" /></div>
+      <div v-if="(isCancellation ? amountToRefund : amountToCollect) > 0 && (isCancellation || form.paymentTiming === 'paid_now')" class="grid gap-3 sm:grid-cols-2"><UiSelect v-model="form.method" :label="isCancellation ? 'Forma de devolución' : 'Forma de pago'" :options="methods" /><UiInput v-model="form.reference" label="Referencia" placeholder="Opcional" /></div>
       <UiTextarea v-model="form.notes" label="Observación" :rows="2" placeholder="Opcional" />
 
       <div v-if="!isCancellation"><p class="mb-2 text-sm font-medium text-text">¿Qué deseas hacer después del cierre?</p><div class="grid gap-2 sm:grid-cols-2"><button type="button" class="rounded-lg border p-3 text-left transition" :class="form.documentChoice === 'work_order' ? 'border-primary bg-primary-soft' : 'border-line bg-surface hover:border-primary/50'" @click="form.documentChoice = 'work_order'"><strong class="text-sm text-text">Solo cerrar orden</strong><p class="mt-1 text-xs text-muted">Orden de trabajo cobrada, sin documento fiscal por ahora.</p></button><button type="button" class="rounded-lg border p-3 text-left transition" :class="form.documentChoice === 'dte' ? 'border-primary bg-primary-soft' : 'border-line bg-surface hover:border-primary/50'" @click="form.documentChoice = 'dte'"><strong class="text-sm text-text">Preparar DTE</strong><p class="mt-1 text-xs text-muted">Abrir facturación con cliente, concepto y total precargados.</p></button></div></div>
       <div v-if="!isCancellation && form.documentChoice === 'dte'"><p class="mb-2 text-sm font-medium text-text">Tipo de comprobante</p><div class="grid grid-cols-2 gap-2"><button type="button" class="rounded-lg border p-3 text-left transition" :class="form.dteType === '01' ? 'border-primary bg-primary-soft' : 'border-line bg-surface'" @click="form.dteType = '01'"><strong class="text-sm text-text">Factura electrónica</strong><p class="mt-1 text-xs text-muted">Consumidor final</p></button><button type="button" class="rounded-lg border p-3 text-left transition" :class="form.dteType === '03' ? 'border-primary bg-primary-soft' : 'border-line bg-surface'" @click="form.dteType = '03'"><strong class="text-sm text-text">Crédito fiscal</strong><p class="mt-1 text-xs text-muted">Requiere datos fiscales completos</p></button></div></div>
 
-      <div class="flex justify-end gap-2 border-t border-line pt-4"><UiButton variant="secondary" :disabled="saving" @click="$emit('close')">Volver</UiButton><UiButton :variant="isCancellation ? 'secondary' : 'success'" :disabled="saving || (isCancellation && retained > order.paid_total)" @click="submit"><CircleDollarSign class="h-4 w-4" />{{ isCancellation ? 'Registrar y cerrar' : 'Cobrar, entregar y cerrar' }}</UiButton></div>
+      <div class="flex justify-end gap-2 border-t border-line pt-4"><UiButton variant="secondary" :disabled="saving" @click="$emit('close')">Volver</UiButton><UiButton :variant="isCancellation ? 'secondary' : 'success'" :disabled="saving || (isCancellation && retained > order.paid_total)" @click="submit"><CircleDollarSign class="h-4 w-4" />{{ isCancellation ? 'Registrar y cerrar' : form.paymentTiming === 'credit' ? 'Entregar con saldo pendiente' : 'Cobrar, entregar y cerrar' }}</UiButton></div>
     </div>
   </UiModalShell>
 </template>

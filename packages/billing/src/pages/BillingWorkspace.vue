@@ -748,7 +748,7 @@ async function loadWorkshopOrderPrefill(): Promise<void> {
       error.value = `La orden ${order.ticket} ya está vinculada al DTE ${order.billing.number || ''}.`;
       return;
     }
-    if (order.financial.status !== 'settled' || order.status === 'cancelled') {
+    if (!order.financial.closed_at || order.status === 'cancelled') {
       error.value = 'Solo una orden de trabajo cerrada puede prepararse para facturación.';
       return;
     }
@@ -761,6 +761,10 @@ async function loadWorkshopOrderPrefill(): Promise<void> {
     lines.value = [line];
     form.observations = `Generado desde orden de trabajo ${order.ticket}.`;
     resetPayments();
+    if (order.balance > 0) {
+      paymentCondition.value = 2;
+      paymentLines.value = supportsAdvancedPayments.value ? [newPaymentLine(roundMoney(totalLabel.value))] : [];
+    }
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar la orden de trabajo para facturación.';
   }
@@ -1338,12 +1342,14 @@ async function recordInventorySale(result: DteIssueResponse): Promise<void> {
       core_sucursal_id: selectedSucursal.value.id,
       core_sucursal_code: selectedSucursal.value.codigo || null,
       core_sucursal_name: selectedSucursal.value.nombre || null,
-      source_type: 'dte',
-      source_id: String(result.document.id),
+      source_type: workshopOrderId ? 'workshop_order' : 'dte',
+      source_id: workshopOrderId ? String(workshopOrderId) : String(result.document.id),
       source_number: result.document.numeroControl || result.document.codigoGeneracion || null,
       sale_date: new Date().toISOString().slice(0, 10),
       metadata: {
         document_type: form.documentType,
+        core_dte_document_id: result.document.id,
+        dte_number: result.document.numeroControl || result.document.codigoGeneracion || null,
         customer_name: form.customerName || null,
         total: totalLabel.value,
       },
