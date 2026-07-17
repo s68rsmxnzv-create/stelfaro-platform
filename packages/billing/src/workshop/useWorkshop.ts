@@ -98,7 +98,19 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
       throw reason;
     }
   }
+  async function settleOrder(id: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null }) {
+    error.value = null;
+    try {
+      const result = await platform.settleWorkshopOrder(tenantId, id, payload);
+      const index = orders.value.findIndex((order) => order.id === id);
+      if (index >= 0) orders.value[index] = result.data;
+      return result.data;
+    } catch (reason) {
+      error.value = reason instanceof Error ? reason.message : 'No fue posible cerrar financieramente la orden.';
+      throw reason;
+    }
+  }
   onMounted(initialize);
   onBeforeUnmount(() => { if (customerSearchTimer) window.clearTimeout(customerSearchTimer); });
-  return { orders, customers, photos, orderStats, orderMeta, loading, customerLoading, photoLoading, error, openOrders: computed(() => orders.value.filter((o) => !['delivered', 'cancelled'].includes(o.status))), searchCustomers, createCustomer, createOrder, createPhotoSession, loadOrders, loadPhotos, updateOrder };
+  return { orders, customers, photos, orderStats, orderMeta, loading, customerLoading, photoLoading, error, openOrders: computed(() => orders.value.filter((o) => !['delivered', 'cancelled'].includes(o.status))), searchCustomers, createCustomer, createOrder, createPhotoSession, loadOrders, loadPhotos, updateOrder, settleOrder };
 }

@@ -1,0 +1,58 @@
+<script setup lang="ts">
+import { computed, reactive, ref, watch } from 'vue';
+import { CircleDollarSign, RotateCcw, Truck } from 'lucide-vue-next';
+import { UiButton, UiInput, UiModalShell, UiSelect, UiTextarea } from '@stelfaro/ui';
+import type { WorkshopOrder } from '@stelfaro/api-client';
+
+const props = defineProps<{ order: WorkshopOrder | null }>();
+const emit = defineEmits<{ close: []; settle: [id: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null }] }>();
+const form = reactive({ finalTotal: '', retainedAmount: '0', method: 'cash' as 'cash'|'card'|'transfer'|'other', reference: '', notes: '' });
+const saving = ref(false);
+const isCancellation = computed(() => props.order?.status === 'cancelled');
+const finalTotal = computed(() => Math.max(0, Number(form.finalTotal || 0)));
+const retained = computed(() => Math.max(0, Number(form.retainedAmount || 0)));
+const amountToCollect = computed(() => Math.max(0, finalTotal.value - (props.order?.paid_total || 0)));
+const amountToRefund = computed(() => Math.max(0, (props.order?.paid_total || 0) - retained.value));
+const methods = [{ value: 'cash', label: 'Efectivo' }, { value: 'card', label: 'Tarjeta' }, { value: 'transfer', label: 'Transferencia' }, { value: 'other', label: 'Otro' }];
+const money = (value: number) => new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(value);
+
+watch(() => props.order, (order) => {
+  if (!order) return;
+  form.finalTotal = String(order.estimated_total ?? order.paid_total ?? 0);
+  form.retainedAmount = '0'; form.method = 'cash'; form.reference = ''; form.notes = '';
+}, { immediate: true });
+function submit() {
+  if (!props.order || saving.value) return;
+  saving.value = true;
+  emit('settle', props.order.id, isCancellation.value
+    ? { action: 'cancel_close', retained_amount: retained.value, method: amountToRefund.value > 0 ? form.method : undefined, reference: form.reference || null, notes: form.notes || null }
+    : { action: 'deliver_close', final_total: finalTotal.value, method: amountToCollect.value > 0 ? form.method : undefined, reference: form.reference || null, notes: form.notes || null });
+  window.setTimeout(() => { saving.value = false; }, 700);
+}
+</script>
+
+<template>
+  <UiModalShell :open="Boolean(order)" :title="isCancellation ? 'Resolver anticipo y cerrar' : 'Entregar y cerrar orden'" :description="order ? `${order.ticket} · ${order.customer.name}` : null" max-width="max-w-xl" :close-on-backdrop="!saving" @close="$emit('close')">
+    <div v-if="order" class="space-y-5">
+      <div v-if="isCancellation" class="rounded-lg border border-warning bg-warning-soft p-4">
+        <div class="flex gap-3"><RotateCcw class="mt-0.5 h-5 w-5 shrink-0 text-warning" /><div><p class="font-semibold text-text">Anticipo recibido: {{ money(order.paid_total) }}</p><p class="mt-1 text-sm text-muted">Indica si una parte se aplicará a diagnóstico o trabajo realizado. El resto quedará registrado como devolución.</p></div></div>
+      </div>
+      <div v-else class="rounded-lg border border-success bg-success-soft p-4">
+        <div class="flex gap-3"><Truck class="mt-0.5 h-5 w-5 shrink-0 text-success" /><div><p class="font-semibold text-text">Entrega y cobro en un solo paso</p><p class="mt-1 text-sm text-muted">Se registrará el saldo recibido, la entrega del equipo y el cierre administrativo. Esto no genera factura.</p></div></div>
+      </div>
+
+      <UiInput v-if="isCancellation" v-model="form.retainedAmount" label="Aplicar a diagnóstico o trabajo realizado" type="number" min="0" :max="order.paid_total" step="0.01" />
+      <UiInput v-else v-model="form.finalTotal" label="Total final del trabajo" type="number" min="0" step="0.01" />
+
+      <div class="grid grid-cols-2 gap-3 rounded-lg border border-line bg-surface-muted p-4 text-sm">
+        <div><p class="text-muted">{{ isCancellation ? 'Se aplicará' : 'Ya recibido' }}</p><p class="mt-1 font-semibold text-text">{{ money(isCancellation ? retained : order.paid_total) }}</p></div>
+        <div><p class="text-muted">{{ isCancellation ? 'A devolver' : 'Cobrar ahora' }}</p><p class="mt-1 text-lg font-bold" :class="isCancellation ? 'text-warning' : 'text-success'">{{ money(isCancellation ? amountToRefund : amountToCollect) }}</p></div>
+      </div>
+
+      <div v-if="(isCancellation ? amountToRefund : amountToCollect) > 0" class="grid gap-3 sm:grid-cols-2"><UiSelect v-model="form.method" :label="isCancellation ? 'Forma de devolución' : 'Forma de pago'" :options="methods" /><UiInput v-model="form.reference" label="Referencia" placeholder="Opcional" /></div>
+      <UiTextarea v-model="form.notes" label="Observación" :rows="2" placeholder="Opcional" />
+
+      <div class="flex justify-end gap-2 border-t border-line pt-4"><UiButton variant="secondary" :disabled="saving" @click="$emit('close')">Volver</UiButton><UiButton :variant="isCancellation ? 'secondary' : 'success'" :disabled="saving || (isCancellation && retained > order.paid_total)" @click="submit"><CircleDollarSign class="h-4 w-4" />{{ isCancellation ? 'Registrar y cerrar' : 'Cobrar, entregar y cerrar' }}</UiButton></div>
+    </div>
+  </UiModalShell>
+</template>
