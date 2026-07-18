@@ -84,6 +84,7 @@ const issueProgress = ref(0);
 const issueLiveMessage = ref<string | null>(null);
 const inventoryAvailability = ref<PlatformInventorySummary | null>(null);
 const inventoryAvailabilityLoading = ref(false);
+const inventoryLineDecisionOpen = ref(false);
 const floatingToasts = ref<BillingFloatingToast[]>([]);
 const pendingEmailToast = ref<Omit<BillingFloatingToast, 'id'> | null>(null);
 const stationPreferenceVersion = ref(0);
@@ -959,6 +960,10 @@ watch(() => form.sucursalId, () => {
 watch([platformTenantId, () => selectedSucursal.value?.id], () => {
   void loadInventoryAvailability();
 }, { immediate: true });
+
+watch(draftInventoryShortage, (shortage) => {
+  inventoryLineDecisionOpen.value = Boolean(shortage);
+});
 
 watch(() => props.initialDocumentType, (documentType) => {
   if (['01', '03', '05', '06', '14'].includes(documentType)) {
@@ -2411,6 +2416,7 @@ function useDraftAsCatalogOnce(): void {
     controlsInventory: false,
     inventoryBypassReason: 'insufficient_stock',
   };
+  inventoryLineDecisionOpen.value = false;
 }
 
 function branchStockForItem(itemId: number | null | undefined): number | null {
@@ -2697,6 +2703,33 @@ function updatePaymentCondition(value: string): void {
       <template #footer>
         <UiButton variant="secondary" type="button" @click="zeroValueLineWarningOpen = false">Revisar lineas</UiButton>
         <UiButton type="button" @click="confirmZeroValueLineWarning">Emitir de todos modos</UiButton>
+      </template>
+    </BillingModalShell>
+
+    <BillingModalShell
+      :open="inventoryLineDecisionOpen"
+      title="No hay suficiente inventario"
+      max-width="max-w-lg"
+      @close="inventoryLineDecisionOpen = false"
+    >
+      <div v-if="draftInventoryShortage" class="space-y-4">
+        <div class="rounded-md border border-amber-200 bg-amber-50 p-4 dark:border-warning/30 dark:bg-warning-soft">
+          <p class="font-semibold text-amber-900 dark:text-warning">{{ draftLine.catalogName || draftLine.description }}</p>
+          <p class="mt-1 text-sm text-amber-800 dark:text-muted">
+            Disponible: {{ formatStock(draftInventoryShortage.branchStock) }} · En la factura: {{ formatStock(draftInventoryShortage.requested) }}.
+          </p>
+          <p v-if="draftInventoryShortage.hasStockElsewhere" class="mt-2 text-sm font-semibold text-amber-900 dark:text-warning">
+            Hay unidades disponibles en otra sucursal.
+          </p>
+        </div>
+        <p class="text-sm text-slate-600 dark:text-muted">
+          Si continúas como catálogo, esta línea no descontará existencias. El producto seguirá controlando inventario en futuras ventas.
+        </p>
+      </div>
+
+      <template #footer>
+        <UiButton variant="secondary" type="button" @click="inventoryLineDecisionOpen = false">Ajustar cantidad</UiButton>
+        <UiButton type="button" @click="useDraftAsCatalogOnce">Usar como catálogo esta vez</UiButton>
       </template>
     </BillingModalShell>
 
@@ -3185,20 +3218,6 @@ function updatePaymentCondition(value: string): void {
                   </td>
                   <td class="px-3 py-2 text-right">
                     <UiButton :disabled="Boolean(draftInventoryShortage)" @click="addLine">Agregar</UiButton>
-                  </td>
-                </tr>
-                <tr v-if="draftInventoryShortage && !isAdjustmentNote">
-                  <td colspan="6" class="px-3 pb-3">
-                    <div class="flex flex-col gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between dark:border-warning/30 dark:bg-warning-soft">
-                      <div>
-                        <p class="text-sm font-semibold text-amber-900 dark:text-warning">No hay suficiente existencia en esta sucursal.</p>
-                        <p class="mt-1 text-xs text-amber-800 dark:text-muted">
-                          Disponible: {{ formatStock(draftInventoryShortage.branchStock) }} · En la factura: {{ formatStock(draftInventoryShortage.requested) }}.
-                          <span v-if="draftInventoryShortage.hasStockElsewhere">Hay unidades en otra sucursal.</span>
-                        </p>
-                      </div>
-                      <UiButton size="sm" type="button" @click="useDraftAsCatalogOnce">Usar como catálogo esta vez</UiButton>
-                    </div>
                   </td>
                 </tr>
                 <tr v-for="line in lines" :key="line.id">
