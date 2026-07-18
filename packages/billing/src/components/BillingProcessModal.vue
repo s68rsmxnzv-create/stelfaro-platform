@@ -23,6 +23,7 @@ const props = withDefaults(defineProps<{
   progressLabel: string;
   logs?: BillingProcessLogEntry[];
   closeLabel?: string;
+  compact?: boolean;
 }>(), {
   subtitle: '',
   processing: false,
@@ -31,7 +32,8 @@ const props = withDefaults(defineProps<{
   rejected: false,
   statusDetail: '',
   logs: () => [],
-  closeLabel: 'Cerrar'
+  closeLabel: 'Cerrar',
+  compact: false
 });
 
 const emit = defineEmits<{
@@ -39,10 +41,10 @@ const emit = defineEmits<{
 }>();
 
 const statusPanelClass = computed(() => {
-  if (props.accepted) return 'border-emerald-100 bg-emerald-50';
-  if (props.warning) return 'border-amber-100 bg-amber-50';
-  if (props.rejected) return 'border-rose-100 bg-rose-50';
-  return 'border-sky-100 bg-sky-50';
+  if (props.accepted) return 'border-emerald-100 bg-emerald-50 dark:border-success/30 dark:bg-success-soft';
+  if (props.warning) return 'border-amber-100 bg-amber-50 dark:border-warning/30 dark:bg-warning-soft';
+  if (props.rejected) return 'border-rose-100 bg-rose-50 dark:border-danger/30 dark:bg-danger-soft';
+  return 'border-sky-100 bg-sky-50 dark:border-primary/30 dark:bg-primary-soft';
 });
 
 const statusDotClass = computed(() => {
@@ -112,26 +114,26 @@ function close(): void {
     :eyebrow="eyebrow"
     :title="title"
     :description="subtitle"
-    max-width="max-w-4xl"
+    :max-width="compact ? 'max-w-xl' : 'max-w-4xl'"
     z-index-class="z-[9999]"
     panel-class="max-h-[88vh] overflow-hidden rounded-lg"
-    body-class="min-h-0 overflow-y-auto px-5 py-5"
+    :body-class="compact ? 'min-h-0 overflow-y-auto px-5 py-4' : 'min-h-0 overflow-y-auto px-5 py-5'"
     :close-label="closeLabel"
     :close-disabled="processing"
     @close="close"
   >
     <div class="flex items-center gap-4 rounded-md border p-4" :class="statusPanelClass">
-      <div class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white shadow-sm">
+      <div class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white shadow-sm dark:bg-surface">
         <span class="h-4 w-4 rounded-full" :class="statusDotClass"></span>
       </div>
       <div class="min-w-0 flex-1">
-        <p class="font-semibold text-slate-950">{{ statusLabel }}</p>
-        <p v-if="statusDetail" class="mt-1 break-all text-sm text-slate-600">{{ statusDetail }}</p>
+        <p class="font-semibold text-slate-950 dark:text-text">{{ statusLabel }}</p>
+        <p v-if="statusDetail" class="mt-1 text-sm text-slate-600 dark:text-muted">{{ statusDetail }}</p>
       </div>
       <slot name="status-badge"></slot>
     </div>
 
-    <div class="mt-4 rounded-md border border-slate-200 bg-white px-4 py-4">
+    <div v-if="!compact" class="mt-4 rounded-md border border-slate-200 bg-white px-4 py-4 dark:border-line dark:bg-surface">
       <div class="mb-4 flex items-center justify-between gap-3">
         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ progressLabel }}</p>
         <span class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">{{ progress }}%</span>

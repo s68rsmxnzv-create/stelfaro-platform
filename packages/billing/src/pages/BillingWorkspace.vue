@@ -470,6 +470,17 @@ const issueInContingency = computed(() => Boolean(
 ));
 const issueOverlayOpen = computed(() => Boolean(issuing.value || (issueResult.value && !issueRejected.value)));
 const issueDiagnosticModalOpen = computed(() => Boolean(issueModalOpen.value && (issueRejected.value || (error.value && !issuing.value && !issueResult.value))));
+const issueCompactError = computed(() => Boolean(error.value && !issuing.value && !issueResult.value));
+const issueFriendlyError = computed(() => {
+  const message = error.value ?? '';
+  const stock = message.match(/^Stock insuficiente para (.+?) en .+?\. Disponible: ([\d.,]+); requerido: ([\d.,]+)\./i);
+  if (!stock) return message;
+
+  const [, product, available, required] = stock;
+  const otherBranchHint = message.includes('En otras sucursales:') ? ' Hay existencias en otra sucursal.' : '';
+  return `No hay suficiente ${product}. Disponible: ${available} · Necesitas: ${required}.${otherBranchHint}`;
+});
+const issueErrorTitle = computed(() => error.value?.startsWith('Stock insuficiente para ') ? 'Sin existencias' : 'No se pudo emitir');
 const issueOverlayVariant = computed<'loading' | 'success' | 'warning'>(() => {
   if (issuing.value) return 'loading';
   if (issueInContingency.value) return 'warning';
@@ -490,7 +501,7 @@ const issueStatusDetail = computed(() => {
   if (issueRejected.value) return issueResult.value?.document.transmission?.descripcion_msg;
   if (issueInContingency.value) return `${issueResult.value?.document.numeroControl} quedo pendiente de reporte en contingencia.`;
   if (issueResult.value) return issueResult.value.document.numeroControl;
-  return error.value;
+  return issueFriendlyError.value;
 });
 const issueAttemptCount = computed(() => {
   const attempts = issueResult.value?.attempts ?? [];
@@ -2555,14 +2566,15 @@ function updatePaymentCondition(value: string): void {
 
     <BillingProcessModal
       :open="issueDiagnosticModalOpen"
-      eyebrow="Emision DTE"
-      :title="issuing ? 'Emitiendo documento' : issueRejected ? 'Documento rechazado por MH' : issueInContingency ? 'Emision en contingencia' : issueResult ? 'Emision procesada' : 'Emision detenida'"
-      :subtitle="`Ambiente ${selectedEmpresa?.ambiente ?? '00'} · ${selectedEmpresa?.nombre_comercial ?? 'Empresa emisora'}`"
+      :eyebrow="issueCompactError ? '' : 'Emision DTE'"
+      :title="issuing ? 'Emitiendo documento' : issueRejected ? 'Documento rechazado por MH' : issueInContingency ? 'Emision en contingencia' : issueResult ? 'Emision procesada' : 'No se pudo emitir'"
+      :subtitle="issueCompactError ? '' : `Ambiente ${selectedEmpresa?.ambiente ?? '00'} · ${selectedEmpresa?.nombre_comercial ?? 'Empresa emisora'}`"
+      :compact="issueCompactError"
       :processing="issuing"
       :accepted="Boolean(issueResult && !issueRejected && !issueInContingency)"
       :warning="issueInContingency"
       :rejected="issueRejected || Boolean(error && !issuing && !issueResult)"
-      :status-label="issuing ? issuePhases[issuePhaseIndex].label : issueRejected ? 'MH rechazo el documento' : issueInContingency ? 'Documento enviado a contingencia' : issueResult ? 'Documento transmitido' : 'No fue posible emitir'"
+      :status-label="issuing ? issuePhases[issuePhaseIndex].label : issueRejected ? 'MH rechazo el documento' : issueInContingency ? 'Documento enviado a contingencia' : issueResult ? 'Documento transmitido' : issueErrorTitle"
       :status-detail="issueStatusDetail"
       :progress="issueProgress"
       progress-label="Emision"
@@ -2600,10 +2612,6 @@ function updatePaymentCondition(value: string): void {
             <div v-if="issueResult.attempts.length > 1" class="mt-2 rounded-md bg-white/70 px-3 py-2 text-xs text-red-900">
               Se resolvio con {{ issueResult.attempts.length }} intentos de correlativo.
             </div>
-          </div>
-
-          <div v-else-if="error && !issuing" class="mt-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {{ error }}
           </div>
     </BillingProcessModal>
 
