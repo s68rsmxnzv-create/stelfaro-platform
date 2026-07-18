@@ -708,10 +708,6 @@ function notaDebitoIncrementTotal(line: Partial<InvoiceLine> | BillingItem): num
   return roundMoney(Math.max(0, (quantity * unitPrice) - (originalQuantity * originalUnitPrice)));
 }
 
-function notaDebitoOriginalLabel(line: InvoiceLine): string {
-  return `Origen ${Number(line.originalQuantity ?? 0)} x ${currency(Number(line.originalUnitPrice ?? 0))}`;
-}
-
 function notaDebitoIncrementLabel(line: InvoiceLine): string {
   return `Incremento ${currency(notaDebitoPayloadUnitPrice(line))}`;
 }
@@ -2263,10 +2259,6 @@ function updateAdjustmentQuantity(line: InvoiceLine, value: number | string): vo
   line.quantity = roundMoney(next);
 }
 
-function sourceLineMaxLabel(line: InvoiceLine): string {
-  return `Max. ${currency(Number(line.originalUnitPrice ?? line.unitPrice ?? 0))}`;
-}
-
 function documentPayload(document: DteDraftSummary): Record<string, unknown> {
   return asRecord(document.payload ?? document.dte_json ?? {});
 }
@@ -3162,7 +3154,7 @@ function updatePaymentCondition(value: string): void {
                       <input
                         :value="draftLine.description"
                         class="w-full rounded-md border border-blue-100 bg-white/90 py-2 pl-3 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised"
-                        :class="draftLine.description.trim() ? 'pr-40' : 'pr-3'"
+                        :class="draftLine.description.trim() ? (draftLine.lineOrigin === 'inventory' ? 'pr-52' : 'pr-40') : 'pr-3'"
                         :placeholder="isSujetoExcluido ? 'Compra o servicio recibido' : 'Buscar catalogo o escribir descripcion libre'"
                         @blur="closeCatalogLineSuggestions"
                         @focus="scheduleCatalogLineSearch(draftLine.description)"
@@ -3174,6 +3166,10 @@ function updatePaymentCondition(value: string): void {
                         :class="lineOriginClass(draftLine)"
                       >
                         {{ lineOriginLabel(draftLine) }}
+                        <template v-if="draftLine.lineOrigin === 'inventory' && branchStockForItem(draftLine.catalogItemId) !== null">
+                          · Disponible {{ formatStock(branchStockForItem(draftLine.catalogItemId) ?? 0) }}
+                        </template>
+                        <template v-else-if="draftLine.lineOrigin === 'inventory' && inventoryAvailabilityLoading"> · …</template>
                       </span>
                       <div
                         v-if="catalogLineSuggestionsOpen && canUseCatalogLineSearch"
@@ -3202,14 +3198,6 @@ function updatePaymentCondition(value: string): void {
                         </p>
                       </div>
                     </div>
-                    <div v-if="draftLine.lineOrigin === 'inventory'" class="mt-1 flex flex-wrap items-center gap-2">
-                      <span v-if="branchStockForItem(draftLine.catalogItemId) !== null" class="text-[11px] font-semibold text-slate-500 dark:text-muted">
-                        Disponible: {{ formatStock(branchStockForItem(draftLine.catalogItemId) ?? 0) }}
-                      </span>
-                      <span v-else-if="inventoryAvailabilityLoading" class="text-[11px] text-slate-500 dark:text-muted">
-                        Consultando existencias…
-                      </span>
-                    </div>
                   </td>
                   <td class="px-3 py-2">
                     <UiInput v-model.number="draftLine.quantity" label="Cantidad" hide-label min="0.01" step="0.01" type="number" />
@@ -3230,9 +3218,10 @@ function updatePaymentCondition(value: string): void {
                     />
                   </td>
                   <td class="px-3 py-2 text-right">
-                    <p class="font-semibold text-slate-900 dark:text-text">{{ currency(lineNetTotal(draftLine)) }}</p>
-                    <p v-if="isFiscalStyleDocument" class="text-[11px] text-slate-500 dark:text-muted">IVA {{ currency(lineIvaAmount(draftLine)) }}</p>
-                    <p v-if="lineDiscountAmount(draftLine) > 0" class="text-[11px] text-slate-500 dark:text-muted">Bruto {{ currency(lineGrossTotal(draftLine)) }}</p>
+                    <span class="whitespace-nowrap font-semibold text-slate-900 dark:text-text">{{ currency(lineNetTotal(draftLine)) }}</span>
+                    <span v-if="isFiscalStyleDocument || lineDiscountAmount(draftLine) > 0" class="ml-1 whitespace-nowrap text-[11px] text-slate-500 dark:text-muted">
+                      ({{ [isFiscalStyleDocument ? `IVA ${currency(lineIvaAmount(draftLine))}` : '', lineDiscountAmount(draftLine) > 0 ? `Bruto ${currency(lineGrossTotal(draftLine))}` : ''].filter(Boolean).join(' · ') }})
+                    </span>
                   </td>
                   <td class="px-3 py-2 text-right">
                     <UiButton :disabled="Boolean(draftInventoryShortage)" @click="addLine">Agregar</UiButton>
@@ -3248,15 +3237,16 @@ function updatePaymentCondition(value: string): void {
                     >
                       {{ lineOriginLabel(line) }}
                     </span>
-                    <p v-if="isAdjustmentNote" class="mt-1 text-[11px] text-slate-500 dark:text-muted">
-                      {{ line.sourceLine === false ? 'Linea nueva agregada a la Nota de Debito' : 'Descripcion tomada del CCF origen' }}
-                    </p>
+                    <span v-if="isAdjustmentNote" class="ml-2 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500 dark:bg-surface-muted dark:text-muted">
+                      {{ line.sourceLine === false ? 'Nueva línea' : 'Origen CCF' }}
+                    </span>
                   </td>
                   <td class="px-3 py-2">
                     <template v-if="isAdjustmentNote">
                       <UiInput
                         label="Cantidad"
                         hide-label
+                        :suffix="isNotaCredito ? `(Máx. ${Number(line.originalQuantity ?? line.quantity ?? 0)})` : line.sourceLine !== false ? `(Orig. ${Number(line.originalQuantity ?? line.quantity ?? 0)})` : undefined"
                         :max="isNotaCredito ? Number(line.originalQuantity ?? line.quantity ?? 0) : undefined"
                         :min="isNotaDebito && line.sourceLine !== false ? Number(line.originalQuantity ?? line.quantity ?? 0) : 0.01"
                         step="0.01"
@@ -3264,12 +3254,6 @@ function updatePaymentCondition(value: string): void {
                         :model-value="Number(line.quantity)"
                         @update:model-value="updateAdjustmentQuantity(line, String($event))"
                       />
-                      <p v-if="isNotaCredito" class="mt-1 text-[11px] text-slate-500 dark:text-muted">
-                        Max. {{ Number(line.originalQuantity ?? line.quantity ?? 0) }}
-                      </p>
-                      <p v-else-if="line.sourceLine !== false" class="mt-1 text-[11px] text-slate-500 dark:text-muted">
-                        Origen {{ Number(line.originalQuantity ?? line.quantity ?? 0) }}
-                      </p>
                     </template>
                     <span v-else>{{ Number(line.quantity) }}</span>
                   </td>
@@ -3278,6 +3262,7 @@ function updatePaymentCondition(value: string): void {
                       <UiInput
                         label="Precio"
                         hide-label
+                        :suffix="isNotaCredito ? `(Máx. ${currency(Number(line.originalUnitPrice ?? line.unitPrice ?? 0))})` : line.sourceLine !== false ? `(Orig. ${currency(Number(line.originalUnitPrice ?? line.unitPrice ?? 0))})` : undefined"
                         :max="isNotaCredito ? Number(line.originalUnitPrice ?? line.unitPrice ?? 0) : undefined"
                         min="0"
                         step="0.01"
@@ -3285,9 +3270,6 @@ function updatePaymentCondition(value: string): void {
                         :model-value="Number(line.unitPrice)"
                         @update:model-value="updateNotaCreditoPrice(line, String($event))"
                       />
-                      <p v-if="isNotaCredito" class="mt-1 text-[11px] text-slate-500 dark:text-muted">{{ sourceLineMaxLabel(line) }}</p>
-                      <p v-else-if="line.sourceLine === false" class="mt-1 text-[11px] text-slate-500 dark:text-muted">Monto de la linea nueva</p>
-                      <p v-else class="mt-1 text-[11px] text-slate-500 dark:text-muted">{{ notaDebitoOriginalLabel(line) }}</p>
                     </template>
                     <template v-else>
                       {{ currency(Number(line.unitPrice)) }}
@@ -3299,14 +3281,17 @@ function updatePaymentCondition(value: string): void {
                       <span v-else class="text-slate-400 dark:text-soft">No aplica</span>
                     </template>
                     <template v-else>
-                      <span>{{ Number(line.discountPercent || 0) }}%</span>
-                      <p v-if="lineDiscountAmount(line) > 0" class="text-[11px] text-slate-500 dark:text-muted">-{{ currency(lineDiscountAmount(line)) }}</p>
+                      <span class="whitespace-nowrap">
+                        {{ Number(line.discountPercent || 0) }}%
+                        <span v-if="lineDiscountAmount(line) > 0" class="text-[11px] text-slate-500 dark:text-muted">(-{{ currency(lineDiscountAmount(line)) }})</span>
+                      </span>
                     </template>
                   </td>
                   <td class="px-3 py-2 text-right">
-                    <p class="font-semibold text-slate-900 dark:text-text">{{ currency(lineNetTotal(line)) }}</p>
-                    <p v-if="isFiscalStyleDocument" class="text-[11px] text-slate-500 dark:text-muted">IVA {{ currency(lineIvaAmount(line)) }}</p>
-                    <p v-if="lineDiscountAmount(line) > 0" class="text-[11px] text-slate-500 dark:text-muted">Bruto {{ currency(lineGrossTotal(line)) }}</p>
+                    <span class="whitespace-nowrap font-semibold text-slate-900 dark:text-text">{{ currency(lineNetTotal(line)) }}</span>
+                    <span v-if="isFiscalStyleDocument || lineDiscountAmount(line) > 0" class="ml-1 whitespace-nowrap text-[11px] text-slate-500 dark:text-muted">
+                      ({{ [isFiscalStyleDocument ? `IVA ${currency(lineIvaAmount(line))}` : '', lineDiscountAmount(line) > 0 ? `Bruto ${currency(lineGrossTotal(line))}` : ''].filter(Boolean).join(' · ') }})
+                    </span>
                   </td>
                   <td class="px-3 py-2 text-right">
                     <UiButton variant="ghost" size="sm" type="button" @click="removeLine(line.id)">Quitar</UiButton>
@@ -3317,8 +3302,7 @@ function updatePaymentCondition(value: string): void {
                 </tr>
                 <tr v-if="isNotaDebito && selectedSourceDocument" class="border-t-2 border-slate-200 bg-slate-50/70 dark:border-line-strong dark:bg-surface-muted">
                   <td class="px-3 py-2">
-                    <UiInput v-model="draftLine.description" label="Nueva línea a debitar" hide-label placeholder="Nueva línea a debitar" />
-                    <p class="mt-1 text-[11px] text-slate-500 dark:text-muted">Agregar línea nueva a la Nota de Débito</p>
+                    <UiInput v-model="draftLine.description" label="Nueva línea a debitar" hide-label placeholder="Nueva línea a debitar" suffix="Nueva" />
                   </td>
                   <td class="px-3 py-2">
                     <UiInput v-model.number="draftLine.quantity" label="Cantidad" hide-label min="0.01" step="0.01" type="number" />
@@ -3330,8 +3314,8 @@ function updatePaymentCondition(value: string): void {
                     <span class="text-slate-400">No aplica</span>
                   </td>
                   <td class="px-3 py-2 text-right">
-                    <p class="font-semibold text-slate-900 dark:text-text">{{ currency(lineNetTotal(draftLine)) }}</p>
-                    <p class="text-[11px] text-slate-500 dark:text-muted">IVA {{ currency(lineIvaAmount(draftLine)) }}</p>
+                    <span class="whitespace-nowrap font-semibold text-slate-900 dark:text-text">{{ currency(lineNetTotal(draftLine)) }}</span>
+                    <span class="ml-1 whitespace-nowrap text-[11px] text-slate-500 dark:text-muted">(IVA {{ currency(lineIvaAmount(draftLine)) }})</span>
                   </td>
                   <td class="px-3 py-2 text-right">
                     <UiButton @click="addLine">Agregar</UiButton>
