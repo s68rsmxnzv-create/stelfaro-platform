@@ -3213,8 +3213,16 @@ function updatePaymentCondition(value: string): void {
                     <UiInput v-model.number="draftLine.unitPrice" :label="isNotaDebito ? 'Nuevo valor' : isSujetoExcluido ? 'Monto compra' : 'Precio'" hide-label min="0" step="0.01" type="number" />
                   </td>
                   <td class="px-3 py-2">
-                    <UiInput v-model.number="draftLine.discountPercent" :label="isAdjustmentNote ? (isNotaDebito ? 'Incremento' : 'Ajuste') : isSujetoExcluido ? 'Descuento' : 'Porcentaje descuento'" hide-label max="100" min="0" step="0.01" type="number" />
-                    <p v-if="lineDiscountAmount(draftLine) > 0" class="mt-1 text-[11px] text-slate-500 dark:text-muted">-{{ currency(lineDiscountAmount(draftLine)) }}</p>
+                    <UiInput
+                      v-model.number="draftLine.discountPercent"
+                      :label="isAdjustmentNote ? (isNotaDebito ? 'Incremento' : 'Ajuste') : isSujetoExcluido ? 'Descuento' : 'Porcentaje descuento'"
+                      :suffix="lineDiscountAmount(draftLine) > 0 ? `(-${currency(lineDiscountAmount(draftLine))})` : undefined"
+                      hide-label
+                      max="100"
+                      min="0"
+                      step="0.01"
+                      type="number"
+                    />
                   </td>
                   <td class="px-3 py-2 text-right">
                     <p class="font-semibold text-slate-900 dark:text-text">{{ currency(lineNetTotal(draftLine)) }}</p>
