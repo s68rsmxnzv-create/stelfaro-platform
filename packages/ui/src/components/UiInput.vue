@@ -48,7 +48,10 @@ function updateValue(event: Event) {
         :value="modelValue ?? ''"
         :placeholder="placeholder"
         class="h-12 w-full rounded-md border border-blue-100 bg-white/90 py-0 pl-3 text-left text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised"
-        :class="canReveal ? 'pr-20' : suffix ? 'pr-20' : 'pr-3'"
+        :class="[
+          canReveal ? 'pr-20' : suffix ? 'pr-16' : 'pr-3',
+          suffix && inputType === 'number' ? 'ui-input-number-with-suffix' : ''
+        ]"
         @input="updateValue"
       >
       <button
@@ -68,3 +71,17 @@ function updateValue(event: Event) {
     </span>
   </label>
 </template>
+
+<style scoped>
+.ui-input-number-with-suffix {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.ui-input-number-with-suffix::-webkit-inner-spin-button,
+.ui-input-number-with-suffix::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+</style>
