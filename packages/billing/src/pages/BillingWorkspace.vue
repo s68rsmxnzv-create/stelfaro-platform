@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { X } from 'lucide-vue-next';
 import {
   buildFacturaRequest,
   type BillingCatalogs,
@@ -3036,14 +3037,18 @@ function updatePaymentCondition(value: string): void {
                   Completar datos fiscales
                 </UiButton>
               </div>
-              <button
-                class="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-red-50 text-sm font-bold text-red-600 transition hover:bg-red-600 hover:text-white"
+              <UiButton
+                class="shrink-0"
                 type="button"
+                variant="danger"
+                size="sm"
+                icon-only
                 aria-label="Quitar cliente seleccionado"
+                title="Quitar cliente"
                 @click="isAdjustmentNote ? clearSourceDocument() : clearSelectedCustomer()"
               >
-                x
-              </button>
+                <X class="h-4 w-4" aria-hidden="true" />
+              </UiButton>
             </div>
           </div>
 
