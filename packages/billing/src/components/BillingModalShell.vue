@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, watch } from 'vue';
-import { UiCloseCircleIcon } from '@stelfaro/ui';
+import { UiCloseButton } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   open: boolean;
@@ -88,15 +88,7 @@ onBeforeUnmount(() => {
               <h2 class="text-lg font-bold text-slate-950 dark:text-text" :class="eyebrow ? 'mt-1' : ''">{{ title }}</h2>
               <p v-if="description" class="mt-1 text-sm text-slate-500 dark:text-muted">{{ description }}</p>
             </div>
-            <button
-              type="button"
-              class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-soft dark:hover:bg-surface-muted dark:hover:text-text"
-              :aria-label="closeLabel"
-              :disabled="closeDisabled"
-              @click="close"
-            >
-              <UiCloseCircleIcon class="h-6 w-6" />
-            </button>
+            <UiCloseButton :label="closeLabel" :disabled="closeDisabled" @click="close" />
           </div>
         </header>
 

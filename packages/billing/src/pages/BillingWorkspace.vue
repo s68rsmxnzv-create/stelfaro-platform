@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
-import { X } from 'lucide-vue-next';
 import {
   buildFacturaRequest,
   type BillingCatalogs,
@@ -22,7 +21,7 @@ import {
   type PlatformInventorySummary
 } from '@stelfaro/api-client';
 import { currency, type BillingItem, type DocumentType } from '@stelfaro/shared';
-import { UiButton, UiCard, UiInput, UiSearchInput, UiLoadingMark, UiSelect, UiTextarea } from '@stelfaro/ui';
+import { UiButton, UiCard, UiCloseButton, UiInput, UiSearchInput, UiLoadingMark, UiSelect, UiTextarea } from '@stelfaro/ui';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import BillingFiscalCustomerModal, { type BillingFiscalCustomerModalPayload } from '../components/BillingFiscalCustomerModal.vue';
 import BillingSujetoExcluidoModal, { type BillingSujetoExcluidoModalPayload } from '../components/BillingSujetoExcluidoModal.vue';
@@ -3029,18 +3028,10 @@ function updatePaymentCondition(value: string): void {
                   Completar datos fiscales
                 </UiButton>
               </div>
-              <UiButton
-                class="shrink-0"
-                type="button"
-                variant="danger"
-                size="sm"
-                icon-only
-                aria-label="Quitar cliente seleccionado"
-                title="Quitar cliente"
+              <UiCloseButton
+                label="Quitar cliente seleccionado"
                 @click="isAdjustmentNote ? clearSourceDocument() : clearSelectedCustomer()"
-              >
-                <X class="h-4 w-4" aria-hidden="true" />
-              </UiButton>
+              />
             </div>
           </div>
 

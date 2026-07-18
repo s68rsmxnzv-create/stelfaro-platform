@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UiCloseCircleIcon from './UiCloseCircleIcon.vue';
+import UiCloseButton from './UiCloseButton.vue';
 
 withDefaults(defineProps<{
   open: boolean;
@@ -45,14 +45,7 @@ function closeFromBackdrop(closeOnBackdrop: boolean): void {
             <p class="text-lg font-bold text-slate-950 dark:text-text">{{ title }}</p>
             <p v-if="description" class="mt-1 text-sm text-slate-500 dark:text-muted">{{ description }}</p>
           </div>
-          <button
-            type="button"
-            class="rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text"
-            :aria-label="closeLabel"
-            @click="emit('close')"
-          >
-            <UiCloseCircleIcon class="h-6 w-6" />
-          </button>
+          <UiCloseButton :label="closeLabel" @click="emit('close')" />
         </header>
 
         <div class="px-5 py-5">

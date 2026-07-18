@@ -23,6 +23,7 @@ export { default as UiFileUpload } from './components/UiFileUpload.vue';
 export { default as UiLogoUpload } from './components/UiLogoUpload.vue';
 export { default as UiInfoIcon } from './components/UiInfoIcon.vue';
 export { default as UiCloseCircleIcon } from './components/UiCloseCircleIcon.vue';
+export { default as UiCloseButton } from './components/UiCloseButton.vue';
 export { default as UiModalShell } from './components/UiModalShell.vue';
 export { default as UiDocumentIcon } from './components/UiDocumentIcon.vue';
 export { default as UiDotsVerticalIcon } from './components/UiDotsVerticalIcon.vue';
