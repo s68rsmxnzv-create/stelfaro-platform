@@ -3156,12 +3156,20 @@ function updatePaymentCondition(value: string): void {
                     <div class="relative">
                       <input
                         :value="draftLine.description"
-                        class="w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised"
+                        class="w-full rounded-md border border-blue-100 bg-white/90 py-2 pl-3 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised"
+                        :class="draftLine.description.trim() ? 'pr-40' : 'pr-3'"
                         :placeholder="isSujetoExcluido ? 'Compra o servicio recibido' : 'Buscar catalogo o escribir descripcion libre'"
                         @blur="closeCatalogLineSuggestions"
                         @focus="scheduleCatalogLineSearch(draftLine.description)"
                         @input="onDraftLineDescriptionInput(($event.target as HTMLInputElement).value)"
                       >
+                      <span
+                        v-if="draftLine.description.trim()"
+                        class="pointer-events-none absolute right-2 top-1/2 inline-flex -translate-y-1/2 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                        :class="lineOriginClass(draftLine)"
+                      >
+                        {{ lineOriginLabel(draftLine) }}
+                      </span>
                       <div
                         v-if="catalogLineSuggestionsOpen && canUseCatalogLineSearch"
                         class="absolute z-[100] mt-1 max-h-36 w-full overflow-y-auto rounded-md border border-blue-100 bg-white py-1 text-sm shadow-xl shadow-blue-950/10 dark:border-line dark:bg-surface-raised dark:shadow-black/30"
@@ -3189,14 +3197,11 @@ function updatePaymentCondition(value: string): void {
                         </p>
                       </div>
                     </div>
-                    <div v-if="draftLine.description.trim()" class="mt-1 flex flex-wrap items-center gap-2">
-                      <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold" :class="lineOriginClass(draftLine)">
-                        {{ lineOriginLabel(draftLine) }}
-                      </span>
-                      <span v-if="draftLine.lineOrigin === 'inventory' && branchStockForItem(draftLine.catalogItemId) !== null" class="text-[11px] font-semibold text-slate-500 dark:text-muted">
+                    <div v-if="draftLine.lineOrigin === 'inventory'" class="mt-1 flex flex-wrap items-center gap-2">
+                      <span v-if="branchStockForItem(draftLine.catalogItemId) !== null" class="text-[11px] font-semibold text-slate-500 dark:text-muted">
                         Disponible: {{ formatStock(branchStockForItem(draftLine.catalogItemId) ?? 0) }}
                       </span>
-                      <span v-else-if="draftLine.lineOrigin === 'inventory' && inventoryAvailabilityLoading" class="text-[11px] text-slate-500 dark:text-muted">
+                      <span v-else-if="inventoryAvailabilityLoading" class="text-[11px] text-slate-500 dark:text-muted">
                         Consultando existencias…
                       </span>
                     </div>
