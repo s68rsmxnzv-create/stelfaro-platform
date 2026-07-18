@@ -633,6 +633,23 @@ export type PlatformInventoryStockAlert = Pick<PlatformCatalogItem, 'id' | 'sku'
   below_minimum: boolean;
 };
 
+export type PlatformInventorySummary = {
+  products: number;
+  units: number;
+  inventory_value: number;
+  lots: number;
+  available_lots: number;
+  movements: number;
+  healthy: number;
+  below_minimum: number;
+  out_of_stock: number;
+  stock_by_item: Array<{
+    catalog_item_id: number;
+    stock_quantity: number;
+    stock_value: number;
+  }>;
+};
+
 export type PlatformInventoryPurchaseAnnexRow = {
   purchase_id: number;
   purchase_date: string | null;
@@ -1934,6 +1951,10 @@ export class PlatformClient {
 
   inventoryMarginReport(tenantId: number, params: { from?: string; to?: string; core_sucursal_id?: number; per_page?: number } = {}): Promise<{ data: PlatformInventorySaleReportRow[] }> {
     return this.http.get(`platform/tenants/${tenantId}/inventory/reports/margin`, { searchParams: compactParams(params) }).json();
+  }
+
+  inventorySummary(tenantId: number, params: { core_sucursal_id?: number } = {}): Promise<{ data: PlatformInventorySummary }> {
+    return this.http.get(`platform/tenants/${tenantId}/inventory/reports/summary`, { searchParams: compactParams(params) }).json();
   }
 
   inventoryStockAlerts(tenantId: number, params: { core_sucursal_id?: number } = {}): Promise<{ data: PlatformInventoryStockAlert[] }> {

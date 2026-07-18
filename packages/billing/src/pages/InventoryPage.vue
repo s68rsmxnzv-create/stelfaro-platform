@@ -40,6 +40,7 @@ const fiscalScope = ref(null);
 const salesReport = ref([]);
 const marginReport = ref([]);
 const stockAlerts = ref([]);
+const inventorySummary = ref(null);
 const selectedBranchId = ref('');
 const toasts = ref([]);
 const supplierOpen = ref(false);
@@ -304,7 +305,10 @@ const selectedPurchaseMovements = computed(() => {
 
   return movements.value.filter((movement) => movement.reference_type === 'purchase' && String(movement.reference_id || '') === String(selectedPurchase.value.id));
 });
-const branchStockByItem = computed(() => visibleLots.value.reduce((map, lot) => {
+const branchStockByItem = computed(() => inventorySummary.value?.stock_by_item?.reduce((map, row) => {
+  map[Number(row.catalog_item_id)] = Number(row.stock_quantity || 0);
+  return map;
+}, {}) ?? visibleLots.value.reduce((map, lot) => {
   const itemId = Number(lot.catalog_item_id || 0);
   map[itemId] = Number(map[itemId] || 0) + Number(lot.available_quantity || 0);
   return map;
@@ -330,8 +334,8 @@ const paginatedVisibleItems = computed(() => {
 });
 const stockPaginationItems = computed(() => pageItems(stockTotalPages.value, stockPage.value));
 const lowStockItems = computed(() => visibleItems.value.filter((item) => Number(item.branch_stock_quantity || 0) <= 0));
-const overviewAlertCount = computed(() => stockAlerts.value.length);
-const overviewHealthyCount = computed(() => Math.max(0, stats.value.products - overviewAlertCount.value - stats.value.lowStock));
+const overviewAlertCount = computed(() => Number(inventorySummary.value?.below_minimum ?? stockAlerts.value.filter((item) => Number(item.stock_quantity || 0) > 0).length));
+const overviewHealthyCount = computed(() => Number(inventorySummary.value?.healthy ?? Math.max(0, stats.value.products - overviewAlertCount.value - stats.value.lowStock)));
 const overviewStockSegments = computed(() => {
   const total = Math.max(1, stats.value.products);
   return [
@@ -530,12 +534,12 @@ const secondaryReportRows = computed(() => [
   }
 ]);
 const stats = computed(() => ({
-  products: items.value.length,
-  units: visibleItems.value.reduce((sum, item) => sum + Number(item.branch_stock_quantity || 0), 0),
-  value: visibleItems.value.reduce((sum, item) => sum + (Number(item.branch_stock_quantity || 0) * Number(item.reference_cost || 0)), 0),
-  lowStock: lowStockItems.value.length,
-  lots: visibleLots.value.length,
-  movements: visibleMovements.value.length
+  products: Number(inventorySummary.value?.products ?? items.value.length),
+  units: Number(inventorySummary.value?.units ?? visibleItems.value.reduce((sum, item) => sum + Number(item.branch_stock_quantity || 0), 0)),
+  value: Number(inventorySummary.value?.inventory_value ?? visibleItems.value.reduce((sum, item) => sum + (Number(item.branch_stock_quantity || 0) * Number(item.reference_cost || 0)), 0)),
+  lowStock: Number(inventorySummary.value?.out_of_stock ?? lowStockItems.value.length),
+  lots: Number(inventorySummary.value?.lots ?? visibleLots.value.length),
+  movements: Number(inventorySummary.value?.movements ?? visibleMovements.value.length)
 }));
 const countSheetRows = computed(() => visibleItems.value.map((item, index) => ({
   number: index + 1,
@@ -666,7 +670,7 @@ async function loadInventory(options = { silent: false }): Promise<void> {
 
   if (!options.silent) loading.value = true;
   try {
-    const [inventoryItemsResponse, catalogItemsResponse, lotResponse, movementResponse, supplierResponse, purchaseResponse, categoryResponse, fiscalScopeResponse, salesResponse, marginResponse, alertsResponse] = await Promise.all([
+    const [inventoryItemsResponse, catalogItemsResponse, lotResponse, movementResponse, supplierResponse, purchaseResponse, categoryResponse, fiscalScopeResponse, salesResponse, marginResponse, alertsResponse, summaryResponse] = await Promise.all([
       fetchAllCatalogItems({ status: 'active', controls_inventory: true }),
       fetchAllCatalogItems({ status: 'active' }),
       client.value.inventoryLots(tenantId.value, { available_only: false, per_page: 100 }),
@@ -677,7 +681,8 @@ async function loadInventory(options = { silent: false }): Promise<void> {
       client.value.tenantFiscalScope(tenantId.value).catch(() => null),
       client.value.inventorySalesReport(tenantId.value, reportParams()).catch(() => ({ data: [] })),
       client.value.inventoryMarginReport(tenantId.value, reportParams()).catch(() => ({ data: [] })),
-      client.value.inventoryStockAlerts(tenantId.value, branchReportParams()).catch(() => ({ data: [] }))
+      client.value.inventoryStockAlerts(tenantId.value, branchReportParams()).catch(() => ({ data: [] })),
+      client.value.inventorySummary(tenantId.value, branchReportParams()).catch(() => ({ data: null }))
     ]);
     items.value = inventoryItemsResponse;
     catalogItems.value = catalogItemsResponse;
@@ -690,6 +695,7 @@ async function loadInventory(options = { silent: false }): Promise<void> {
     salesReport.value = salesResponse.data ?? [];
     marginReport.value = marginResponse.data ?? [];
     stockAlerts.value = alertsResponse.data ?? [];
+    inventorySummary.value = summaryResponse.data ?? null;
   } catch (error) {
     notify('No se pudo cargar inventario', messageFromError(error), 'error');
   } finally {
