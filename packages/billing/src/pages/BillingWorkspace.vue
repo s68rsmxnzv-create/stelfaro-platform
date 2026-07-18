@@ -17,7 +17,8 @@ import {
   type DtePreviewResponse,
   PlatformClient,
   type PlatformCatalogItem,
-  type PlatformInventoryReservation
+  type PlatformInventoryReservation,
+  type PlatformInventorySummary
 } from '@stelfaro/api-client';
 import { currency, type BillingItem, type DocumentType } from '@stelfaro/shared';
 import { UiButton, UiCard, UiInput, UiSearchInput, UiLoadingMark, UiSelect, UiTextarea } from '@stelfaro/ui';
@@ -81,6 +82,8 @@ const issuePhaseIndex = ref(0);
 const issueResult = ref<DteIssueResponse | null>(null);
 const issueProgress = ref(0);
 const issueLiveMessage = ref<string | null>(null);
+const inventoryAvailability = ref<PlatformInventorySummary | null>(null);
+const inventoryAvailabilityLoading = ref(false);
 const floatingToasts = ref<BillingFloatingToast[]>([]);
 const pendingEmailToast = ref<Omit<BillingFloatingToast, 'id'> | null>(null);
 const stationPreferenceVersion = ref(0);
@@ -136,6 +139,7 @@ type InvoiceLine = BillingItem & {
   controlsInventory?: boolean;
   itemPriceIncludesIva?: boolean;
   inventoryBypassReason?: 'insufficient_stock' | null;
+  inventoryGlobalStock?: number | null;
   originalQuantity?: number;
   originalUnitPrice?: number;
   originalIva?: number;
@@ -359,6 +363,27 @@ const inventoryIssueLines = computed(() => items.value
     quantity: Number(line.quantity),
     description: line.description
   })));
+const inventoryStockByItem = computed(() => new Map(
+  (inventoryAvailability.value?.stock_by_item ?? []).map((row) => [Number(row.catalog_item_id), Number(row.stock_quantity || 0)])
+));
+const draftInventoryShortage = computed(() => {
+  const itemId = Number(draftLine.value.catalogItemId || 0);
+  if (!itemId || draftLine.value.lineOrigin !== 'inventory' || !inventoryAvailability.value) return null;
+
+  const branchStock = Number(inventoryStockByItem.value.get(itemId) ?? 0);
+  const alreadyAdded = lines.value
+    .filter((line) => line.lineOrigin === 'inventory' && Number(line.catalogItemId || 0) === itemId)
+    .reduce((sum, line) => sum + Number(line.quantity || 0), 0);
+  const requested = alreadyAdded + Math.max(0, Number(draftLine.value.quantity || 0));
+  if (requested <= branchStock + 0.0001) return null;
+
+  return {
+    branchStock,
+    alreadyAdded,
+    requested,
+    hasStockElsewhere: Number(draftLine.value.inventoryGlobalStock || 0) > branchStock + 0.0001,
+  };
+});
 const notaCreditoSourceTotalGravada = computed(() => {
   if (!selectedSourceDocument.value) return 0;
 
@@ -739,6 +764,7 @@ function newInvoiceLine(): InvoiceLine {
     controlsInventory: false,
     itemPriceIncludesIva: false,
     inventoryBypassReason: null,
+    inventoryGlobalStock: null,
   };
 }
 
@@ -752,6 +778,7 @@ function clearCatalogMetadata(line: InvoiceLine): void {
   line.controlsInventory = false;
   line.itemPriceIncludesIva = false;
   line.inventoryBypassReason = null;
+  line.inventoryGlobalStock = null;
 }
 
 function newPaymentLine(amount = 0): PaymentLine {
@@ -773,9 +800,38 @@ function resetPayments(): void {
 
 onMounted(async () => {
   window.addEventListener('keydown', handleIssueModalKeydown);
+  window.addEventListener(INVENTORY_CHANGED_EVENT, handleInventoryAvailabilityChanged);
+  window.addEventListener('storage', handleInventoryAvailabilityChanged);
   await loadContext();
   await loadWorkshopOrderPrefill();
 });
+
+let inventoryAvailabilityToken = 0;
+
+async function loadInventoryAvailability(): Promise<void> {
+  const token = ++inventoryAvailabilityToken;
+  if (!platformTenantId.value || !selectedSucursal.value) {
+    inventoryAvailability.value = null;
+    return;
+  }
+
+  inventoryAvailabilityLoading.value = true;
+  try {
+    const response = await platformClient.value.inventorySummary(platformTenantId.value, {
+      core_sucursal_id: selectedSucursal.value.id,
+    });
+    if (token === inventoryAvailabilityToken) inventoryAvailability.value = response.data;
+  } catch {
+    if (token === inventoryAvailabilityToken) inventoryAvailability.value = null;
+  } finally {
+    if (token === inventoryAvailabilityToken) inventoryAvailabilityLoading.value = false;
+  }
+}
+
+function handleInventoryAvailabilityChanged(event: Event): void {
+  if (event instanceof StorageEvent && event.key !== INVENTORY_CHANGED_EVENT) return;
+  void loadInventoryAvailability();
+}
 
 async function loadWorkshopOrderPrefill(): Promise<void> {
   if (!workshopOrderId || !platformTenantId.value) return;
@@ -810,6 +866,8 @@ async function loadWorkshopOrderPrefill(): Promise<void> {
 onBeforeUnmount(() => {
   unmounted = true;
   window.removeEventListener('keydown', handleIssueModalKeydown);
+  window.removeEventListener(INVENTORY_CHANGED_EVENT, handleInventoryAvailabilityChanged);
+  window.removeEventListener('storage', handleInventoryAvailabilityChanged);
   clearIssueAutoClose();
   clearCatalogLineSearchTimer();
   floatingToastTimers.forEach((timer) => window.clearTimeout(timer));
@@ -897,6 +955,10 @@ watch(() => form.sucursalId, () => {
     form.puntoVentaId = selectedSucursal.value?.puntosVenta[0]?.id ?? null;
   }
 });
+
+watch([platformTenantId, () => selectedSucursal.value?.id], () => {
+  void loadInventoryAvailability();
+}, { immediate: true });
 
 watch(() => props.initialDocumentType, (documentType) => {
   if (['01', '03', '05', '06', '14'].includes(documentType)) {
@@ -2315,6 +2377,7 @@ function selectCatalogItemForDraft(item: PlatformCatalogItem): void {
     controlsInventory: item.controls_inventory,
     itemPriceIncludesIva: item.base_price_includes_tax,
     inventoryBypassReason: null,
+    inventoryGlobalStock: Number(item.stock_quantity || 0),
   };
   resetCatalogLineSuggestions();
 }
@@ -2341,10 +2404,32 @@ function lineOriginClass(line: InvoiceLine): string {
   return 'bg-slate-100 text-slate-500 dark:bg-surface-muted dark:text-muted';
 }
 
+function useDraftAsCatalogOnce(): void {
+  draftLine.value = {
+    ...draftLine.value,
+    lineOrigin: 'catalog',
+    controlsInventory: false,
+    inventoryBypassReason: 'insufficient_stock',
+  };
+}
+
+function branchStockForItem(itemId: number | null | undefined): number | null {
+  if (!inventoryAvailability.value || !itemId) return null;
+  return Number(inventoryStockByItem.value.get(Number(itemId)) ?? 0);
+}
+
+function formatStock(value: number): string {
+  return Number(value || 0).toLocaleString('es-SV', { maximumFractionDigits: 3 });
+}
+
 function addLine(): void {
   const line = draftLine.value;
   if (!line.description.trim() || Number(line.quantity) <= 0 || Number(line.unitPrice) < 0 || (isNotaDebito.value && Number(line.unitPrice) <= 0)) {
     error.value = 'Completa descripcion, cantidad y precio antes de agregar la linea.';
+    return;
+  }
+  if (draftInventoryShortage.value) {
+    error.value = 'Ajusta la cantidad o usa esta línea como catálogo antes de agregarla.';
     return;
   }
 
@@ -3061,6 +3146,9 @@ function updatePaymentCondition(value: string): void {
                             <span>{{ item.sku || 'Sin codigo' }}</span>
                             <span>{{ currency(item.base_price) }}</span>
                             <span>{{ item.controls_inventory ? 'Inventario' : 'Catalogo' }}</span>
+                            <span v-if="item.controls_inventory && branchStockForItem(item.id) !== null">
+                              Disponible: {{ formatStock(branchStockForItem(item.id) ?? 0) }}
+                            </span>
                           </span>
                         </button>
                         <p v-if="!catalogLineLoading && catalogLineSuggestions.length === 0" class="px-3 py-2 text-slate-500 dark:text-muted">
@@ -3071,6 +3159,12 @@ function updatePaymentCondition(value: string): void {
                     <div v-if="draftLine.description.trim()" class="mt-1 flex flex-wrap items-center gap-2">
                       <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold" :class="lineOriginClass(draftLine)">
                         {{ lineOriginLabel(draftLine) }}
+                      </span>
+                      <span v-if="draftLine.lineOrigin === 'inventory' && branchStockForItem(draftLine.catalogItemId) !== null" class="text-[11px] font-semibold text-slate-500 dark:text-muted">
+                        Disponible: {{ formatStock(branchStockForItem(draftLine.catalogItemId) ?? 0) }}
+                      </span>
+                      <span v-else-if="draftLine.lineOrigin === 'inventory' && inventoryAvailabilityLoading" class="text-[11px] text-slate-500 dark:text-muted">
+                        Consultando existencias…
                       </span>
                     </div>
                   </td>
@@ -3090,7 +3184,21 @@ function updatePaymentCondition(value: string): void {
                     <p v-if="lineDiscountAmount(draftLine) > 0" class="text-[11px] text-slate-500 dark:text-muted">Bruto {{ currency(lineGrossTotal(draftLine)) }}</p>
                   </td>
                   <td class="px-3 py-2 text-right">
-                    <UiButton @click="addLine">Agregar</UiButton>
+                    <UiButton :disabled="Boolean(draftInventoryShortage)" @click="addLine">Agregar</UiButton>
+                  </td>
+                </tr>
+                <tr v-if="draftInventoryShortage && !isAdjustmentNote">
+                  <td colspan="6" class="px-3 pb-3">
+                    <div class="flex flex-col gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between dark:border-warning/30 dark:bg-warning-soft">
+                      <div>
+                        <p class="text-sm font-semibold text-amber-900 dark:text-warning">No hay suficiente existencia en esta sucursal.</p>
+                        <p class="mt-1 text-xs text-amber-800 dark:text-muted">
+                          Disponible: {{ formatStock(draftInventoryShortage.branchStock) }} · En la factura: {{ formatStock(draftInventoryShortage.requested) }}.
+                          <span v-if="draftInventoryShortage.hasStockElsewhere">Hay unidades en otra sucursal.</span>
+                        </p>
+                      </div>
+                      <UiButton size="sm" type="button" @click="useDraftAsCatalogOnce">Usar como catálogo esta vez</UiButton>
+                    </div>
                   </td>
                 </tr>
                 <tr v-for="line in lines" :key="line.id">
