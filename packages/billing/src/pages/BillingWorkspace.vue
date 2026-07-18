@@ -135,6 +135,7 @@ type InvoiceLine = BillingItem & {
   taxable?: boolean;
   controlsInventory?: boolean;
   itemPriceIncludesIva?: boolean;
+  inventoryBypassReason?: 'insufficient_stock' | null;
   originalQuantity?: number;
   originalUnitPrice?: number;
   originalIva?: number;
@@ -471,8 +472,31 @@ const issueInContingency = computed(() => Boolean(
 const issueOverlayOpen = computed(() => Boolean(issuing.value || (issueResult.value && !issueRejected.value)));
 const issueDiagnosticModalOpen = computed(() => Boolean(issueModalOpen.value && (issueRejected.value || (error.value && !issuing.value && !issueResult.value))));
 const issueCompactError = computed(() => Boolean(error.value && !issuing.value && !issueResult.value));
+const inventoryStockError = computed(() => {
+  const message = error.value ?? '';
+  const affectedLines = lines.value.filter((line) => {
+    if (line.lineOrigin !== 'inventory') return false;
+    const product = (line.catalogName || line.description).trim();
+    return product !== '' && message.startsWith(`Stock insuficiente para ${product} en `);
+  });
+  const quantities = message.match(/Disponible: ([\d.,]+); requerido: ([\d.,]+)\./i);
+  if (affectedLines.length === 0 || !quantities) return null;
+
+  return {
+    lineIds: affectedLines.map((line) => line.id),
+    product: (affectedLines[0].catalogName || affectedLines[0].description).trim(),
+    available: quantities[1],
+    required: quantities[2],
+    hasStockElsewhere: message.includes('En otras sucursales:'),
+  };
+});
 const issueFriendlyError = computed(() => {
   const message = error.value ?? '';
+  if (inventoryStockError.value) {
+    const stock = inventoryStockError.value;
+    const otherBranchHint = stock.hasStockElsewhere ? ' Hay existencias en otra sucursal.' : '';
+    return `No hay suficiente ${stock.product}. Disponible: ${stock.available} · Necesitas: ${stock.required}.${otherBranchHint}`;
+  }
   const stock = message.match(/^Stock insuficiente para (.+?) en .+?\. Disponible: ([\d.,]+); requerido: ([\d.,]+)\./i);
   if (!stock) return message;
 
@@ -480,7 +504,7 @@ const issueFriendlyError = computed(() => {
   const otherBranchHint = message.includes('En otras sucursales:') ? ' Hay existencias en otra sucursal.' : '';
   return `No hay suficiente ${product}. Disponible: ${available} · Necesitas: ${required}.${otherBranchHint}`;
 });
-const issueErrorTitle = computed(() => error.value?.startsWith('Stock insuficiente para ') ? 'Sin existencias' : 'No se pudo emitir');
+const issueErrorTitle = computed(() => inventoryStockError.value ? 'Sin existencias' : 'No se pudo emitir');
 const issueOverlayVariant = computed<'loading' | 'success' | 'warning'>(() => {
   if (issuing.value) return 'loading';
   if (issueInContingency.value) return 'warning';
@@ -714,6 +738,7 @@ function newInvoiceLine(): InvoiceLine {
     taxable: true,
     controlsInventory: false,
     itemPriceIncludesIva: false,
+    inventoryBypassReason: null,
   };
 }
 
@@ -726,6 +751,7 @@ function clearCatalogMetadata(line: InvoiceLine): void {
   line.taxable = true;
   line.controlsInventory = false;
   line.itemPriceIncludesIva = false;
+  line.inventoryBypassReason = null;
 }
 
 function newPaymentLine(amount = 0): PaymentLine {
@@ -1243,6 +1269,28 @@ async function confirmZeroValueLineWarning(): Promise<void> {
   await issueDocument();
 }
 
+async function sellWithoutInventoryOnce(): Promise<void> {
+  const stockError = inventoryStockError.value;
+  if (!stockError) return;
+
+  lines.value = lines.value.map((line) => stockError.lineIds.includes(line.id) ? {
+    ...line,
+    lineOrigin: 'catalog',
+    controlsInventory: false,
+    inventoryBypassReason: 'insufficient_stock',
+  } : line);
+  error.value = null;
+  issueModalOpen.value = false;
+  currentIssueIdempotencyKey = null;
+  await issueDocument();
+}
+
+function reviewInvoiceAfterStockError(): void {
+  error.value = null;
+  issueModalOpen.value = false;
+  currentIssueIdempotencyKey = null;
+}
+
 async function refreshSelectedCustomerForIssue(): Promise<boolean> {
   if (!selectedCustomerId.value) {
     return true;
@@ -1363,6 +1411,14 @@ async function recordInventorySale(result: DteIssueResponse): Promise<void> {
         dte_number: result.document.numeroControl || result.document.codigoGeneracion || null,
         customer_name: form.customerName || null,
         total: totalLabel.value,
+        inventory_bypass: lines.value
+          .filter((line) => line.inventoryBypassReason)
+          .map((line) => ({
+            catalog_item_id: line.catalogItemId ? Number(line.catalogItemId) : null,
+            description: line.description,
+            quantity: Number(line.quantity || 0),
+            reason: line.inventoryBypassReason,
+          })),
       },
       lines: items.value
         .filter((line) => line.description.trim() !== '' && Number(line.quantity || 0) > 0)
@@ -2258,6 +2314,7 @@ function selectCatalogItemForDraft(item: PlatformCatalogItem): void {
     taxable: item.taxable,
     controlsInventory: item.controls_inventory,
     itemPriceIncludesIva: item.base_price_includes_tax,
+    inventoryBypassReason: null,
   };
   resetCatalogLineSuggestions();
 }
@@ -2269,6 +2326,7 @@ function closeCatalogLineSuggestions(): void {
 }
 
 function lineOriginLabel(line: InvoiceLine): string {
+  if (line.inventoryBypassReason) return 'Catálogo · esta venta';
   if (line.lineOrigin === 'inventory') return 'Inventario';
   if (line.lineOrigin === 'catalog') return 'Catálogo';
 
@@ -2276,6 +2334,7 @@ function lineOriginLabel(line: InvoiceLine): string {
 }
 
 function lineOriginClass(line: InvoiceLine): string {
+  if (line.inventoryBypassReason) return 'bg-amber-50 text-amber-700 dark:bg-warning-soft dark:text-warning';
   if (line.lineOrigin === 'inventory') return 'bg-emerald-50 text-emerald-700 dark:bg-success-soft dark:text-success';
   if (line.lineOrigin === 'catalog') return 'bg-sky-50 text-sky-700 dark:bg-primary-soft dark:text-primary';
 
@@ -2589,6 +2648,17 @@ function updatePaymentCondition(value: string): void {
           {{ issueAttemptCount }} intentos
         </span>
       </template>
+
+      <div v-if="inventoryStockError" class="mt-4 rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface">
+        <p class="text-sm font-semibold text-slate-950 dark:text-text">¿Deseas venderlo sin descontar inventario?</p>
+        <p class="mt-1 text-sm text-slate-600 dark:text-muted">
+          Se usará como artículo de catálogo solo en esta venta. El producto seguirá controlando inventario para futuras operaciones.
+        </p>
+        <div class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <UiButton variant="secondary" type="button" @click="reviewInvoiceAfterStockError">Revisar factura</UiButton>
+          <UiButton type="button" @click="sellWithoutInventoryOnce">Vender esta vez</UiButton>
+        </div>
+      </div>
 
       <div v-if="issueResult && issueRejected" class="mt-5 rounded-md border border-red-200 bg-red-50 p-3">
             <div class="flex flex-wrap items-center justify-between gap-3">
