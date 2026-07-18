@@ -1384,6 +1384,7 @@ async function importarJsonCompra(event): Promise<void> {
   const file = event?.target?.files?.[0] ?? null;
   if (!tenantId.value || !file) return;
 
+  limpiarCompraImportada();
   saving.value = true;
   try {
     const payload = JSON.parse(await file.text());
@@ -1433,7 +1434,9 @@ async function importarJsonCompra(event): Promise<void> {
     compraImportada.value.import_metadata = preview.import_metadata;
     notify('JSON cargado', 'Revisa proveedor y líneas antes de registrar.', 'success');
   } catch (error) {
-    notify('No se pudo importar JSON', messageFromError(error), 'error');
+    const duplicate = Number(error?.response?.status || 0) === 409;
+    limpiarCompraImportada();
+    notify(duplicate ? 'Compra ya registrada' : 'No se pudo importar JSON', messageFromError(error), duplicate ? 'warning' : 'error');
   } finally {
     saving.value = false;
     if (event?.target) event.target.value = '';
