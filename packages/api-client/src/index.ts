@@ -1683,6 +1683,7 @@ function buildServiceHttp(
               const errors = payload.errors && typeof payload.errors === 'object'
                 ? Object.values(payload.errors as Record<string, unknown>).flat().map((item) => String(item)).join(' ')
                 : '';
+              (error as typeof error & { payload?: unknown }).payload = payload;
               error.message = message || errors || error.message;
               return error;
             } catch {

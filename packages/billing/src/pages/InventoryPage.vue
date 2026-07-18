@@ -48,6 +48,7 @@ const resolveLineIndex = ref(null);
 const productDetailItem = ref(null);
 const selectedLot = ref(null);
 const selectedPurchase = ref(null);
+const duplicatePurchase = ref(null);
 const filters = ref({ q: '' });
 const lotFilters = ref({
   q: '',
@@ -1436,7 +1437,11 @@ async function importarJsonCompra(event): Promise<void> {
   } catch (error) {
     const duplicate = Number(error?.response?.status || 0) === 409;
     limpiarCompraImportada();
-    notify(duplicate ? 'Compra ya registrada' : 'No se pudo importar JSON', messageFromError(error), duplicate ? 'warning' : 'error');
+    if (duplicate) {
+      duplicatePurchase.value = error?.payload?.duplicate ?? {};
+    } else {
+      notify('No se pudo importar JSON', messageFromError(error), 'error');
+    }
   } finally {
     saving.value = false;
     if (event?.target) event.target.value = '';
@@ -1573,6 +1578,19 @@ function limpiarCompraImportada(): void {
   compraImportada.value.create_supplier = false;
   compraImportada.value.lines = [];
   compraImportada.value.import_metadata = null;
+}
+
+function importarOtroJsonCompra(): void {
+  duplicatePurchase.value = null;
+  document.getElementById('inventory-compra-json')?.click();
+}
+
+async function verCompraDuplicada(): Promise<void> {
+  const purchaseId = Number(duplicatePurchase.value?.purchase_id || 0);
+  if (!purchaseId) return;
+
+  duplicatePurchase.value = null;
+  await openPurchaseDetail({ id: purchaseId });
 }
 
 function openLineResolver(index: number): void {
@@ -2817,6 +2835,35 @@ function messageFromError(error): string {
           </section>
         </div>
       </div>
+    </UiModalShell>
+
+    <UiModalShell
+      :open="Boolean(duplicatePurchase)"
+      title="Compra ya registrada"
+      :description="duplicatePurchase?.document_number || 'DTE existente'"
+      max-width="max-w-lg"
+      @close="duplicatePurchase = null"
+    >
+      <div class="space-y-4">
+        <div class="flex items-start gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-4 dark:border-success/30 dark:bg-success-soft">
+          <UiStatusBadge tone="success">Registrada</UiStatusBadge>
+          <div class="min-w-0">
+            <p class="font-bold text-slate-950 dark:text-text">Este DTE ya forma parte de tus compras.</p>
+            <p class="mt-1 text-sm text-slate-600 dark:text-muted">No realizamos ningún cambio en inventario. Puedes revisar la compra existente o seleccionar otro archivo.</p>
+          </div>
+        </div>
+
+        <div v-if="duplicatePurchase?.purchase_date" class="rounded-md border border-slate-200 px-4 py-3 dark:border-line">
+          <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Fecha de compra</p>
+          <p class="mt-1 font-semibold text-slate-950 dark:text-text">{{ formatDateOnly(duplicatePurchase.purchase_date) }}</p>
+        </div>
+      </div>
+
+      <template #footer>
+        <UiButton variant="ghost" @click="duplicatePurchase = null">Cerrar</UiButton>
+        <UiButton variant="secondary" @click="importarOtroJsonCompra">Importar otro JSON</UiButton>
+        <UiButton v-if="duplicatePurchase?.purchase_id" @click="verCompraDuplicada">Ver compra</UiButton>
+      </template>
     </UiModalShell>
 
     <UiModalShell
