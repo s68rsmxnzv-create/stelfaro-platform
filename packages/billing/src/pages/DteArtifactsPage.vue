@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { CoreDteClient, type DteDraftSummary, type MhFiscalEventSummary, type PaginationMeta } from '@stelfaro/api-client';
 import { currency, fiscalDateTime } from '@stelfaro/shared';
-import { UiActionDropdown, UiCard, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiMailIcon, UiSearchInput, UiSelect } from '@stelfaro/ui';
+import { UiActionDropdown, UiCard, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiMailIcon, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
 
 const props = withDefaults(defineProps<{
@@ -126,7 +126,7 @@ async function loadDocuments(): Promise<void> {
   try {
     const response = await client.value.documents({
       q: query.value.trim(),
-      estado: 'accepted',
+      estado: 'accepted,invalidated',
       tipo_dte: tipoDte.value,
       limit: pageSize,
       page: dtePage.value
@@ -429,6 +429,14 @@ function typeLabel(code: string): string {
   return labels[code] ?? code;
 }
 
+function documentStatusLabel(status: string): string {
+  return status === 'invalidated' ? 'Invalidado' : 'Aceptado';
+}
+
+function documentStatusTone(status: string): 'success' | 'danger' {
+  return status === 'invalidated' ? 'danger' : 'success';
+}
+
 function eventLabel(type: string): string {
   const labels: Record<string, string> = {
     invalidacion: 'Evento de invalidacion',
@@ -497,6 +505,7 @@ function formatDate(value?: string | null): string {
         >
           <span>Documento</span>
           <span>Fecha</span>
+          <span>Estado</span>
           <span class="text-right">Acciones</span>
         </div>
 
@@ -514,7 +523,7 @@ function formatDate(value?: string | null): string {
         </div>
 
         <div v-else-if="emptyState" class="px-4 py-10 text-sm text-slate-600">
-          {{ activeTab === 'dte' ? 'No hay comprobantes aceptados para mostrar.' : eventEmptyMessage() }}
+          {{ activeTab === 'dte' ? 'No hay comprobantes para mostrar.' : eventEmptyMessage() }}
         </div>
 
         <div v-else-if="activeTab === 'dte'" class="divide-y divide-slate-100">
@@ -535,6 +544,12 @@ function formatDate(value?: string | null): string {
             <div>
               <p class="text-sm text-slate-600">{{ formatDate(document.processed_at ?? document.created_at) }}</p>
               <p class="mt-1 text-sm font-semibold text-slate-900">{{ currency(document.totalPagar ?? 0) }}</p>
+            </div>
+
+            <div>
+              <UiStatusBadge :tone="documentStatusTone(document.estado)">
+                {{ documentStatusLabel(document.estado) }}
+              </UiStatusBadge>
             </div>
 
             <UiActionDropdown label="Abrir acciones del comprobante" menu-width="w-52">
@@ -558,9 +573,10 @@ function formatDate(value?: string | null): string {
                 <span>{{ openingJsonId === document.id ? 'Abriendo JSON...' : 'Abrir JSON' }}</span>
               </button>
 
-              <div class="my-1 border-t border-slate-100"></div>
+              <div v-if="document.estado !== 'invalidated'" class="my-1 border-t border-slate-100"></div>
 
               <button
+                v-if="document.estado !== 'invalidated'"
                 type="button"
                 class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="resendingEmailId === document.id"
