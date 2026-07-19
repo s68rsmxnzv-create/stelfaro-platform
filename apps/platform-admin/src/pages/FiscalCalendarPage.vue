@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { CalendarCheck, CalendarDays, Pencil, Plus, Trash2 } from 'lucide-vue-next';
 import type { FiscalCalendar, FiscalCalendarEntry, FiscalCalendarEntryPayload, FiscalCalendarPayload } from '@stelfaro/api-client';
-import { UiButton, UiDataTable, UiInput, UiModalShell, UiPanel, UiRefreshButton, UiSelect, UiStatusBadge, UiTextarea, UiToggle } from '@stelfaro/ui';
+import { UiButton, UiInput, UiModalShell, UiPanel, UiRefreshButton, UiSelect, UiStatusBadge, UiTextarea, UiToggle } from '@stelfaro/ui';
+import FiscalCalendarGrid from '../components/FiscalCalendarGrid.vue';
 import { useCoreSessionStore } from '../stores/coreSession';
 
 const core = useCoreSessionStore();
@@ -14,8 +15,12 @@ const error = ref<string | null>(null);
 const success = ref<string | null>(null);
 const calendarModalOpen = ref(false);
 const entryModalOpen = ref(false);
+const dayModalOpen = ref(false);
 const editingCalendarId = ref<number | null>(null);
 const editingEntry = ref<FiscalCalendarEntry | null>(null);
+const selectedDate = ref('');
+const activeMonth = ref(new Date().getMonth());
+const returnToDayModal = ref(false);
 
 type CalendarForm = Omit<FiscalCalendarPayload, 'source_name' | 'source_reference' | 'notes'> & { source_name: string; source_reference: string; notes: string };
 type EntryForm = Omit<FiscalCalendarEntryPayload, 'form_code' | 'applicability' | 'notes'> & { form_code: string; applicability: string; notes: string };
@@ -44,6 +49,7 @@ const selectedCalendar = computed(() => calendars.value.find(calendar => calenda
 const yearOptions = computed(() => calendars.value.map(calendar => ({ value: calendar.id, label: `${calendar.year} · ${statusLabel(calendar.status)}` })));
 const nonBusinessCount = computed(() => selectedCalendar.value?.entries.filter(entry => entry.active && entry.is_non_business_day).length ?? 0);
 const deadlineCount = computed(() => selectedCalendar.value?.entries.filter(entry => entry.active && entry.type === 'declaration_deadline').length ?? 0);
+const selectedDateEntries = computed(() => selectedCalendar.value?.entries.filter(entry => entry.date === selectedDate.value) ?? []);
 
 const statusOptions = [
   { value: 'draft', label: 'Borrador' },
@@ -58,6 +64,10 @@ const typeOptions = [
 ];
 
 onMounted(() => void load());
+
+watch(selectedCalendarId, () => {
+  activeMonth.value = selectedCalendar.value?.year === new Date().getFullYear() ? new Date().getMonth() : 0;
+});
 
 async function load(preferredId?: number): Promise<void> {
   loading.value = true;
@@ -122,11 +132,12 @@ async function saveCalendar(): Promise<void> {
   }
 }
 
-function openNewEntry(): void {
+function openNewEntry(date?: string): void {
   if (!selectedCalendar.value) return;
   editingEntry.value = null;
+  const initialDate = date ?? `${selectedCalendar.value.year}-${String(activeMonth.value + 1).padStart(2, '0')}-01`;
   Object.assign(entryForm, {
-    date: `${selectedCalendar.value.year}-01-01`,
+    date: initialDate,
     type: 'holiday',
     name: '',
     is_non_business_day: true,
@@ -135,6 +146,8 @@ function openNewEntry(): void {
     notes: '',
     active: true
   });
+  returnToDayModal.value = Boolean(date);
+  dayModalOpen.value = false;
   entryModalOpen.value = true;
 }
 
@@ -150,7 +163,15 @@ function openEditEntry(entry: FiscalCalendarEntry): void {
     notes: entry.notes ?? '',
     active: entry.active
   });
+  returnToDayModal.value = true;
+  selectedDate.value = entry.date;
+  dayModalOpen.value = false;
   entryModalOpen.value = true;
+}
+
+function openDay(date: string): void {
+  selectedDate.value = date;
+  dayModalOpen.value = true;
 }
 
 async function saveEntry(): Promise<void> {
@@ -166,6 +187,7 @@ async function saveEntry(): Promise<void> {
     entryModalOpen.value = false;
     success.value = editingEntry.value ? 'Fecha actualizada.' : 'Fecha agregada.';
     await load(selectedCalendar.value.id);
+    if (returnToDayModal.value) dayModalOpen.value = true;
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible guardar la fecha.';
   } finally {
@@ -183,6 +205,11 @@ async function removeEntry(entry: FiscalCalendarEntry): Promise<void> {
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible retirar la fecha.';
   }
+}
+
+function isWeekend(value: string): boolean {
+  const day = new Date(`${value}T00:00:00Z`).getUTCDay();
+  return day === 0 || day === 6;
 }
 
 function formatDate(value: string): string {
@@ -213,7 +240,7 @@ function typeLabel(type: FiscalCalendarEntry['type']): string {
       <div class="flex flex-wrap gap-2">
         <UiRefreshButton :loading="loading" @click="load(selectedCalendar?.id)" />
         <UiButton variant="secondary" @click="openNewCalendar"><Plus class="h-4 w-4" />Nuevo año</UiButton>
-        <UiButton :disabled="!selectedCalendar" @click="openNewEntry"><CalendarCheck class="h-4 w-4" />Agregar fecha</UiButton>
+        <UiButton :disabled="!selectedCalendar" @click="openNewEntry()"><CalendarCheck class="h-4 w-4" />Agregar actividad</UiButton>
       </div>
     </div>
 
@@ -246,23 +273,36 @@ function typeLabel(type: FiscalCalendarEntry['type']): string {
         <p class="mt-3 font-bold text-slate-950 dark:text-text">Aún no hay calendarios</p>
         <p class="mt-1 text-sm text-slate-500 dark:text-muted">Crea el primer año para comenzar.</p>
       </div>
-      <UiDataTable v-else overflow="auto" min-width="min-w-[900px]">
-        <thead class="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 dark:bg-surface-muted dark:text-soft">
-          <tr><th class="px-4 py-3">Fecha</th><th class="px-4 py-3">Descripción</th><th class="px-4 py-3">Tipo</th><th class="px-4 py-3">Aplicación</th><th class="px-4 py-3 text-right">Acciones</th></tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100 dark:divide-line">
-          <tr v-if="loading"><td colspan="5" class="px-4 py-6 text-slate-500 dark:text-muted">Cargando calendario...</td></tr>
-          <tr v-else-if="selectedCalendar?.entries.length === 0"><td colspan="5" class="px-4 py-8 text-center text-slate-500 dark:text-muted">No hay fechas registradas para este año.</td></tr>
-          <tr v-for="entry in selectedCalendar?.entries" v-else :key="entry.id" class="transition-colors hover:bg-sky-50/70 dark:hover:bg-surface-muted">
-            <td class="whitespace-nowrap px-4 py-4 text-sm font-semibold text-slate-700 dark:text-text">{{ formatDate(entry.date) }}</td>
-            <td class="px-4 py-4"><p class="font-bold text-slate-950 dark:text-text">{{ entry.name }}</p><p v-if="entry.notes" class="mt-1 max-w-xl text-xs text-slate-500 dark:text-muted">{{ entry.notes }}</p></td>
-            <td class="px-4 py-4"><UiStatusBadge :tone="entry.type === 'holiday' ? 'info' : entry.type === 'declaration_deadline' ? 'warning' : 'neutral'">{{ typeLabel(entry.type) }}</UiStatusBadge></td>
-            <td class="px-4 py-4"><div class="flex flex-wrap gap-2"><UiStatusBadge :tone="entry.active ? 'success' : 'neutral'">{{ entry.active ? 'Activa' : 'Inactiva' }}</UiStatusBadge><UiStatusBadge v-if="entry.is_non_business_day" tone="warning">No hábil</UiStatusBadge><UiStatusBadge v-if="entry.form_code" tone="info">{{ entry.form_code }}</UiStatusBadge></div></td>
-            <td class="px-4 py-4"><div class="flex justify-end gap-2"><UiButton size="sm" variant="secondary" icon-only aria-label="Editar" @click="openEditEntry(entry)"><Pencil class="h-4 w-4" /></UiButton><UiButton size="sm" variant="danger" icon-only aria-label="Retirar" @click="removeEntry(entry)"><Trash2 class="h-4 w-4" /></UiButton></div></td>
-          </tr>
-        </tbody>
-      </UiDataTable>
+      <p v-else-if="loading" class="py-8 text-center text-sm text-slate-500 dark:text-muted">Cargando calendario...</p>
+      <FiscalCalendarGrid v-else-if="selectedCalendar" v-model:month="activeMonth" :year="selectedCalendar.year" :entries="selectedCalendar.entries" @select="openDay" />
     </UiPanel>
+
+    <UiModalShell :open="dayModalOpen" :title="selectedDate ? formatDate(selectedDate) : 'Día fiscal'" :description="isWeekend(selectedDate) ? 'Los fines de semana se excluyen automáticamente del conteo de días hábiles.' : 'Actividades fiscales registradas para esta fecha.'" @close="dayModalOpen = false">
+      <div class="grid gap-3">
+        <div v-if="selectedDateEntries.length === 0" class="rounded-lg border border-dashed border-slate-300 px-4 py-8 text-center dark:border-line">
+          <CalendarDays class="mx-auto h-8 w-8 text-slate-400 dark:text-muted" />
+          <p class="mt-2 font-bold text-slate-950 dark:text-text">Sin actividades registradas</p>
+          <p class="mt-1 text-sm text-slate-500 dark:text-muted">Puedes agregar un asueto, vencimiento u otra actividad fiscal.</p>
+        </div>
+        <article v-for="entry in selectedDateEntries" :key="entry.id" class="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center dark:border-line dark:bg-surface-muted">
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <p class="font-bold text-slate-950 dark:text-text">{{ entry.name }}</p>
+              <UiStatusBadge :tone="entry.type === 'holiday' ? 'info' : entry.type === 'declaration_deadline' ? 'warning' : 'neutral'">{{ typeLabel(entry.type) }}</UiStatusBadge>
+              <UiStatusBadge v-if="entry.is_non_business_day" tone="warning">No hábil</UiStatusBadge>
+              <UiStatusBadge :tone="entry.active ? 'success' : 'neutral'">{{ entry.active ? 'Activa' : 'Inactiva' }}</UiStatusBadge>
+            </div>
+            <p v-if="entry.form_code || entry.applicability" class="mt-2 text-sm text-slate-600 dark:text-muted">{{ [entry.form_code, entry.applicability].filter(Boolean).join(' · ') }}</p>
+            <p v-if="entry.notes" class="mt-1 text-sm text-slate-500 dark:text-muted">{{ entry.notes }}</p>
+          </div>
+          <div class="flex shrink-0 gap-2">
+            <UiButton size="sm" variant="secondary" @click="openEditEntry(entry)"><Pencil class="h-4 w-4" />Editar</UiButton>
+            <UiButton size="sm" variant="danger" icon-only aria-label="Retirar actividad" @click="removeEntry(entry)"><Trash2 class="h-4 w-4" /></UiButton>
+          </div>
+        </article>
+        <div class="flex justify-end pt-2"><UiButton @click="openNewEntry(selectedDate)"><Plus class="h-4 w-4" />Agregar actividad</UiButton></div>
+      </div>
+    </UiModalShell>
 
     <UiModalShell :open="calendarModalOpen" title="Configurar calendario" description="La versión publicada será utilizada por los cálculos fiscales." @close="calendarModalOpen = false">
       <form class="grid gap-4" @submit.prevent="saveCalendar">
