@@ -734,6 +734,23 @@ export type PlatformPurchaseAnnexResponse = {
   };
 };
 
+export type PlatformInternalNotification = {
+  id: number;
+  category: string;
+  title: string;
+  message: string;
+  action_url: string | null;
+  due_date: string | null;
+  metadata: Record<string, unknown> | null;
+  read_at: string | null;
+  created_at: string | null;
+};
+
+export type PlatformInternalNotificationsResponse = {
+  data: PlatformInternalNotification[];
+  unread_count: number;
+};
+
 export type PlatformInventoryCountPayload = {
   core_sucursal_id?: number | null;
   core_sucursal_code?: string | null;
@@ -1825,6 +1842,18 @@ export class PlatformClient {
 
   me(): Promise<unknown> {
     return this.http.get('me').json();
+  }
+
+  internalNotifications(tenantId: number, limit = 20): Promise<PlatformInternalNotificationsResponse> {
+    return this.http.get('platform/notifications', { searchParams: { tenant_id: tenantId, limit } }).json();
+  }
+
+  readInternalNotification(notificationId: number): Promise<{ data: PlatformInternalNotification }> {
+    return this.http.post(`platform/notifications/${notificationId}/read`).json();
+  }
+
+  readAllInternalNotifications(tenantId: number): Promise<{ unread_count: number }> {
+    return this.http.post('platform/notifications/read-all', { json: { tenant_id: tenantId } }).json();
   }
 
   globalUsers(): Promise<{ users: PlatformGlobalUser[] }> {

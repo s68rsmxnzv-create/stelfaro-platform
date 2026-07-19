@@ -6,6 +6,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingAppNav from '../components/BillingAppNav.vue';
 import BillingHelpModal from '../components/BillingHelpModal.vue';
 import BillingTooltip from '../components/BillingTooltip.vue';
+import InternalNotificationsBell from '../components/InternalNotificationsBell.vue';
 import BillingCompanySettingsPage from './BillingCompanySettingsPage.vue';
 import BillingAuditPage from './BillingAuditPage.vue';
 import BillingAnnexesPage from './BillingAnnexesPage.vue';
@@ -587,6 +588,7 @@ function navigateFromMenu(event, href) {
           </div>
 
           <div class="flex items-center gap-4">
+            <InternalNotificationsBell :platform-base-url="platformBaseUrl" :tenant-id="Number(platformSession?.tenant?.id || 0)" />
             <div ref="userMenuRef" class="relative">
               <button
                 class="sf-app-menu inline-flex h-12 items-center gap-3 rounded-full px-2 pr-3 text-left text-white transition hover:brightness-125 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-400"
