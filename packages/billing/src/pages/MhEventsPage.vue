@@ -548,11 +548,13 @@ watch(replacementQuery, () => {
 watch(() => form.tipoAnulacion, () => {
   clearReplacementDocument();
 
-  if (requiresMotivoAnulacion.value) {
+  if (requiresMotivoAnulacion.value && !form.motivoAnulacion.trim()) {
     openMotivoModal('invalidacion');
   } else {
-    form.motivoAnulacion = '';
-    motivoDraft.value = '';
+    if (!requiresMotivoAnulacion.value) {
+      form.motivoAnulacion = '';
+      motivoDraft.value = '';
+    }
     motivoModalOpen.value = false;
   }
 });
@@ -1070,7 +1072,33 @@ function createReplacementDocument(): void {
     return;
   }
 
+  window.sessionStorage.setItem(replacementInvalidationContextKey(selected.value.id), JSON.stringify({
+    tipoAnulacion: Number(form.tipoAnulacion),
+    motivoAnulacion: form.motivoAnulacion.trim(),
+  }));
+
   window.location.assign(`/facturacion/${slug}?replacement_of=${selected.value.id}`);
+}
+
+function replacementInvalidationContextKey(originalId: number): string {
+  return `stelfaro:mh-invalidation-replacement:${originalId}`;
+}
+
+function replacementInvalidationContext(originalId: number): { tipoAnulacion: number; motivoAnulacion: string } | null {
+  const raw = window.sessionStorage.getItem(replacementInvalidationContextKey(originalId));
+  if (!raw) return null;
+
+  try {
+    const value = JSON.parse(raw) as { tipoAnulacion?: unknown; motivoAnulacion?: unknown };
+    const tipoAnulacion = Number(value.tipoAnulacion);
+    const motivoAnulacion = String(value.motivoAnulacion ?? '').trim();
+
+    if (![1, 3].includes(tipoAnulacion) || !motivoAnulacion) return null;
+
+    return { tipoAnulacion, motivoAnulacion };
+  } catch {
+    return null;
+  }
 }
 
 onMounted(async () => {
@@ -1080,14 +1108,22 @@ onMounted(async () => {
   if (!originalId || !replacementId || !isInvalidacion.value) return;
 
   try {
+    const invalidationContext = replacementInvalidationContext(originalId);
+    if (invalidationContext) {
+      form.motivoAnulacion = invalidationContext.motivoAnulacion;
+      motivoDraft.value = invalidationContext.motivoAnulacion;
+    }
+
     const [original, replacement] = await Promise.all([
       client.value.document(originalId),
       client.value.document(replacementId),
     ]);
-    form.tipoAnulacion = 1;
+    form.tipoAnulacion = invalidationContext?.tipoAnulacion ?? 1;
     await nextTick();
     selectDocument(original);
     selectReplacementDocument(replacement);
+    motivoModalOpen.value = false;
+    window.sessionStorage.removeItem(replacementInvalidationContextKey(originalId));
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible recuperar la sustitución emitida.';
   }
