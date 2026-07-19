@@ -18,6 +18,7 @@ import {
   PlatformClient,
   type PlatformCatalogItem,
   type PlatformInventoryReservation,
+  type PlatformInventorySaleFulfillment,
   type PlatformInventorySummary
 } from '@stelfaro/api-client';
 import { currency, type BillingItem, type DocumentType } from '@stelfaro/shared';
@@ -32,12 +33,14 @@ import BillingModalShell from '../components/BillingModalShell.vue';
 import BillingProcessModal from '../components/BillingProcessModal.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
+import BillingReplacementNotice from '../components/BillingReplacementNotice.vue';
 import {
   getBillingCatalogs,
   getBillingContext,
   peekBillingCatalogs,
   peekBillingContext
 } from '../support/billingDataCache';
+import { buildBillingReplacementDraft } from '../support/billingReplacement';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -65,6 +68,7 @@ const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: 
 const platformClient = computed(() => new PlatformClient(props.platformBaseUrl, { credentials: 'same-origin' }));
 const platformTenantId = computed(() => Number((props.platformSession as PlatformSessionProp)?.tenant?.id || 0));
 const workshopOrderId = Number(new URLSearchParams(window.location.search).get('workshop_order') || 0);
+const replacementOfDteId = Number(new URLSearchParams(window.location.search).get('replacement_of') || 0);
 const loading = ref(false);
 const contextLoading = ref(false);
 const correlativoLoading = ref(false);
@@ -85,6 +89,9 @@ const issueLiveMessage = ref<string | null>(null);
 const inventoryAvailability = ref<PlatformInventorySummary | null>(null);
 const inventoryAvailabilityLoading = ref(false);
 const inventoryLineDecisionOpen = ref(false);
+const replacementSourceDocument = ref<DteDraftSummary | null>(null);
+const replacementLoading = ref(false);
+const replacementIssuedDocument = ref<DteDraftSummary | null>(null);
 const floatingToasts = ref<BillingFloatingToast[]>([]);
 const pendingEmailToast = ref<Omit<BillingFloatingToast, 'id'> | null>(null);
 const stationPreferenceVersion = ref(0);
@@ -145,6 +152,14 @@ type InvoiceLine = BillingItem & {
   originalUnitPrice?: number;
   originalIva?: number;
   sourceLine?: boolean;
+  inheritedFromSaleLineId?: number | null;
+  inheritedInventoryQuantity?: number;
+};
+type BillingIssueItem = BillingItem & {
+  catalogItemId?: number | null;
+  lineOrigin?: 'free' | 'catalog' | 'inventory';
+  inheritedFromSaleLineId?: number | null;
+  inheritedInventoryQuantity?: number;
 };
 type CustomerMode = 'generic' | 'base' | 'new' | 'quick' | 'fiscal_new';
 type PaymentCondition = 1 | 2 | 3;
@@ -295,7 +310,7 @@ function customerModeButtonClass(mode: { key: CustomerMode }): string[] {
     disabledByAmount ? 'cursor-not-allowed opacity-50 hover:bg-blue-50/45' : ''
   ];
 }
-const items = computed<BillingItem[]>(() => lines.value
+const items = computed<BillingIssueItem[]>(() => lines.value
   .map((line) => ({
     description: line.description.trim(),
     quantity: isNotaDebito.value ? notaDebitoPayloadQuantity(line) : Number(line.quantity),
@@ -306,7 +321,9 @@ const items = computed<BillingItem[]>(() => lines.value
     unitMeasure: line.unitCode ?? 59,
     code: line.catalogSku ?? null,
     catalogItemId: line.catalogItemId ?? null,
-    lineOrigin: line.lineOrigin ?? 'free'
+    lineOrigin: line.lineOrigin ?? 'free',
+    inheritedFromSaleLineId: line.inheritedFromSaleLineId ?? null,
+    inheritedInventoryQuantity: line.inheritedInventoryQuantity ?? 0,
   }))
   .filter((line) => line.description !== '' && line.quantity > 0 && (isNotaDebito.value ? line.unitPrice > 0 : line.unitPrice >= 0)));
 const subtotal = computed(() => items.value.reduce((sum, item) => sum + lineGrossTotal(item), 0));
@@ -361,9 +378,10 @@ const inventoryIssueLines = computed(() => items.value
   .filter((line) => line.lineOrigin === 'inventory' && Number(line.catalogItemId || 0) > 0)
   .map((line) => ({
     catalog_item_id: Number(line.catalogItemId),
-    quantity: Number(line.quantity),
+    quantity: Math.max(0, roundStock(Number(line.quantity) - Number(line.inheritedInventoryQuantity || 0))),
     description: line.description
-  })));
+  }))
+  .filter((line) => line.quantity > 0));
 const inventoryStockByItem = computed(() => new Map(
   (inventoryAvailability.value?.stock_by_item ?? []).map((row) => [Number(row.catalog_item_id), Number(row.stock_quantity || 0)])
 ));
@@ -573,7 +591,7 @@ const issueEventMessage = (event: DteIssueProgressEvent): string => {
   return 'message' in event ? event.message : 'Proceso actualizado.';
 };
 const selectedCustomer = computed(() => selectedCustomerRecord.value);
-const hasReceptorCard = computed(() => Boolean(selectedCustomer.value || (isAdjustmentNote.value && selectedSourceDocument.value)));
+const hasReceptorCard = computed(() => Boolean(selectedCustomer.value || replacementSourceDocument.value || (isAdjustmentNote.value && selectedSourceDocument.value)));
 const selectedCustomerNeedsFiscalComplement = computed(() => Boolean(
   selectedCustomer.value
   && isCreditoFiscal.value
@@ -762,6 +780,8 @@ function newInvoiceLine(): InvoiceLine {
     itemPriceIncludesIva: false,
     inventoryBypassReason: null,
     inventoryGlobalStock: null,
+    inheritedFromSaleLineId: null,
+    inheritedInventoryQuantity: 0,
   };
 }
 
@@ -776,6 +796,8 @@ function clearCatalogMetadata(line: InvoiceLine): void {
   line.itemPriceIncludesIva = false;
   line.inventoryBypassReason = null;
   line.inventoryGlobalStock = null;
+  line.inheritedFromSaleLineId = null;
+  line.inheritedInventoryQuantity = 0;
 }
 
 function newPaymentLine(amount = 0): PaymentLine {
@@ -789,6 +811,10 @@ function newPaymentLine(amount = 0): PaymentLine {
   };
 }
 
+function roundStock(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
 function resetPayments(): void {
   paymentCondition.value = 1;
   paymentLineId = 1;
@@ -800,6 +826,7 @@ onMounted(async () => {
   window.addEventListener(INVENTORY_CHANGED_EVENT, handleInventoryAvailabilityChanged);
   window.addEventListener('storage', handleInventoryAvailabilityChanged);
   await loadContext();
+  await loadReplacementPrefill();
   await loadWorkshopOrderPrefill();
 });
 
@@ -858,6 +885,92 @@ async function loadWorkshopOrderPrefill(): Promise<void> {
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar la orden de trabajo para facturación.';
   }
+}
+
+async function loadReplacementPrefill(): Promise<void> {
+  if (!replacementOfDteId || !platformTenantId.value) return;
+
+  replacementLoading.value = true;
+  error.value = null;
+  try {
+    const [document, fulfillmentResponse] = await Promise.all([
+      client.value.document(replacementOfDteId),
+      platformClient.value.inventorySaleFulfillment(platformTenantId.value, String(replacementOfDteId)),
+    ]);
+
+    if (!['accepted', 'received_by_mh'].includes(String(document.estado).toLowerCase()) || !document.selloRecibido) {
+      throw new Error('El DTE original debe estar aceptado por Hacienda para crear su sustituto.');
+    }
+    if (document.tipoDte !== form.documentType) {
+      throw new Error('Abre el facturador con el mismo tipo de comprobante del DTE original.');
+    }
+
+    replacementSourceDocument.value = document;
+    form.empresaId = document.empresa?.id ?? form.empresaId;
+
+    const company = empresas.value.find((item) => item.id === form.empresaId) ?? null;
+    if (company) {
+      const originalBranchId = Number(fulfillmentResponse.data.sale.core_sucursal_id || 0);
+      const branch = company.sucursales.find((item) => item.id === originalBranchId) ?? company.sucursales[0] ?? null;
+      form.sucursalId = branch?.id ?? null;
+      const pointCode = String(document.numeroControl).match(/M\d{3}(P\d{3})/i)?.[1]?.toUpperCase() ?? null;
+      form.puntoVentaId = branch?.puntosVenta.find((item) => item.codigo.toUpperCase() === pointCode)?.id
+        ?? branch?.puntosVenta[0]?.id
+        ?? null;
+    }
+
+    applyReplacementSource(document, fulfillmentResponse.data);
+  } catch (caught) {
+    replacementSourceDocument.value = null;
+    error.value = caught instanceof Error ? caught.message : 'No fue posible preparar el DTE sustituto.';
+  } finally {
+    replacementLoading.value = false;
+  }
+}
+
+function applyReplacementSource(document: DteDraftSummary, fulfillment: PlatformInventorySaleFulfillment): void {
+  const replacement = buildBillingReplacementDraft(document, fulfillment);
+  const customer = replacement.customer;
+  selectedCustomerId.value = null;
+  selectedCustomerRecord.value = null;
+  customerSearchLocked.value = true;
+  customerMode.value = 'base';
+  form.customerName = customer.name;
+  form.customerDocumentType = customer.documentType;
+  form.customerDocument = customer.document;
+  form.customerNrc = customer.nrc;
+  form.customerActivityCode = customer.activityCode;
+  form.customerActivityDescription = customer.activityDescription;
+  form.customerCommercialName = customer.commercialName;
+  form.customerDepartment = customer.department;
+  form.customerMunicipality = customer.municipality;
+  form.customerDistrict = customer.district;
+  form.customerAddress = customer.address;
+  form.customerPhone = customer.phone;
+  form.customerEmail = customer.email;
+  lines.value = replacement.lines.map((line) => ({
+    id: lineId++,
+    ...line,
+    inventoryBypassReason: null,
+  }));
+  paymentCondition.value = replacement.paymentCondition;
+  paymentLineId = 1;
+  paymentLines.value = supportsAdvancedPayments.value && replacement.payments.length > 0
+    ? replacement.payments.map((payment) => ({
+      id: paymentLineId++,
+      ...payment,
+    }))
+    : supportsAdvancedPayments.value ? [newPaymentLine(roundMoney(totalLabel.value))] : [];
+  form.observations = `DTE sustituto de ${document.numeroControl}.`;
+}
+
+function continueReplacementInvalidation(): void {
+  if (!replacementSourceDocument.value || !replacementIssuedDocument.value) return;
+  const params = new URLSearchParams({
+    original: String(replacementSourceDocument.value.id),
+    replacement: String(replacementIssuedDocument.value.id),
+  });
+  window.location.assign(`/eventos-mh/invalidacion?${params.toString()}`);
 }
 
 onBeforeUnmount(() => {
@@ -1292,7 +1405,10 @@ async function issueDocument(): Promise<void> {
         }
       }
       if (!rejected) {
-        await recordInventorySale(result);
+        const saleRecorded = await recordInventorySale(result);
+        if (replacementSourceDocument.value && saleRecorded) {
+          replacementIssuedDocument.value = result.document;
+        }
         if (workshopOrderId && platformTenantId.value) {
           try {
             await platformClient.value.linkWorkshopOrderInvoice(platformTenantId.value, workshopOrderId, {
@@ -1456,8 +1572,8 @@ function broadcastInventoryChange(action: 'reserved' | 'confirmed' | 'released',
   }
 }
 
-async function recordInventorySale(result: DteIssueResponse): Promise<void> {
-  if (!platformTenantId.value || !selectedSucursal.value || items.value.length === 0) return;
+async function recordInventorySale(result: DteIssueResponse): Promise<boolean> {
+  if (!platformTenantId.value || !selectedSucursal.value || items.value.length === 0) return false;
 
   try {
     await platformClient.value.recordInventorySale(platformTenantId.value, {
@@ -1482,12 +1598,18 @@ async function recordInventorySale(result: DteIssueResponse): Promise<void> {
             quantity: Number(line.quantity || 0),
             reason: line.inventoryBypassReason,
           })),
+        replacement_of_core_dte_document_id: replacementSourceDocument.value?.id ?? null,
+        replacement_of_dte_number: replacementSourceDocument.value?.numeroControl ?? null,
       },
+      replacement_of_source_type: replacementSourceDocument.value ? 'dte' : null,
+      replacement_of_source_id: replacementSourceDocument.value ? String(replacementSourceDocument.value.id) : null,
       lines: items.value
         .filter((line) => line.description.trim() !== '' && Number(line.quantity || 0) > 0)
         .map((line) => ({
           catalog_item_id: line.catalogItemId ? Number(line.catalogItemId) : null,
           line_origin: line.lineOrigin ?? 'free',
+          inherited_from_line_id: line.inheritedFromSaleLineId ?? null,
+          inherited_quantity: Math.min(Number(line.quantity || 0), Number(line.inheritedInventoryQuantity || 0)),
           description: line.description,
           quantity: Number(line.quantity || 0),
           unit_price: Number(line.unitPrice || 0),
@@ -1498,8 +1620,10 @@ async function recordInventorySale(result: DteIssueResponse): Promise<void> {
     });
     pushIssueLog('Venta registrada para reportes de inventario.', 'ok');
     window.dispatchEvent(new CustomEvent(INVENTORY_CHANGED_EVENT, { detail: { action: 'sale_recorded', tenant_id: platformTenantId.value, at: Date.now() } }));
+    return true;
   } catch {
     pushIssueLog('El DTE fue emitido, pero no se pudo registrar la venta para reportes.', 'error');
+    return false;
   }
 }
 
@@ -2386,6 +2510,7 @@ function closeCatalogLineSuggestions(): void {
 }
 
 function lineOriginLabel(line: InvoiceLine): string {
+  if (Number(line.inheritedInventoryQuantity || 0) > 0) return 'Inventario · heredado';
   if (line.inventoryBypassReason) return 'Catálogo · esta venta';
   if (line.lineOrigin === 'inventory') return 'Inventario';
   if (line.lineOrigin === 'catalog') return 'Catálogo';
@@ -2394,6 +2519,7 @@ function lineOriginLabel(line: InvoiceLine): string {
 }
 
 function lineOriginClass(line: InvoiceLine): string {
+  if (Number(line.inheritedInventoryQuantity || 0) > 0) return 'bg-sky-50 text-sky-700 dark:bg-primary-soft dark:text-primary';
   if (line.inventoryBypassReason) return 'bg-amber-50 text-amber-700 dark:bg-warning-soft dark:text-warning';
   if (line.lineOrigin === 'inventory') return 'bg-emerald-50 text-emerald-700 dark:bg-success-soft dark:text-success';
   if (line.lineOrigin === 'catalog') return 'bg-sky-50 text-sky-700 dark:bg-primary-soft dark:text-primary';
@@ -2802,6 +2928,14 @@ function updatePaymentCondition(value: string): void {
       </div>
 
       <div v-else class="grid gap-6">
+        <BillingReplacementNotice
+          v-if="replacementSourceDocument"
+          :source="replacementSourceDocument"
+          :issued="Boolean(replacementIssuedDocument)"
+          :loading="replacementLoading"
+          @continue="continueReplacementInvalidation"
+        />
+
         <section v-if="isAdjustmentNote" class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:text-text dark:shadow-surface">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>

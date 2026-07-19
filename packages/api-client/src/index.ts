@@ -603,9 +603,13 @@ export type PlatformInventorySalePayload = {
   source_number?: string | null;
   sale_date?: string | null;
   metadata?: Record<string, unknown> | null;
+  replacement_of_source_type?: string | null;
+  replacement_of_source_id?: string | null;
   lines: Array<{
     catalog_item_id?: number | null;
     line_origin?: 'free' | 'catalog' | 'inventory' | string | null;
+    inherited_from_line_id?: number | null;
+    inherited_quantity?: number | null;
     description?: string | null;
     quantity: number;
     unit_price?: number | null;
@@ -613,6 +617,40 @@ export type PlatformInventorySalePayload = {
     net_total?: number | null;
     reference_unit_cost?: number | null;
   }>;
+};
+
+export type PlatformInventorySale = {
+  id: number;
+  tenant_id: number;
+  core_sucursal_id: number | null;
+  core_sucursal_code: string | null;
+  core_sucursal_name: string | null;
+  source_type: string;
+  source_id: string;
+  source_number: string | null;
+  sale_date: string | null;
+  status: 'active' | 'pending_replacement' | 'superseded' | 'reversed' | string;
+  replacement_of_sale_id: number | null;
+  metadata: Record<string, unknown> | null;
+  lines: Array<{
+    id: number;
+    catalog_item_id: number | null;
+    line_origin: 'free' | 'catalog' | 'inventory' | string;
+    inherited_from_line_id: number | null;
+    description_snapshot: string | null;
+    quantity: number;
+    inherited_quantity: number;
+    unit_price: number;
+    discount_amount: number;
+    net_total: number;
+    reference_unit_cost: number;
+    catalog_item?: PlatformCatalogItem | null;
+  }>;
+};
+
+export type PlatformInventorySaleFulfillment = {
+  sale: PlatformInventorySale;
+  reservation: PlatformInventoryReservation | null;
 };
 
 export type PlatformInventorySaleReportRow = {
@@ -1928,6 +1966,16 @@ export class PlatformClient {
 
   recordInventorySale(tenantId: number, payload: PlatformInventorySalePayload): Promise<{ data: unknown }> {
     return this.http.post(`platform/tenants/${tenantId}/inventory/sales`, { json: payload }).json();
+  }
+
+  inventorySaleFulfillment(tenantId: number, sourceId: string, sourceType = 'dte'): Promise<{ data: PlatformInventorySaleFulfillment }> {
+    return this.http.get(`platform/tenants/${tenantId}/inventory/sales/fulfillment-by-source`, {
+      searchParams: { source_type: sourceType, source_id: sourceId }
+    }).json();
+  }
+
+  supersedeInventorySaleBySource(tenantId: number, payload: { source_type?: string | null; original_source_id: string; replacement_source_id: string; event_id?: string | null; event_number?: string | null }): Promise<{ data: { original: PlatformInventorySale; replacement: PlatformInventorySale } }> {
+    return this.http.post(`platform/tenants/${tenantId}/inventory/sales/supersede-by-source`, { json: payload }).json();
   }
 
   reverseInventorySaleBySource(tenantId: number, payload: { source_type?: string | null; source_id: string; event_id?: string | null; event_number?: string | null; notes?: string | null }): Promise<{ data: unknown }> {

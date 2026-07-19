@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import {
   CoreDteClient,
   type BillingEmpresa,
@@ -987,7 +987,7 @@ async function invalidateSelected(): Promise<void> {
     eventPhaseIndex.value = 4;
     eventProgress.value = 100;
     pushLog('Evento procesado por MH');
-    await reverseInventoryForAcceptedInvalidation();
+    await syncInventoryForAcceptedInvalidation();
     await loadDocuments({ preserveEventResult: true });
   } catch (caught) {
     const recovered = await recoverEventResult(eventIdForRecovery);
@@ -995,7 +995,7 @@ async function invalidateSelected(): Promise<void> {
     if (recovered && (eventAccepted.value || eventRejected.value)) {
       eventLog.value.push({ label: 'Respuesta MH recuperada', status: 'ok' });
       error.value = null;
-      await reverseInventoryForAcceptedInvalidation();
+      await syncInventoryForAcceptedInvalidation();
       await loadDocuments({ preserveEventResult: true });
     } else {
       eventLog.value.push({ label: 'Proceso detenido', status: 'error' });
@@ -1008,30 +1008,89 @@ async function invalidateSelected(): Promise<void> {
   }
 }
 
-async function reverseInventoryForAcceptedInvalidation(): Promise<void> {
-  if (!eventAccepted.value || !selected.value || Number(form.tipoAnulacion) !== 2 || !platformTenantId.value) {
+async function syncInventoryForAcceptedInvalidation(): Promise<void> {
+  if (!eventAccepted.value || !selected.value || !platformTenantId.value) {
     return;
   }
 
   try {
-    eventLog.value.push({ label: 'Revirtiendo inventario por invalidacion tipo 2', status: 'ok' });
-    await platformClient.value.reverseInventorySaleBySource(platformTenantId.value, {
-      source_type: 'dte',
-      source_id: String(selected.value.id),
-      event_id: eventResult.value?.id ? String(eventResult.value.id) : null,
-      event_number: eventResult.value?.codigoGeneracion ?? eventResult.value?.numeroControl ?? null,
-      notes: 'Invalidacion tipo 2 aceptada por MH',
-    });
-    eventLog.value.push({ label: 'Inventario revertido automaticamente', status: 'ok' });
+    if (Number(form.tipoAnulacion) === 2) {
+      eventLog.value.push({ label: 'Revirtiendo inventario por invalidacion tipo 2', status: 'ok' });
+      await platformClient.value.reverseInventorySaleBySource(platformTenantId.value, {
+        source_type: 'dte',
+        source_id: String(selected.value.id),
+        event_id: eventResult.value?.id ? String(eventResult.value.id) : null,
+        event_number: eventResult.value?.codigoGeneracion ?? eventResult.value?.numeroControl ?? null,
+        notes: 'Invalidacion tipo 2 aceptada por MH',
+      });
+      eventLog.value.push({ label: 'Inventario revertido automaticamente', status: 'ok' });
+    } else if (selectedReplacement.value) {
+      eventLog.value.push({ label: 'Consolidando venta con el DTE sustituto', status: 'ok' });
+      await platformClient.value.supersedeInventorySaleBySource(platformTenantId.value, {
+        source_type: 'dte',
+        original_source_id: String(selected.value.id),
+        replacement_source_id: String(selectedReplacement.value.id),
+        event_id: eventResult.value?.id ? String(eventResult.value.id) : null,
+        event_number: eventResult.value?.codigoGeneracion ?? eventResult.value?.numeroControl ?? null,
+      });
+      eventLog.value.push({ label: 'Venta original sustituida sin duplicar inventario', status: 'ok' });
+    } else {
+      return;
+    }
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('stelfaro:inventory-changed', {
         detail: { action: 'mh_invalidation_reversal', tenant_id: platformTenantId.value, at: Date.now() }
       }));
     }
   } catch {
-    eventLog.value.push({ label: 'MH acepto la invalidacion, pero no se pudo revertir inventario automaticamente', status: 'error' });
+    eventLog.value.push({
+      label: Number(form.tipoAnulacion) === 2
+        ? 'MH acepto la invalidacion, pero no se pudo revertir inventario automaticamente'
+        : 'MH acepto la invalidacion, pero la sustitucion comercial quedo pendiente de sincronizar',
+      status: 'error'
+    });
   }
 }
+
+function createReplacementDocument(): void {
+  if (!selected.value) return;
+
+  const slugByType: Record<string, string> = {
+    '01': 'fe',
+    '03': 'ccf',
+    '05': 'nc',
+    '06': 'nd',
+    '14': 'se',
+  };
+  const slug = slugByType[selected.value.tipoDte];
+  if (!slug) {
+    error.value = 'Este tipo de DTE todavía no puede prepararse automáticamente como sustituto.';
+    return;
+  }
+
+  window.location.assign(`/facturacion/${slug}?replacement_of=${selected.value.id}`);
+}
+
+onMounted(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const originalId = Number(params.get('original') || 0);
+  const replacementId = Number(params.get('replacement') || 0);
+  if (!originalId || !replacementId || !isInvalidacion.value) return;
+
+  try {
+    const [original, replacement] = await Promise.all([
+      client.value.document(originalId),
+      client.value.document(replacementId),
+    ]);
+    form.tipoAnulacion = 1;
+    await nextTick();
+    selectDocument(original);
+    selectReplacementDocument(replacement);
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible recuperar la sustitución emitida.';
+  }
+});
 
 async function reportContingency(): Promise<void> {
   if (!canReportContingency.value) return;
@@ -3339,6 +3398,17 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               </p>
 
               <div v-if="!selectedReplacement" class="mt-4">
+                <div class="mb-4 rounded-md border border-sky-200 bg-sky-50 p-3 dark:border-primary/30 dark:bg-primary-soft">
+                  <p class="text-sm font-semibold text-sky-950 dark:text-text">Crear el sustituto desde el DTE original</p>
+                  <p class="mt-1 text-sm text-sky-800 dark:text-muted">
+                    Copia receptor, detalle y pago. Si una línea de inventario es idéntica, conservará la salida original aunque ya no haya otra unidad disponible.
+                  </p>
+                  <UiButton class="mt-3" type="button" @click="createReplacementDocument">
+                    Crear DTE sustituto
+                  </UiButton>
+                </div>
+
+                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-soft">O vincular uno ya emitido</p>
                 <UiSearchInput
                   v-model="replacementQuery"
                   label="Buscar DTE sustituto"
