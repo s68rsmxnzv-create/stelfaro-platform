@@ -3,6 +3,7 @@ import AdminHomePage from './pages/AdminHomePage.vue';
 import AuditPage from './pages/AuditPage.vue';
 import FiscalCompaniesPage from './pages/FiscalCompaniesPage.vue';
 import FiscalOnboardingPage from './pages/FiscalOnboardingPage.vue';
+import FiscalCalendarPage from './pages/FiscalCalendarPage.vue';
 import MailTransportPage from './pages/MailTransportPage.vue';
 import SenderAliasesPage from './pages/SenderAliasesPage.vue';
 import SubscriptionsPage from './pages/SubscriptionsPage.vue';
@@ -18,6 +19,7 @@ export const router = createRouter({
     { path: '/audit', name: 'audit', component: AuditPage },
     { path: '/fiscal', redirect: '/empresas' },
     { path: '/fiscal/onboarding', name: 'fiscal-onboarding', component: FiscalOnboardingPage },
+    { path: '/fiscal/calendar', name: 'fiscal-calendar', component: FiscalCalendarPage },
     { path: '/notifications/sender-aliases', name: 'sender-aliases', component: SenderAliasesPage },
     { path: '/notifications/mail-transport', name: 'mail-transport', component: MailTransportPage },
     { path: '/:pathMatch(.*)*', redirect: '/' }

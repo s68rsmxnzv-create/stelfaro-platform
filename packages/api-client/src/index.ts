@@ -805,6 +805,37 @@ export type CoreHealth = {
   timestamp: string;
 };
 
+export type FiscalCalendarEntry = {
+  id: number;
+  fiscal_calendar_id: number;
+  date: string;
+  type: 'holiday' | 'declaration_deadline' | 'other';
+  name: string;
+  is_non_business_day: boolean;
+  form_code: string | null;
+  applicability: string | null;
+  notes: string | null;
+  active: boolean;
+  updated_at: string | null;
+};
+
+export type FiscalCalendar = {
+  id: number;
+  year: number;
+  name: string;
+  status: 'draft' | 'published' | 'archived';
+  source_name: string | null;
+  source_reference: string | null;
+  notes: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  updated_at: string | null;
+  entries: FiscalCalendarEntry[];
+};
+
+export type FiscalCalendarPayload = Pick<FiscalCalendar, 'year' | 'name' | 'status' | 'source_name' | 'source_reference' | 'notes'>;
+export type FiscalCalendarEntryPayload = Pick<FiscalCalendarEntry, 'date' | 'type' | 'name' | 'is_non_business_day' | 'form_code' | 'applicability' | 'notes' | 'active'>;
+
 export type NotificationsHealth = {
   status: string;
   service: string;
@@ -2154,6 +2185,30 @@ export class CoreDteClient {
 
   health(): Promise<CoreHealth> {
     return this.http.get('health').json();
+  }
+
+  fiscalCalendars(params: { year?: number } = {}): Promise<{ data: FiscalCalendar[] }> {
+    return this.http.get('admin/fiscal-calendars', { searchParams: compactParams(params) }).json();
+  }
+
+  createFiscalCalendar(payload: FiscalCalendarPayload): Promise<{ data: FiscalCalendar }> {
+    return this.http.post('admin/fiscal-calendars', { json: payload }).json();
+  }
+
+  updateFiscalCalendar(calendarId: number, payload: FiscalCalendarPayload): Promise<{ data: FiscalCalendar }> {
+    return this.http.patch(`admin/fiscal-calendars/${calendarId}`, { json: payload }).json();
+  }
+
+  createFiscalCalendarEntry(calendarId: number, payload: FiscalCalendarEntryPayload): Promise<{ data: FiscalCalendarEntry }> {
+    return this.http.post(`admin/fiscal-calendars/${calendarId}/entries`, { json: payload }).json();
+  }
+
+  updateFiscalCalendarEntry(entryId: number, payload: FiscalCalendarEntryPayload): Promise<{ data: FiscalCalendarEntry }> {
+    return this.http.patch(`admin/fiscal-calendar-entries/${entryId}`, { json: payload }).json();
+  }
+
+  deleteFiscalCalendarEntry(entryId: number): Promise<void> {
+    return this.http.delete(`admin/fiscal-calendar-entries/${entryId}`).then(() => undefined);
   }
 
   metadata(tipoDte: DocumentType): Promise<DteMetadata> {

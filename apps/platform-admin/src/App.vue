@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRoute } from 'vue-router';
-import { ScrollText } from 'lucide-vue-next';
+import { CalendarDays, ScrollText } from 'lucide-vue-next';
 import OwnerAvatarMenu from './components/OwnerAvatarMenu.vue';
 import { useAdminSessionStore } from './stores/adminSession';
 import { useAdminWorkspaceStore } from './stores/adminWorkspace';
@@ -75,7 +75,7 @@ function companyViewIconClass(view: 'data' | 'fiscal' | 'sucursales' | 'correlat
   return workspace.activeCompanyView === view ? 'text-slate-950' : 'text-slate-600';
 }
 
-type NavIcon = 'home' | 'users' | 'building' | 'plus' | 'credit-card' | 'mail' | 'settings' | 'audit';
+type NavIcon = 'home' | 'users' | 'building' | 'plus' | 'credit-card' | 'mail' | 'settings' | 'audit' | 'calendar';
 
 type NavLink = {
   label: string;
@@ -106,6 +106,7 @@ const navEntries: NavEntry[] = [
     ]
   },
   { label: 'Suscripciones', to: '/subscriptions', icon: 'credit-card' },
+  { label: 'Calendario fiscal', to: '/fiscal/calendar', icon: 'calendar' },
   { label: 'Auditoria', to: '/audit', icon: 'audit' },
   {
     id: 'notifications',
@@ -320,6 +321,7 @@ function groupClass(group: NavGroup): string {
                   <path d="M17 4.5a3.5 3.5 0 0 1 0 6.9" />
                 </svg>
                 <ScrollText v-else-if="entry.icon === 'audit'" class="h-[22px] w-[22px]" aria-hidden="true" />
+                <CalendarDays v-else-if="entry.icon === 'calendar'" class="h-[22px] w-[22px]" aria-hidden="true" />
               </span>
               <span class="min-w-0 flex-1 truncate">{{ entry.label }}</span>
             </RouterLink>
