@@ -591,7 +591,11 @@ const issueEventMessage = (event: DteIssueProgressEvent): string => {
   return 'message' in event ? event.message : 'Proceso actualizado.';
 };
 const selectedCustomer = computed(() => selectedCustomerRecord.value);
-const hasReceptorCard = computed(() => Boolean(selectedCustomer.value || replacementSourceDocument.value || (isAdjustmentNote.value && selectedSourceDocument.value)));
+const hasReceptorCard = computed(() => Boolean(
+  selectedCustomer.value
+  || (replacementSourceDocument.value && customerSearchLocked.value && form.customerName.trim())
+  || (isAdjustmentNote.value && selectedSourceDocument.value)
+));
 const selectedCustomerNeedsFiscalComplement = computed(() => Boolean(
   selectedCustomer.value
   && isCreditoFiscal.value
@@ -3162,7 +3166,17 @@ function updatePaymentCondition(value: string): void {
                   Completar datos fiscales
                 </UiButton>
               </div>
+              <UiButton
+                v-if="replacementSourceDocument"
+                class="shrink-0"
+                variant="secondary"
+                type="button"
+                @click="clearSelectedCustomer"
+              >
+                Cambiar receptor
+              </UiButton>
               <UiCloseButton
+                v-else
                 label="Quitar cliente seleccionado"
                 @click="isAdjustmentNote ? clearSourceDocument() : clearSelectedCustomer()"
               />
