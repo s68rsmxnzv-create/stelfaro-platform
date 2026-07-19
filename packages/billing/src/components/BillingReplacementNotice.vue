@@ -1,15 +1,9 @@
 <script setup lang="ts">
 import type { DteDraftSummary } from '@stelfaro/api-client';
-import { UiButton } from '@stelfaro/ui';
 
 defineProps<{
   source: DteDraftSummary;
-  issued: boolean;
   loading?: boolean;
-}>();
-
-defineEmits<{
-  continue: [];
 }>();
 </script>
 
@@ -18,15 +12,12 @@ defineEmits<{
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="min-w-0">
         <p class="text-xs font-semibold uppercase tracking-wide text-sky-700 dark:text-primary">DTE sustituto</p>
-        <p class="mt-1 font-semibold">Corrige la información conservando la operación original.</p>
+        <p class="mt-1 font-semibold">Corrige la información en un nuevo comprobante.</p>
         <p class="mt-1 truncate text-sm text-sky-800 dark:text-muted">
-          {{ source.numeroControl }} · Las líneas idénticas de inventario ya entregadas no descontarán otra unidad.
+          {{ source.numeroControl }} · Revisa los datos que deseas cambiar antes de emitir.
         </p>
       </div>
-      <UiButton v-if="issued" class="shrink-0" type="button" @click="$emit('continue')">
-        Continuar invalidación
-      </UiButton>
-      <span v-else class="shrink-0 rounded bg-white/80 px-3 py-2 text-xs font-semibold text-sky-700 dark:bg-surface dark:text-primary">
+      <span class="shrink-0 rounded bg-white/80 px-3 py-2 text-xs font-semibold text-sky-700 dark:bg-surface dark:text-primary">
         {{ loading ? 'Preparando…' : 'Pendiente de emitir' }}
       </span>
     </div>

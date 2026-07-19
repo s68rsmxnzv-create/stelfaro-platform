@@ -34,6 +34,7 @@ import BillingProcessModal from '../components/BillingProcessModal.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
 import BillingReplacementNotice from '../components/BillingReplacementNotice.vue';
+import BillingReplacementReadyModal from '../components/BillingReplacementReadyModal.vue';
 import {
   getBillingCatalogs,
   getBillingContext,
@@ -92,6 +93,7 @@ const inventoryLineDecisionOpen = ref(false);
 const replacementSourceDocument = ref<DteDraftSummary | null>(null);
 const replacementLoading = ref(false);
 const replacementIssuedDocument = ref<DteDraftSummary | null>(null);
+const replacementReadyModalOpen = ref(false);
 const floatingToasts = ref<BillingFloatingToast[]>([]);
 const pendingEmailToast = ref<Omit<BillingFloatingToast, 'id'> | null>(null);
 const stationPreferenceVersion = ref(0);
@@ -970,11 +972,22 @@ function applyReplacementSource(document: DteDraftSummary, fulfillment: Platform
 
 function continueReplacementInvalidation(): void {
   if (!replacementSourceDocument.value || !replacementIssuedDocument.value) return;
+  replacementReadyModalOpen.value = false;
   const params = new URLSearchParams({
     original: String(replacementSourceDocument.value.id),
     replacement: String(replacementIssuedDocument.value.id),
   });
   window.location.assign(`/eventos-mh/invalidacion?${params.toString()}`);
+}
+
+function dismissReplacementReadyModal(): void {
+  replacementReadyModalOpen.value = false;
+  replacementSourceDocument.value = null;
+  replacementIssuedDocument.value = null;
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete('replacement_of');
+  window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
 }
 
 onBeforeUnmount(() => {
@@ -993,7 +1006,7 @@ watch(issueResult, (result) => {
   if (result && !issueRejected.value) {
     issueAutoCloseTimer = window.setTimeout(() => {
       closeIssueModal();
-    }, 4500);
+    }, replacementIssuedDocument.value ? 1600 : 4500);
   }
 });
 
@@ -1410,7 +1423,9 @@ async function issueDocument(): Promise<void> {
       }
       if (!rejected) {
         const saleRecorded = await recordInventorySale(result);
-        if (replacementSourceDocument.value && saleRecorded) {
+        const replacementReceived = ['accepted', 'received_by_mh'].includes(String(result.document.estado).toLowerCase())
+          && Boolean(result.document.selloRecibido);
+        if (replacementSourceDocument.value && saleRecorded && replacementReceived) {
           replacementIssuedDocument.value = result.document;
         }
         if (workshopOrderId && platformTenantId.value) {
@@ -1642,9 +1657,16 @@ function closeIssueModal(): void {
 
   clearIssueAutoClose();
   const shouldResetInvoice = Boolean(issueResult.value);
+  const completedReplacementSource = replacementSourceDocument.value;
+  const completedReplacement = replacementIssuedDocument.value;
   issueModalOpen.value = false;
   if (shouldResetInvoice) {
     resetInvoiceForm();
+  }
+  if (completedReplacementSource && completedReplacement) {
+    replacementSourceDocument.value = completedReplacementSource;
+    replacementIssuedDocument.value = completedReplacement;
+    replacementReadyModalOpen.value = true;
   }
   flushPendingEmailToast();
 }
@@ -2925,6 +2947,15 @@ function updatePaymentCondition(value: string): void {
           </div>
     </BillingProcessModal>
 
+    <BillingReplacementReadyModal
+      v-if="replacementSourceDocument && replacementIssuedDocument"
+      :open="replacementReadyModalOpen"
+      :source="replacementSourceDocument"
+      :replacement="replacementIssuedDocument"
+      @close="dismissReplacementReadyModal"
+      @continue="continueReplacementInvalidation"
+    />
+
     <UiCard variant="bare">
       <UiLoadingMark v-if="contextLoading" label="Cargando datos para facturar" />
       <div v-else-if="empresas.length === 0" class="rounded-md bg-amber-50 p-4 text-sm text-amber-800">
@@ -2933,11 +2964,9 @@ function updatePaymentCondition(value: string): void {
 
       <div v-else class="grid gap-6">
         <BillingReplacementNotice
-          v-if="replacementSourceDocument"
+          v-if="replacementSourceDocument && !replacementIssuedDocument"
           :source="replacementSourceDocument"
-          :issued="Boolean(replacementIssuedDocument)"
           :loading="replacementLoading"
-          @continue="continueReplacementInvalidation"
         />
 
         <section v-if="isAdjustmentNote" class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:text-text dark:shadow-surface">
