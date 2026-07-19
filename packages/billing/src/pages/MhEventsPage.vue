@@ -232,7 +232,7 @@ const replacementIdentificationError = computed(() => {
 });
 const canInvalidate = computed(() => Boolean(
   selected.value
-  && selected.value.invalidacion?.eligible !== false
+  && selected.value.invalidacion?.eligible === true
   && form.tipoAnulacion
   && (!requiresMotivoAnulacion.value || form.motivoAnulacion.trim())
   && (!requiresReplacementDte.value || selectedReplacement.value)
@@ -691,7 +691,8 @@ async function loadDocuments(options: { preserveEventResult?: boolean } = {}): P
       q: search,
       estado: isContingencia.value ? 'signed' : 'accepted',
       limit: 12,
-      include_payload: true
+      include_payload: true,
+      include_audit: isInvalidacion.value
     });
     documents.value = response.data.filter((document) => {
       if (isContingencia.value) return isContingencyDocument(document) && canAddContingencyDocument(document);
