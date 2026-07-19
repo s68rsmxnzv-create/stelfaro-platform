@@ -521,7 +521,7 @@ function formatDate(value?: string | null): string {
           <article
             v-for="document in documents"
             :key="document.id"
-            class="grid grid-cols-1 gap-3 px-4 py-4 md:grid-cols-[minmax(0,1.5fr)_160px_150px_96px] md:items-center"
+            class="sf-interactive-row grid grid-cols-1 gap-3 px-4 py-4 md:grid-cols-[minmax(0,1.5fr)_160px_150px_96px] md:items-center"
           >
             <div class="min-w-0">
               <p class="flex min-w-0 items-center gap-2 font-semibold text-slate-950">
@@ -577,7 +577,7 @@ function formatDate(value?: string | null): string {
           <article
             v-for="event in events"
             :key="event.id"
-            class="grid grid-cols-1 gap-3 px-4 py-4 md:grid-cols-[minmax(0,1.5fr)_160px_96px] md:items-center"
+            class="sf-interactive-row grid grid-cols-1 gap-3 px-4 py-4 md:grid-cols-[minmax(0,1.5fr)_160px_96px] md:items-center"
           >
             <div class="min-w-0">
               <p class="flex min-w-0 items-center gap-2 font-semibold text-slate-950">

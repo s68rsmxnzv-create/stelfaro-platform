@@ -17,7 +17,7 @@ withDefaults(defineProps<{
       'overflow-x-auto': overflow === 'auto'
     }"
   >
-    <table class="w-full text-left text-sm text-slate-900 dark:text-text" :class="minWidth">
+    <table class="sf-interactive-list w-full text-left text-sm text-slate-900 dark:text-text" :class="minWidth">
       <slot />
     </table>
   </div>

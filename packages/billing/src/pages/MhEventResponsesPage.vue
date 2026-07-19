@@ -216,7 +216,7 @@ function copyText(value: string): void {
             </thead>
             <tbody class="divide-y divide-slate-100 bg-white">
               <template v-for="event in events" :key="event.id">
-                <tr class="transition hover:bg-sky-50/60" :class="selected?.id === event.id ? 'bg-sky-50' : ''">
+                <tr class="sf-interactive-row" :class="selected?.id === event.id ? 'bg-sky-50' : ''">
                   <td class="whitespace-nowrap px-4 py-4 text-slate-600">
                     <p>{{ formatDate(event.processed_at ?? event.transmitted_at ?? event.created_at) }}</p>
                     <p class="mt-1 text-xs text-slate-400">ID #{{ event.id }}</p>

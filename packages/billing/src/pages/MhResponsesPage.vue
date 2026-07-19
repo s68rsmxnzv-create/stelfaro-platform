@@ -265,7 +265,7 @@ function copyText(value: string): void {
             <tbody class="divide-y divide-slate-100 bg-white">
               <template v-for="document in documents" :key="document.id">
                 <tr
-                  class="transition hover:bg-sky-50/60"
+                  class="sf-interactive-row"
                   :class="selected?.id === document.id ? 'bg-sky-50' : ''"
                 >
                   <td class="whitespace-nowrap px-4 py-4 text-slate-600">
