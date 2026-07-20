@@ -2340,8 +2340,16 @@ export class CoreDteClient {
     return this.http.get(`dte/metadata/${tipoDte}`).json();
   }
 
-  billingContext(): Promise<BillingContext> {
-    return this.http.get('billing/context').json();
+  async billingContext(): Promise<BillingContext> {
+    const context = await this.http.get('billing/context').json<BillingContext>();
+
+    return {
+      ...context,
+      empresas: context.empresas.map((empresa) => ({
+        ...empresa,
+        logo_url: empresa.logo_url ? `${this.baseUrl}/billing/companies/${empresa.id}/logo` : null
+      }))
+    };
   }
 
   companyThermalLogo(companyId: number, width: number): Promise<{ logo: ThermalLogoRaster | null }> {

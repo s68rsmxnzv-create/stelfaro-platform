@@ -1,7 +1,7 @@
 import { CoreDteClient, type BillingCatalogs, type BillingContext } from '@stelfaro/api-client';
 
 const ttlMs = 5 * 60 * 1000;
-const cacheVersion = 'v2';
+const cacheVersion = 'v3';
 
 type CacheRecord<T> = {
   expiresAt: number;
