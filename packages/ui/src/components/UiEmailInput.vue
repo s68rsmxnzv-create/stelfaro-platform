@@ -41,7 +41,7 @@ const inputClass = computed(() => props.variant === 'dark'
         type="email"
         :value="modelValue ?? ''"
         :placeholder="placeholder"
-        class="h-12 w-full rounded-md py-0 text-sm outline-none transition"
+        class="h-12 w-full rounded-xl py-0 text-sm outline-none transition"
         :class="inputClass"
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
       >

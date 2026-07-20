@@ -22,7 +22,7 @@ const emit = defineEmits<{
 <template>
   <label
     :for="id"
-    class="block cursor-pointer rounded-md border text-slate-900 shadow-sm transition dark:text-text dark:shadow-none"
+    class="block cursor-pointer rounded-xl border text-slate-900 shadow-sm transition dark:text-text dark:shadow-none"
     :class="compact ? 'border-blue-100 bg-white/90 px-3 py-2 shadow-blue-950/5 hover:border-sky-500 hover:bg-white hover:ring-2 hover:ring-sky-100 dark:border-line dark:bg-surface-muted dark:hover:bg-surface-raised dark:hover:ring-primary-soft' : 'border-slate-300 bg-white p-4 hover:border-sky-300 hover:bg-sky-50 sm:p-5 dark:border-line dark:bg-surface dark:hover:bg-surface-muted'"
   >
     <div class="flex items-center" :class="compact ? 'justify-between gap-3' : 'justify-center gap-4'">

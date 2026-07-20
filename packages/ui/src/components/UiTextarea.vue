@@ -31,7 +31,7 @@ defineEmits<{
       :value="modelValue"
       :readonly="readonly"
       :placeholder="placeholder"
-      class="mt-1 block w-full rounded-md border border-blue-100 bg-white/90 px-3 py-2 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised"
+      class="mt-1 block w-full rounded-xl border border-blue-100 bg-white/90 px-3 py-2 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised"
       @input="$emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
     />
   </label>

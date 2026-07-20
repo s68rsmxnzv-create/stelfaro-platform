@@ -38,7 +38,7 @@ function updateValue(event: Event, numberModifier?: boolean) {
     <select
       v-bind="$attrs"
       :value="modelValue ?? ''"
-      class="mt-1 block h-12 w-full rounded-md border border-blue-100 bg-white/90 px-3 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50 disabled:text-slate-500 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:focus:bg-surface-raised dark:focus:ring-primary-soft"
+      class="mt-1 block h-12 w-full rounded-xl border border-blue-100 bg-white/90 px-3 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50 disabled:text-slate-500 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:focus:bg-surface-raised dark:focus:ring-primary-soft"
       @change="updateValue($event, modelModifiers?.number)"
     >
       <option v-if="placeholder" value="">{{ placeholder }}</option>

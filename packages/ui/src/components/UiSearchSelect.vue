@@ -94,7 +94,7 @@ function normalize(value: string): string {
       v-model="query"
       :disabled="disabled"
       :placeholder="placeholder"
-      class="mt-1 h-12 w-full rounded-md border border-blue-100 bg-white/90 py-0 pl-3 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50 disabled:text-slate-500 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised dark:focus:ring-primary-soft dark:disabled:bg-surface-muted"
+      class="mt-1 h-12 w-full rounded-xl border border-blue-100 bg-white/90 py-0 pl-3 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50 disabled:text-slate-500 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised dark:focus:ring-primary-soft dark:disabled:bg-surface-muted"
       :class="clearable && modelValue ? 'pr-10' : 'pr-3'"
       @focus="open = true"
       @input="open = true"
@@ -105,7 +105,7 @@ function normalize(value: string): string {
     <button
       v-if="clearable && modelValue && !disabled"
       type="button"
-      class="absolute right-1 top-8 grid h-8 w-8 place-items-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-soft dark:hover:bg-surface-muted dark:hover:text-text"
+      class="absolute right-1 top-8 grid h-8 w-8 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-soft dark:hover:bg-surface-muted dark:hover:text-text"
       :aria-label="clearLabel ?? 'Limpiar seleccion'"
       @click="clearSelection"
     >
@@ -115,7 +115,7 @@ function normalize(value: string): string {
     </button>
     <div
       v-if="open && !disabled"
-      class="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-md border border-blue-100 bg-white py-1 text-sm shadow-xl shadow-blue-950/10 dark:border-line dark:bg-surface-raised dark:shadow-black/30"
+      class="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-xl border border-blue-100 bg-white py-1 text-sm shadow-xl shadow-blue-950/10 dark:border-line dark:bg-surface-raised dark:shadow-black/30"
     >
       <button
         v-if="clearable"

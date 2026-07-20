@@ -26,6 +26,8 @@
   --sf-color-danger-soft: #fee2e2;
   --sf-color-row-hover: #f0f9ff;
   --sf-color-row-accent: #38bdf8;
+  --sf-radius-control: 0.75rem;
+  --sf-radius-search: 9999px;
   --sf-shadow-surface: 0 1px 2px rgb(15 23 42 / 0.06);
 }
 
@@ -115,6 +117,16 @@
 
   .sf-app-menu {
     background-color: var(--sf-color-menu);
+  }
+
+  .sf-app-background input:not([type='checkbox']):not([type='radio']):not([type='file']),
+  .sf-app-background select,
+  .sf-app-background textarea {
+    border-radius: var(--sf-radius-control);
+  }
+
+  .sf-app-background input[type='search'] {
+    border-radius: var(--sf-radius-search);
   }
 
   .sf-interactive-list tbody > tr,

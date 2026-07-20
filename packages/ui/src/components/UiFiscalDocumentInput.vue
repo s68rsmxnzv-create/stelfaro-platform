@@ -108,7 +108,7 @@ function formatFiscalDocument(value: string): string {
     <span class="relative mt-1 block">
       <input
         :value="modelValue ?? ''"
-        class="h-12 w-full rounded-md border border-blue-100 bg-white/90 py-0 pl-3 pr-24 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised"
+        class="h-12 w-full rounded-xl border border-blue-100 bg-white/90 py-0 pl-3 pr-24 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised"
         :placeholder="placeholder"
         inputmode="numeric"
         maxlength="17"
