@@ -16,6 +16,9 @@ type PreviewCompany = {
 const props = withDefaults(defineProps<{ settings: PrinterSettings; company?: PreviewCompany | null; variant?: 'dte' | 'workshop'; workshopSettings?: WorkshopTicketSettings }>(), { variant: 'dte', workshopSettings: () => ({ receipt_copies: 2, print_equipment_label: true, terms: '' }) });
 const paperClass = computed(() => props.settings.paperWidth === '58' ? 'w-[280px]' : 'w-[370px]');
 const qrSize = computed(() => 72 + (Math.max(1, Math.min(16, Math.round(props.settings.qrWidth / 48))) * 10));
+const previewCopies = computed(() => props.variant === 'workshop' && props.workshopSettings.receipt_copies === 2
+  ? ['COPIA CLIENTE', 'COPIA TALLER']
+  : [props.variant === 'workshop' ? 'COPIA CLIENTE' : 'DTE']);
 const issuerName = 'ELECTRÓNICA DEMO';
 const issuerNit = formatIdentity('06141234561019');
 const issuerNrc = formatNrc('1234567');
@@ -43,7 +46,7 @@ function formatNrc(value?: string | null): string {
     </div>
 
     <div class="thermal-ticket-stage overflow-x-auto rounded-lg p-4">
-      <article :class="paperClass" class="thermal-ticket-paper mx-auto min-h-[620px] px-5 py-6 font-mono text-[11px] leading-[1.45] shadow-xl transition-[width] duration-300">
+      <article v-for="copyLabel in previewCopies" :key="copyLabel" :class="paperClass" class="thermal-ticket-paper mx-auto mb-4 min-h-[620px] px-5 py-6 font-mono text-[11px] leading-[1.45] shadow-xl transition-[width] duration-300 last:mb-0">
         <div v-if="settings.showLogo" class="mb-3 text-center">
           <img v-if="company?.logoUrl" :src="company.logoUrl" alt="Logo de la empresa" class="thermal-ticket-logo mx-auto max-h-20 max-w-[75%] object-contain grayscale contrast-125">
           <div v-else class="mx-auto grid h-14 w-32 place-items-center border border-dashed border-black/40 text-[9px]">SIN LOGO CARGADO</div>
@@ -93,9 +96,9 @@ function formatNrc(value?: string | null): string {
 
         <template v-else>
           <div class="text-center font-bold">
-            <p>COPIA CLIENTE</p>
+            <p>{{ copyLabel }}</p>
             <p>COMPROBANTE DE RECEPCIÓN</p>
-            <p>T-000123</p>
+            <p class="mt-1 text-lg">T-000123</p>
           </div>
           <p class="mt-2">Ingreso: 20/07/2026, 10:30 a. m.</p>
           <div class="my-2 border-t border-dashed border-black"></div>
@@ -107,6 +110,9 @@ function formatNrc(value?: string | null): string {
           <p>Celular · DEMO Modelo 2026</p>
           <p>IMEI: 123456789012347</p>
           <p>Encendido: Enciende</p>
+          <p>Imagen: Funciona</p>
+          <p>Touch / controles: Funciona</p>
+          <p>Carga: Falla</p>
           <div class="my-2 border-t border-dashed border-black"></div>
           <p class="font-bold">FALLA REPORTADA</p>
           <p>No carga y presenta falla de audio.</p>
@@ -126,6 +132,11 @@ function formatNrc(value?: string | null): string {
             <p v-for="(term, index) in workshopSettings.terms.split(/\n\s*\n/).filter(Boolean)" :key="index" class="mt-1">{{ index + 1 }}. {{ term.trim() }}</p>
           </template>
           <div class="mt-5 text-center">FIRMA: _______________________</div>
+          <template v-if="copyLabel === 'COPIA TALLER'">
+            <div class="my-2 border-t border-dashed border-black"></div>
+            <p class="text-center font-bold">PIN TALLER: 654321</p>
+            <p class="text-center">Requerido para el acceso móvil seguro.</p>
+          </template>
           <div class="my-2 border-t border-dashed border-black"></div>
         </template>
 
