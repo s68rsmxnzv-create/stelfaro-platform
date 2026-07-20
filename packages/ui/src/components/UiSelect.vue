@@ -35,8 +35,10 @@ const controlId = useId();
 const labelId = `${controlId}-label`;
 const root = ref<HTMLElement | null>(null);
 const trigger = ref<HTMLButtonElement | null>(null);
+const menu = ref<HTMLElement | null>(null);
 const open = ref(false);
 const activeIndex = ref(-1);
+const menuPosition = ref({ left: 0, top: 0, bottom: 0, width: 0, maxHeight: 288, above: false });
 const selected = computed(() => props.options.find((option) => String(option.value) === String(props.modelValue ?? '')) ?? null);
 const displayLabel = computed(() => selected.value?.label || props.placeholder || 'Seleccionar');
 const isDisabled = computed(() => props.disabled || attrs.disabled === true || attrs.disabled === '');
@@ -45,6 +47,13 @@ const rootStyle = computed(() => attrs.style);
 const triggerAttrs = computed(() => Object.fromEntries(
   Object.entries(attrs).filter(([key]) => !['class', 'style', 'disabled'].includes(key))
 ));
+const menuStyle = computed(() => ({
+  left: `${menuPosition.value.left}px`,
+  top: menuPosition.value.above ? 'auto' : `${menuPosition.value.top}px`,
+  bottom: menuPosition.value.above ? `${menuPosition.value.bottom}px` : 'auto',
+  width: `${menuPosition.value.width}px`,
+  maxHeight: `${menuPosition.value.maxHeight}px`
+}));
 
 watch(() => props.options, () => {
   if (open.value) setActiveFromSelection();
@@ -52,16 +61,42 @@ watch(() => props.options, () => {
 
 onMounted(() => {
   document.addEventListener('pointerdown', closeOnOutside, true);
+  window.addEventListener('resize', updateMenuPosition);
+  window.addEventListener('scroll', updateMenuPosition, true);
 });
 
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', closeOnOutside, true);
+  window.removeEventListener('resize', updateMenuPosition);
+  window.removeEventListener('scroll', updateMenuPosition, true);
 });
 
 function toggle(): void {
   if (isDisabled.value) return;
   open.value = !open.value;
-  if (open.value) setActiveFromSelection();
+  if (open.value) {
+    setActiveFromSelection();
+    nextTick(updateMenuPosition);
+  }
+}
+
+function updateMenuPosition(): void {
+  if (!open.value || !trigger.value) return;
+  const rect = trigger.value.getBoundingClientRect();
+  const gap = 8;
+  const availableBelow = window.innerHeight - rect.bottom - gap;
+  const availableAbove = rect.top - gap;
+  const above = availableBelow < 180 && availableAbove > availableBelow;
+  const available = above ? availableAbove : availableBelow;
+
+  menuPosition.value = {
+    left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)),
+    top: rect.bottom + gap,
+    bottom: window.innerHeight - rect.top + gap,
+    width: Math.min(rect.width, window.innerWidth - 16),
+    maxHeight: Math.max(120, Math.min(288, available)),
+    above
+  };
 }
 
 function setActiveFromSelection(): void {
@@ -108,7 +143,8 @@ function moveToBoundary(position: 'first' | 'last'): void {
 }
 
 function closeOnOutside(event: PointerEvent): void {
-  if (open.value && root.value && !root.value.contains(event.target as Node)) open.value = false;
+  const target = event.target as Node;
+  if (open.value && !root.value?.contains(target) && !menu.value?.contains(target)) open.value = false;
 }
 </script>
 
@@ -143,19 +179,23 @@ function closeOnOutside(event: PointerEvent): void {
       <ChevronDown class="h-4 w-4 shrink-0 text-slate-400 transition dark:text-soft" :class="open ? 'rotate-180' : ''" />
     </button>
 
-    <Transition
-      enter-active-class="transition duration-150 ease-out"
-      enter-from-class="-translate-y-1 opacity-0"
-      enter-to-class="translate-y-0 opacity-100"
-      leave-active-class="transition duration-100 ease-in"
-      leave-from-class="translate-y-0 opacity-100"
-      leave-to-class="-translate-y-1 opacity-0"
-    >
-      <div
-        v-if="open"
-        class="absolute z-[100] mt-2 max-h-72 w-full overflow-y-auto rounded-xl border border-blue-100 bg-white p-1.5 text-sm shadow-xl shadow-blue-950/15 dark:border-line dark:bg-surface-raised dark:shadow-black/35"
-        role="listbox"
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-150 ease-out"
+        enter-from-class="scale-[0.98] opacity-0"
+        enter-to-class="scale-100 opacity-100"
+        leave-active-class="transition duration-100 ease-in"
+        leave-from-class="scale-100 opacity-100"
+        leave-to-class="scale-[0.98] opacity-0"
       >
+        <div
+          v-if="open"
+          ref="menu"
+          class="fixed z-[9999] overflow-y-auto rounded-xl border border-blue-100 bg-white p-1.5 text-sm shadow-xl shadow-blue-950/15 dark:border-line dark:bg-surface-raised dark:shadow-black/35"
+          :class="menuPosition.above ? 'origin-bottom' : 'origin-top'"
+          :style="menuStyle"
+          role="listbox"
+        >
         <button
           v-for="(option, index) in options"
           :key="String(option.value)"
@@ -179,8 +219,9 @@ function closeOnOutside(event: PointerEvent): void {
           </span>
           <Check v-if="String(option.value) === String(modelValue ?? '')" class="h-4 w-4 shrink-0" />
         </button>
-        <p v-if="options.length === 0" class="px-3 py-3 text-center text-sm text-slate-500 dark:text-muted">Sin opciones disponibles</p>
-      </div>
-    </Transition>
+          <p v-if="options.length === 0" class="px-3 py-3 text-center text-sm text-slate-500 dark:text-muted">Sin opciones disponibles</p>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
