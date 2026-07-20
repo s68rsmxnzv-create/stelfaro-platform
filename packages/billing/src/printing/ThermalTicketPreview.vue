@@ -42,10 +42,10 @@ function formatNrc(value?: string | null): string {
       <p v-if="variant === 'workshop'" class="mt-2 inline-flex rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">{{ workshopSettings.receipt_copies }} {{ workshopSettings.receipt_copies === 1 ? 'copia' : 'copias' }}<template v-if="workshopSettings.print_equipment_label"> + etiqueta QR</template></p>
     </div>
 
-    <div class="overflow-x-auto rounded-lg bg-slate-300 p-4 dark:bg-slate-950/60">
-      <article :class="paperClass" class="mx-auto min-h-[620px] bg-white px-5 py-6 font-mono text-[11px] leading-[1.45] text-black shadow-xl transition-[width] duration-300">
+    <div class="thermal-ticket-stage overflow-x-auto rounded-lg bg-slate-300 p-4 dark:bg-black">
+      <article :class="paperClass" class="thermal-ticket-paper mx-auto min-h-[620px] bg-white px-5 py-6 font-mono text-[11px] leading-[1.45] text-black shadow-xl transition-[width] duration-300 dark:bg-black dark:text-white dark:shadow-none">
         <div v-if="settings.showLogo" class="mb-3 text-center">
-          <img v-if="company?.logoUrl" :src="company.logoUrl" alt="Logo de la empresa" class="mx-auto max-h-20 max-w-[75%] object-contain grayscale contrast-125">
+          <img v-if="company?.logoUrl" :src="company.logoUrl" alt="Logo de la empresa" class="thermal-ticket-logo mx-auto max-h-20 max-w-[75%] object-contain grayscale contrast-125">
           <div v-else class="mx-auto grid h-14 w-32 place-items-center border border-dashed border-black/40 text-[9px]">SIN LOGO CARGADO</div>
         </div>
 
@@ -139,7 +139,7 @@ function formatNrc(value?: string | null): string {
         </div>
       </article>
 
-      <article v-if="variant === 'workshop' && workshopSettings.print_equipment_label" :class="paperClass" class="mx-auto mt-4 bg-white px-5 py-6 text-center font-mono text-[11px] leading-[1.45] text-black shadow-xl transition-[width] duration-300">
+      <article v-if="variant === 'workshop' && workshopSettings.print_equipment_label" :class="paperClass" class="thermal-ticket-paper mx-auto mt-4 bg-white px-5 py-6 text-center font-mono text-[11px] leading-[1.45] text-black shadow-xl transition-[width] duration-300 dark:bg-black dark:text-white dark:shadow-none">
         <p class="font-bold">ETIQUETA DEL EQUIPO</p>
         <p class="mt-1 text-lg font-black">T-000123</p>
         <p class="mt-1">DEMO Modelo 2026</p>
@@ -151,3 +151,14 @@ function formatNrc(value?: string | null): string {
     </div>
   </section>
 </template>
+
+<style scoped>
+:global(.dark) .thermal-ticket-paper .border-black,
+:global(.dark) .thermal-ticket-paper .border-black\/40 {
+  border-color: rgb(255 255 255 / 0.72);
+}
+
+:global(.dark) .thermal-ticket-logo {
+  filter: grayscale(1) contrast(1.35) brightness(0) invert(1);
+}
+</style>
