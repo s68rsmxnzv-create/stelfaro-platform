@@ -17,12 +17,14 @@ Luego verificar:
 service-status.cmd
 ```
 
-Si recibiste una carpeta `print-agent`, puedes copiarla a `C:\print-agent`
-ejecutando:
+Si recibiste el paquete Windows completo, extráelo y ejecuta:
 
 ```bat
 install-windows.cmd
 ```
+
+El instalador solicitará permisos de administrador, copiará los archivos a
+`C:\print-agent` y registrará el agente como servicio automático.
 
 Inicio manual simple:
 
@@ -47,6 +49,11 @@ Si tienes el ejecutable empaquetado:
 ```bat
 stelfaro-print-agent.exe
 ```
+
+El `.exe` es un agente portable, no un instalador. Al ejecutarlo directamente
+debe permanecer activo y mostrar que escucha en `http://localhost:8711`. Para
+instalarlo con inicio automático, descarga el paquete Windows completo, extráelo
+y sigue `INSTALL_WINDOWS.md`.
 
 También puedes usar:
 

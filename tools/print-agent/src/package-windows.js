@@ -4,7 +4,8 @@ import zlib from 'node:zlib';
 
 const root = resolve(new URL('..', import.meta.url).pathname);
 const outDir = resolve(root, '../../storage/app');
-const outPath = join(outDir, 'stelfaro-print-agent-0.1.0.zip');
+const packageJson = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+const outPath = join(outDir, `stelfaro-print-agent-${packageJson.version}-windows.zip`);
 const files = [];
 
 function dosTime(date) {
@@ -30,7 +31,7 @@ function crc32(buffer) {
 
 async function walk(dir) {
   for (const entry of await readdir(dir)) {
-    if (entry === 'node_modules') continue;
+    if (entry === 'node_modules' || entry === '.git') continue;
     const full = join(dir, entry);
     const info = await stat(full);
     if (info.isDirectory()) {

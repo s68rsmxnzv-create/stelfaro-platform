@@ -5,6 +5,16 @@ Esta versión puede instalarse de dos formas:
 1. Como servicio de Windows real. Recomendado.
 2. Como tarea de inicio de sesión. Compatibilidad rápida.
 
+## Instalación automática recomendada
+
+Extrae el paquete Windows completo y abre `install-windows.cmd`. El script
+solicita permisos de administrador, copia los archivos a `C:\print-agent`,
+instala el servicio y lo inicia. Al terminar verifica:
+
+```text
+http://localhost:8711/health
+```
+
 ## 1. Copiar carpeta
 
 Copiar la carpeta `print-agent` a:

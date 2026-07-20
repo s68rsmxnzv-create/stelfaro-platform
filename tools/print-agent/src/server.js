@@ -354,7 +354,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/health') {
       assertAllowedOrigin(req);
-      return json(req, res, 200, { ok: true, name: 'Stelfaro Print Agent', version: '0.2.1-dev', platform: os.platform(), dryRun });
+      return json(req, res, 200, { ok: true, name: 'Stelfaro Print Agent', version: '0.2.2-dev', platform: os.platform(), dryRun });
     }
 
     if (req.method === 'GET' && (url.pathname === '/printers' || url.pathname === '/impresoras')) {
@@ -381,7 +381,15 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+export function shouldStartServer({
+  argvPath = process.argv[1],
+  moduleUrl = import.meta.url,
+  packaged = Boolean(process.pkg),
+} = {}) {
+  return packaged || Boolean(argvPath && moduleUrl === pathToFileURL(argvPath).href);
+}
+
+if (shouldStartServer()) {
   server.listen(port, '127.0.0.1', () => {
     console.log(`Stelfaro Print Agent listening on http://localhost:${port}`);
   });

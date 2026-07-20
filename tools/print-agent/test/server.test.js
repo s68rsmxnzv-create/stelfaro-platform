@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildEscpos, encodeText } from '../src/server.js';
+import { buildEscpos, encodeText, shouldStartServer } from '../src/server.js';
 
 test('encodes Spanish text using CP850', () => {
   assert.deepEqual(
@@ -16,4 +16,12 @@ test('selects the PC850 table after initializing the printer', () => {
   ] });
 
   assert.deepEqual([...bytes.subarray(0, 5)], [0x1b, 0x40, 0x1b, 0x74, 0x02]);
+});
+
+test('starts when running inside the packaged Windows executable', () => {
+  assert.equal(shouldStartServer({
+    argvPath: 'C:\\print-agent\\stelfaro-print-agent.exe',
+    moduleUrl: 'file:///snapshot/print-agent/src/server.js',
+    packaged: true,
+  }), true);
 });
