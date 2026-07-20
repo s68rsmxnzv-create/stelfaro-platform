@@ -1,6 +1,8 @@
 import { execFile } from 'node:child_process';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
@@ -298,6 +300,48 @@ export function buildEscpos(payload) {
   return Buffer.concat(buffers);
 }
 
+export function createWindowsRawPrintInvocation(printerName, payloadPath) {
+  const sourceEncoded = Buffer.from(rawPrinterSource, 'utf8').toString('base64');
+  const script = [
+    `$source=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${sourceEncoded}'))`,
+    'Add-Type -TypeDefinition $source',
+    '$bytes=[IO.File]::ReadAllBytes($env:STELFARO_PRINT_PAYLOAD)',
+    '$printer=$env:STELFARO_PRINTER_NAME',
+    '$h=[IntPtr]::Zero',
+    'if(-not [RawPrinterHelper]::OpenPrinter($printer,[ref]$h,[IntPtr]::Zero)){ throw "No se pudo abrir la impresora RAW: $printer" }',
+    '$di=New-Object RawPrinterHelper+DOCINFOA',
+    '$di.pDocName="Stelfaro Print Agent"',
+    '$di.pDataType="RAW"',
+    '$ptr=[Runtime.InteropServices.Marshal]::AllocCoTaskMem($bytes.Length)',
+    'try {',
+    '  [Runtime.InteropServices.Marshal]::Copy($bytes,0,$ptr,$bytes.Length)',
+    '  if(-not [RawPrinterHelper]::StartDocPrinter($h,1,$di)){ throw "No se pudo iniciar documento RAW" }',
+    '  if(-not [RawPrinterHelper]::StartPagePrinter($h)){ throw "No se pudo iniciar pagina RAW" }',
+    '  $written=0',
+    '  if(-not [RawPrinterHelper]::WritePrinter($h,$ptr,$bytes.Length,[ref]$written)){ throw "No se pudieron escribir bytes RAW" }',
+    '  [RawPrinterHelper]::EndPagePrinter($h) | Out-Null',
+    '  [RawPrinterHelper]::EndDocPrinter($h) | Out-Null',
+    '} finally {',
+    '  if($ptr -ne [IntPtr]::Zero){ [Runtime.InteropServices.Marshal]::FreeCoTaskMem($ptr) }',
+    '  if($h -ne [IntPtr]::Zero){ [RawPrinterHelper]::ClosePrinter($h) | Out-Null }',
+    '}',
+  ].join(';');
+
+  return {
+    file: 'powershell.exe',
+    args: ['-NoProfile', '-NonInteractive', '-Command', script],
+    options: {
+      timeout: 15000,
+      windowsHide: true,
+      env: {
+        ...process.env,
+        STELFARO_PRINT_PAYLOAD: payloadPath,
+        STELFARO_PRINTER_NAME: String(printerName),
+      },
+    },
+  };
+}
+
 async function sendToPrinter(printerName, buffer) {
   if (dryRun) {
     return { bytes: buffer.length, dryRun: true };
@@ -308,34 +352,17 @@ async function sendToPrinter(printerName, buffer) {
   }
 
   if (process.platform === 'win32') {
-    const encoded = buffer.toString('base64');
-    const sourceEncoded = Buffer.from(rawPrinterSource, 'utf8').toString('base64');
-    const script = [
-      `$source=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${sourceEncoded}'))`,
-      'Add-Type -TypeDefinition $source',
-      `$bytes=[Convert]::FromBase64String('${encoded}')`,
-      `$printer=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(String(printerName), 'utf8').toString('base64')}'))`,
-      '$h=[IntPtr]::Zero',
-      'if(-not [RawPrinterHelper]::OpenPrinter($printer,[ref]$h,[IntPtr]::Zero)){ throw "No se pudo abrir la impresora RAW: $printer" }',
-      '$di=New-Object RawPrinterHelper+DOCINFOA',
-      '$di.pDocName="Stelfaro Print Agent"',
-      '$di.pDataType="RAW"',
-      '$ptr=[Runtime.InteropServices.Marshal]::AllocCoTaskMem($bytes.Length)',
-      'try {',
-      '  [Runtime.InteropServices.Marshal]::Copy($bytes,0,$ptr,$bytes.Length)',
-      '  if(-not [RawPrinterHelper]::StartDocPrinter($h,1,$di)){ throw "No se pudo iniciar documento RAW" }',
-      '  if(-not [RawPrinterHelper]::StartPagePrinter($h)){ throw "No se pudo iniciar pagina RAW" }',
-      '  $written=0',
-      '  if(-not [RawPrinterHelper]::WritePrinter($h,$ptr,$bytes.Length,[ref]$written)){ throw "No se pudieron escribir bytes RAW" }',
-      '  [RawPrinterHelper]::EndPagePrinter($h) | Out-Null',
-      '  [RawPrinterHelper]::EndDocPrinter($h) | Out-Null',
-      '} finally {',
-      '  if($ptr -ne [IntPtr]::Zero){ [Runtime.InteropServices.Marshal]::FreeCoTaskMem($ptr) }',
-      '  if($h -ne [IntPtr]::Zero){ [RawPrinterHelper]::ClosePrinter($h) | Out-Null }',
-      '}',
-    ].join(';');
-    await execFileAsync('powershell.exe', ['-NoProfile', '-Command', script], { timeout: 15000 });
-    return { bytes: buffer.length, backend: 'windows-raw-spooler' };
+    const tempDirectory = await mkdtemp(join(os.tmpdir(), 'stelfaro-print-'));
+    const payloadPath = join(tempDirectory, 'ticket.escpos');
+
+    try {
+      await writeFile(payloadPath, buffer, { flag: 'wx' });
+      const invocation = createWindowsRawPrintInvocation(printerName, payloadPath);
+      await execFileAsync(invocation.file, invocation.args, invocation.options);
+      return { bytes: buffer.length, backend: 'windows-raw-spooler' };
+    } finally {
+      await rm(tempDirectory, { recursive: true, force: true });
+    }
   }
 
   const child = execFile('lp', ['-d', printerName, '-o', 'raw'], { timeout: 15000 }, () => {});
@@ -358,7 +385,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/health') {
       assertAllowedOrigin(req);
-      return json(req, res, 200, { ok: true, name: 'Stelfaro Print Agent', version: '0.2.3-dev', platform: os.platform(), dryRun });
+      return json(req, res, 200, { ok: true, name: 'Stelfaro Print Agent', version: '0.2.4-dev', platform: os.platform(), dryRun });
     }
 
     if (req.method === 'GET' && (url.pathname === '/printers' || url.pathname === '/impresoras')) {

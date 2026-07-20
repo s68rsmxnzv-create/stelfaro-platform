@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildEscpos, encodeText, shouldStartServer } from '../src/server.js';
+import { buildEscpos, createWindowsRawPrintInvocation, encodeText, shouldStartServer } from '../src/server.js';
 
 test('encodes Spanish text using CP850', () => {
   assert.deepEqual(
@@ -27,4 +27,19 @@ test('starts when running inside the packaged Windows executable', () => {
     moduleUrl: 'file:///snapshot/print-agent/src/server.js',
     packaged: true,
   }), true);
+});
+
+test('keeps large ESC/POS payloads outside the Windows command line', () => {
+  const invocation = createWindowsRawPrintInvocation(
+    'Impresora térmica de recepción',
+    'C:\\Users\\Tecnico\\AppData\\Local\\Temp\\stelfaro-print-123\\ticket.escpos',
+  );
+  const commandLine = invocation.args.join(' ');
+
+  assert.equal(invocation.file, 'powershell.exe');
+  assert.match(commandLine, /ReadAllBytes\(\$env:STELFARO_PRINT_PAYLOAD\)/);
+  assert.doesNotMatch(commandLine, /Impresora térmica de recepción/);
+  assert.equal(invocation.options.env.STELFARO_PRINTER_NAME, 'Impresora térmica de recepción');
+  assert.equal(invocation.options.env.STELFARO_PRINT_PAYLOAD.endsWith('ticket.escpos'), true);
+  assert.equal(commandLine.length < 8000, true);
 });
