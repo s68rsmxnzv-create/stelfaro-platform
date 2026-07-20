@@ -8,7 +8,6 @@ import BillingHelpModal from '../components/BillingHelpModal.vue';
 import BillingTooltip from '../components/BillingTooltip.vue';
 import InternalNotificationsBell from '../components/InternalNotificationsBell.vue';
 import BillingCompanySettingsPage from './BillingCompanySettingsPage.vue';
-import BillingAuditPage from './BillingAuditPage.vue';
 import BillingAnnexesPage from './BillingAnnexesPage.vue';
 import BillingCustomersPage from './BillingCustomersPage.vue';
 import CatalogPage from './CatalogPage.vue';
@@ -241,7 +240,7 @@ const moduleComponents = {
   'mh-events': MhEventsPage,
   'mh-responses': MhResponsesPage,
   'mh-event-responses': MhEventResponsesPage,
-  audit: BillingAuditPage,
+  audit: BillingCompanySettingsPage,
   settings: BillingCompanySettingsPage
 };
 const eventOptions = [
@@ -332,6 +331,15 @@ const selectedComponentProps = computed(() => {
   }
 
   if (props.module === 'audit') {
+    return {
+      ...baseProps,
+      platformSession: props.platformSession,
+      platformBaseUrl: props.platformBaseUrl,
+      initialView: 'audit'
+    };
+  }
+
+  if (props.module === 'settings') {
     return {
       ...baseProps,
       platformSession: props.platformSession,
@@ -536,7 +544,7 @@ function navigateFromMenu(event, href) {
 </script>
 
 <template>
-  <div v-if="module === 'settings'" class="sf-app-background min-h-screen text-slate-950 dark:text-text">
+  <div v-if="['settings', 'audit'].includes(module)" class="sf-app-background min-h-screen text-slate-950 dark:text-text">
     <div v-if="!authToken" class="mx-auto max-w-3xl px-4 py-8">
       <div class="rounded-md border border-red-200 bg-red-50 p-5 text-red-700">
         No fue posible abrir la sesion fiscal.

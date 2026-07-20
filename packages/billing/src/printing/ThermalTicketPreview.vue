@@ -14,10 +14,10 @@ type PreviewCompany = {
 
 const props = defineProps<{ settings: PrinterSettings; company?: PreviewCompany | null }>();
 const paperClass = computed(() => props.settings.paperWidth === '58' ? 'w-[280px]' : 'w-[370px]');
-const qrSize = computed(() => Math.max(76, Math.min(126, Math.round(props.settings.qrWidth * 0.36))));
-const issuerName = computed(() => props.company?.tradeName || props.company?.name || 'NOMBRE COMERCIAL');
-const issuerNit = computed(() => formatIdentity(props.company?.nit || '00000000000000'));
-const issuerNrc = computed(() => formatNrc(props.company?.nrc));
+const qrSize = computed(() => 72 + (Math.max(1, Math.min(16, Math.round(props.settings.qrWidth / 48))) * 10));
+const issuerName = 'ELECTRÓNICA DEMO';
+const issuerNit = formatIdentity('06141234561019');
+const issuerNrc = formatNrc('1234567');
 
 function formatIdentity(value: string): string {
   const digits = value.replace(/\D+/g, '');
@@ -48,34 +48,44 @@ function formatNrc(value?: string | null): string {
         </div>
 
         <div v-if="settings.showIssuerDetails" class="text-center">
-          <p class="font-bold">{{ issuerName.toUpperCase() }}</p>
-          <p v-if="company?.activity">{{ company.activity }}</p>
+          <p class="font-bold">{{ issuerName }}</p>
+          <p>Servicios electrónicos n.c.p.</p>
           <p>NIT: {{ issuerNit }}</p>
           <p v-if="issuerNrc">NRC: {{ issuerNrc }}</p>
+          <p>Av. Central, edificio de ejemplo, local 12</p>
+          <p>Tel: 7000-0000</p>
+          <p>facturacion@empresa-ejemplo.com</p>
         </div>
 
         <div class="my-2 border-t border-dashed border-black"></div>
         <div class="text-center font-bold">
           <p>FACTURA ELECTRÓNICA</p>
-          <p>DTE-01-M001P001-000000000000001</p>
         </div>
-        <div class="mt-2 break-all">
-          <p>Código de generación:</p>
-          <p>00000000-0000-4000-8000-000000000000</p>
-          <p class="mt-1">Sello de recepción: MH000000000000</p>
-          <p>Fecha: 20/07/2026 10:30 a. m.</p>
+        <div class="mt-2 break-words">
+          <p>Número de control:</p>
+          <p class="break-all">DTE-01-M001P001-000000000000001</p>
+          <p class="mt-1">Código de generación:</p>
+          <p class="break-all">A1B2C3D4-0000-4000-8000-123456789ABC</p>
+          <p class="mt-1">Sello de recepción:</p>
+          <p class="break-all">2026ABCDEF0123456789ABCDEF0123456789ABCD</p>
+          <p class="mt-1">Fecha: 2026-07-20 10:30:00</p>
         </div>
         <div class="my-2 border-t border-dashed border-black"></div>
         <p class="font-bold">RECEPTOR</p>
-        <p>Nombre: Cliente de ejemplo</p>
+        <p>Nombre: Andrea Hernández de Ejemplo</p>
         <p>Documento: 01234567-8</p>
         <div class="my-2 border-t border-dashed border-black"></div>
         <p class="font-bold">DETALLE</p>
-        <p>Servicio o producto de ejemplo</p>
+        <p>Servicio de reparación de equipo electrónico modelo DEMO 2026</p>
         <div class="flex justify-between"><span>1 x $ 25.00</span><span>$ 25.00</span></div>
         <div class="my-2 border-t border-dashed border-black"></div>
+        <p class="font-bold">RESUMEN</p>
+        <div class="flex justify-between"><span>No sujetas</span><span>$ 0.00</span></div>
+        <div class="flex justify-between"><span>Exentas</span><span>$ 0.00</span></div>
         <div class="flex justify-between"><span>Gravadas</span><span>$ 25.00</span></div>
         <div class="flex justify-between font-bold"><span>TOTAL A PAGAR</span><span>$ 25.00</span></div>
+        <p class="mt-1">Total en letras: VEINTICINCO DÓLARES CON 00/100 USD</p>
+        <div class="my-2 border-t border-dashed border-black"></div>
 
         <div v-if="settings.qrEnabled" class="mt-5 text-center">
           <p>Consulta DTE en Hacienda</p>

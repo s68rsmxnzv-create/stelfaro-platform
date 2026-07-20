@@ -8,6 +8,7 @@ const props = defineProps<{
   avatarUrl?: string | null;
   darkMode?: boolean;
   themeLabel?: string;
+  compact?: boolean;
   serviceStatus?: {
     tone: 'offline' | 'partial' | 'ready';
     label: string;
@@ -122,11 +123,11 @@ function toggleTheme(): void {
         </span>
         <span class="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white dark:border-surface-raised" :class="statusClasses.dot"></span>
       </span>
-      <span class="min-w-0 flex-1">
+      <span v-if="!compact" class="min-w-0 flex-1">
         <span class="block truncate text-sm font-semibold">{{ firstName }}</span>
         <span class="mt-0.5 block truncate text-xs font-semibold" :class="statusClasses.text">{{ status.label }}</span>
       </span>
-      <svg class="h-4 w-4 text-slate-700 transition dark:text-soft" :class="open ? 'rotate-180' : ''" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <svg v-if="!compact" class="h-4 w-4 text-slate-700 transition dark:text-soft" :class="open ? 'rotate-180' : ''" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
         <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" />
       </svg>
     </button>

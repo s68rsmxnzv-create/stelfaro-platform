@@ -4,11 +4,12 @@ import { PlatformClient, type PlatformSubscriptionTenantRow } from '@stelfaro/ap
 import { UiButton, UiPanel, UiRefreshButton, UiStatusBadge, UiSubscriptionPlanCard } from '@stelfaro/ui';
 import BillingSectionLayout from '../components/BillingSectionLayout.vue';
 import BillingSettingsPage from './BillingSettingsPage.vue';
+import BillingAuditPage from './BillingAuditPage.vue';
 import PrinterSettingsPanel from '../printing/PrinterSettingsPanel.vue';
 import ThermalTicketSettingsPanel from '../printing/ThermalTicketSettingsPanel.vue';
 
-type CompanyView = 'summary' | 'requests' | 'profile' | 'subscription' | 'printer' | 'ticket' | 'security' | 'support';
-type CompanyNavId = CompanyView | 'audit';
+type CompanyView = 'summary' | 'requests' | 'profile' | 'subscription' | 'printer' | 'ticket' | 'security' | 'audit' | 'support';
+type CompanyNavId = CompanyView;
 type SettingsCompanyView = 'summary' | 'data' | 'fiscal' | 'sucursales' | 'correlativos';
 type NavIcon = 'summary' | 'requests' | 'profile' | 'subscription' | 'printer' | 'ticket' | 'security' | 'support';
 type SelectedCompany = {
@@ -44,6 +45,8 @@ const props = withDefaults(defineProps<{
   dashboardUrl?: string;
   billingContextCacheScope?: string;
   requestCredentials?: RequestCredentials;
+  platformSession?: Record<string, unknown> | null;
+  initialView?: CompanyView;
 }>(), {
   coreBaseUrl: '/api/v1',
   platformBaseUrl: '/api/v1',
@@ -51,11 +54,13 @@ const props = withDefaults(defineProps<{
   appBaseUrl: '',
   dashboardUrl: '',
   billingContextCacheScope: '',
-  requestCredentials: undefined
+  requestCredentials: undefined,
+  platformSession: null,
+  initialView: 'summary'
 });
 
 const selectedCompany = ref<SelectedCompany | null>(null);
-const activeView = ref<CompanyView>('summary');
+const activeView = ref<CompanyView>(props.initialView);
 const subscriptionRow = ref<PlatformSubscriptionTenantRow | null>(null);
 const subscriptionLoading = ref(false);
 const subscriptionError = ref<string | null>(null);
@@ -66,8 +71,7 @@ const wompiCheckoutUrls: Partial<Record<MarketingPlanCard['key'], string>> = {
   professional: 'https://pagos.wompi.sv/IntentoPago/Redirect?id=33bcab4e-0036-4477-a0a0-326a4a415c31'
 };
 
-const companyTitle = computed(() => selectedCompany.value?.tradeName || selectedCompany.value?.name || 'Mi empresa');
-const auditHref = computed(() => `${props.appBaseUrl.replace(/\/$/, '')}/auditoria`);
+const companyTitle = computed(() => selectedCompany.value?.tradeName || selectedCompany.value?.name || String(props.platformSession?.tenant?.name || 'Mi empresa'));
 const activeItem = computed(() => navItems.value.find((item) => item.id === activeView.value) ?? navItems.value[0]);
 const subscription = computed(() => subscriptionRow.value?.subscription ?? null);
 const fiscalEnvironment = computed(() => selectedCompany.value?.ambiente ?? subscriptionRow.value?.tenant.environment ?? null);
@@ -103,7 +107,7 @@ const navItems = computed<Array<{
   { id: 'printer', label: 'Conexión e impresora', detail: 'Agente, dispositivo y papel', icon: 'printer', group: 'Impresión' },
   { id: 'ticket', label: 'Formato del ticket', detail: 'Logo, datos y vista previa', icon: 'ticket', group: 'Impresión' },
   { id: 'security', label: 'Seguridad', detail: 'Contraseña y acceso', icon: 'security' },
-  { id: 'audit', label: 'Auditoría', detail: 'Actividad de la empresa', icon: 'security', href: auditHref.value },
+  { id: 'audit', label: 'Auditoría', detail: 'Actividad de la empresa', icon: 'security' },
   { id: 'support', label: 'Soporte', detail: 'Canales de ayuda', icon: 'support' }
 ]);
 
@@ -482,6 +486,8 @@ function daysUntil(value: string | null | undefined): number | null {
         <div v-else-if="activeView === 'printer'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><PrinterSettingsPanel /></div>
 
         <div v-else-if="activeView === 'ticket'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><ThermalTicketSettingsPanel :company="selectedCompany" /></div>
+
+        <BillingAuditPage v-else-if="activeView === 'audit'" class="mt-6" :auth-token="authToken" :core-base-url="coreBaseUrl" :platform-base-url="platformBaseUrl" :platform-session="platformSession" :billing-context-cache-scope="billingContextCacheScope" />
 
         <div v-else-if="activeView === 'security'" class="mt-6 rounded-md border border-slate-200 p-4">
           <p class="text-sm font-bold text-slate-950">Cambio de contraseña</p>

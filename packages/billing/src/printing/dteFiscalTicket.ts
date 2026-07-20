@@ -11,7 +11,10 @@ export function dteFiscalTicketFromArtifact(artifact: DteThermalArtifact, openDr
     .filter(({ name, section }) => (settings.qrEnabled || name !== 'qr')
       && (settings.showLogo || section !== 'logo')
       && (settings.showIssuerDetails || section !== 'issuer'))
-    .map(({ name, args }) => ({ name, args: [...args] }));
+    .map(({ name, args }) => ({
+      name,
+      args: name === 'qr' ? [args[0], settings.qrWidth, args[2] ?? 1, args[3] ?? 0] : [...args]
+    }));
   if (openDrawer && settings.openDrawer) operations.push({ name: 'openDrawer', args: [0, 25, 250] });
   operations.push({ name: 'cut', args: [settings.cutLines] });
 

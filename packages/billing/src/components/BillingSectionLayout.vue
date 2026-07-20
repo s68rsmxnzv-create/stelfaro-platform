@@ -28,7 +28,7 @@ import {
   Wrench
 } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch, type Component } from 'vue';
-import BillingTooltip from './BillingTooltip.vue';
+import { UiHierarchicalSidebarNav, type UiSidebarNavEntry } from '@stelfaro/ui';
 
 type NavItem = {
   id: string;
@@ -66,7 +66,6 @@ const emit = defineEmits<{
 const compactSidebar = ref(false);
 const sidebarWidthClass = computed(() => compactSidebar.value ? 'w-20' : 'w-80');
 const mainOffsetClass = computed(() => compactSidebar.value ? 'lg:pl-24' : 'lg:pl-[344px]');
-const sidebarTooltip = ref<{ label: string; detail: string; top: number } | null>(null);
 
 onMounted(() => {
   if (!props.collapsible) return;
@@ -112,51 +111,41 @@ function iconComponent(icon: string): Component {
 
 function toggleSidebar(): void {
   if (!props.collapsible) return;
-  sidebarTooltip.value = null;
   compactSidebar.value = !compactSidebar.value;
 }
 
-function showSidebarTooltip(item: NavItem, event: FocusEvent | MouseEvent): void {
-  if (!compactSidebar.value) return;
-
-  const target = event.currentTarget as HTMLElement | null;
-  if (!target) return;
-
-  const rect = target.getBoundingClientRect();
-  sidebarTooltip.value = {
-    label: item.label,
-    detail: item.detail,
-    top: Math.round(rect.top + (rect.height / 2))
-  };
-}
-
-function hideSidebarTooltip(): void {
-  sidebarTooltip.value = null;
-}
-
-function selectNavItem(item: NavItem): void {
-  hideSidebarTooltip();
-  if (item.href) return;
-  emit('select', item.id);
+function selectNavItem(id: string): void {
+  const item = props.navItems.find((candidate) => candidate.id === id);
+  if (item?.href) {
+    window.location.assign(item.href);
+    return;
+  }
+  emit('select', id);
 }
 
 const activeItem = computed(() => props.navItems.find((item) => item.id === props.activeId) ?? props.navItems[0]);
 const homeSectionItem = computed(() => props.navItems[0] ?? null);
 const canReturnToSectionHome = computed(() => Boolean(homeSectionItem.value && homeSectionItem.value.id !== props.activeId));
-const navGroups = computed(() => {
-  const groups: Array<{ label: string | null; items: NavItem[] }> = [];
+const hierarchicalEntries = computed<UiSidebarNavEntry[]>(() => {
+  const entries: UiSidebarNavEntry[] = [];
+  const groups = new Map<string, Extract<UiSidebarNavEntry, { children: unknown }>>();
 
   for (const item of props.navItems) {
-    const label = item.group ?? null;
-    let group = groups.find((candidate) => candidate.label === label);
-    if (!group) {
-      group = { label, items: [] };
-      groups.push(group);
+    if (!item.group) {
+      entries.push({ id: item.id, label: item.label, detail: item.detail, icon: item.icon });
+      continue;
     }
-    group.items.push(item);
+
+    let group = groups.get(item.group);
+    if (!group) {
+      group = { id: `group:${item.group}`, label: item.group, detail: `Opciones de ${item.group.toLowerCase()}`, icon: item.icon, children: [] };
+      groups.set(item.group, group);
+      entries.push(group);
+    }
+    group.children.push({ id: item.id, label: item.label, detail: item.detail, icon: item.icon });
   }
 
-  return groups;
+  return entries;
 });
 </script>
 
@@ -200,51 +189,12 @@ const navGroups = computed(() => {
         </button>
       </div>
 
-      <nav class="flex-1 overflow-y-auto py-5" :class="compactSidebar ? 'px-3' : 'px-4'" :aria-label="`Opciones de ${title}`">
-        <div class="space-y-5">
-          <div v-for="group in navGroups" :key="group.label ?? 'default'" class="space-y-1">
-            <p v-if="group.label && !compactSidebar" class="px-3 pb-1 text-[11px] font-black uppercase tracking-wide text-slate-400 dark:text-soft">
-              {{ group.label }}
-            </p>
-            <component
-              v-for="item in group.items"
-              :key="item.id"
-              :is="item.href ? 'a' : 'button'"
-              :href="item.href || undefined"
-              :type="item.href ? undefined : 'button'"
-              class="group relative flex min-h-14 w-full items-center rounded-lg text-base transition"
-              :aria-label="compactSidebar ? `${item.label}: ${item.detail}` : undefined"
-              :class="[
-                compactSidebar ? 'justify-center px-0' : 'gap-3 px-3 text-left',
-                activeId === item.id ? 'bg-slate-100 font-bold text-slate-950 shadow-sm shadow-slate-950/5 dark:bg-surface-muted dark:text-text' : 'font-semibold text-slate-800 hover:bg-slate-50 hover:text-slate-950 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text'
-              ]"
-              @mouseenter="showSidebarTooltip(item, $event)"
-              @mouseleave="hideSidebarTooltip"
-              @focus="showSidebarTooltip(item, $event)"
-              @blur="hideSidebarTooltip"
-              @click="selectNavItem(item)"
-            >
-              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md" :class="activeId === item.id ? 'bg-white text-sky-700 dark:bg-surface-raised dark:text-primary' : 'text-slate-500 dark:text-soft'">
-                <component :is="iconComponent(item.icon)" class="h-[22px] w-[22px]" aria-hidden="true" />
-              </span>
-              <span v-if="!compactSidebar" class="min-w-0">
-                <span class="block truncate">{{ item.label }}</span>
-                <span class="block truncate text-xs font-medium text-slate-500 dark:text-soft">{{ item.detail }}</span>
-              </span>
-            </component>
-          </div>
-        </div>
-      </nav>
+      <div class="flex-1 overflow-y-auto py-5" :class="compactSidebar ? 'px-3' : 'px-4'">
+        <UiHierarchicalSidebarNav :entries="hierarchicalEntries" :active-id="activeId" :compact="compactSidebar" @select="selectNavItem" @request-expand="compactSidebar = false">
+          <template #icon="{ entry }"><component :is="iconComponent(entry.icon || 'summary')" class="h-[22px] w-[22px]" aria-hidden="true" /></template>
+        </UiHierarchicalSidebarNav>
+      </div>
     </aside>
-
-    <BillingTooltip
-      v-if="sidebarTooltip && compactSidebar"
-      :open="true"
-      :label="sidebarTooltip.label"
-      :detail="sidebarTooltip.detail"
-      :top="sidebarTooltip.top"
-      :left="92"
-    />
 
     <main class="px-4 py-6 transition-[padding] duration-200 sm:px-6 lg:pr-8" :class="mainOffsetClass">
       <div class="mb-5 flex items-center overflow-x-auto whitespace-nowrap">
