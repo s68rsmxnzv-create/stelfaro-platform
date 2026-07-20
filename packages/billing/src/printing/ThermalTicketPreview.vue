@@ -146,7 +146,6 @@ function formatNrc(value?: string | null): string {
         </div>
         <div class="mt-4 border-t border-dashed border-black pt-2 text-center">
           <p>{{ variant === 'dte' ? 'Gracias por su compra' : 'Conserve este comprobante de recepción.' }}</p>
-          <p v-if="variant === 'dte'">Representación gráfica de DTE.</p>
         </div>
       </article>
 
