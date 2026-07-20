@@ -166,7 +166,7 @@ html.dark .thermal-ticket-stage,
 html[data-theme='dark'] .thermal-ticket-stage,
 html[data-theme='dark-medium-contrast'] .thermal-ticket-stage,
 html[data-theme='dark-high-contrast'] .thermal-ticket-stage {
-  background-color: rgb(0 0 0) !important;
+  background-color: var(--sf-color-surface-muted) !important;
 }
 
 html.dark .thermal-ticket-paper,
