@@ -8,7 +8,9 @@ export function dteFiscalTicketFromArtifact(artifact: DteThermalArtifact, openDr
   if (!profile) throw new Error('El comprobante no contiene una plantilla térmica compatible.');
 
   const operations = profile.operations
-    .filter(({ name }) => settings.qrEnabled || name !== 'qr')
+    .filter(({ name, section }) => (settings.qrEnabled || name !== 'qr')
+      && (settings.showLogo || section !== 'logo')
+      && (settings.showIssuerDetails || section !== 'issuer'))
     .map(({ name, args }) => ({ name, args: [...args] }));
   if (openDrawer && settings.openDrawer) operations.push({ name: 'openDrawer', args: [0, 25, 250] });
   operations.push({ name: 'cut', args: [settings.cutLines] });

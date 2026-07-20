@@ -12,7 +12,7 @@ describe('dteFiscalTicketFromArtifact', () => {
       codigoGeneracion: '0CFBC22C-D7A8-4EFC-A9D2-1B3ECB33F547',
       profiles: {
         '58': { paperWidth: 58, widthChars: 32, operations: [{ name: 'text', args: ['FACTURA ELECTRONICA\nJosé Hernández\nTOTAL $75.00\n'] }] },
-        '80': { paperWidth: 80, widthChars: 48, operations: [{ name: 'text', args: ['FACTURA ELECTRONICA\nJosé Hernández\nTOTAL $75.00\n'] }, { name: 'qr', args: ['https://example.test/dte', 280, 1, 0] }] },
+        '80': { paperWidth: 80, widthChars: 48, operations: [{ name: 'imageRaster', args: [8, 1, 'AA==', 0], section: 'logo' }, { name: 'text', args: ['EMPRESA DE PRUEBA\n'], section: 'issuer' }, { name: 'text', args: ['FACTURA ELECTRONICA\nJosé Hernández\nTOTAL $75.00\n'] }, { name: 'qr', args: ['https://example.test/dte', 280, 1, 0] }] },
       },
     } satisfies DteThermalArtifact;
 
@@ -22,7 +22,9 @@ describe('dteFiscalTicketFromArtifact', () => {
     expect(printedText).toContain('FACTURA ELECTRONICA');
     expect(printedText).toContain('José Hernández');
     expect(printedText).toContain('TOTAL $75.00');
+    expect(printedText).toContain('EMPRESA DE PRUEBA');
     expect(printedText).not.toContain('ORDEN CERRADA');
+    expect(operations.some(({ name }) => name === 'imageRaster')).toBe(false);
     expect(operations.at(-1)).toMatchObject({ name: 'cut' });
   });
 });

@@ -9,6 +9,8 @@ export type PrinterSettings = {
   qrEnabled: boolean;
   qrWidth: number;
   openDrawer: boolean;
+  showLogo: boolean;
+  showIssuerDetails: boolean;
 };
 
 export const defaultPrinterSettings = (): PrinterSettings => ({
@@ -20,6 +22,8 @@ export const defaultPrinterSettings = (): PrinterSettings => ({
   qrEnabled: true,
   qrWidth: 280,
   openDrawer: false,
+  showLogo: false,
+  showIssuerDetails: true,
 });
 
 export function loadPrinterSettings(): PrinterSettings {

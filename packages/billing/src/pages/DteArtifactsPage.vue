@@ -2,8 +2,11 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { CoreDteClient, type DteDraftSummary, type MhFiscalEventSummary, type PaginationMeta } from '@stelfaro/api-client';
 import { currency, fiscalDateTime } from '@stelfaro/shared';
-import { UiActionDropdown, UiCard, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiMailIcon, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
+import { UiActionDropdown, UiActionMenuItem, UiCard, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiMailIcon, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
+import { Printer } from 'lucide-vue-next';
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
+import { dteFiscalTicketFromArtifact } from '../printing/dteFiscalTicket';
+import { sendSilentPrint } from '../printing/printJob';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -43,6 +46,7 @@ const openingJsonId = ref<number | null>(null);
 const openingEventPdfId = ref<number | null>(null);
 const openingEventJsonId = ref<number | null>(null);
 const resendingEmailId = ref<number | null>(null);
+const printingId = ref<number | null>(null);
 const error = ref<string | null>(null);
 const query = ref('');
 const tipoDte = ref('');
@@ -305,6 +309,27 @@ async function resendEmail(document: DteDraftSummary): Promise<void> {
   }
 }
 
+async function printDocument(document: DteDraftSummary): Promise<void> {
+  printingId.value = document.id;
+  error.value = null;
+
+  try {
+    const artifact = await client.value.thermalArtifact(document.id);
+    const result = await sendSilentPrint(dteFiscalTicketFromArtifact(artifact));
+    pushFloatingToast(result === 'printed'
+      ? { title: 'DTE impreso', message: `${document.numeroControl} fue enviado a la impresora.`, variant: 'success' }
+      : { title: 'DTE listo', message: 'Activa la impresión silenciosa y selecciona una impresora para imprimirlo.', variant: 'info' });
+  } catch (caught) {
+    pushFloatingToast({
+      title: 'No se pudo imprimir el DTE',
+      message: caught instanceof Error ? caught.message : 'Revisa la conexión con la impresora.',
+      variant: 'error'
+    });
+  } finally {
+    printingId.value = null;
+  }
+}
+
 async function waitForEmailSent(documentId: number, fallbackRecipient?: string | null): Promise<void> {
   const sentStatuses = new Set(['sent', 'delivered']);
   const failedStatuses = new Set(['failed']);
@@ -520,6 +545,11 @@ function formatDate(value?: string | null): string {
                 <UiCodeBracketIcon class="h-5 w-5 text-sky-600" />
                 <span>{{ openingJsonId === document.id ? 'Abriendo JSON...' : 'Abrir JSON' }}</span>
               </button>
+
+              <UiActionMenuItem :disabled="printingId === document.id" @select="printDocument(document)">
+                <template #icon><Printer class="h-5 w-5 text-sky-600" /></template>
+                {{ printingId === document.id ? 'Enviando...' : 'Reimprimir comprobante' }}
+              </UiActionMenuItem>
 
               <div v-if="document.estado !== 'invalidated'" class="my-1 border-t border-slate-100"></div>
 

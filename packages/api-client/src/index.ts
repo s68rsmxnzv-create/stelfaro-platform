@@ -1719,7 +1719,7 @@ export type DteThermalArtifact = {
   profiles: Record<'58' | '80' | string, {
     paperWidth: number;
     widthChars: number;
-    operations: Array<{ name: string; args: unknown[] }>;
+    operations: Array<{ name: string; args: unknown[]; section?: 'logo' | 'issuer' | string }>;
   }>;
 };
 

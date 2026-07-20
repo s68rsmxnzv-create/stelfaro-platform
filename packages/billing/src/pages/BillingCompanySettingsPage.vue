@@ -18,6 +18,10 @@ type SelectedCompany = {
   documentLabel: string;
   lifecycleStatus: string;
   ambiente: '00' | '01';
+  logoUrl: string | null;
+  nit: string;
+  nrc: string | null;
+  activity: string;
 };
 type MarketingPlanCard = {
   key: 'entrepreneur' | 'professional' | 'enterprise';
@@ -346,7 +350,7 @@ function daysUntil(value: string | null | undefined): number | null {
           <div>
             <h1 class="mt-1 text-2xl font-bold text-slate-950">{{ activeItem.label }}</h1>
           </div>
-          <span v-if="activeView !== 'subscription'" class="rounded-md bg-slate-100 px-3 py-1 text-xs font-bold uppercase text-slate-600">Placeholder</span>
+          <span v-if="!['subscription', 'printer'].includes(activeView)" class="rounded-md bg-slate-100 px-3 py-1 text-xs font-bold uppercase text-slate-600">Placeholder</span>
         </div>
 
         <div v-if="activeView === 'requests'" class="mt-6 grid gap-4 lg:grid-cols-3">
@@ -472,7 +476,7 @@ function daysUntil(value: string | null | undefined): number | null {
           </template>
         </div>
 
-        <div v-else-if="activeView === 'printer'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><PrinterSettingsPanel /></div>
+        <div v-else-if="activeView === 'printer'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><PrinterSettingsPanel :company="selectedCompany" /></div>
 
         <div v-else-if="activeView === 'security'" class="mt-6 rounded-md border border-slate-200 p-4">
           <p class="text-sm font-bold text-slate-950">Cambio de contraseña</p>
