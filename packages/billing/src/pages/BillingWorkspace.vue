@@ -882,10 +882,16 @@ async function loadWorkshopOrderPrefill(): Promise<void> {
     customerMode.value = 'base';
     applyCustomer(customer);
     const line = newInvoiceLine();
-    line.description = `Servicio de reparación ${order.device.brand} ${order.device.model} · ${order.ticket}`;
+    const deviceName = [order.device.brand, order.device.model]
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .join(' ');
+    line.description = [order.reported_fault.trim(), deviceName]
+      .filter(Boolean)
+      .join(' - ');
     line.unitPrice = Number(order.financial.final_total ?? 0);
     lines.value = [line];
-    form.observations = `Generado desde orden de trabajo ${order.ticket}.`;
+    form.observations = '';
     resetPayments();
     if (order.balance > 0) {
       paymentCondition.value = 2;
