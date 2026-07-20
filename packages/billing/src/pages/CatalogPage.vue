@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { PlatformClient } from '@stelfaro/api-client';
-import { UiButton, UiDataTable, UiInput, UiLoadingMark, UiModalShell, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
+import { UiButton, UiDataTable, UiLoadingMark, UiModalShell, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
 import CatalogItemForm from '../components/CatalogItemForm.vue';
@@ -25,7 +25,6 @@ const loading = ref(false);
 const saving = ref(false);
 const modalOpen = ref(false);
 const editingItem = ref(null);
-const categoryName = ref('');
 const filters = ref({
   q: '',
   status: 'active',
@@ -163,22 +162,6 @@ function kindForItemType(itemType): string {
   return 'mixed';
 }
 
-async function addCategory(): Promise<void> {
-  if (!tenantId.value || !categoryName.value.trim()) return;
-
-  saving.value = true;
-  try {
-    await client.value.createCatalogCategory(tenantId.value, { name: categoryName.value.trim(), kind: 'mixed' });
-    categoryName.value = '';
-    notify('Categoría creada', 'Podés usarla al crear o editar ítems.', 'success');
-    await loadCatalog();
-  } catch (error) {
-    notify('No se pudo crear la categoría', messageFromError(error), 'error');
-  } finally {
-    saving.value = false;
-  }
-}
-
 async function deactivateItem(item): Promise<void> {
   if (!tenantId.value) return;
 
@@ -252,9 +235,8 @@ function messageFromError(error): string {
       </div>
     </div>
 
-    <div class="grid gap-5 xl:grid-cols-[1fr_320px]">
-      <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-none">
-        <UiDataTable overflow="auto" min-width="min-w-[940px]">
+    <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-none">
+      <UiDataTable overflow="auto" min-width="min-w-[940px]">
           <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
             <tr>
               <th class="px-4 py-3">Ítem</th>
@@ -295,30 +277,7 @@ function messageFromError(error): string {
               </td>
             </tr>
           </tbody>
-        </UiDataTable>
-      </div>
-
-      <aside class="space-y-5">
-        <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-none">
-          <h3 class="text-base font-bold text-slate-950 dark:text-text">Categorías</h3>
-          <div class="mt-4 flex gap-2">
-            <UiInput v-model="categoryName" label="Nueva categoría" placeholder="Ej. Repuestos" />
-            <div class="flex items-end">
-              <UiButton variant="secondary" :disabled="saving || !categoryName.trim()" @click="addCategory">Agregar</UiButton>
-            </div>
-          </div>
-          <div class="mt-4 flex flex-wrap gap-2">
-            <UiStatusBadge v-for="category in categories" :key="category.id" tone="neutral">{{ category.name }}</UiStatusBadge>
-          </div>
-        </div>
-
-        <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-none">
-          <h3 class="text-base font-bold text-slate-950 dark:text-text">Modo de venta</h3>
-          <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-muted">
-            Catálogo define qué se puede vender. Inventario administra existencias, lotes, costos y kardex en su propia pantalla.
-          </p>
-        </div>
-      </aside>
+      </UiDataTable>
     </div>
 
     <UiModalShell
