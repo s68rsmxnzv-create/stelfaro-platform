@@ -8,7 +8,6 @@ export type PrinterSettings = {
   paperWidth: '58' | '80';
   cutLines: number;
   qrEnabled: boolean;
-  qrWidth: number;
   openDrawer: boolean;
   showLogo: boolean;
   showIssuerDetails: boolean;
@@ -22,7 +21,6 @@ export const defaultPrinterSettings = (): PrinterSettings => ({
   paperWidth: '80',
   cutLines: 6,
   qrEnabled: true,
-  qrWidth: 280,
   openDrawer: false,
   showLogo: false,
   showIssuerDetails: true,
@@ -32,14 +30,19 @@ export function loadPrinterSettings(): PrinterSettings {
   if (typeof window === 'undefined') return defaultPrinterSettings();
   try {
     const saved = JSON.parse(window.localStorage.getItem(PRINTER_SETTINGS_STORAGE_KEY) || '{}');
-    return { ...defaultPrinterSettings(), ...saved, agentUrl: normalizeAgentUrl(saved.agentUrl), cutLines: clamp(saved.cutLines, 1, 12, 6), qrWidth: clamp(saved.qrWidth, 120, 420, 280) };
+    delete saved.qrWidth;
+    return { ...defaultPrinterSettings(), ...saved, agentUrl: normalizeAgentUrl(saved.agentUrl), cutLines: clamp(saved.cutLines, 1, 12, 6) };
   } catch {
     return defaultPrinterSettings();
   }
 }
 
 export function savePrinterSettings(settings: PrinterSettings): void {
-  window.localStorage.setItem(PRINTER_SETTINGS_STORAGE_KEY, JSON.stringify({ ...settings, agentUrl: normalizeAgentUrl(settings.agentUrl), cutLines: clamp(settings.cutLines, 1, 12, 6), qrWidth: clamp(settings.qrWidth, 120, 420, 280) }));
+  window.localStorage.setItem(PRINTER_SETTINGS_STORAGE_KEY, JSON.stringify({ ...settings, agentUrl: normalizeAgentUrl(settings.agentUrl), cutLines: clamp(settings.cutLines, 1, 12, 6) }));
+}
+
+export function fixedQrWidth(paperWidth: PrinterSettings['paperWidth']): number {
+  return paperWidth === '58' ? 200 : 280;
 }
 
 export function normalizeAgentUrl(value: unknown): string {

@@ -1,5 +1,5 @@
 import type { BillingEmpresa, ThermalLogoRaster, WorkshopOrder, WorkshopTicketSettings } from '@stelfaro/api-client';
-import { loadPrinterSettings } from '../printing/printerSettings';
+import { fixedQrWidth, loadPrinterSettings } from '../printing/printerSettings';
 import type { PrintOperation } from '../printing/printJob';
 
 const money = (value: number | null | undefined) => `$${Number(value || 0).toFixed(2)}`;
@@ -44,7 +44,7 @@ export async function workshopReceptionTicket(
       { name: 'size', args: [1, 1] },
       { name: 'bold', args: [false] },
       { name: 'text', args: [`${order.device.brand} ${order.device.model}\n${identifiers[0] || 'Sin identificador visible'}\n`] },
-      { name: 'qr', args: [deviceAccess.url, settings.qrWidth, 1, 0] },
+      { name: 'qr', args: [deviceAccess.url, fixedQrWidth(settings.paperWidth), 1, 0] },
       { name: 'text', args: [`\nAcceso móvil seguro del taller\n${ticketSettings.receipt_copies === 2 ? 'El PIN se encuentra en la copia del taller.' : 'El PIN está disponible en la recepción.'}\n`] },
       { name: 'cut', args: [settings.cutLines] },
     );

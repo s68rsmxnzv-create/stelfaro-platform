@@ -2,7 +2,7 @@
 import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { FileCheck2, ReceiptText, Smartphone } from 'lucide-vue-next';
 import { PlatformClient, type WorkshopTicketSettings } from '@stelfaro/api-client';
-import { UiInput, UiSelect, UiTextarea } from '@stelfaro/ui';
+import { UiSelect, UiTextarea } from '@stelfaro/ui';
 import { defaultPrinterSettings, loadPrinterSettings, savePrinterSettings, type PrinterSettings } from './printerSettings';
 import ThermalTicketPreview from './ThermalTicketPreview.vue';
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
@@ -41,21 +41,11 @@ watch(workshopSettings, () => {
 }, { deep: true });
 
 function persistSettings(): void {
-  let adjusted = false;
-  const qrWidth = Number(settings.qrWidth);
-  const normalizedQrWidth = Number.isFinite(qrWidth) ? Math.max(120, Math.min(420, qrWidth)) : 280;
-  if (normalizedQrWidth !== qrWidth) {
-    settings.qrWidth = normalizedQrWidth;
-    adjusted = true;
-  }
-
   const serialized = JSON.stringify(settings);
   if (serialized === lastSaved) return;
   savePrinterSettings(settings);
   lastSaved = serialized;
-  notify(adjusted
-    ? { title: 'Tamaño del QR ajustado', message: 'El valor permitido está entre 120 y 420.', variant: 'warning' }
-    : { title: 'Formato actualizado', message: 'El cambio ya se refleja en la vista previa y en las próximas impresiones.', variant: 'success' });
+  notify({ title: 'Formato actualizado', message: 'El cambio ya se refleja en la vista previa y en las próximas impresiones.', variant: 'success' });
 }
 
 function notify(toast: Omit<BillingFloatingToast, 'id'>): void {
@@ -99,7 +89,6 @@ async function persistWorkshopSettings(): Promise<void> {
         <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-surface p-3 text-sm text-text"><input v-model="settings.showLogo" type="checkbox" class="mt-1 h-4 w-4 accent-primary"><span><strong class="block">Imprimir logo</strong><small class="text-muted">Usa el logo preparado para la impresora térmica.</small></span></label>
         <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-surface p-3 text-sm text-text"><input v-model="settings.showIssuerDetails" type="checkbox" class="mt-1 h-4 w-4 accent-primary"><span><strong class="block">Imprimir información de la empresa</strong><small class="text-muted">Nombre comercial, actividad, NIT, NRC y contacto disponible.</small></span></label>
         <label v-if="previewVariant === 'dte'" class="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-surface p-3 text-sm text-text"><input v-model="settings.qrEnabled" type="checkbox" class="mt-1 h-4 w-4 accent-primary"><span><strong class="block">Imprimir códigos QR</strong><small class="text-muted">Incluye la consulta en Hacienda y la descarga pública del PDF y JSON conservados.</small></span></label>
-        <div v-if="previewVariant === 'dte' || workshopSettings.print_equipment_label" class="rounded-lg border border-line bg-surface p-3"><UiInput v-model.number="settings.qrWidth" :label="previewVariant === 'dte' ? 'Tamaño de los QR' : 'Tamaño del QR de la etiqueta'" type="number" min="120" max="420" step="1" suffix="px" /><p class="mt-1 text-xs text-muted">Valor permitido: 120 a 420.</p></div>
       </div>
 
       <ThermalTicketPreview :settings="settings" :company="props.company" :variant="previewVariant" :workshop-settings="workshopSettings" />

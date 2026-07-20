@@ -15,7 +15,7 @@ type PreviewCompany = {
 
 const props = withDefaults(defineProps<{ settings: PrinterSettings; company?: PreviewCompany | null; variant?: 'dte' | 'workshop'; workshopSettings?: WorkshopTicketSettings }>(), { variant: 'dte', workshopSettings: () => ({ receipt_copies: 2, print_equipment_label: true, terms: '' }) });
 const paperClass = computed(() => props.settings.paperWidth === '58' ? 'w-[280px]' : 'w-[370px]');
-const qrSize = computed(() => 72 + (Math.max(1, Math.min(16, Math.round(props.settings.qrWidth / 48))) * 10));
+const qrSize = computed(() => props.settings.paperWidth === '58' ? 104 : 132);
 const previewCopies = computed(() => props.variant === 'workshop' && props.workshopSettings.receipt_copies === 2
   ? ['COPIA CLIENTE', 'COPIA TALLER']
   : [props.variant === 'workshop' ? 'COPIA CLIENTE' : 'DTE']);
@@ -140,11 +140,9 @@ function formatNrc(value?: string | null): string {
           <div class="my-2 border-t border-dashed border-black"></div>
         </template>
 
-        <div v-if="settings.qrEnabled && variant === 'dte'" class="mt-5 text-center">
-          <p>Consulta DTE en Hacienda</p>
-          <QrCode :style="{ width: `${qrSize}px`, height: `${qrSize}px` }" class="mx-auto mt-2" :stroke-width="1.5" />
-          <p class="mt-4">Descarga PDF y JSON</p>
-          <QrCode :style="{ width: `${qrSize}px`, height: `${qrSize}px` }" class="mx-auto mt-2" :stroke-width="1.5" />
+        <div v-if="settings.qrEnabled && variant === 'dte'" class="mt-5 grid grid-cols-2 gap-3 text-center">
+          <div><p>Hacienda</p><QrCode :style="{ width: `${qrSize}px`, height: `${qrSize}px` }" class="mx-auto mt-2" :stroke-width="1.5" /></div>
+          <div><p>PDF y JSON</p><QrCode :style="{ width: `${qrSize}px`, height: `${qrSize}px` }" class="mx-auto mt-2" :stroke-width="1.5" /></div>
         </div>
         <div class="mt-4 border-t border-dashed border-black pt-2 text-center">
           <p :class="variant === 'workshop' ? 'font-bold' : ''">{{ variant === 'dte' ? 'Gracias por su compra' : 'Conserve este comprobante de recepción.' }}</p>
