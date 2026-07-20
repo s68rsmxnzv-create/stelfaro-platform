@@ -5,7 +5,8 @@ import {
   type BillingEmpresa,
   type DteDraftSummary,
   type MhFiscalEventSummary,
-  PlatformClient
+  PlatformClient,
+  type PlatformFiscalSyncOperation
 } from '@stelfaro/api-client';
 import { currency, fiscalDate, fiscalDateTime } from '@stelfaro/shared';
 import { UiButton, UiCard, UiSearchInput, UiLoadingMark, UiRefreshButton, UiSaveIcon, UiTextarea } from '@stelfaro/ui';
@@ -939,6 +940,7 @@ async function invalidateSelected(): Promise<void> {
   if (!selected.value || !canInvalidate.value) return;
 
   let eventIdForRecovery: number | null = null;
+  let fiscalSyncOperation: PlatformFiscalSyncOperation | null = null;
   processing.value = true;
   eventModalOpen.value = true;
   eventProgress.value = 5;
@@ -948,6 +950,17 @@ async function invalidateSelected(): Promise<void> {
   eventLog.value = [];
 
   try {
+    if (platformTenantId.value) {
+      const prepared = await platformClient.value.prepareInvalidationFiscalSync(platformTenantId.value, {
+        idempotency_key: invalidationSyncKey(),
+        invalidation_type: Number(form.tipoAnulacion),
+        original_source_id: String(selected.value.id),
+        replacement_source_id: selectedReplacement.value ? String(selectedReplacement.value.id) : null,
+      });
+      fiscalSyncOperation = prepared.data;
+      eventLog.value.push({ label: 'Sincronización comercial preparada', status: 'ok' });
+    }
+
     pushLog('Creando evento de invalidacion');
     const draft = await client.value.createMhEvent('invalidacion', {
       empresa_id: Number(selected.value.empresa?.id),
@@ -967,6 +980,13 @@ async function invalidateSelected(): Promise<void> {
       }]
     });
     eventIdForRecovery = draft.id;
+    if (fiscalSyncOperation && platformTenantId.value) {
+      fiscalSyncOperation = (await platformClient.value.attachFiscalSyncResource(
+        platformTenantId.value,
+        fiscalSyncOperation.id,
+        String(draft.id),
+      )).data;
+    }
 
     pushLog('Validando datos de la solicitud');
     eventPhaseIndex.value = 1;
@@ -990,7 +1010,7 @@ async function invalidateSelected(): Promise<void> {
     eventPhaseIndex.value = 4;
     eventProgress.value = 100;
     pushLog('Evento procesado por MH');
-    await syncInventoryForAcceptedInvalidation();
+    await completeInvalidationFiscalSync(fiscalSyncOperation, eventResult.value);
     await loadDocuments({ preserveEventResult: true });
   } catch (caught) {
     const recovered = await recoverEventResult(eventIdForRecovery);
@@ -998,7 +1018,7 @@ async function invalidateSelected(): Promise<void> {
     if (recovered && (eventAccepted.value || eventRejected.value)) {
       eventLog.value.push({ label: 'Respuesta MH recuperada', status: 'ok' });
       error.value = null;
-      await syncInventoryForAcceptedInvalidation();
+      await completeInvalidationFiscalSync(fiscalSyncOperation, eventResult.value);
       await loadDocuments({ preserveEventResult: true });
     } else {
       eventLog.value.push({ label: 'Proceso detenido', status: 'error' });
@@ -1011,35 +1031,24 @@ async function invalidateSelected(): Promise<void> {
   }
 }
 
-async function syncInventoryForAcceptedInvalidation(): Promise<void> {
-  if (!eventAccepted.value || !selected.value || !platformTenantId.value) {
+async function completeInvalidationFiscalSync(operation: PlatformFiscalSyncOperation | null, fact: MhFiscalEventSummary | null): Promise<void> {
+  if (!operation || !fact || !platformTenantId.value) {
     return;
   }
 
   try {
-    if (Number(form.tipoAnulacion) === 2) {
-      eventLog.value.push({ label: 'Revirtiendo inventario por invalidacion tipo 2', status: 'ok' });
-      await platformClient.value.reverseInventorySaleBySource(platformTenantId.value, {
-        source_type: 'dte',
-        source_id: String(selected.value.id),
-        event_id: eventResult.value?.id ? String(eventResult.value.id) : null,
-        event_number: eventResult.value?.codigoGeneracion ?? eventResult.value?.numeroControl ?? null,
-        notes: 'Invalidacion tipo 2 aceptada por MH',
-      });
-      eventLog.value.push({ label: 'Inventario revertido automaticamente', status: 'ok' });
-    } else if (selectedReplacement.value) {
-      eventLog.value.push({ label: 'Consolidando venta con el DTE sustituto', status: 'ok' });
-      await platformClient.value.supersedeInventorySaleBySource(platformTenantId.value, {
-        source_type: 'dte',
-        original_source_id: String(selected.value.id),
-        replacement_source_id: String(selectedReplacement.value.id),
-        event_id: eventResult.value?.id ? String(eventResult.value.id) : null,
-        event_number: eventResult.value?.codigoGeneracion ?? eventResult.value?.numeroControl ?? null,
-      });
-      eventLog.value.push({ label: 'Venta original sustituida sin duplicar inventario', status: 'ok' });
-    } else {
-      return;
-    }
+    const response = await platformClient.value.completeFiscalSync(
+      platformTenantId.value,
+      operation.id,
+      fact as unknown as Record<string, unknown>,
+    );
+    const outcome = String((response.data.result as Record<string, unknown> | null)?.outcome || '');
+    eventLog.value.push({
+      label: outcome === 'accepted'
+        ? (Number(form.tipoAnulacion) === 2 ? 'Inventario revertido automáticamente' : 'Venta sustituida sin duplicar inventario')
+        : 'El evento no modificó inventario ni ventas',
+      status: 'ok',
+    });
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('stelfaro:inventory-changed', {
@@ -1048,12 +1057,18 @@ async function syncInventoryForAcceptedInvalidation(): Promise<void> {
     }
   } catch {
     eventLog.value.push({
-      label: Number(form.tipoAnulacion) === 2
-        ? 'MH acepto la invalidacion, pero no se pudo revertir inventario automaticamente'
-        : 'MH acepto la invalidacion, pero la sustitucion comercial quedo pendiente de sincronizar',
-      status: 'error'
+      label: 'El evento quedó recibido; el servidor completará la sincronización automáticamente',
+      status: 'ok'
     });
   }
+}
+
+function invalidationSyncKey(): string {
+  const suffix = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  return `mh-invalidation-${selected.value?.id ?? 0}-${suffix}`;
 }
 
 function createReplacementDocument(): void {

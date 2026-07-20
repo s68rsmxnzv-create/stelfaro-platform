@@ -619,6 +619,25 @@ export type PlatformInventorySalePayload = {
   }>;
 };
 
+export type PlatformFiscalSyncOperation = {
+  id: number;
+  kind: 'dte_issue' | 'mh_invalidation' | string;
+  idempotency_key: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | string;
+  core_resource_id: string | null;
+  reservation: PlatformInventoryReservation | null;
+  result: Record<string, unknown> | null;
+  last_error: string | null;
+  completed_at: string | null;
+};
+
+export type PlatformDteSyncPayload = {
+  idempotency_key: string;
+  workshop_order_id?: number | null;
+  reservation?: Omit<PlatformInventoryReservationPayload, 'idempotency_key'> | null;
+  sale: Omit<PlatformInventorySalePayload, 'source_id'> & { source_id?: string };
+};
+
 export type PlatformInventorySale = {
   id: number;
   tenant_id: number;
@@ -2010,6 +2029,22 @@ export class PlatformClient {
 
   createInventoryReservation(tenantId: number, payload: PlatformInventoryReservationPayload): Promise<{ data: PlatformInventoryReservation }> {
     return this.http.post(`platform/tenants/${tenantId}/inventory/reservations`, { json: payload }).json();
+  }
+
+  prepareDteFiscalSync(tenantId: number, payload: PlatformDteSyncPayload): Promise<{ data: PlatformFiscalSyncOperation }> {
+    return this.http.post(`platform/tenants/${tenantId}/fiscal-sync/dte-issues`, { json: payload }).json();
+  }
+
+  prepareInvalidationFiscalSync(tenantId: number, payload: { idempotency_key: string; invalidation_type: number; original_source_id: string; replacement_source_id?: string | null }): Promise<{ data: PlatformFiscalSyncOperation }> {
+    return this.http.post(`platform/tenants/${tenantId}/fiscal-sync/invalidations`, { json: payload }).json();
+  }
+
+  attachFiscalSyncResource(tenantId: number, operationId: number, coreResourceId: string): Promise<{ data: PlatformFiscalSyncOperation }> {
+    return this.http.post(`platform/tenants/${tenantId}/fiscal-sync/operations/${operationId}/attach`, { json: { core_resource_id: coreResourceId } }).json();
+  }
+
+  completeFiscalSync(tenantId: number, operationId: number, fact: Record<string, unknown>): Promise<{ data: PlatformFiscalSyncOperation }> {
+    return this.http.post(`platform/tenants/${tenantId}/fiscal-sync/operations/${operationId}/complete`, { json: { fact } }).json();
   }
 
   confirmInventoryReservation(tenantId: number, reservationId: number, payload: { source_type?: string | null; source_id?: string | null; source_number?: string | null } = {}): Promise<{ data: PlatformInventoryReservation }> {

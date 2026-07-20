@@ -17,6 +17,7 @@ import {
   type DtePreviewResponse,
   PlatformClient,
   type PlatformCatalogItem,
+  type PlatformFiscalSyncOperation,
   type PlatformInventoryReservation,
   type PlatformInventorySaleFulfillment,
   type PlatformInventorySummary
@@ -1359,8 +1360,7 @@ async function issueDocument(): Promise<void> {
   issueLiveMessage.value = 'Preparando emision del documento...';
   issueLog.value = [];
   issuePhaseIndex.value = 0;
-  let inventoryReservation: PlatformInventoryReservation | null = null;
-  let keepInventoryReservation = false;
+  let fiscalSyncOperation: PlatformFiscalSyncOperation | null = null;
 
   try {
     if (!await refreshSelectedCustomerForIssue()) {
@@ -1381,7 +1381,7 @@ async function issueDocument(): Promise<void> {
     }
 
     currentIssueIdempotencyKey ??= issueIdempotencyKey();
-    inventoryReservation = await reserveInventoryForIssue(currentIssueIdempotencyKey);
+    fiscalSyncOperation = await prepareDteFiscalSync(currentIssueIdempotencyKey);
     payload.idempotency_key = currentIssueIdempotencyKey;
     currentStep.value = 'sent';
     const result = await client.value.issueProgress(payload, (event) => {
@@ -1413,32 +1413,12 @@ async function issueDocument(): Promise<void> {
     });
     if (result) {
       const rejected = isIssueResponseRejected(result);
-      if (inventoryReservation) {
-        if (rejected) {
-          await releaseInventoryReservation(inventoryReservation);
-        } else {
-          keepInventoryReservation = true;
-          inventoryReservation = await confirmInventoryReservation(inventoryReservation, result);
-        }
-      }
+      if (fiscalSyncOperation) await completeDteFiscalSync(fiscalSyncOperation, result);
       if (!rejected) {
-        const saleRecorded = await recordInventorySale(result);
         const replacementReceived = ['accepted', 'received_by_mh'].includes(String(result.document.estado).toLowerCase())
           && Boolean(result.document.selloRecibido);
-        if (replacementSourceDocument.value && saleRecorded && replacementReceived) {
+        if (replacementSourceDocument.value && replacementReceived) {
           replacementIssuedDocument.value = result.document;
-        }
-        if (workshopOrderId && platformTenantId.value) {
-          try {
-            await platformClient.value.linkWorkshopOrderInvoice(platformTenantId.value, workshopOrderId, {
-              core_dte_document_id: result.document.id,
-              dte_number: result.document.numeroControl,
-            dte_generation_code: result.document.codigoGeneracion,
-            dte_type: result.document.tipoDte === '03' ? '03' : '01',
-            });
-          } catch {
-            pushIssueLog('El DTE fue emitido, pero quedó pendiente vincularlo con la orden de taller.', 'error');
-          }
         }
       }
       issueResult.value = result;
@@ -1451,9 +1431,6 @@ async function issueDocument(): Promise<void> {
       await previewNextCorrelativo();
     }
   } catch (caught) {
-    if (inventoryReservation && !keepInventoryReservation) {
-      await releaseInventoryReservation(inventoryReservation);
-    }
     error.value = caught instanceof Error ? caught.message : 'No fue posible emitir el DTE.';
     pushIssueLog(error.value, 'error');
   } finally {
@@ -1518,57 +1495,65 @@ function issueIdempotencyKey(): string {
   return `issue-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-async function reserveInventoryForIssue(idempotencyKey: string): Promise<PlatformInventoryReservation | null> {
-  if (!platformTenantId.value || inventoryIssueLines.value.length === 0) return null;
+async function prepareDteFiscalSync(idempotencyKey: string): Promise<PlatformFiscalSyncOperation | null> {
+  if (!platformTenantId.value || items.value.length === 0) return null;
   if (!selectedSucursal.value) {
-    throw new Error('Selecciona una sucursal para reservar inventario.');
+    throw new Error('Selecciona una sucursal para preparar la emisión.');
   }
 
-  pushIssueLog('Reservando inventario FIFO...');
-  const response = await platformClient.value.createInventoryReservation(platformTenantId.value, {
-    idempotency_key: `dte-${idempotencyKey}`,
+  pushIssueLog(inventoryIssueLines.value.length > 0 ? 'Reservando inventario y preparando venta...' : 'Preparando registro de venta...');
+  const branch = {
     core_sucursal_id: selectedSucursal.value.id,
     core_sucursal_code: selectedSucursal.value.codigo || null,
     core_sucursal_name: selectedSucursal.value.nombre || null,
-    source_type: 'dte',
-    metadata: {
-      document_type: form.documentType,
-      total: totalLabel.value,
-      punto_venta_id: selectedPuntoVenta.value?.id ?? null,
-      punto_venta_codigo: selectedPuntoVenta.value?.codigo ?? null,
+  };
+  const response = await platformClient.value.prepareDteFiscalSync(platformTenantId.value, {
+    idempotency_key: idempotencyKey,
+    workshop_order_id: workshopOrderId || null,
+    reservation: inventoryIssueLines.value.length > 0 ? {
+      ...branch,
+      source_type: 'dte',
+      metadata: {
+        document_type: form.documentType,
+        total: totalLabel.value,
+        punto_venta_id: selectedPuntoVenta.value?.id ?? null,
+        punto_venta_codigo: selectedPuntoVenta.value?.codigo ?? null,
+      },
+      lines: inventoryIssueLines.value,
+    } : null,
+    sale: {
+      ...branch,
+      source_type: workshopOrderId ? 'workshop_order' : 'dte',
+      sale_date: new Date().toISOString().slice(0, 10),
+      metadata: saleMetadata(),
+      replacement_of_source_type: replacementSourceDocument.value ? 'dte' : null,
+      replacement_of_source_id: replacementSourceDocument.value ? String(replacementSourceDocument.value.id) : null,
+      lines: saleLines(),
     },
-    lines: inventoryIssueLines.value
   });
-  pushIssueLog('Inventario reservado.', 'ok');
-  broadcastInventoryChange('reserved', response.data);
+  pushIssueLog('Sincronización de inventario y venta preparada.', 'ok');
+  if (response.data.reservation) broadcastInventoryChange('reserved', response.data.reservation);
 
   return response.data;
 }
 
-async function confirmInventoryReservation(reservation: PlatformInventoryReservation, result: DteIssueResponse): Promise<PlatformInventoryReservation> {
-  if (!platformTenantId.value) return reservation;
-
-  pushIssueLog('Confirmando salida de inventario...');
-  const response = await platformClient.value.confirmInventoryReservation(platformTenantId.value, reservation.id, {
-    source_type: 'dte',
-    source_id: String(result.document.id),
-    source_number: result.document.numeroControl || result.document.codigoGeneracion || null,
-  });
-  pushIssueLog('Salida de inventario registrada.', 'ok');
-  broadcastInventoryChange('confirmed', response.data);
-
-  return response.data;
-}
-
-async function releaseInventoryReservation(reservation: PlatformInventoryReservation): Promise<void> {
-  if (!platformTenantId.value || reservation.status !== 'reserved') return;
-
+async function completeDteFiscalSync(operation: PlatformFiscalSyncOperation, result: DteIssueResponse): Promise<void> {
+  if (!platformTenantId.value) return;
   try {
-    const response = await platformClient.value.releaseInventoryReservation(platformTenantId.value, reservation.id);
-    pushIssueLog('Inventario liberado.', 'ok');
-    broadcastInventoryChange('released', response.data);
+    const response = await platformClient.value.completeFiscalSync(
+      platformTenantId.value,
+      operation.id,
+      result.document as unknown as Record<string, unknown>,
+    );
+    const outcome = String((response.data.result as Record<string, unknown> | null)?.outcome || '');
+    if (response.data.reservation) {
+      broadcastInventoryChange(outcome === 'rejected' ? 'released' : 'confirmed', response.data.reservation);
+    }
+    pushIssueLog(outcome === 'rejected'
+      ? 'Reserva liberada; el documento no fue aceptado.'
+      : 'Inventario y venta sincronizados por el servidor.', 'ok');
   } catch {
-    pushIssueLog('No se pudo liberar la reserva de inventario automaticamente.', 'error');
+    pushIssueLog('El DTE quedó recibido; el servidor completará inventario y venta automáticamente.', 'ok');
   }
 }
 
@@ -1591,59 +1576,39 @@ function broadcastInventoryChange(action: 'reserved' | 'confirmed' | 'released',
   }
 }
 
-async function recordInventorySale(result: DteIssueResponse): Promise<boolean> {
-  if (!platformTenantId.value || !selectedSucursal.value || items.value.length === 0) return false;
+function saleMetadata(): Record<string, unknown> {
+  return {
+    document_type: form.documentType,
+    customer_name: form.customerName || null,
+    total: totalLabel.value,
+    inventory_bypass: lines.value
+      .filter((line) => line.inventoryBypassReason)
+      .map((line) => ({
+        catalog_item_id: line.catalogItemId ? Number(line.catalogItemId) : null,
+        description: line.description,
+        quantity: Number(line.quantity || 0),
+        reason: line.inventoryBypassReason,
+      })),
+    replacement_of_core_dte_document_id: replacementSourceDocument.value?.id ?? null,
+    replacement_of_dte_number: replacementSourceDocument.value?.numeroControl ?? null,
+  };
+}
 
-  try {
-    await platformClient.value.recordInventorySale(platformTenantId.value, {
-      core_sucursal_id: selectedSucursal.value.id,
-      core_sucursal_code: selectedSucursal.value.codigo || null,
-      core_sucursal_name: selectedSucursal.value.nombre || null,
-      source_type: workshopOrderId ? 'workshop_order' : 'dte',
-      source_id: workshopOrderId ? String(workshopOrderId) : String(result.document.id),
-      source_number: result.document.numeroControl || result.document.codigoGeneracion || null,
-      sale_date: new Date().toISOString().slice(0, 10),
-      metadata: {
-        document_type: form.documentType,
-        core_dte_document_id: result.document.id,
-        dte_number: result.document.numeroControl || result.document.codigoGeneracion || null,
-        customer_name: form.customerName || null,
-        total: totalLabel.value,
-        inventory_bypass: lines.value
-          .filter((line) => line.inventoryBypassReason)
-          .map((line) => ({
-            catalog_item_id: line.catalogItemId ? Number(line.catalogItemId) : null,
-            description: line.description,
-            quantity: Number(line.quantity || 0),
-            reason: line.inventoryBypassReason,
-          })),
-        replacement_of_core_dte_document_id: replacementSourceDocument.value?.id ?? null,
-        replacement_of_dte_number: replacementSourceDocument.value?.numeroControl ?? null,
-      },
-      replacement_of_source_type: replacementSourceDocument.value ? 'dte' : null,
-      replacement_of_source_id: replacementSourceDocument.value ? String(replacementSourceDocument.value.id) : null,
-      lines: items.value
-        .filter((line) => line.description.trim() !== '' && Number(line.quantity || 0) > 0)
-        .map((line) => ({
-          catalog_item_id: line.catalogItemId ? Number(line.catalogItemId) : null,
-          line_origin: line.lineOrigin ?? 'free',
-          inherited_from_line_id: line.inheritedFromSaleLineId ?? null,
-          inherited_quantity: Math.min(Number(line.quantity || 0), Number(line.inheritedInventoryQuantity || 0)),
-          description: line.description,
-          quantity: Number(line.quantity || 0),
-          unit_price: Number(line.unitPrice || 0),
-          discount_amount: lineDiscountAmount(line),
-          net_total: lineNetTotal(line),
-          reference_unit_cost: null,
-        })),
-    });
-    pushIssueLog('Venta registrada para reportes de inventario.', 'ok');
-    window.dispatchEvent(new CustomEvent(INVENTORY_CHANGED_EVENT, { detail: { action: 'sale_recorded', tenant_id: platformTenantId.value, at: Date.now() } }));
-    return true;
-  } catch {
-    pushIssueLog('El DTE fue emitido, pero no se pudo registrar la venta para reportes.', 'error');
-    return false;
-  }
+function saleLines() {
+  return items.value
+    .filter((line) => line.description.trim() !== '' && Number(line.quantity || 0) > 0)
+    .map((line) => ({
+      catalog_item_id: line.catalogItemId ? Number(line.catalogItemId) : null,
+      line_origin: line.lineOrigin ?? 'free',
+      inherited_from_line_id: line.inheritedFromSaleLineId ?? null,
+      inherited_quantity: Math.min(Number(line.quantity || 0), Number(line.inheritedInventoryQuantity || 0)),
+      description: line.description,
+      quantity: Number(line.quantity || 0),
+      unit_price: Number(line.unitPrice || 0),
+      discount_amount: lineDiscountAmount(line),
+      net_total: lineNetTotal(line),
+      reference_unit_cost: null,
+    }));
 }
 
 function isIssueResponseRejected(result: DteIssueResponse): boolean {
