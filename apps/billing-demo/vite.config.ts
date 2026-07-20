@@ -15,7 +15,7 @@ export default defineConfig({
     allowedHosts: ['billing.stelfaro.com'],
     proxy: {
       '/api': {
-        target: 'https://dte.stelfaro.me',
+        target: 'https://coredte.stelfaro.com',
         changeOrigin: true,
         secure: true
       }

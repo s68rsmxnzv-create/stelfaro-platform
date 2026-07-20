@@ -42,7 +42,7 @@ https://admin.stelfaro.com/
 El frontend consume `/api/v1` en el mismo origen. Nginx enruta `/api/*` hacia Core DTE en:
 
 ```text
-https://dte.stelfaro.me/api/*
+https://coredte.stelfaro.com/api/*
 ```
 
 Así el subdominio de billing no depende de Vite ni de servidores locales levantados a mano.
@@ -64,7 +64,7 @@ npx pnpm@9.15.4 --filter @stelfaro/platform-admin dev
 La app de desarrollo usa proxy de Vite contra el Core DTE publicado en:
 
 ```text
-https://dte.stelfaro.me/api/v1
+https://coredte.stelfaro.com/api/v1
 ```
 
 El panel administrativo consume `stelfaro-notifications` desde `VITE_NOTIFICATIONS_API_BASE_URL` o, en desarrollo, desde `/notifications-api/v1`.
