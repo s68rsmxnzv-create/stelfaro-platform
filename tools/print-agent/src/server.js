@@ -238,6 +238,9 @@ export function buildEscpos(payload) {
     switch (operation.name) {
       case 'init':
         buffers.push(Buffer.from([0x1b, 0x40]));
+        // FS . cancela el modo de caracteres chinos/Kanji que algunas
+        // impresoras compatibles mantienen activo despues de ESC @.
+        buffers.push(Buffer.from([0x1c, 0x2e]));
         // ESC t 2 selecciona PC850 en impresoras ESC/POS compatibles.
         // Sin esta orden los bytes de á, é, í, ó, ú y ñ pueden interpretarse
         // usando una tabla asiática configurada por defecto en la impresora.
@@ -247,6 +250,7 @@ export function buildEscpos(payload) {
         buffers.push(encodeText(args[0] || ''));
         break;
       case 'textCodepage':
+        buffers.push(Buffer.from([0x1c, 0x2e]));
         buffers.push(Buffer.from([0x1b, 0x74, Number(args[0] || 2)]));
         buffers.push(encodeText(args[2] ?? args[0] ?? '', args[1] || 'cp850'));
         break;
@@ -354,7 +358,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/health') {
       assertAllowedOrigin(req);
-      return json(req, res, 200, { ok: true, name: 'Stelfaro Print Agent', version: '0.2.2-dev', platform: os.platform(), dryRun });
+      return json(req, res, 200, { ok: true, name: 'Stelfaro Print Agent', version: '0.2.3-dev', platform: os.platform(), dryRun });
     }
 
     if (req.method === 'GET' && (url.pathname === '/printers' || url.pathname === '/impresoras')) {

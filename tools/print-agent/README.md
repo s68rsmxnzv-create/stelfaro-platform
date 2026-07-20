@@ -117,7 +117,10 @@ tools/print-agent/dist/stelfaro-print-agent.exe
 
 ## Operaciones soportadas
 
-El agente selecciona automáticamente la tabla ESC/POS PC850 al iniciar cada trabajo. Esto permite imprimir correctamente tildes, `ñ`, signos de apertura y otros caracteres usados en español.
+El agente cancela automáticamente el modo chino/Kanji y selecciona la tabla
+ESC/POS PC850 al iniciar cada trabajo. Esto permite imprimir correctamente
+tildes, `ñ`, signos de apertura y otros caracteres usados en español, incluso
+en impresoras cuyo self-test indica `Chinese character: Yes`.
 
 Formato nativo:
 

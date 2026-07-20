@@ -9,13 +9,16 @@ test('encodes Spanish text using CP850', () => {
   );
 });
 
-test('selects the PC850 table after initializing the printer', () => {
+test('leaves Chinese mode and selects PC850 after initializing the printer', () => {
   const bytes = buildEscpos({ operations: [
     { name: 'init', args: [] },
     { name: 'text', args: ['José Hernández'] },
   ] });
 
-  assert.deepEqual([...bytes.subarray(0, 5)], [0x1b, 0x40, 0x1b, 0x74, 0x02]);
+  assert.deepEqual(
+    [...bytes.subarray(0, 7)],
+    [0x1b, 0x40, 0x1c, 0x2e, 0x1b, 0x74, 0x02],
+  );
 });
 
 test('starts when running inside the packaged Windows executable', () => {
