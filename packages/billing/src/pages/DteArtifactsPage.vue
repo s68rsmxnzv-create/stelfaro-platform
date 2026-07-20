@@ -262,16 +262,8 @@ async function openJson(document: DteDraftSummary): Promise<void> {
   error.value = null;
 
   try {
-    const detail = await client.value.document(document.id);
-    const payload = detail.payload ?? detail.dte_json;
-
-    if (!payload) {
-      error.value = 'El documento no tiene JSON disponible.';
-      if (target) target.close();
-      return;
-    }
-
-    openJsonBlob(target, clientDteJson(detail, payload));
+    const json = await client.value.clientJsonArtifact(document.id);
+    openBlob(target, json, 'JSON');
   } catch (caught) {
     if (target) target.close();
     error.value = caught instanceof Error ? caught.message : 'No fue posible abrir el JSON.';
@@ -288,15 +280,8 @@ async function openEventJson(event: MhFiscalEventSummary): Promise<void> {
   error.value = null;
 
   try {
-    const detail = await client.value.mhEvent(event.id);
-
-    if (!detail.payload) {
-      error.value = 'El evento no tiene JSON disponible.';
-      if (target) target.close();
-      return;
-    }
-
-    openJsonBlob(target, clientEventJson(detail));
+    const json = await client.value.mhEventClientJsonArtifact(event.id);
+    openBlob(target, json, 'JSON');
   } catch (caught) {
     if (target) target.close();
     error.value = caught instanceof Error ? caught.message : 'No fue posible abrir el JSON del evento.';
@@ -378,43 +363,6 @@ function openBlob(target: Window | null, blob: Blob, label: string): void {
 
   URL.revokeObjectURL(url);
   error.value = `El navegador bloqueo la nueva pestana del ${label}.`;
-}
-
-function openJsonBlob(target: Window | null, payload: Record<string, unknown>): void {
-  const json = JSON.stringify(payload, null, 2);
-  openBlob(target, new Blob([json], { type: 'application/json;charset=utf-8' }), 'JSON');
-}
-
-function clientDteJson(detail: DteDraftSummary, payload: Record<string, unknown>): Record<string, unknown> {
-  const bundle = asRecord(detail.signed_bundle);
-  const bundlePayload = asRecord(bundle.payload);
-  const dte = Object.keys(bundlePayload).length > 0 ? bundlePayload : payload;
-
-  return {
-    ...dte,
-    firmaElectronica: stringValue(detail.signedDocument ?? bundle.firmaElectronica ?? bundle.firma),
-    selloRecibido: stringValue(detail.selloRecibido ?? bundle.selloRecibido),
-  };
-}
-
-function clientEventJson(detail: MhFiscalEventSummary): Record<string, unknown> {
-  const bundle = asRecord(detail.signed_bundle);
-  const bundlePayload = asRecord(bundle.payload);
-  const event = Object.keys(bundlePayload).length > 0 ? bundlePayload : detail.payload;
-
-  return {
-    ...event,
-    firmaElectronica: stringValue(detail.signedDocument ?? bundle.firmaElectronica ?? bundle.firma),
-    selloRecibido: stringValue(detail.selloRecibido ?? bundle.selloRecibido),
-  };
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
-}
-
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() !== '' ? value : null;
 }
 
 function typeLabel(code: string): string {

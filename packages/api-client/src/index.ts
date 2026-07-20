@@ -2553,6 +2553,12 @@ export class CoreDteClient {
     }).blob();
   }
 
+  clientJsonArtifact(id: number): Promise<Blob> {
+    return this.http.get(`dte/drafts/${id}/artifacts/client-json`, {
+      headers: { Accept: 'application/json' }
+    }).blob();
+  }
+
   mhEventGraphicRepresentationHtml(id: number): Promise<string> {
     return this.http.get(`mh/events/${id}/artifacts/graphic`, {
       headers: { Accept: 'text/html' }
@@ -2563,6 +2569,12 @@ export class CoreDteClient {
     return this.http.get(`mh/events/${id}/artifacts/pdf`, {
       headers: { Accept: 'application/pdf' },
       timeout: 90000
+    }).blob();
+  }
+
+  mhEventClientJsonArtifact(id: number): Promise<Blob> {
+    return this.http.get(`mh/events/${id}/artifacts/client-json`, {
+      headers: { Accept: 'application/json' }
     }).blob();
   }
 
