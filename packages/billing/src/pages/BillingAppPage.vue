@@ -289,7 +289,8 @@ const selectedComponentProps = computed(() => {
     return {
       ...baseProps,
       platformBaseUrl: props.platformBaseUrl,
-      tenantId: Number(props.platformSession?.tenant?.id || 0)
+      tenantId: Number(props.platformSession?.tenant?.id || 0),
+      workshopEnabled: props.app.id === 'taller'
     };
   }
 
