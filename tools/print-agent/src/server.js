@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import os from 'node:os';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -108,7 +109,7 @@ function stripDiacritics(value) {
     .replace(/[^\x09\x0a\x0d\x20-\x7e]/g, '?');
 }
 
-function encodeText(value, codepage = 'cp850') {
+export function encodeText(value, codepage = 'cp850') {
   const text = String(value ?? '');
   if (String(codepage).toLowerCase() !== 'cp850') {
     return Buffer.from(stripDiacritics(text), 'ascii');
@@ -117,7 +118,7 @@ function encodeText(value, codepage = 'cp850') {
   const cp850 = new Map([
     ['á', 0xa0], ['í', 0xa1], ['ó', 0xa2], ['ú', 0xa3], ['ñ', 0xa4], ['Ñ', 0xa5],
     ['Á', 0xb5], ['Í', 0xd6], ['Ó', 0xe0], ['Ú', 0xe9], ['é', 0x82], ['É', 0x90],
-    ['ü', 0x81], ['Ü', 0x9a], ['¿', 0xa8], ['¡', 0xad], ['°', 0xf8],
+    ['ü', 0x81], ['Ü', 0x9a], ['ç', 0x87], ['Ç', 0x80], ['¿', 0xa8], ['¡', 0xad], ['°', 0xf8],
   ]);
   const bytes = [];
 
@@ -221,7 +222,7 @@ function normalizeOperation(operation) {
   };
 }
 
-function buildEscpos(payload) {
+export function buildEscpos(payload) {
   const operations = Array.isArray(payload.operations)
     ? payload.operations
     : Array.isArray(payload.operaciones)
@@ -237,6 +238,10 @@ function buildEscpos(payload) {
     switch (operation.name) {
       case 'init':
         buffers.push(Buffer.from([0x1b, 0x40]));
+        // ESC t 2 selecciona PC850 en impresoras ESC/POS compatibles.
+        // Sin esta orden los bytes de á, é, í, ó, ú y ñ pueden interpretarse
+        // usando una tabla asiática configurada por defecto en la impresora.
+        buffers.push(Buffer.from([0x1b, 0x74, 0x02]));
         break;
       case 'text':
         buffers.push(encodeText(args[0] || ''));
@@ -349,7 +354,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/health') {
       assertAllowedOrigin(req);
-      return json(req, res, 200, { ok: true, name: 'Stelfaro Print Agent', version: '0.2.0-dev', platform: os.platform(), dryRun });
+      return json(req, res, 200, { ok: true, name: 'Stelfaro Print Agent', version: '0.2.1-dev', platform: os.platform(), dryRun });
     }
 
     if (req.method === 'GET' && (url.pathname === '/printers' || url.pathname === '/impresoras')) {
@@ -376,6 +381,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(port, '127.0.0.1', () => {
-  console.log(`Stelfaro Print Agent listening on http://localhost:${port}`);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  server.listen(port, '127.0.0.1', () => {
+    console.log(`Stelfaro Print Agent listening on http://localhost:${port}`);
+  });
+}

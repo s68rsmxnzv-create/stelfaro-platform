@@ -36,7 +36,7 @@ import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
 import BillingReplacementNotice from '../components/BillingReplacementNotice.vue';
 import BillingReplacementReadyModal from '../components/BillingReplacementReadyModal.vue';
-import { dteFiscalTicket } from '../printing/dteFiscalTicket';
+import { dteFiscalTicketFromArtifact } from '../printing/dteFiscalTicket';
 import { sendSilentPrint } from '../printing/printJob';
 import {
   getBillingCatalogs,
@@ -1455,8 +1455,8 @@ async function printAcceptedWorkshopDte(document: DteDraftSummary): Promise<void
   if (!workshopOrderId || !accepted) return;
 
   try {
-    const detail = document.dte_json ? document : await client.value.document(document.id);
-    const result = await sendSilentPrint(dteFiscalTicket(detail, workshopPrintDrawer));
+    const thermal = await client.value.thermalArtifact(document.id);
+    const result = await sendSilentPrint(dteFiscalTicketFromArtifact(thermal, workshopPrintDrawer));
     pushFloatingToast(result === 'printed'
       ? { title: 'DTE impreso', message: `${document.numeroControl} fue enviado a la impresora.`, variant: 'success' }
       : { title: 'DTE emitido', message: 'La impresión silenciosa no está activa en esta terminal.', variant: 'info' });

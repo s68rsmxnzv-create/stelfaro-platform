@@ -110,6 +110,8 @@ tools/print-agent/dist/stelfaro-print-agent.exe
 
 ## Operaciones soportadas
 
+El agente selecciona automáticamente la tabla ESC/POS PC850 al iniciar cada trabajo. Esto permite imprimir correctamente tildes, `ñ`, signos de apertura y otros caracteres usados en español.
+
 Formato nativo:
 
 ```json

@@ -1710,6 +1710,19 @@ export type DteIssueResponse = {
   }>;
 };
 
+export type DteThermalArtifact = {
+  format: 'stelfaro-dte-thermal' | string;
+  version: number;
+  documentId: number;
+  numeroControl: string;
+  codigoGeneracion: string;
+  profiles: Record<'58' | '80' | string, {
+    paperWidth: number;
+    widthChars: number;
+    operations: Array<{ name: string; args: unknown[] }>;
+  }>;
+};
+
 export type ManualInvoiceInput = {
   documentType: DocumentType;
   empresa: BillingEmpresa;
@@ -2557,6 +2570,12 @@ export class CoreDteClient {
     return this.http.get(`dte/drafts/${id}/artifacts/client-json`, {
       headers: { Accept: 'application/json' }
     }).blob();
+  }
+
+  thermalArtifact(id: number): Promise<DteThermalArtifact> {
+    return this.http.get(`dte/drafts/${id}/artifacts/thermal`, {
+      headers: { Accept: 'application/json' }
+    }).json();
   }
 
   mhEventGraphicRepresentationHtml(id: number): Promise<string> {
