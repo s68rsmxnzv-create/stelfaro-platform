@@ -45,7 +45,7 @@ const props = withDefaults(defineProps<{
   dashboardUrl?: string;
   billingContextCacheScope?: string;
   requestCredentials?: RequestCredentials;
-  platformSession?: (Record<string, unknown> & { tenant?: { name?: string | null } }) | null;
+  platformSession?: (Record<string, unknown> & { tenant?: { id?: number | string | null; name?: string | null } }) | null;
   initialView?: CompanyView;
   workshopEnabled?: boolean;
 }>(), {
@@ -487,7 +487,7 @@ function daysUntil(value: string | null | undefined): number | null {
 
         <div v-else-if="activeView === 'printer'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><PrinterSettingsPanel /></div>
 
-        <div v-else-if="activeView === 'ticket'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><ThermalTicketSettingsPanel :company="selectedCompany" :workshop-enabled="workshopEnabled" /></div>
+        <div v-else-if="activeView === 'ticket'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><ThermalTicketSettingsPanel :company="selectedCompany" :workshop-enabled="workshopEnabled" :tenant-id="Number(platformSession?.tenant?.id || 0)" :platform-base-url="platformBaseUrl" /></div>
 
         <BillingAuditPage v-else-if="activeView === 'audit'" class="mt-6" :auth-token="authToken" :core-base-url="coreBaseUrl" :platform-base-url="platformBaseUrl" :platform-session="platformSession" :billing-context-cache-scope="billingContextCacheScope" />
 

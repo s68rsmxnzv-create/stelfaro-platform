@@ -325,6 +325,13 @@ export type WorkshopOrder = {
   approval: { decision: string | null; method: string | null; notes: string | null; decided_at: string | null };
   customer: { id: number; name: string; phone: string | null };
   device: { id: number; type: string; brand: string; model: string; color: string | null; imei: string | null; serial_number: string | null; identifier_not_visible: boolean; power_status: string; functional_tests: Record<string, string>; is_locked: boolean; access_type: string | null; has_access_secret: boolean };
+  device_access?: { url: string; pin: string } | null;
+};
+
+export type WorkshopTicketSettings = {
+  receipt_copies: 1 | 2;
+  print_equipment_label: boolean;
+  terms: string;
 };
 
 export type WorkshopOrderPhoto = {
@@ -1993,6 +2000,18 @@ export class PlatformClient {
 
   createWorkshopPhotoSession(tenantId: number, orderId: number): Promise<{ data: { url: string; expires_at: string } }> {
     return this.http.post(`platform/tenants/${tenantId}/workshop/orders/${orderId}/photo-session`).json();
+  }
+
+  workshopDeviceAccess(tenantId: number, orderId: number): Promise<{ data: { url: string; pin: string } }> {
+    return this.http.post(`platform/tenants/${tenantId}/workshop/orders/${orderId}/device-access`).json();
+  }
+
+  workshopTicketSettings(tenantId: number): Promise<{ data: WorkshopTicketSettings }> {
+    return this.http.get(`platform/tenants/${tenantId}/workshop/ticket-settings`).json();
+  }
+
+  updateWorkshopTicketSettings(tenantId: number, payload: WorkshopTicketSettings): Promise<{ data: WorkshopTicketSettings }> {
+    return this.http.patch(`platform/tenants/${tenantId}/workshop/ticket-settings`, { json: payload }).json();
   }
 
   workshopOrderPhotos(tenantId: number, orderId: number): Promise<{ data: WorkshopOrderPhoto[] }> {

@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { QrCode } from 'lucide-vue-next';
 import type { PrinterSettings } from './printerSettings';
+import type { WorkshopTicketSettings } from '@stelfaro/api-client';
 
 type PreviewCompany = {
   name: string;
@@ -12,7 +13,7 @@ type PreviewCompany = {
   activity: string;
 };
 
-const props = withDefaults(defineProps<{ settings: PrinterSettings; company?: PreviewCompany | null; variant?: 'dte' | 'workshop' }>(), { variant: 'dte' });
+const props = withDefaults(defineProps<{ settings: PrinterSettings; company?: PreviewCompany | null; variant?: 'dte' | 'workshop'; workshopSettings?: WorkshopTicketSettings }>(), { variant: 'dte', workshopSettings: () => ({ receipt_copies: 2, print_equipment_label: true, terms: '' }) });
 const paperClass = computed(() => props.settings.paperWidth === '58' ? 'w-[280px]' : 'w-[370px]');
 const qrSize = computed(() => 72 + (Math.max(1, Math.min(16, Math.round(props.settings.qrWidth / 48))) * 10));
 const issuerName = 'ELECTRÓNICA DEMO';
@@ -38,6 +39,7 @@ function formatNrc(value?: string | null): string {
     <div class="mb-4">
       <h4 class="font-semibold text-text">Vista previa del ticket</h4>
       <p class="mt-1 text-sm text-muted">Referencia visual del contenido y ancho seleccionados.</p>
+      <p v-if="variant === 'workshop'" class="mt-2 inline-flex rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">{{ workshopSettings.receipt_copies }} {{ workshopSettings.receipt_copies === 1 ? 'copia' : 'copias' }}<template v-if="workshopSettings.print_equipment_label"> + etiqueta QR</template></p>
     </div>
 
     <div class="overflow-x-auto rounded-lg bg-slate-300 p-4 dark:bg-slate-950/60">
@@ -91,6 +93,7 @@ function formatNrc(value?: string | null): string {
 
         <template v-else>
           <div class="text-center font-bold">
+            <p>COPIA CLIENTE</p>
             <p>COMPROBANTE DE RECEPCIÓN</p>
             <p>T-000123</p>
           </div>
@@ -117,6 +120,12 @@ function formatNrc(value?: string | null): string {
           <div class="flex justify-between"><span>Anticipo recibido</span><span>$ 10.00</span></div>
           <div class="flex justify-between font-bold"><span>Saldo estimado</span><span>$ 25.00</span></div>
           <p class="mt-3 text-center">El diagnóstico y el valor final serán confirmados antes de realizar trabajos adicionales.</p>
+          <template v-if="workshopSettings.terms.trim()">
+            <div class="my-2 border-t border-dashed border-black"></div>
+            <p class="font-bold">TÉRMINOS Y CONDICIONES</p>
+            <p v-for="(term, index) in workshopSettings.terms.split(/\n\s*\n/).filter(Boolean)" :key="index" class="mt-1">{{ index + 1 }}. {{ term.trim() }}</p>
+          </template>
+          <div class="mt-5 text-center">FIRMA: _______________________</div>
           <div class="my-2 border-t border-dashed border-black"></div>
         </template>
 
@@ -128,6 +137,16 @@ function formatNrc(value?: string | null): string {
           <p>{{ variant === 'dte' ? 'Gracias por su compra' : 'Conserve este comprobante de recepción.' }}</p>
           <p v-if="variant === 'dte'">Representación gráfica de DTE.</p>
         </div>
+      </article>
+
+      <article v-if="variant === 'workshop' && workshopSettings.print_equipment_label" :class="paperClass" class="mx-auto mt-4 bg-white px-5 py-6 text-center font-mono text-[11px] leading-[1.45] text-black shadow-xl transition-[width] duration-300">
+        <p class="font-bold">ETIQUETA DEL EQUIPO</p>
+        <p class="mt-1 text-lg font-black">T-000123</p>
+        <p class="mt-1">DEMO Modelo 2026</p>
+        <p>IMEI: 123456789012347</p>
+        <QrCode :style="{ width: `${qrSize}px`, height: `${qrSize}px` }" class="mx-auto mt-3" :stroke-width="1.5" />
+        <p class="mt-2 font-semibold">Acceso móvil seguro del taller</p>
+        <p class="mt-1">{{ workshopSettings.receipt_copies === 2 ? 'El PIN se encuentra en la copia del taller.' : 'El PIN está disponible en la recepción.' }}</p>
       </article>
     </div>
   </section>

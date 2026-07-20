@@ -1,4 +1,4 @@
-import type { BillingEmpresa, WorkshopOrder } from '@stelfaro/api-client';
+import type { BillingEmpresa, WorkshopOrder, WorkshopTicketSettings } from '@stelfaro/api-client';
 import { loadPrinterSettings } from '../printing/printerSettings';
 import type { PrintOperation } from '../printing/printJob';
 
@@ -8,6 +8,8 @@ export async function workshopReceptionTicket(
   order: WorkshopOrder,
   company?: BillingEmpresa | null,
   photoUrl?: string | null,
+  ticketSettings: WorkshopTicketSettings = { receipt_copies: 2, print_equipment_label: true, terms: '' },
+  deviceAccess?: { url: string; pin: string } | null,
 ): Promise<PrintOperation[]> {
   const settings = loadPrinterSettings();
   const separator = '-'.repeat(settings.paperWidth === '58' ? 32 : 48);
@@ -20,30 +22,73 @@ export async function workshopReceptionTicket(
   ].filter(Boolean);
   const condition = [order.physical_condition, ...(order.physical_conditions || []), ...(order.accessories || [])].filter(Boolean).join(' · ');
   const functionalTests = Object.entries(order.device.functional_tests || {}).map(([test, result]) => `${testLabel(test)}: ${resultLabel(result)}`);
-  const operations: PrintOperation[] = [
-    { name: 'init', args: [] },
-    { name: 'align', args: ['center'] },
-  ];
+  const logo = settings.showLogo && company?.logo_url
+    ? await rasterizeLogo(company.logo_url, settings.paperWidth === '58' ? 240 : 320).catch(() => null)
+    : null;
+  const copies = ticketSettings.receipt_copies === 1 ? ['COPIA CLIENTE'] : ['COPIA CLIENTE', 'COPIA TALLER'];
+  const operations: PrintOperation[] = [];
 
-  if (settings.showLogo && company?.logo_url) {
-    const logo = await rasterizeLogo(company.logo_url, settings.paperWidth === '58' ? 240 : 320).catch(() => null);
-    if (logo) operations.push(logo);
+  for (const [index, copyLabel] of copies.entries()) {
+    operations.push(...receptionCopy({ order, company, branch, photoUrl, copyLabel, separator, estimate, advance, identifiers, condition, functionalTests, terms: ticketSettings.terms, workshopPin: copyLabel === 'COPIA TALLER' ? deviceAccess?.pin : null, logo, showIssuerDetails: settings.showIssuerDetails, qrEnabled: settings.qrEnabled, qrWidth: settings.qrWidth }));
+    operations.push({ name: 'cut', args: [index === copies.length - 1 && !ticketSettings.print_equipment_label ? settings.cutLines : 2] });
   }
 
-  if (settings.showIssuerDetails && company) {
+  if (ticketSettings.print_equipment_label && deviceAccess?.url) {
+    operations.push(
+      { name: 'init', args: [] },
+      { name: 'align', args: ['center'] },
+      { name: 'bold', args: [true] },
+      { name: 'text', args: ['ETIQUETA DEL EQUIPO\n'] },
+      { name: 'size', args: [2, 2] },
+      { name: 'text', args: [`${order.ticket}\n`] },
+      { name: 'size', args: [1, 1] },
+      { name: 'bold', args: [false] },
+      { name: 'text', args: [`${order.device.brand} ${order.device.model}\n${identifiers[0] || 'Sin identificador visible'}\n`] },
+      { name: 'qr', args: [deviceAccess.url, settings.qrWidth, 1, 0] },
+      { name: 'text', args: [`\nAcceso móvil seguro del taller\n${ticketSettings.receipt_copies === 2 ? 'El PIN se encuentra en la copia del taller.' : 'El PIN está disponible en la recepción.'}\n`] },
+      { name: 'cut', args: [settings.cutLines] },
+    );
+  }
+
+  return operations;
+}
+
+type CopyContext = {
+  order: WorkshopOrder;
+  company?: BillingEmpresa | null;
+  branch?: BillingEmpresa['sucursales'][number];
+  photoUrl?: string | null;
+  copyLabel: string;
+  separator: string;
+  estimate: number;
+  advance: number;
+  identifiers: string[];
+  condition: string;
+  functionalTests: string[];
+  terms: string;
+  workshopPin?: string | null;
+  logo: PrintOperation | null;
+  showIssuerDetails: boolean;
+  qrEnabled: boolean;
+  qrWidth: number;
+};
+
+function receptionCopy(context: CopyContext): PrintOperation[] {
+  const { order, company, branch, photoUrl, copyLabel, separator, estimate, advance, identifiers, condition, functionalTests, terms, workshopPin, logo, showIssuerDetails, qrEnabled, qrWidth } = context;
+  const operations: PrintOperation[] = [{ name: 'init', args: [] }, { name: 'align', args: ['center'] }];
+  if (logo) operations.push({ name: logo.name, args: [...logo.args] }, { name: 'text', args: ['\n'] });
+  if (showIssuerDetails && company) {
     operations.push(
       { name: 'bold', args: [true] },
       { name: 'text', args: [`${company.nombre_comercial || company.razon_social}\n`] },
       { name: 'bold', args: [false] },
-      { name: 'text', args: [
-        `${company.desc_actividad || ''}\nNIT: ${formatIdentity(company.nit)}\n${company.nrc ? `NRC: ${formatNrc(company.nrc)}\n` : ''}${branch?.direccion ? `${branch.direccion}\n` : ''}${branch?.telefono ? `Tel: ${branch.telefono}\n` : ''}${branch?.email ? `${branch.email}\n` : ''}`,
-      ] },
+      { name: 'text', args: [`${company.desc_actividad || ''}\nNIT: ${formatIdentity(company.nit)}\n${company.nrc ? `NRC: ${formatNrc(company.nrc)}\n` : ''}${branch?.direccion ? `${branch.direccion}\n` : ''}${branch?.telefono ? `Tel: ${branch.telefono}\n` : ''}${branch?.email ? `${branch.email}\n` : ''}`] },
     );
   }
-
   operations.push(
     { name: 'text', args: [`${separator}\n`] },
     { name: 'bold', args: [true] },
+    { name: 'text', args: [`${copyLabel}\n`] },
     { name: 'text', args: ['COMPROBANTE DE RECEPCIÓN\n'] },
     { name: 'size', args: [2, 2] },
     { name: 'text', args: [`${order.ticket}\n`] },
@@ -83,16 +128,39 @@ export async function workshopReceptionTicket(
     { name: 'text', args: ['El diagnóstico y el valor final serán confirmados antes de realizar trabajos adicionales.\n'] },
   );
 
-  if (settings.qrEnabled && photoUrl) {
+  const termsList = terms.split(/\n\s*\n/).map(term => term.trim()).filter(Boolean);
+  if (termsList.length) {
+    operations.push(
+      { name: 'align', args: ['left'] },
+      { name: 'text', args: [`${separator}\n`] },
+      { name: 'bold', args: [true] },
+      { name: 'text', args: ['TÉRMINOS Y CONDICIONES\n'] },
+      { name: 'bold', args: [false] },
+      { name: 'text', args: [termsList.map((term, index) => `${index + 1}. ${term}`).join('\n') + '\n'] },
+    );
+  }
+
+  operations.push({ name: 'align', args: ['center'] }, { name: 'text', args: ['\nFIRMA: ___________________________\n'] });
+
+  if (workshopPin) {
+    operations.push(
+      { name: 'text', args: [`${separator}\n`] },
+      { name: 'bold', args: [true] },
+      { name: 'text', args: [`PIN TALLER: ${workshopPin}\n`] },
+      { name: 'bold', args: [false] },
+      { name: 'text', args: ['Requerido para el acceso móvil seguro.\n'] },
+    );
+  }
+
+  if (qrEnabled && photoUrl) {
     operations.push(
       { name: 'text', args: ['\nAgregar fotografías del equipo\n'] },
-      { name: 'qr', args: [photoUrl, settings.qrWidth, 1, 0] },
+      { name: 'qr', args: [photoUrl, qrWidth, 1, 0] },
     );
   }
 
   operations.push(
     { name: 'text', args: ['\nConserve este comprobante de recepción.\n'] },
-    { name: 'cut', args: [settings.cutLines] },
   );
   return operations;
 }

@@ -27,14 +27,26 @@ describe('workshopReceptionTicket', () => {
       device: { id: 2, type: 'Celular', brand: 'Demo', model: '2026', color: null, imei: '123456789012347', serial_number: null, identifier_not_visible: false, power_status: 'on', functional_tests: {}, is_locked: true, access_type: 'pattern', has_access_secret: true },
     } satisfies WorkshopOrder;
 
-    const operations = await workshopReceptionTicket(order, null, 'https://example.test/photos');
+    const operations = await workshopReceptionTicket(
+      order,
+      null,
+      'https://example.test/photos',
+      { receipt_copies: 2, print_equipment_label: true, terms: 'El diagnóstico debe aprobarse.\n\nConserve su comprobante.' },
+      { url: 'https://example.test/device', pin: '654321' },
+    );
     const text = operations.filter(({ name }) => name === 'text').flatMap(({ args }) => args).join('');
 
     expect(text).toContain('COMPROBANTE DE RECEPCIÓN');
     expect(text).toContain('Andrea Hernández');
     expect(text).toContain('No carga');
     expect(text).toContain('Anticipo recibido: $10.00');
+    expect(text).toContain('COPIA CLIENTE');
+    expect(text).toContain('COPIA TALLER');
+    expect(text).toContain('PIN TALLER: 654321');
+    expect(text).toContain('TÉRMINOS Y CONDICIONES');
+    expect(text).toContain('ETIQUETA DEL EQUIPO');
     expect(text).not.toContain('pattern');
     expect(operations.find(({ name }) => name === 'qr')?.args).toEqual(['https://example.test/photos', 280, 1, 0]);
+    expect(operations.filter(({ name }) => name === 'qr').at(-1)?.args).toEqual(['https://example.test/device', 280, 1, 0]);
   });
 });
