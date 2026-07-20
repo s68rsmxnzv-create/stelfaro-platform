@@ -9,6 +9,8 @@ export { default as BillingAppNav } from './components/BillingAppNav.vue';
 export { default as BillingModalShell } from './components/BillingModalShell.vue';
 export { default as BillingProcessToastOverlay } from './components/BillingProcessToastOverlay.vue';
 export { default as BillingFloatingToastStack, type BillingFloatingToast } from './components/BillingFloatingToastStack.vue';
+export { default as DteAutomaticPrintModal } from './components/DteAutomaticPrintModal.vue';
+export { automaticDtePrintDecision, dteRecipientEmail, type AutomaticDtePrintDecision } from './printing/automaticDtePrint';
 export { default as BillingModuleView } from './pages/BillingModuleView.vue';
 export { default as BillingSettingsPage } from './pages/BillingSettingsPage.vue';
 export { default as BillingOnboardingPage } from './pages/BillingOnboardingPage.vue';

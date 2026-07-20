@@ -36,8 +36,11 @@ import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
 import BillingReplacementNotice from '../components/BillingReplacementNotice.vue';
 import BillingReplacementReadyModal from '../components/BillingReplacementReadyModal.vue';
+import DteAutomaticPrintModal from '../components/DteAutomaticPrintModal.vue';
+import { automaticDtePrintDecision } from '../printing/automaticDtePrint';
 import { dteFiscalTicketFromArtifact } from '../printing/dteFiscalTicket';
 import { sendSilentPrint } from '../printing/printJob';
+import { loadPrinterSettings } from '../printing/printerSettings';
 import {
   getBillingCatalogs,
   getBillingContext,
@@ -98,8 +101,12 @@ const replacementSourceDocument = ref<DteDraftSummary | null>(null);
 const replacementLoading = ref(false);
 const replacementIssuedDocument = ref<DteDraftSummary | null>(null);
 const replacementReadyModalOpen = ref(false);
+const pendingAutomaticPrint = ref<{ document: DteDraftSummary; recipientEmail: string } | null>(null);
+const automaticPrinting = ref(false);
+const replacementReadyAfterPrintDecision = ref(false);
 const floatingToasts = ref<BillingFloatingToast[]>([]);
 const pendingEmailToast = ref<Omit<BillingFloatingToast, 'id'> | null>(null);
+const pendingAutomaticPrintToast = ref<Omit<BillingFloatingToast, 'id'> | null>(null);
 const stationPreferenceVersion = ref(0);
 type IssueLogEntry = {
   message: string;
@@ -1434,7 +1441,7 @@ async function issueDocument(): Promise<void> {
       }
       issueResult.value = result;
       draft.value = result.document;
-      if (!rejected) await printAcceptedWorkshopDte(result.document);
+      if (!rejected) await prepareAutomaticDtePrint(result.document, form.customerEmail);
       void notifyEmailDelivery(result.document);
       correlativoPreview.value = null;
       preview.value = null;
@@ -1450,22 +1457,55 @@ async function issueDocument(): Promise<void> {
   }
 }
 
-async function printAcceptedWorkshopDte(document: DteDraftSummary): Promise<void> {
-  const accepted = ['accepted', 'received_by_mh'].includes(String(document.estado).toLowerCase()) && Boolean(document.selloRecibido);
-  if (!workshopOrderId || !accepted) return;
+async function prepareAutomaticDtePrint(document: DteDraftSummary, recipientEmail?: string | null): Promise<void> {
+  const decision = automaticDtePrintDecision(loadPrinterSettings(), document, recipientEmail);
+  if (decision.action === 'disabled') return;
+
+  if (decision.action === 'confirm' && decision.recipientEmail) {
+    pendingAutomaticPrint.value = { document, recipientEmail: decision.recipientEmail };
+    return;
+  }
+
+  await printAcceptedDte(document);
+}
+
+async function printAcceptedDte(document: DteDraftSummary): Promise<void> {
+  automaticPrinting.value = true;
 
   try {
     const thermal = await client.value.thermalArtifact(document.id);
     const result = await sendSilentPrint(dteFiscalTicketFromArtifact(thermal, workshopPrintDrawer));
-    pushFloatingToast(result === 'printed'
+    queueAutomaticPrintToast(result === 'printed'
       ? { title: 'DTE impreso', message: `${document.numeroControl} fue enviado a la impresora.`, variant: 'success' }
       : { title: 'DTE emitido', message: 'La impresión silenciosa no está activa en esta terminal.', variant: 'info' });
   } catch (reason) {
-    pushFloatingToast({
+    queueAutomaticPrintToast({
       title: 'DTE emitido sin impresión',
       message: reason instanceof Error ? reason.message : 'No fue posible enviar el comprobante a la impresora.',
       variant: 'warning',
     });
+  } finally {
+    automaticPrinting.value = false;
+  }
+}
+
+async function printPendingAutomaticDte(): Promise<void> {
+  const pending = pendingAutomaticPrint.value;
+  if (!pending || automaticPrinting.value) return;
+  await printAcceptedDte(pending.document);
+  finishAutomaticPrintDecision();
+}
+
+function dismissAutomaticPrint(): void {
+  if (automaticPrinting.value) return;
+  finishAutomaticPrintDecision();
+}
+
+function finishAutomaticPrintDecision(): void {
+  pendingAutomaticPrint.value = null;
+  if (replacementReadyAfterPrintDecision.value) {
+    replacementReadyAfterPrintDecision.value = false;
+    replacementReadyModalOpen.value = true;
   }
 }
 
@@ -1705,8 +1745,13 @@ function closeIssueModal(): void {
   if (completedReplacementSource && completedReplacement) {
     replacementSourceDocument.value = completedReplacementSource;
     replacementIssuedDocument.value = completedReplacement;
-    replacementReadyModalOpen.value = true;
+    if (pendingAutomaticPrint.value) {
+      replacementReadyAfterPrintDecision.value = true;
+    } else {
+      replacementReadyModalOpen.value = true;
+    }
   }
+  flushPendingAutomaticPrintToast();
   flushPendingEmailToast();
 }
 
@@ -1816,6 +1861,15 @@ function queueEmailSentToast(recipientEmail?: string | null): void {
   pushFloatingToast(toast);
 }
 
+function queueAutomaticPrintToast(toast: Omit<BillingFloatingToast, 'id'>): void {
+  if (issueOverlayOpen.value || issueModalOpen.value) {
+    pendingAutomaticPrintToast.value = toast;
+    return;
+  }
+
+  pushFloatingToast(toast);
+}
+
 function waitForDeliveryPoll(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     const timer = window.setTimeout(resolve, milliseconds);
@@ -1830,6 +1884,12 @@ function flushPendingEmailToast(): void {
 
   pushFloatingToast(pendingEmailToast.value);
   pendingEmailToast.value = null;
+}
+
+function flushPendingAutomaticPrintToast(): void {
+  if (!pendingAutomaticPrintToast.value) return;
+  pushFloatingToast(pendingAutomaticPrintToast.value);
+  pendingAutomaticPrintToast.value = null;
 }
 
 function pushFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
@@ -2993,6 +3053,16 @@ function updatePaymentCondition(value: string): void {
       :replacement="replacementIssuedDocument"
       @close="dismissReplacementReadyModal"
       @continue="continueReplacementInvalidation"
+    />
+
+    <DteAutomaticPrintModal
+      v-if="pendingAutomaticPrint"
+      :open="Boolean(pendingAutomaticPrint) && !issueOverlayOpen"
+      :document-number="pendingAutomaticPrint.document.numeroControl"
+      :recipient-email="pendingAutomaticPrint.recipientEmail"
+      :printing="automaticPrinting"
+      @close="dismissAutomaticPrint"
+      @print="printPendingAutomaticDte"
     />
 
     <UiCard variant="bare">

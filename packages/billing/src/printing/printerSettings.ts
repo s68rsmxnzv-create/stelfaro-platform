@@ -2,6 +2,7 @@ export const PRINTER_SETTINGS_STORAGE_KEY = 'stelfaro:print-agent:settings:v1';
 
 export type PrinterSettings = {
   enabled: boolean;
+  autoPrintAfterIssue: boolean;
   agentUrl: string;
   printer: string;
   paperWidth: '58' | '80';
@@ -15,6 +16,7 @@ export type PrinterSettings = {
 
 export const defaultPrinterSettings = (): PrinterSettings => ({
   enabled: false,
+  autoPrintAfterIssue: false,
   agentUrl: 'http://localhost:8711',
   printer: '',
   paperWidth: '80',
