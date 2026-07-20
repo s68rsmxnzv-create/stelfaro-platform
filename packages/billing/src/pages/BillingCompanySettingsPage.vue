@@ -45,8 +45,9 @@ const props = withDefaults(defineProps<{
   dashboardUrl?: string;
   billingContextCacheScope?: string;
   requestCredentials?: RequestCredentials;
-  platformSession?: Record<string, unknown> | null;
+  platformSession?: (Record<string, unknown> & { tenant?: { name?: string | null } }) | null;
   initialView?: CompanyView;
+  workshopEnabled?: boolean;
 }>(), {
   coreBaseUrl: '/api/v1',
   platformBaseUrl: '/api/v1',
@@ -56,7 +57,8 @@ const props = withDefaults(defineProps<{
   billingContextCacheScope: '',
   requestCredentials: undefined,
   platformSession: null,
-  initialView: 'summary'
+  initialView: 'summary',
+  workshopEnabled: false
 });
 
 const selectedCompany = ref<SelectedCompany | null>(null);
@@ -485,7 +487,7 @@ function daysUntil(value: string | null | undefined): number | null {
 
         <div v-else-if="activeView === 'printer'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><PrinterSettingsPanel /></div>
 
-        <div v-else-if="activeView === 'ticket'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><ThermalTicketSettingsPanel :company="selectedCompany" /></div>
+        <div v-else-if="activeView === 'ticket'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><ThermalTicketSettingsPanel :company="selectedCompany" :workshop-enabled="workshopEnabled" /></div>
 
         <BillingAuditPage v-else-if="activeView === 'audit'" class="mt-6" :auth-token="authToken" :core-base-url="coreBaseUrl" :platform-base-url="platformBaseUrl" :platform-session="platformSession" :billing-context-cache-scope="billingContextCacheScope" />
 

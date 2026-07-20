@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
-import { ReceiptText } from 'lucide-vue-next';
+import { FileCheck2, ReceiptText, Smartphone } from 'lucide-vue-next';
 import { UiInput } from '@stelfaro/ui';
 import { defaultPrinterSettings, loadPrinterSettings, savePrinterSettings, type PrinterSettings } from './printerSettings';
 import ThermalTicketPreview from './ThermalTicketPreview.vue';
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
 
 type PreviewCompany = { name: string; tradeName: string; logoUrl: string | null; nit: string; nrc: string | null; activity: string };
-const props = defineProps<{ company?: PreviewCompany | null }>();
+const props = withDefaults(defineProps<{ company?: PreviewCompany | null; workshopEnabled?: boolean }>(), { workshopEnabled: false });
 const settings = reactive<PrinterSettings>(defaultPrinterSettings());
+const previewVariant = ref<'dte' | 'workshop'>('dte');
 let ready = false;
 let saveTimer: number | null = null;
 let lastSaved = '';
@@ -56,17 +57,23 @@ function notify(toast: Omit<BillingFloatingToast, 'id'>): void {
       <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary"><ReceiptText class="h-5 w-5" /></span>
       <div>
         <h3 class="font-semibold text-text">Presentación del ticket</h3>
-        <p class="mt-1 max-w-2xl text-sm text-muted">Elige qué elementos opcionales se imprimen. La evidencia fiscal conservada no se modifica.</p>
+        <p class="mt-1 max-w-2xl text-sm text-muted">Elige qué elementos se imprimen en esta terminal. La evidencia fiscal conservada no se modifica.</p>
       </div>
     </div>
 
-    <div class="grid gap-3 rounded-lg border border-line bg-surface-muted p-4 sm:grid-cols-2">
-      <label class="flex cursor-pointer items-center gap-3 text-sm text-text"><input v-model="settings.showLogo" type="checkbox" class="h-4 w-4 accent-primary"><span><strong class="block">Imprimir logo</strong><small class="text-muted">Usa el logo rasterizado y conservado al emitir el DTE.</small></span></label>
-      <label class="flex cursor-pointer items-center gap-3 text-sm text-text"><input v-model="settings.showIssuerDetails" type="checkbox" class="h-4 w-4 accent-primary"><span><strong class="block">Imprimir información de la empresa</strong><small class="text-muted">Nombre comercial, actividad, NIT, NRC y contacto disponible.</small></span></label>
-      <label class="flex cursor-pointer items-center gap-3 text-sm text-text"><input v-model="settings.qrEnabled" type="checkbox" class="h-4 w-4 accent-primary"><span><strong class="block">Imprimir QR</strong><small class="text-muted">Incluye el acceso a la consulta pública cuando aplique.</small></span></label>
-      <div><UiInput v-model.number="settings.qrWidth" label="Tamaño del QR" type="number" min="120" max="420" step="1" suffix="px" /><p class="mt-1 text-xs text-muted">Valor permitido: 120 a 420.</p></div>
-    </div>
+    <div class="grid items-start gap-5 xl:grid-cols-[minmax(300px,0.72fr)_minmax(520px,1.28fr)]">
+      <div class="grid gap-3 rounded-lg border border-line bg-surface-muted p-4 sm:p-5 xl:sticky xl:top-4">
+        <div v-if="workshopEnabled" class="grid grid-cols-2 gap-2 rounded-lg border border-line bg-surface p-1.5">
+          <button type="button" class="flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition" :class="previewVariant === 'dte' ? 'bg-primary text-primary-contrast shadow-sm' : 'text-muted hover:bg-surface-muted hover:text-text'" @click="previewVariant = 'dte'"><FileCheck2 class="h-4 w-4" />DTE</button>
+          <button type="button" class="flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition" :class="previewVariant === 'workshop' ? 'bg-primary text-primary-contrast shadow-sm' : 'text-muted hover:bg-surface-muted hover:text-text'" @click="previewVariant = 'workshop'"><Smartphone class="h-4 w-4" />Recepción</button>
+        </div>
+        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-surface p-3 text-sm text-text"><input v-model="settings.showLogo" type="checkbox" class="mt-1 h-4 w-4 accent-primary"><span><strong class="block">Imprimir logo</strong><small class="text-muted">Usa el logo preparado para la impresora térmica.</small></span></label>
+        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-surface p-3 text-sm text-text"><input v-model="settings.showIssuerDetails" type="checkbox" class="mt-1 h-4 w-4 accent-primary"><span><strong class="block">Imprimir información de la empresa</strong><small class="text-muted">Nombre comercial, actividad, NIT, NRC y contacto disponible.</small></span></label>
+        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-surface p-3 text-sm text-text"><input v-model="settings.qrEnabled" type="checkbox" class="mt-1 h-4 w-4 accent-primary"><span><strong class="block">Imprimir QR</strong><small class="text-muted">Incluye la consulta fiscal o el acceso a fotografías cuando aplique.</small></span></label>
+        <div class="rounded-lg border border-line bg-surface p-3"><UiInput v-model.number="settings.qrWidth" label="Tamaño del QR" type="number" min="120" max="420" step="1" suffix="px" /><p class="mt-1 text-xs text-muted">Valor permitido: 120 a 420.</p></div>
+      </div>
 
-    <ThermalTicketPreview :settings="settings" :company="props.company" />
+      <ThermalTicketPreview :settings="settings" :company="props.company" :variant="previewVariant" />
+    </div>
   </div>
 </template>

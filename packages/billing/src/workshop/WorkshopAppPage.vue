@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from 'vue';
 import { UiLoadingMark, UiModalShell } from '@stelfaro/ui';
-import { CoreDteClient, type WorkshopOrder, type WorkshopOrderPayload } from '@stelfaro/api-client';
+import { CoreDteClient, type BillingEmpresa, type WorkshopOrder, type WorkshopOrderPayload } from '@stelfaro/api-client';
 import { sendSilentPrint } from '../printing/printJob';
 import { dteFiscalTicketFromArtifact } from '../printing/dteFiscalTicket';
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
 import { useWorkshop } from './useWorkshop';
 import { workshopClosedTicket } from './workshopClosedTicket';
+import { workshopReceptionTicket } from './workshopReceptionTicket';
 import WorkshopReceptionForm from './WorkshopReceptionForm.vue';
 import WorkshopOrdersList from './WorkshopOrdersList.vue';
 import WorkshopDiagnosisBoard from './WorkshopDiagnosisBoard.vue';
@@ -17,7 +18,7 @@ import WorkshopSettlementModal from './WorkshopSettlementModal.vue';
 import WorkshopInvoiceTypeModal from './WorkshopInvoiceTypeModal.vue';
 import WorkshopPaymentModal from './WorkshopPaymentModal.vue';
 
-const props = defineProps<{ view: 'reception'|'orders'; coreBaseUrl: string; platformBaseUrl: string; authToken: string|null; tenantId: number }>();
+const props = defineProps<{ view: 'reception'|'orders'; coreBaseUrl: string; platformBaseUrl: string; authToken: string|null; tenantId: number; company?: BillingEmpresa | null }>();
 const floatingToasts = ref<BillingFloatingToast[]>([]); let floatingToastId = 0; const floatingToastTimers: number[] = [];
 const completed = ref<{order: WorkshopOrder; url: string; expires_at: string}|null>(null); const selectedOrder = ref<WorkshopOrder|null>(null); const workOrderId = ref<number|null>(null); const settlementOrderId = ref<number|null>(null); const invoiceOrderId = ref<number|null>(null); const paymentOrderId = ref<number|null>(null); const photoSessionOrder = ref<WorkshopOrder|null>(null); const photoSession = ref<{url:string; expires_at:string}|null>(null); const photoSessionLoading = ref(false); const photoSessionError = ref('');
 const workshop = useWorkshop(props.coreBaseUrl, props.platformBaseUrl, props.authToken, props.tenantId, props.view === 'orders' ? 15 : 100);
@@ -32,6 +33,7 @@ function invoiceOrder(order: WorkshopOrder, type: '01'|'03', opensDrawer = false
 function chooseInvoiceType(type: '01'|'03') { if (pendingInvoiceOrder.value) invoiceOrder(pendingInvoiceOrder.value, type); }
 function pushFloatingToast(toast: Omit<BillingFloatingToast, 'id'>) { const id = ++floatingToastId; floatingToasts.value = [...floatingToasts.value, { id, ...toast }]; const timer = window.setTimeout(() => { floatingToasts.value = floatingToasts.value.filter(item => item.id !== id); }, toast.variant === 'success' || !toast.variant ? 4000 : 4300); floatingToastTimers.push(timer); }
 async function printClosedOrder(order: WorkshopOrder, opensDrawer = false) { try { const result = await sendSilentPrint(workshopClosedTicket(order, opensDrawer)); pushFloatingToast(result === 'printed' ? { title: 'Orden impresa', message: `${order.ticket} fue enviada a la impresora.`, variant: 'success' } : { title: 'Orden guardada', message: 'Activa la impresión silenciosa y selecciona una impresora para imprimirla.', variant: 'info' }); } catch (reason) { pushFloatingToast({ title: 'No se pudo imprimir', message: reason instanceof Error ? reason.message : 'Revisa la conexión con la impresora.', variant: 'error' }); } }
+async function printReception(order: WorkshopOrder, photoUrl?: string) { try { const result = await sendSilentPrint(await workshopReceptionTicket(order, props.company, photoUrl)); pushFloatingToast(result === 'printed' ? { title: 'Recepción impresa', message: `${order.ticket} fue enviada a la impresora.`, variant: 'success' } : { title: 'Recepción lista', message: 'Activa la impresión silenciosa y selecciona una impresora para imprimirla.', variant: 'info' }); } catch (reason) { pushFloatingToast({ title: 'No se pudo imprimir', message: reason instanceof Error ? reason.message : 'Revisa la conexión con la impresora.', variant: 'error' }); } }
 async function printOrderDocument(order: WorkshopOrder) { if (order.billing.status !== 'invoiced' || !order.billing.core_document_id) { await printClosedOrder(order); return; } try { const thermal = await core.thermalArtifact(order.billing.core_document_id); const result = await sendSilentPrint(dteFiscalTicketFromArtifact(thermal)); pushFloatingToast(result === 'printed' ? { title: 'DTE impreso', message: `${order.billing.number || order.ticket} fue enviado a la impresora.`, variant: 'success' } : { title: 'DTE listo', message: 'Activa la impresión silenciosa y selecciona una impresora para imprimirlo.', variant: 'info' }); } catch (reason) { pushFloatingToast({ title: 'No se pudo imprimir el DTE', message: reason instanceof Error ? reason.message : 'Revisa la conexión con la impresora.', variant: 'error' }); } }
 async function settleOrder(id: number, payload: Parameters<typeof workshop.settleOrder>[1]) { const updated = await workshop.settleOrder(id, payload); settlementOrderId.value = null; if (payload.document_choice === 'dte') { invoiceOrder(updated, payload.dte_type || '01', payload.payment_timing === 'paid_now'); return; } await printClosedOrder(updated, payload.payment_timing === 'paid_now'); }
 async function recordPayment(id: number, payload: Parameters<typeof workshop.recordPayment>[1]) { const updated = await workshop.recordPayment(id, payload); paymentOrderId.value = null; pushFloatingToast({ title: 'Pago registrado', message: updated.balance > 0 ? `Saldo pendiente: $${updated.balance.toFixed(2)}.` : 'La orden quedó saldada.', variant: 'success' }); }
@@ -43,7 +45,7 @@ onUnmounted(() => floatingToastTimers.forEach(timer => window.clearTimeout(timer
     <BillingFloatingToastStack :toasts="floatingToasts" />
     <p v-if="workshop.error.value" class="mb-4 rounded-md border border-danger bg-danger-soft px-4 py-3 text-sm text-danger">{{ workshop.error.value }}</p>
     <UiLoadingMark v-if="workshop.loading.value && view !== 'orders'" label="Cargando taller" />
-    <WorkshopReceptionComplete v-else-if="view === 'reception' && completed" :order="completed.order" :photos="workshop.photos.value" :photo-loading="workshop.photoLoading.value" :photo-url="completed.url" :expires-at="completed.expires_at" @refresh-photos="workshop.loadPhotos(completed.order.id)" @reset="completed = null" />
+    <WorkshopReceptionComplete v-else-if="view === 'reception' && completed" :order="completed.order" :photos="workshop.photos.value" :photo-loading="workshop.photoLoading.value" :photo-url="completed.url" :expires-at="completed.expires_at" @refresh-photos="workshop.loadPhotos(completed.order.id)" @print="printReception(completed.order, completed.url)" @reset="completed = null" />
     <WorkshopReceptionForm v-else-if="view === 'reception'" :customers="workshop.customers.value" :customer-loading="workshop.customerLoading.value" :on-create-customer="workshop.createCustomer" :on-save="create" @search="workshop.searchCustomers" />
     <template v-else>
       <WorkshopOrdersList :orders="workshop.orders.value" :stats="workshop.orderStats.value" :meta="workshop.orderMeta.value" :loading="workshop.loading.value" @search="workshop.loadOrders" @select="openOrder" @diagnose="workOrderId = $event.id" @settle="settlementOrderId = $event.id" @invoice="invoiceOrderId = $event.id" @pay="paymentOrderId = $event.id" @print="printOrderDocument" @add-photos="openPhotoSession" />

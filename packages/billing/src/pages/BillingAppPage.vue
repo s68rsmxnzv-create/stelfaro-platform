@@ -311,7 +311,8 @@ const selectedComponentProps = computed(() => {
       ...baseProps,
       platformBaseUrl: props.platformBaseUrl,
       tenantId: Number(props.platformSession?.tenant?.id || 0),
-      view: props.module.replace('workshop-', '')
+      view: props.module.replace('workshop-', ''),
+      company: activeCompany.value
     };
   }
 
@@ -343,7 +344,8 @@ const selectedComponentProps = computed(() => {
     return {
       ...baseProps,
       platformSession: props.platformSession,
-      platformBaseUrl: props.platformBaseUrl
+      platformBaseUrl: props.platformBaseUrl,
+      workshopEnabled: props.app.id === 'taller'
     };
   }
 

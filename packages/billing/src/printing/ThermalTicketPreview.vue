@@ -12,7 +12,7 @@ type PreviewCompany = {
   activity: string;
 };
 
-const props = defineProps<{ settings: PrinterSettings; company?: PreviewCompany | null }>();
+const props = withDefaults(defineProps<{ settings: PrinterSettings; company?: PreviewCompany | null; variant?: 'dte' | 'workshop' }>(), { variant: 'dte' });
 const paperClass = computed(() => props.settings.paperWidth === '58' ? 'w-[280px]' : 'w-[370px]');
 const qrSize = computed(() => 72 + (Math.max(1, Math.min(16, Math.round(props.settings.qrWidth / 48))) * 10));
 const issuerName = 'ELECTRÓNICA DEMO';
@@ -58,10 +58,11 @@ function formatNrc(value?: string | null): string {
         </div>
 
         <div class="my-2 border-t border-dashed border-black"></div>
-        <div class="text-center font-bold">
-          <p>FACTURA ELECTRÓNICA</p>
-        </div>
-        <div class="mt-2 break-words">
+        <template v-if="variant === 'dte'">
+          <div class="text-center font-bold">
+            <p>FACTURA ELECTRÓNICA</p>
+          </div>
+          <div class="mt-2 break-words">
           <p>Número de control:</p>
           <p class="break-all">DTE-01-M001P001-000000000000001</p>
           <p class="mt-1">Código de generación:</p>
@@ -69,31 +70,63 @@ function formatNrc(value?: string | null): string {
           <p class="mt-1">Sello de recepción:</p>
           <p class="break-all">2026ABCDEF0123456789ABCDEF0123456789ABCD</p>
           <p class="mt-1">Fecha: 2026-07-20 10:30:00</p>
-        </div>
-        <div class="my-2 border-t border-dashed border-black"></div>
-        <p class="font-bold">RECEPTOR</p>
-        <p>Nombre: Andrea Hernández de Ejemplo</p>
-        <p>Documento: 01234567-8</p>
-        <div class="my-2 border-t border-dashed border-black"></div>
-        <p class="font-bold">DETALLE</p>
-        <p>Servicio de reparación de equipo electrónico modelo DEMO 2026</p>
-        <div class="flex justify-between"><span>1 x $ 25.00</span><span>$ 25.00</span></div>
-        <div class="my-2 border-t border-dashed border-black"></div>
-        <p class="font-bold">RESUMEN</p>
-        <div class="flex justify-between"><span>No sujetas</span><span>$ 0.00</span></div>
-        <div class="flex justify-between"><span>Exentas</span><span>$ 0.00</span></div>
-        <div class="flex justify-between"><span>Gravadas</span><span>$ 25.00</span></div>
-        <div class="flex justify-between font-bold"><span>TOTAL A PAGAR</span><span>$ 25.00</span></div>
-        <p class="mt-1">Total en letras: VEINTICINCO DÓLARES CON 00/100 USD</p>
-        <div class="my-2 border-t border-dashed border-black"></div>
+          </div>
+          <div class="my-2 border-t border-dashed border-black"></div>
+          <p class="font-bold">RECEPTOR</p>
+          <p>Nombre: Andrea Hernández de Ejemplo</p>
+          <p>Documento: 01234567-8</p>
+          <div class="my-2 border-t border-dashed border-black"></div>
+          <p class="font-bold">DETALLE</p>
+          <p>Servicio de reparación de equipo electrónico modelo DEMO 2026</p>
+          <div class="flex justify-between"><span>1 x $ 25.00</span><span>$ 25.00</span></div>
+          <div class="my-2 border-t border-dashed border-black"></div>
+          <p class="font-bold">RESUMEN</p>
+          <div class="flex justify-between"><span>No sujetas</span><span>$ 0.00</span></div>
+          <div class="flex justify-between"><span>Exentas</span><span>$ 0.00</span></div>
+          <div class="flex justify-between"><span>Gravadas</span><span>$ 25.00</span></div>
+          <div class="flex justify-between font-bold"><span>TOTAL A PAGAR</span><span>$ 25.00</span></div>
+          <p class="mt-1">Total en letras: VEINTICINCO DÓLARES CON 00/100 USD</p>
+          <div class="my-2 border-t border-dashed border-black"></div>
+        </template>
+
+        <template v-else>
+          <div class="text-center font-bold">
+            <p>COMPROBANTE DE RECEPCIÓN</p>
+            <p>T-000123</p>
+          </div>
+          <p class="mt-2">Ingreso: 20/07/2026, 10:30 a. m.</p>
+          <div class="my-2 border-t border-dashed border-black"></div>
+          <p class="font-bold">CLIENTE</p>
+          <p>Andrea Hernández de Ejemplo</p>
+          <p>Tel: 7000-0000</p>
+          <div class="my-2 border-t border-dashed border-black"></div>
+          <p class="font-bold">EQUIPO RECIBIDO</p>
+          <p>Celular · DEMO Modelo 2026</p>
+          <p>IMEI: 123456789012347</p>
+          <p>Encendido: Enciende</p>
+          <div class="my-2 border-t border-dashed border-black"></div>
+          <p class="font-bold">FALLA REPORTADA</p>
+          <p>No carga y presenta falla de audio.</p>
+          <div class="my-2 border-t border-dashed border-black"></div>
+          <p class="font-bold">CONDICIÓN Y ACCESORIOS</p>
+          <p>Rayones leves · Protector</p>
+          <p>Acceso registrado para revisión: Sí</p>
+          <div class="my-2 border-t border-dashed border-black"></div>
+          <p class="font-bold">VALORES REGISTRADOS</p>
+          <div class="flex justify-between"><span>Monto estimado</span><span>$ 35.00</span></div>
+          <div class="flex justify-between"><span>Anticipo recibido</span><span>$ 10.00</span></div>
+          <div class="flex justify-between font-bold"><span>Saldo estimado</span><span>$ 25.00</span></div>
+          <p class="mt-3 text-center">El diagnóstico y el valor final serán confirmados antes de realizar trabajos adicionales.</p>
+          <div class="my-2 border-t border-dashed border-black"></div>
+        </template>
 
         <div v-if="settings.qrEnabled" class="mt-5 text-center">
-          <p>Consulta DTE en Hacienda</p>
+          <p>{{ variant === 'dte' ? 'Consulta DTE en Hacienda' : 'Agregar fotografías del equipo' }}</p>
           <QrCode :style="{ width: `${qrSize}px`, height: `${qrSize}px` }" class="mx-auto mt-2" :stroke-width="1.5" />
         </div>
         <div class="mt-4 border-t border-dashed border-black pt-2 text-center">
-          <p>Gracias por su compra</p>
-          <p>Representación gráfica de DTE.</p>
+          <p>{{ variant === 'dte' ? 'Gracias por su compra' : 'Conserve este comprobante de recepción.' }}</p>
+          <p v-if="variant === 'dte'">Representación gráfica de DTE.</p>
         </div>
       </article>
     </div>
