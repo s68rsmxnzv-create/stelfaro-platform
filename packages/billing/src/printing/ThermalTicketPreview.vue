@@ -140,12 +140,12 @@ function formatNrc(value?: string | null): string {
           <div class="my-2 border-t border-dashed border-black"></div>
         </template>
 
-        <div v-if="settings.qrEnabled" class="mt-5 text-center">
-          <p>{{ variant === 'dte' ? 'Consulta DTE en Hacienda' : 'Agregar fotografías del equipo' }}</p>
+        <div v-if="settings.qrEnabled && variant === 'dte'" class="mt-5 text-center">
+          <p>Consulta DTE en Hacienda</p>
           <QrCode :style="{ width: `${qrSize}px`, height: `${qrSize}px` }" class="mx-auto mt-2" :stroke-width="1.5" />
         </div>
         <div class="mt-4 border-t border-dashed border-black pt-2 text-center">
-          <p>{{ variant === 'dte' ? 'Gracias por su compra' : 'Conserve este comprobante de recepción.' }}</p>
+          <p :class="variant === 'workshop' ? 'font-bold' : ''">{{ variant === 'dte' ? 'Gracias por su compra' : 'Conserve este comprobante de recepción.' }}</p>
         </div>
       </article>
 

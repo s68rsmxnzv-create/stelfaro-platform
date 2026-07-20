@@ -1730,6 +1730,12 @@ export type DteThermalArtifact = {
   }>;
 };
 
+export type ThermalLogoRaster = {
+  width: number;
+  height: number;
+  data: string;
+};
+
 export type ManualInvoiceInput = {
   documentType: DocumentType;
   empresa: BillingEmpresa;
@@ -2336,6 +2342,12 @@ export class CoreDteClient {
 
   billingContext(): Promise<BillingContext> {
     return this.http.get('billing/context').json();
+  }
+
+  companyThermalLogo(companyId: number, width: number): Promise<{ logo: ThermalLogoRaster | null }> {
+    return this.http.get(`billing/companies/${companyId}/thermal-logo`, {
+      searchParams: { width }
+    }).json();
   }
 
   billingCatalogs(): Promise<BillingCatalogs> {
