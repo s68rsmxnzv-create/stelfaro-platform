@@ -163,6 +163,7 @@ type BillingIssueItem = BillingItem & {
   lineOrigin?: 'free' | 'catalog' | 'inventory';
   inheritedFromSaleLineId?: number | null;
   inheritedInventoryQuantity?: number;
+  taxable?: boolean;
 };
 type CustomerMode = 'generic' | 'base' | 'new' | 'quick' | 'fiscal_new';
 type PaymentCondition = 1 | 2 | 3;
@@ -327,6 +328,7 @@ const items = computed<BillingIssueItem[]>(() => lines.value
     lineOrigin: line.lineOrigin ?? 'free',
     inheritedFromSaleLineId: line.inheritedFromSaleLineId ?? null,
     inheritedInventoryQuantity: line.inheritedInventoryQuantity ?? 0,
+    taxable: line.taxable !== false,
   }))
   .filter((line) => line.description !== '' && line.quantity > 0 && (isNotaDebito.value ? line.unitPrice > 0 : line.unitPrice >= 0)));
 const subtotal = computed(() => items.value.reduce((sum, item) => sum + lineGrossTotal(item), 0));
@@ -377,7 +379,7 @@ function normalizedPaymentReference(payment: PaymentLine): string | null {
 
   return reference === '' ? null : reference;
 }
-const inventoryIssueLines = computed(() => items.value
+const inventoryIssueLines = computed(() => (isFacturaElectronica.value || isCreditoFiscal.value ? items.value : [])
   .filter((line) => line.lineOrigin === 'inventory' && Number(line.catalogItemId || 0) > 0)
   .map((line) => ({
     catalog_item_id: Number(line.catalogItemId),
@@ -1525,6 +1527,10 @@ async function prepareDteFiscalSync(idempotencyKey: string): Promise<PlatformFis
       ...branch,
       source_type: workshopOrderId ? 'workshop_order' : 'dte',
       sale_date: new Date().toISOString().slice(0, 10),
+      fiscal_document_type: form.documentType,
+      net_amount: saleNetAmount(),
+      tax_amount: saleTaxAmount(),
+      total_amount: saleGrossAmount(),
       metadata: saleMetadata(),
       replacement_of_source_type: replacementSourceDocument.value ? 'dte' : null,
       replacement_of_source_id: replacementSourceDocument.value ? String(replacementSourceDocument.value.id) : null,
@@ -1581,6 +1587,9 @@ function saleMetadata(): Record<string, unknown> {
     document_type: form.documentType,
     customer_name: form.customerName || null,
     total: totalLabel.value,
+    commercial_net: saleNetAmount(),
+    commercial_iva: saleTaxAmount(),
+    commercial_total: saleGrossAmount(),
     inventory_bypass: lines.value
       .filter((line) => line.inventoryBypassReason)
       .map((line) => ({
@@ -1607,8 +1616,44 @@ function saleLines() {
       unit_price: Number(line.unitPrice || 0),
       discount_amount: lineDiscountAmount(line),
       net_total: lineNetTotal(line),
+      tax_amount: lineReportingTax(line),
+      total_amount: lineReportingTotal(line),
       reference_unit_cost: null,
     }));
+}
+
+function lineReportingTax(line: BillingIssueItem): number {
+  if (isSujetoExcluido.value || line.taxable === false) return 0;
+  if (isFacturaElectronica.value) {
+    const gross = lineNetTotal(line);
+
+    return roundMoney(gross - (gross / 1.13));
+  }
+
+  return roundMoney(lineIvaAmount(line));
+}
+
+function lineReportingNet(line: BillingIssueItem): number {
+  if (isFacturaElectronica.value) return roundMoney(lineNetTotal(line) - lineReportingTax(line));
+  if (isFiscalStyleDocument.value) return roundMoney(lineTaxableBase(line));
+
+  return roundMoney(lineNetTotal(line));
+}
+
+function lineReportingTotal(line: BillingIssueItem): number {
+  return roundMoney(lineReportingNet(line) + lineReportingTax(line));
+}
+
+function saleNetAmount(): number {
+  return roundMoney(items.value.reduce((sum, line) => sum + lineReportingNet(line), 0));
+}
+
+function saleTaxAmount(): number {
+  return roundMoney(items.value.reduce((sum, line) => sum + lineReportingTax(line), 0));
+}
+
+function saleGrossAmount(): number {
+  return roundMoney(items.value.reduce((sum, line) => sum + lineReportingTotal(line), 0));
 }
 
 function isIssueResponseRejected(result: DteIssueResponse): boolean {

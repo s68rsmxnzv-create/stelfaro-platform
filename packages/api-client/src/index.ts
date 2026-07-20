@@ -340,8 +340,13 @@ export type WorkshopOrdersResponse = {
 export type WorkshopDashboard = {
   generated_at: string;
   orders: { active: number; received_today: number; awaiting_approval: number; ready: number; urgent: number };
-  commercial: { sales_today: number; sales_month: number; receivables: number };
+  commercial: { sales_today: number; sales_net_today: number; sales_tax_today: number; sales_month: number; sales_net_month: number; sales_tax_month: number; receivables: number };
   recent_orders: WorkshopOrder[];
+};
+
+export type PlatformCommercialDashboard = {
+  generated_at: string;
+  commercial: { sales_today: number; sales_net_today: number; sales_tax_today: number; sales_month: number; sales_net_month: number; sales_tax_month: number };
 };
 
 export type WorkshopOrderPayload = {
@@ -602,6 +607,10 @@ export type PlatformInventorySalePayload = {
   source_id: string;
   source_number?: string | null;
   sale_date?: string | null;
+  fiscal_document_type?: '01' | '03' | '05' | '06' | '14' | string | null;
+  net_amount?: number | null;
+  tax_amount?: number | null;
+  total_amount?: number | null;
   metadata?: Record<string, unknown> | null;
   replacement_of_source_type?: string | null;
   replacement_of_source_id?: string | null;
@@ -615,6 +624,8 @@ export type PlatformInventorySalePayload = {
     unit_price?: number | null;
     discount_amount?: number | null;
     net_total?: number | null;
+    tax_amount?: number | null;
+    total_amount?: number | null;
     reference_unit_cost?: number | null;
   }>;
 };
@@ -648,6 +659,12 @@ export type PlatformInventorySale = {
   source_id: string;
   source_number: string | null;
   sale_date: string | null;
+  operation_kind: 'sale' | 'credit_note' | 'debit_note' | 'excluded_subject_purchase' | string;
+  fiscal_document_type: string | null;
+  reporting_sign: number;
+  net_amount: number;
+  tax_amount: number;
+  total_amount: number;
   status: 'active' | 'pending_replacement' | 'superseded' | 'reversed' | string;
   replacement_of_sale_id: number | null;
   metadata: Record<string, unknown> | null;
@@ -662,6 +679,8 @@ export type PlatformInventorySale = {
     unit_price: number;
     discount_amount: number;
     net_total: number;
+    tax_amount: number;
+    total_amount: number;
     reference_unit_cost: number;
     catalog_item?: PlatformCatalogItem | null;
   }>;
@@ -1929,6 +1948,10 @@ export class PlatformClient {
 
   workshopDashboard(tenantId: number): Promise<WorkshopDashboard> {
     return this.http.get(`platform/tenants/${tenantId}/workshop/dashboard`).json();
+  }
+
+  commercialDashboard(tenantId: number): Promise<PlatformCommercialDashboard> {
+    return this.http.get(`platform/tenants/${tenantId}/commercial/dashboard`).json();
   }
 
   workshopOrder(tenantId: number, orderId: number): Promise<{ data: WorkshopOrder }> {

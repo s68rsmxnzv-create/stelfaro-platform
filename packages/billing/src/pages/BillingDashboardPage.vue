@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { ArrowRight, CalendarDays, CircleDollarSign, ClipboardCheck, Clock3, FileCheck2, PackageCheck, RefreshCw, Smartphone, TriangleAlert, Wrench } from 'lucide-vue-next';
-import { CoreDteClient, PlatformClient, type DteDashboardSummary, type WorkshopDashboard, type WorkshopOrder } from '@stelfaro/api-client';
+import { CoreDteClient, PlatformClient, type DteDashboardSummary, type PlatformCommercialDashboard, type WorkshopDashboard, type WorkshopOrder } from '@stelfaro/api-client';
 import { UiButton, UiCard, UiStatusBadge } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{ coreBaseUrl?: string; platformBaseUrl?: string; authToken?: string | null; tenantId?: number; appBaseUrl?: string }>(), { coreBaseUrl: '/api/v1', platformBaseUrl: '/api/v1', authToken: null, tenantId: 0, appBaseUrl: '' });
 const core = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const platform = computed(() => new PlatformClient(props.platformBaseUrl, { authToken: props.authToken }));
-const workshop = ref<WorkshopDashboard | null>(null); const fiscal = ref<DteDashboardSummary | null>(null); const loading = ref(false); const error = ref('');
+const workshop = ref<WorkshopDashboard | null>(null); const commercial = ref<PlatformCommercialDashboard['commercial'] | null>(null); const fiscal = ref<DteDashboardSummary | null>(null); const loading = ref(false); const error = ref('');
 const base = computed(() => props.appBaseUrl.replace(/\/$/, ''));
 const money = (value: number) => new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(value || 0);
 const activeBreakdown = computed(() => workshop.value ? [
@@ -23,10 +23,15 @@ function orderUrl(order: WorkshopOrder) { return `${base.value}/ordenes?q=${enco
 async function load() {
   loading.value = true; error.value = '';
   const requests: Promise<unknown>[] = [core.value.dashboardSummary()];
+  if (props.tenantId) requests.push(platform.value.commercialDashboard(props.tenantId));
   if (props.tenantId) requests.push(platform.value.workshopDashboard(props.tenantId));
   const results = await Promise.allSettled(requests);
   if (results[0]?.status === 'fulfilled') fiscal.value = results[0].value as DteDashboardSummary;
-  if (props.tenantId && results[1]?.status === 'fulfilled') workshop.value = results[1].value as WorkshopDashboard;
+  if (props.tenantId && results[1]?.status === 'fulfilled') commercial.value = (results[1].value as PlatformCommercialDashboard).commercial;
+  if (props.tenantId && results[2]?.status === 'fulfilled') {
+    workshop.value = results[2].value as WorkshopDashboard;
+    commercial.value ??= workshop.value.commercial;
+  }
   const failures = results.filter(result => result.status === 'rejected');
   if (failures.length === results.length) error.value = 'No pudimos actualizar el dashboard. Intenta nuevamente.';
   loading.value = false;
@@ -44,7 +49,7 @@ onMounted(load);
     <p v-if="error" class="rounded-lg border border-danger bg-danger-soft px-4 py-3 text-sm text-danger">{{ error }}</p>
 
     <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <UiCard><div class="flex items-start justify-between"><div><p class="text-sm text-muted">Ventas de hoy</p><p class="mt-2 text-2xl font-bold text-text">{{ workshop ? money(workshop.commercial.sales_today) : '—' }}</p><p class="mt-1 text-xs text-muted">Comerciales, facturadas o no</p></div><span class="rounded-lg bg-success-soft p-2 text-success"><CircleDollarSign class="h-5 w-5" /></span></div></UiCard>
+      <UiCard><div class="flex items-start justify-between gap-3"><div><p class="text-sm text-muted">Ventas de hoy</p><p class="mt-2 text-2xl font-bold text-text">{{ commercial ? money(commercial.sales_today) : '—' }}</p><p class="mt-1 text-xs text-muted">Neto {{ commercial ? money(commercial.sales_net_today) : '—' }} · IVA {{ commercial ? money(commercial.sales_tax_today) : '—' }}</p></div><span class="rounded-lg bg-success-soft p-2 text-success"><CircleDollarSign class="h-5 w-5" /></span></div></UiCard>
       <UiCard><div class="flex items-start justify-between"><div><p class="text-sm text-muted">Órdenes activas</p><p class="mt-2 text-2xl font-bold text-text">{{ workshop?.orders.active ?? '—' }}</p><p class="mt-1 text-xs text-muted">{{ workshop?.orders.received_today ?? 0 }} recibidas hoy</p></div><span class="rounded-lg bg-primary-soft p-2 text-primary"><Wrench class="h-5 w-5" /></span></div></UiCard>
       <UiCard><div class="flex items-start justify-between"><div><p class="text-sm text-muted">Listas para entregar</p><p class="mt-2 text-2xl font-bold text-text">{{ workshop?.orders.ready ?? '—' }}</p><p class="mt-1 text-xs text-muted">Requieren contacto o entrega</p></div><span class="rounded-lg bg-success-soft p-2 text-success"><PackageCheck class="h-5 w-5" /></span></div></UiCard>
       <UiCard><div class="flex items-start justify-between"><div><p class="text-sm text-muted">Por cobrar</p><p class="mt-2 text-2xl font-bold" :class="workshop?.commercial.receivables ? 'text-warning' : 'text-text'">{{ workshop ? money(workshop.commercial.receivables) : '—' }}</p><p class="mt-1 text-xs text-muted">Órdenes cerradas con saldo</p></div><span class="rounded-lg bg-warning-soft p-2 text-warning"><Clock3 class="h-5 w-5" /></span></div></UiCard>
@@ -60,7 +65,7 @@ onMounted(load);
       <UiCard class="overflow-hidden p-0"><div class="flex items-center justify-between border-b border-line px-5 py-4"><div><h3 class="font-semibold text-text">Trabajo en curso</h3><p class="mt-1 text-xs text-muted">Últimas órdenes que siguen activas</p></div><a :href="`${base}/ordenes`" class="text-sm font-semibold text-primary hover:underline">Ver todas</a></div><div v-if="workshop?.recent_orders.length" class="divide-y divide-line"><a v-for="order in workshop.recent_orders" :key="order.id" :href="orderUrl(order)" class="flex items-center gap-3 px-5 py-3.5 transition hover:bg-surface-muted"><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><strong class="text-primary">{{ order.ticket }}</strong><UiStatusBadge :tone="tone(order.status)">{{ labels[order.status] || order.status }}</UiStatusBadge><UiStatusBadge v-if="order.priority === 'urgent'" tone="danger">Urgente</UiStatusBadge></div><p class="mt-1 truncate text-sm font-medium text-text">{{ order.customer.name }} · {{ order.device.brand }} {{ order.device.model }}</p><p class="mt-0.5 truncate text-xs text-muted">{{ order.reported_fault }}</p></div><span class="shrink-0 text-xs text-muted">{{ orderAge(order.received_at) }}</span><ArrowRight class="h-4 w-4 shrink-0 text-muted" /></a></div><p v-else class="px-5 py-10 text-center text-sm text-muted">No hay órdenes activas. Buen momento para recibir el siguiente equipo.</p></UiCard>
 
       <div class="space-y-5">
-        <UiCard><div class="flex items-center gap-2"><CalendarDays class="h-5 w-5 text-primary" /><h3 class="font-semibold text-text">Este mes</h3></div><p class="mt-4 text-3xl font-bold text-text">{{ workshop ? money(workshop.commercial.sales_month) : '—' }}</p><p class="mt-1 text-sm text-muted">Ventas comerciales registradas</p><div v-if="workshop" class="mt-5 space-y-3"><div v-for="item in activeBreakdown" :key="item.label"><div class="mb-1 flex justify-between text-xs"><span class="text-muted">{{ item.label }}</span><strong class="text-text">{{ item.value }}</strong></div><div class="h-1.5 overflow-hidden rounded-full bg-surface-muted"><div class="h-full rounded-full" :class="item.tone" :style="{ width: `${Math.max(item.value ? 8 : 0, item.value / maxBreakdown * 100)}%` }" /></div></div></div></UiCard>
+        <UiCard><div class="flex items-center gap-2"><CalendarDays class="h-5 w-5 text-primary" /><h3 class="font-semibold text-text">Este mes</h3></div><p class="mt-4 text-3xl font-bold text-text">{{ commercial ? money(commercial.sales_month) : '—' }}</p><p class="mt-1 text-sm text-muted">Neto {{ commercial ? money(commercial.sales_net_month) : '—' }} · IVA {{ commercial ? money(commercial.sales_tax_month) : '—' }}</p><div v-if="workshop" class="mt-5 space-y-3"><div v-for="item in activeBreakdown" :key="item.label"><div class="mb-1 flex justify-between text-xs"><span class="text-muted">{{ item.label }}</span><strong class="text-text">{{ item.value }}</strong></div><div class="h-1.5 overflow-hidden rounded-full bg-surface-muted"><div class="h-full rounded-full" :class="item.tone" :style="{ width: `${Math.max(item.value ? 8 : 0, item.value / maxBreakdown * 100)}%` }" /></div></div></div></UiCard>
         <UiCard><div class="flex items-center justify-between"><div><p class="text-sm font-semibold text-text">Estado fiscal</p><p class="mt-1 text-xs text-muted">Documentos procesados por MH</p></div><UiStatusBadge :tone="!fiscal ? 'neutral' : fiscal.totals.rejected ? 'warning' : 'success'">{{ !fiscal ? 'Sin datos' : fiscal.totals.rejected ? 'Revisar' : 'Operativo' }}</UiStatusBadge></div><div class="mt-4 grid grid-cols-2 gap-3 text-sm"><div class="rounded-lg bg-success-soft p-3"><p class="text-xs text-success">Aceptados</p><strong class="mt-1 block text-lg text-text">{{ fiscal?.totals.accepted ?? '—' }}</strong></div><div class="rounded-lg bg-danger-soft p-3"><p class="text-xs text-danger">Rechazados</p><strong class="mt-1 block text-lg text-text">{{ fiscal?.totals.rejected ?? '—' }}</strong></div></div></UiCard>
       </div>
     </section>
