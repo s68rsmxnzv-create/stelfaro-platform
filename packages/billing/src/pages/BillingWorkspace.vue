@@ -36,6 +36,8 @@ import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
 import BillingReplacementNotice from '../components/BillingReplacementNotice.vue';
 import BillingReplacementReadyModal from '../components/BillingReplacementReadyModal.vue';
+import { dteFiscalTicket } from '../printing/dteFiscalTicket';
+import { sendSilentPrint } from '../printing/printJob';
 import {
   getBillingCatalogs,
   getBillingContext,
@@ -70,6 +72,7 @@ const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: 
 const platformClient = computed(() => new PlatformClient(props.platformBaseUrl, { credentials: 'same-origin' }));
 const platformTenantId = computed(() => Number((props.platformSession as PlatformSessionProp)?.tenant?.id || 0));
 const workshopOrderId = Number(new URLSearchParams(window.location.search).get('workshop_order') || 0);
+const workshopPrintDrawer = new URLSearchParams(window.location.search).get('open_drawer') === '1';
 const replacementOfDteId = Number(new URLSearchParams(window.location.search).get('replacement_of') || 0);
 const loading = ref(false);
 const contextLoading = ref(false);
@@ -1431,6 +1434,7 @@ async function issueDocument(): Promise<void> {
       }
       issueResult.value = result;
       draft.value = result.document;
+      if (!rejected) await printAcceptedWorkshopDte(result.document);
       void notifyEmailDelivery(result.document);
       correlativoPreview.value = null;
       preview.value = null;
@@ -1443,6 +1447,25 @@ async function issueDocument(): Promise<void> {
     pushIssueLog(error.value, 'error');
   } finally {
     issuing.value = false;
+  }
+}
+
+async function printAcceptedWorkshopDte(document: DteDraftSummary): Promise<void> {
+  const accepted = ['accepted', 'received_by_mh'].includes(String(document.estado).toLowerCase()) && Boolean(document.selloRecibido);
+  if (!workshopOrderId || !accepted) return;
+
+  try {
+    const detail = document.dte_json ? document : await client.value.document(document.id);
+    const result = await sendSilentPrint(dteFiscalTicket(detail, workshopPrintDrawer));
+    pushFloatingToast(result === 'printed'
+      ? { title: 'DTE impreso', message: `${document.numeroControl} fue enviado a la impresora.`, variant: 'success' }
+      : { title: 'DTE emitido', message: 'La impresión silenciosa no está activa en esta terminal.', variant: 'info' });
+  } catch (reason) {
+    pushFloatingToast({
+      title: 'DTE emitido sin impresión',
+      message: reason instanceof Error ? reason.message : 'No fue posible enviar el comprobante a la impresora.',
+      variant: 'warning',
+    });
   }
 }
 
