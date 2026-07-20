@@ -5,11 +5,12 @@ import { UiButton, UiPanel, UiRefreshButton, UiStatusBadge, UiSubscriptionPlanCa
 import BillingSectionLayout from '../components/BillingSectionLayout.vue';
 import BillingSettingsPage from './BillingSettingsPage.vue';
 import PrinterSettingsPanel from '../printing/PrinterSettingsPanel.vue';
+import ThermalTicketSettingsPanel from '../printing/ThermalTicketSettingsPanel.vue';
 
-type CompanyView = 'summary' | 'requests' | 'profile' | 'subscription' | 'printer' | 'security' | 'support';
+type CompanyView = 'summary' | 'requests' | 'profile' | 'subscription' | 'printer' | 'ticket' | 'security' | 'support';
 type CompanyNavId = CompanyView | 'audit';
 type SettingsCompanyView = 'summary' | 'data' | 'fiscal' | 'sucursales' | 'correlativos';
-type NavIcon = 'summary' | 'requests' | 'profile' | 'subscription' | 'printer' | 'security' | 'support';
+type NavIcon = 'summary' | 'requests' | 'profile' | 'subscription' | 'printer' | 'ticket' | 'security' | 'support';
 type SelectedCompany = {
   id: number;
   coreEmpresaId: number;
@@ -93,12 +94,14 @@ const navItems = computed<Array<{
   detail: string;
   icon: NavIcon;
   href?: string;
+  group?: string;
 }>>(() => [
   { id: 'summary', label: 'Resumen', detail: 'Información de empresa', icon: 'summary' },
   { id: 'requests', label: 'Solicitudes', detail: 'Cambios sensibles', icon: 'requests' },
   { id: 'profile', label: 'Perfil', detail: 'Datos de contacto', icon: 'profile' },
   { id: 'subscription', label: 'Suscripción', detail: 'Plan y vigencia', icon: 'subscription' },
-  { id: 'printer', label: 'Impresora', detail: 'Preferencias locales', icon: 'printer' },
+  { id: 'printer', label: 'Conexión e impresora', detail: 'Agente, dispositivo y papel', icon: 'printer', group: 'Impresión' },
+  { id: 'ticket', label: 'Formato del ticket', detail: 'Logo, datos y vista previa', icon: 'ticket', group: 'Impresión' },
   { id: 'security', label: 'Seguridad', detail: 'Contraseña y acceso', icon: 'security' },
   { id: 'audit', label: 'Auditoría', detail: 'Actividad de la empresa', icon: 'security', href: auditHref.value },
   { id: 'support', label: 'Soporte', detail: 'Canales de ayuda', icon: 'support' }
@@ -350,7 +353,7 @@ function daysUntil(value: string | null | undefined): number | null {
           <div>
             <h1 class="mt-1 text-2xl font-bold text-slate-950">{{ activeItem.label }}</h1>
           </div>
-          <span v-if="!['subscription', 'printer'].includes(activeView)" class="rounded-md bg-slate-100 px-3 py-1 text-xs font-bold uppercase text-slate-600">Placeholder</span>
+          <span v-if="!['subscription', 'printer', 'ticket'].includes(activeView)" class="rounded-md bg-slate-100 px-3 py-1 text-xs font-bold uppercase text-slate-600">Placeholder</span>
         </div>
 
         <div v-if="activeView === 'requests'" class="mt-6 grid gap-4 lg:grid-cols-3">
@@ -476,7 +479,9 @@ function daysUntil(value: string | null | undefined): number | null {
           </template>
         </div>
 
-        <div v-else-if="activeView === 'printer'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><PrinterSettingsPanel :company="selectedCompany" /></div>
+        <div v-else-if="activeView === 'printer'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><PrinterSettingsPanel /></div>
+
+        <div v-else-if="activeView === 'ticket'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><ThermalTicketSettingsPanel :company="selectedCompany" /></div>
 
         <div v-else-if="activeView === 'security'" class="mt-6 rounded-md border border-slate-200 p-4">
           <p class="text-sm font-bold text-slate-950">Cambio de contraseña</p>

@@ -87,6 +87,7 @@ function iconComponent(icon: string): Component {
     profile: User,
     subscription: CreditCard,
     printer: Printer,
+    ticket: ReceiptText,
     security: ShieldCheck,
     support: MessageSquare,
     stock: PackageSearch,
