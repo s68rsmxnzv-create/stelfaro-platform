@@ -23,7 +23,7 @@ import {
   type PlatformInventorySummary
 } from '@stelfaro/api-client';
 import { currency, type BillingItem, type DocumentType } from '@stelfaro/shared';
-import { UiButton, UiCard, UiCloseButton, UiInput, UiSearchInput, UiLoadingMark, UiSelect, UiTextarea } from '@stelfaro/ui';
+import { UiAutocompleteInput, UiButton, UiCard, UiCloseButton, UiInput, UiSearchInput, UiLoadingMark, UiSelect, UiTextarea } from '@stelfaro/ui';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import BillingFiscalCustomerModal, { type BillingFiscalCustomerModalPayload } from '../components/BillingFiscalCustomerModal.vue';
 import BillingSujetoExcluidoModal, { type BillingSujetoExcluidoModalPayload } from '../components/BillingSujetoExcluidoModal.vue';
@@ -3328,19 +3328,25 @@ function updatePaymentCondition(value: string): void {
               <tbody class="divide-y divide-slate-200 dark:divide-line">
                 <tr v-if="!isAdjustmentNote" class="bg-blue-50/40 dark:bg-surface-muted">
                   <td class="px-3 py-2">
-                    <div class="relative">
-                      <input
-                        :value="draftLine.description"
-                        class="w-full rounded-md border border-blue-100 bg-white/90 py-2 pl-3 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised"
-                        :class="draftLine.description.trim() ? (draftLine.lineOrigin === 'inventory' ? 'pr-52' : 'pr-40') : 'pr-3'"
-                        :placeholder="isSujetoExcluido ? 'Compra o servicio recibido' : 'Buscar catalogo o escribir descripcion libre'"
-                        @blur="closeCatalogLineSuggestions"
-                        @focus="scheduleCatalogLineSearch(draftLine.description)"
-                        @input="onDraftLineDescriptionInput(($event.target as HTMLInputElement).value)"
-                      >
+                    <UiAutocompleteInput
+                      :model-value="draftLine.description"
+                      :options="catalogLineSuggestions"
+                      :open="catalogLineSuggestionsOpen && canUseCatalogLineSearch"
+                      :loading="catalogLineLoading"
+                      :show-suffix="Boolean(draftLine.description.trim())"
+                      :placeholder="isSujetoExcluido ? 'Compra o servicio recibido' : 'Buscar catálogo o escribir descripción libre'"
+                      empty-text="Sin resultados. Se agregará como descripción libre."
+                      hide-label
+                      label="Descripción"
+                      @blur="closeCatalogLineSuggestions"
+                      @focus="scheduleCatalogLineSearch(draftLine.description)"
+                      @select="selectCatalogItemForDraft"
+                      @update:model-value="onDraftLineDescriptionInput"
+                    >
+                      <template #suffix>
                       <span
                         v-if="draftLine.description.trim()"
-                        class="pointer-events-none absolute right-2 top-1/2 inline-flex -translate-y-1/2 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                        class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold"
                         :class="lineOriginClass(draftLine)"
                       >
                         {{ lineOriginLabel(draftLine) }}
@@ -3349,33 +3355,19 @@ function updatePaymentCondition(value: string): void {
                         </template>
                         <template v-else-if="draftLine.lineOrigin === 'inventory' && inventoryAvailabilityLoading"> · …</template>
                       </span>
-                      <div
-                        v-if="catalogLineSuggestionsOpen && canUseCatalogLineSearch"
-                        class="absolute z-[100] mt-1 max-h-36 w-full overflow-y-auto rounded-md border border-blue-100 bg-white py-1 text-sm shadow-xl shadow-blue-950/10 dark:border-line dark:bg-surface-raised dark:shadow-black/30"
-                      >
-                        <div v-if="catalogLineLoading" class="px-3 py-2 text-xs font-medium text-slate-500 dark:text-muted">Buscando catalogo...</div>
-                        <button
-                          v-for="item in catalogLineSuggestions"
-                          :key="item.id"
-                          class="block w-full px-3 py-2 text-left hover:bg-sky-50 dark:hover:bg-primary-soft"
-                          type="button"
-                          @mousedown.prevent="selectCatalogItemForDraft(item)"
-                        >
-                          <span class="block font-semibold text-slate-950 dark:text-text">{{ item.name }}</span>
-                          <span class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-soft">
-                            <span>{{ item.sku || 'Sin codigo' }}</span>
-                            <span>{{ currency(item.base_price) }}</span>
-                            <span>{{ item.controls_inventory ? 'Inventario' : 'Catalogo' }}</span>
-                            <span v-if="item.controls_inventory && branchStockForItem(item.id) !== null">
-                              Disponible: {{ formatStock(branchStockForItem(item.id) ?? 0) }}
-                            </span>
+                      </template>
+                      <template #option="{ option: item }">
+                        <span class="block font-semibold text-slate-950 dark:text-text">{{ item.name }}</span>
+                        <span class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-soft">
+                          <span>{{ item.sku || 'Sin código' }}</span>
+                          <span>{{ currency(item.base_price) }}</span>
+                          <span>{{ item.controls_inventory ? 'Inventario' : 'Catálogo' }}</span>
+                          <span v-if="item.controls_inventory && branchStockForItem(item.id) !== null">
+                            Disponible: {{ formatStock(branchStockForItem(item.id) ?? 0) }}
                           </span>
-                        </button>
-                        <p v-if="!catalogLineLoading && catalogLineSuggestions.length === 0" class="px-3 py-2 text-slate-500 dark:text-muted">
-                          Sin resultados. Se agregara como descripcion libre.
-                        </p>
-                      </div>
-                    </div>
+                        </span>
+                      </template>
+                    </UiAutocompleteInput>
                   </td>
                   <td class="px-3 py-2">
                     <UiInput v-model.number="draftLine.quantity" label="Cantidad" hide-label min="0.01" step="0.01" type="number" />

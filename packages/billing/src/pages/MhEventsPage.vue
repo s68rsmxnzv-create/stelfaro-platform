@@ -9,7 +9,7 @@ import {
   type PlatformFiscalSyncOperation
 } from '@stelfaro/api-client';
 import { currency, fiscalDate, fiscalDateTime } from '@stelfaro/shared';
-import { UiButton, UiCard, UiSearchInput, UiLoadingMark, UiRefreshButton, UiSaveIcon, UiTextarea } from '@stelfaro/ui';
+import { UiButton, UiCard, UiSearchInput, UiLoadingMark, UiRefreshButton, UiSaveIcon, UiSelect, UiTextarea } from '@stelfaro/ui';
 import BillingModalShell from '../components/BillingModalShell.vue';
 import BillingProcessModal from '../components/BillingProcessModal.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
@@ -2331,16 +2331,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               </div>
 
               <div class="grid gap-3 lg:grid-cols-[240px_minmax(0,1fr)_auto] lg:items-end">
-                <label class="block">
-                  <span class="text-sm font-semibold text-slate-900 dark:text-text">Tipo de DTE origen</span>
-                  <select
-                    v-model="form.retornoDteType"
-                    class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 dark:border-line dark:bg-surface-muted dark:text-text"
-                    @change="clearEventResult"
-                  >
-                    <option v-for="tipo in retornoDocumentoTipos" :key="tipo.value" :value="tipo.value">{{ tipo.label }}</option>
-                  </select>
-                </label>
+                <UiSelect v-model="form.retornoDteType" label="Tipo de DTE origen" :options="retornoDocumentoTipos" @update:model-value="clearEventResult" />
                 <UiSearchInput
                   v-model="query"
                   label="Buscar DTE origen"
@@ -2455,24 +2446,14 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     <button class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 dark:bg-surface-muted dark:text-muted dark:hover:bg-line" type="button" @click="removeReturnEventLine(line.id)">Quitar</button>
                   </div>
                   <div class="mt-3 grid gap-3 lg:grid-cols-6">
-                    <label class="block lg:col-span-3">
-                      <span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">DTE origen</span>
-                      <select
-                        v-model="line.codigoGeneracion"
-                        class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-sm uppercase text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text"
-                        :disabled="selectedReturnDocuments.length === 0"
-                        @change="clearEventResult"
-                      >
-                        <option value="">Selecciona DTE</option>
-                        <option
-                          v-for="document in selectedReturnDocuments"
-                          :key="document.id"
-                          :value="document.codigoGeneracion"
-                        >
-                          {{ document.numeroControl }}
-                        </option>
-                      </select>
-                    </label>
+                    <UiSelect
+                      v-model="line.codigoGeneracion"
+                      class="lg:col-span-3"
+                      label="DTE origen"
+                      :disabled="selectedReturnDocuments.length === 0"
+                      :options="[{ value: '', label: 'Selecciona DTE' }, ...selectedReturnDocuments.map(document => ({ value: document.codigoGeneracion, label: document.numeroControl }))]"
+                      @update:model-value="clearEventResult"
+                    />
                     <label class="block">
                       <span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Cantidad</span>
                       <input v-model.number="line.cantidad" type="number" min="1" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text" @input="syncReturnEventAmounts(line); clearEventResult()">
@@ -2483,16 +2464,14 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     </label>
                   </div>
                   <div class="mt-3 grid gap-3 md:grid-cols-4 xl:grid-cols-8">
-                    <label v-if="form.retornoDteType === '01'" class="block xl:col-span-2">
-                      <span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Tipo de monto</span>
-                      <select
-                        v-model="line.tipoMonto"
-                        class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text"
-                        @change="syncReturnEventAmounts(line); clearEventResult()"
-                      >
-                        <option v-for="tipo in retornoMontoTipos" :key="tipo.value" :value="tipo.value">{{ tipo.label }}</option>
-                      </select>
-                    </label>
+                    <UiSelect
+                      v-if="form.retornoDteType === '01'"
+                      v-model="line.tipoMonto"
+                      class="xl:col-span-2"
+                      label="Tipo de monto"
+                      :options="retornoMontoTipos"
+                      @update:model-value="syncReturnEventAmounts(line); clearEventResult()"
+                    />
                     <label class="block xl:col-span-2">
                       <span class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">{{ returnAmountInputLabel() }}</span>
                       <input
@@ -2615,26 +2594,8 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
         <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div class="min-w-0 space-y-5">
             <div class="grid gap-4 rounded-md border border-slate-200 p-4 lg:grid-cols-2">
-              <label class="block">
-                <span class="text-sm font-semibold text-slate-900">Documento</span>
-                <select
-                  v-model="form.operacionesDocumentType"
-                  class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                >
-                  <option v-for="tipo in operacionesDocumentoTipos" :key="tipo.value" :value="tipo.value">{{ tipo.label }}</option>
-                </select>
-              </label>
-
-              <label class="block">
-                <span class="text-sm font-semibold text-slate-900">Estado a reportar</span>
-                <select
-                  v-model="form.operacionesStatus"
-                  class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                >
-                  <option value="active">Documentos activos</option>
-                  <option value="annulled">Documentos anulados</option>
-                </select>
-              </label>
+              <UiSelect v-model="form.operacionesDocumentType" label="Documento" :options="operacionesDocumentoTipos" />
+              <UiSelect v-model="form.operacionesStatus" label="Estado a reportar" :options="[{ value: 'active', label: 'Documentos activos' }, { value: 'annulled', label: 'Documentos anulados' }]" />
             </div>
 
             <div class="rounded-md border border-slate-200 p-4">
@@ -3083,15 +3044,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               </UiButton>
             </div>
 
-            <label class="mt-4 block">
-              <span class="text-sm font-semibold text-slate-900">Tipo de contingencia</span>
-              <select
-                v-model.number="form.tipoContingencia"
-                class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              >
-                <option v-for="tipo in contingenciaTipos" :key="tipo.value" :value="tipo.value">{{ tipo.label }}</option>
-              </select>
-            </label>
+            <UiSelect v-model.number="form.tipoContingencia" class="mt-4" label="Tipo de contingencia" :options="contingenciaTipos" />
             <p v-if="!requiresMotivoContingencia" class="mt-2 text-xs font-medium text-slate-500">
               Este tipo no requiere detalle adicional.
             </p>
@@ -3398,15 +3351,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               </UiButton>
             </div>
             <div class="mt-4 grid gap-4 sm:grid-cols-2">
-              <label class="block sm:col-span-2">
-                <span class="text-sm font-semibold text-slate-900">Tipo de invalidacion</span>
-                <select
-                  v-model.number="form.tipoAnulacion"
-                  class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                >
-                  <option v-for="tipo in invalidacionTipos" :key="tipo.value" :value="tipo.value">{{ tipo.label }}</option>
-                </select>
-              </label>
+              <UiSelect v-model.number="form.tipoAnulacion" class="sm:col-span-2" label="Tipo de invalidación" :options="invalidacionTipos" />
             </div>
 
             <div

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import type { NotificationMailTransport } from '@stelfaro/api-client';
-import { UiButton, UiEmailInput, UiPasswordInput, UiSaveIcon } from '@stelfaro/ui';
+import { UiButton, UiEmailInput, UiPasswordInput, UiSaveIcon, UiSelect } from '@stelfaro/ui';
 import { useAdminSessionStore } from '../stores/adminSession';
 
 const session = useAdminSessionStore();
@@ -112,14 +112,7 @@ async function saveTransport(): Promise<void> {
               <span class="text-sm font-medium text-slate-700">Puerto</span>
               <input v-model="form.port" type="number" min="1" max="65535" required class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900" />
             </label>
-            <label class="block">
-              <span class="text-sm font-medium text-slate-700">Cifrado</span>
-              <select v-model="form.scheme" class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900">
-                <option value="ssl">SSL</option>
-                <option value="tls">TLS</option>
-                <option value="null">Ninguno</option>
-              </select>
-            </label>
+            <UiSelect v-model="form.scheme" label="Cifrado" :options="[{ value: 'ssl', label: 'SSL' }, { value: 'tls', label: 'TLS' }, { value: 'null', label: 'Ninguno' }]" />
           </div>
 
           <label class="block">

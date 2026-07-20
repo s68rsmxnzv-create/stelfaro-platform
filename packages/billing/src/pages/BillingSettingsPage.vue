@@ -16,7 +16,7 @@ import {
   type DteDashboardSummary,
   type MhBearerVerification
 } from '@stelfaro/api-client';
-import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiPhoneInput, UiRefreshButton, UiSaveIcon, UiSearchInput, UiSearchSelect, UiStatusBadge, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
+import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiPhoneInput, UiRefreshButton, UiSaveIcon, UiSearchInput, UiSearchSelect, UiSelect, UiStatusBadge, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
 import BillingModalShell from '../components/BillingModalShell.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 import { clearBillingDataCache } from '../support/billingDataCache';
@@ -1882,20 +1882,9 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                   <p class="mt-1 text-xs text-slate-500">Selecciona sucursal y punto de venta para ajustar el ultimo correlativo emitido por cada DTE.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                  <select v-model.number="selectedSucursalId" class="h-9 rounded-md border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-700">
-                    <option v-for="sucursal in sucursales" :key="sucursal.id" :value="sucursal.id">
-                      {{ sucursal.codigo }} · {{ sucursal.nombre }}
-                    </option>
-                  </select>
-                  <select v-model.number="selectedPuntoVentaId" class="h-9 rounded-md border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-700">
-                    <option v-for="punto in puntosVenta" :key="punto.id" :value="punto.id">
-                      {{ punto.codigo }} · {{ punto.nombre }}
-                    </option>
-                  </select>
-                  <select v-model="form.ambiente" class="h-9 rounded-md border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-700">
-                    <option value="00">Pruebas</option>
-                    <option value="01">Produccion</option>
-                  </select>
+                  <UiSelect v-model.number="selectedSucursalId" class="min-w-48" label="Sucursal" hide-label :options="sucursales.map(sucursal => ({ value: sucursal.id, label: `${sucursal.codigo} · ${sucursal.nombre}` }))" />
+                  <UiSelect v-model.number="selectedPuntoVentaId" class="min-w-48" label="Punto de venta" hide-label :options="puntosVenta.map(punto => ({ value: punto.id, label: `${punto.codigo} · ${punto.nombre}` }))" />
+                  <UiSelect v-model="form.ambiente" class="min-w-36" label="Ambiente" hide-label :options="[{ value: '00', label: 'Pruebas' }, { value: '01', label: 'Producción' }]" />
                   <UiRefreshButton :loading="correlativosLoading" :disabled="!form.empresa_id" @click="loadCorrelativos" />
                 </div>
               </div>
@@ -2020,13 +2009,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               </p>
 
               <div class="mt-5 grid gap-4 md:grid-cols-2">
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Ambiente</span>
-                  <select v-model="form.ambiente" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                    <option value="00">00 · Pruebas</option>
-                    <option value="01">01 · Produccion</option>
-                  </select>
-                </label>
+                <UiSelect v-model="form.ambiente" label="Ambiente" :options="[{ value: '00', label: '00 · Pruebas' }, { value: '01', label: '01 · Producción' }]" />
 
                 <div class="block">
                   <span class="text-sm font-medium text-slate-700">Certificado activo</span>

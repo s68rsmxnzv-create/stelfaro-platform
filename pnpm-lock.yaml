@@ -54,6 +54,9 @@ importers:
         specifier: ^4.5.0
         version: 4.6.4(vue@3.5.35(typescript@5.9.3))
     devDependencies:
+      vite:
+        specifier: ^6.0.5
+        version: 6.4.3(@types/node@26.1.1)(jiti@1.21.7)
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@26.1.1)
@@ -116,6 +119,9 @@ importers:
 
   packages/ui:
     dependencies:
+      lucide-vue-next:
+        specifier: ^1.0.0
+        version: 1.0.0(vue@3.5.35(typescript@5.9.3))
       vue:
         specifier: ^3.5.13
         version: 3.5.35(typescript@5.9.3)
