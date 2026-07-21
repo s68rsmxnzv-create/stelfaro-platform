@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch, type Component } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import { Building2, CalendarDays, ChevronLeft, ChevronRight, CirclePlus, CreditCard, FileClock, House, Mail, ScrollText, Settings } from 'lucide-vue-next';
 import { UiHierarchicalSidebarNav, type UiSidebarNavEntry, type UiSidebarNavGroup } from '@stelfaro/ui';
-import { InternalNotificationsBell } from '@stelfaro/billing';
 import OwnerAvatarMenu from './components/OwnerAvatarMenu.vue';
 import { useAdminSessionStore } from './stores/adminSession';
 import { useAdminWorkspaceStore } from './stores/adminWorkspace';
@@ -20,6 +19,8 @@ const darkMode = ref(false);
 const themeStorageKey = 'stelfaro:theme';
 const adminSidebarStorageKey = 'stelfaro:admin-sidebar-compact';
 const adminSidebarCompact = ref(false);
+const requestUnreadCount = ref(0);
+let requestPollTimer: number | null = null;
 
 const themeLabel = computed(() => (darkMode.value ? 'Modo claro' : 'Modo oscuro'));
 
@@ -36,6 +37,16 @@ onMounted(async () => {
     session.initialize().catch(() => undefined),
     core.initialize().catch(() => undefined)
   ]);
+
+  if (route.path.startsWith('/requests')) await markRequestNotificationsRead();
+  else await loadRequestUnreadCount();
+  requestPollTimer = window.setInterval(() => {
+    if (!document.hidden) void loadRequestUnreadCount();
+  }, 5_000);
+});
+
+onBeforeUnmount(() => {
+  if (requestPollTimer) window.clearInterval(requestPollTimer);
 });
 
 watch(adminSidebarCompact, (value) => window.localStorage.setItem(adminSidebarStorageKey, value ? 'compact' : 'full'));
@@ -83,7 +94,7 @@ function companyViewIconClass(view: 'data' | 'fiscal' | 'sucursales' | 'correlat
   return workspace.activeCompanyView === view ? 'text-slate-950' : 'text-slate-600';
 }
 
-const navEntries: UiSidebarNavEntry[] = [
+const navEntries = computed<UiSidebarNavEntry[]>(() => [
   { id: '/', label: 'Inicio', icon: 'home' },
   {
     id: 'companies',
@@ -95,7 +106,7 @@ const navEntries: UiSidebarNavEntry[] = [
     ]
   },
   { id: '/subscriptions', label: 'Suscripciones', icon: 'credit-card' },
-  { id: '/requests', label: 'Solicitudes', icon: 'requests' },
+  { id: '/requests', label: 'Solicitudes', icon: 'requests', badge: requestUnreadCount.value || undefined },
   { id: '/fiscal/calendar', label: 'Calendario fiscal', icon: 'calendar' },
   { id: '/audit', label: 'Auditoría', icon: 'audit' },
   {
@@ -107,10 +118,10 @@ const navEntries: UiSidebarNavEntry[] = [
       { id: '/notifications/mail-transport', label: 'Buzón SMTP' }
     ]
   }
-];
+]);
 
 const activeNavId = computed(() => {
-  for (const entry of navEntries) {
+  for (const entry of navEntries.value) {
     if (isGroup(entry)) {
       const child = entry.children.find((item) => isActivePath(item.id));
       if (child) return child.id;
@@ -124,7 +135,7 @@ const breadcrumbs = computed(() => {
     return [];
   }
 
-  for (const entry of navEntries) {
+  for (const entry of navEntries.value) {
     if (!isGroup(entry) && isActivePath(entry.id)) {
       return [{ label: entry.label, to: entry.id }];
     }
@@ -181,8 +192,28 @@ function isActivePath(path: string): boolean {
   return active;
 }
 
-function selectAdminNav(id: string): void {
+async function selectAdminNav(id: string): Promise<void> {
+  if (id === '/requests') await markRequestNotificationsRead();
   void router.push(id);
+}
+
+async function loadRequestUnreadCount(): Promise<void> {
+  if (!platform.canAccessAdmin) return;
+  try {
+    requestUnreadCount.value = (await platform.client.adminInternalNotifications(50, 'tenant_request')).unread_count;
+  } catch {
+    // Conservamos el conteo visible y reintentamos en el siguiente ciclo.
+  }
+}
+
+async function markRequestNotificationsRead(): Promise<void> {
+  if (!platform.canAccessAdmin) return;
+  try {
+    await platform.client.readAllInternalNotifications(null, 'admin', 'tenant_request');
+    requestUnreadCount.value = 0;
+  } catch {
+    await loadRequestUnreadCount();
+  }
 }
 
 function adminIconComponent(icon?: string): Component {
@@ -498,9 +529,6 @@ function adminIconComponent(icon?: string): Component {
             </span>
           </template>
 
-          <div class="ml-auto pl-5">
-            <InternalNotificationsBell :platform-base-url="platform.platformApiBaseUrl" scope="admin" appearance="light" />
-          </div>
         </div>
 
         <RouterView :key="route.fullPath" />

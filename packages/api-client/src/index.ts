@@ -2008,16 +2008,16 @@ export class PlatformClient {
     return this.http.get('platform/notifications', { searchParams: { tenant_id: tenantId, limit, scope: 'tenant' } }).json();
   }
 
-  adminInternalNotifications(limit = 50): Promise<PlatformInternalNotificationsResponse> {
-    return this.http.get('platform/notifications', { searchParams: { limit, scope: 'admin' } }).json();
+  adminInternalNotifications(limit = 50, category?: string): Promise<PlatformInternalNotificationsResponse> {
+    return this.http.get('platform/notifications', { searchParams: compactParams({ limit, scope: 'admin', category }) }).json();
   }
 
   readInternalNotification(notificationId: number): Promise<{ data: PlatformInternalNotification }> {
     return this.http.post(`platform/notifications/${notificationId}/read`).json();
   }
 
-  readAllInternalNotifications(tenantId?: number | null, scope: 'tenant' | 'admin' = 'tenant'): Promise<{ unread_count: number }> {
-    return this.http.post('platform/notifications/read-all', { json: { tenant_id: tenantId || null, scope } }).json();
+  readAllInternalNotifications(tenantId?: number | null, scope: 'tenant' | 'admin' = 'tenant', category?: string): Promise<{ unread_count: number }> {
+    return this.http.post('platform/notifications/read-all', { json: { tenant_id: tenantId || null, scope, category: category || null } }).json();
   }
 
   deleteInternalNotification(notificationId: number): Promise<{ message: string }> {

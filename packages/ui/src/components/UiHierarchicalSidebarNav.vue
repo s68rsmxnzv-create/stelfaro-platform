@@ -7,6 +7,7 @@ export type UiSidebarNavItem = {
   label: string;
   detail?: string;
   icon?: string;
+  badge?: string | number;
 };
 
 export type UiSidebarNavGroup = {
@@ -14,6 +15,7 @@ export type UiSidebarNavGroup = {
   label: string;
   detail?: string;
   icon?: string;
+  badge?: string | number;
   children: UiSidebarNavItem[];
 };
 
@@ -69,13 +71,15 @@ function toggleGroup(group: UiSidebarNavGroup): void {
           :title="compact ? entry.label : undefined"
           @click="toggleGroup(entry)"
         >
-          <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md" :class="isActive(entry) ? 'bg-white text-sky-700 dark:bg-surface-raised dark:text-primary' : 'text-slate-500 dark:text-soft'">
+          <span class="relative grid h-9 w-9 shrink-0 place-items-center rounded-md" :class="isActive(entry) ? 'bg-white text-sky-700 dark:bg-surface-raised dark:text-primary' : 'text-slate-500 dark:text-soft'">
             <slot name="icon" :entry="entry" />
+            <span v-if="compact && entry.badge" class="absolute -right-1.5 -top-1.5 grid min-h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black leading-none text-white ring-2 ring-white dark:ring-surface">{{ Number(entry.badge) > 99 ? '99+' : entry.badge }}</span>
           </span>
           <span v-if="!compact" class="min-w-0 flex-1">
             <span class="block truncate">{{ entry.label }}</span>
             <span v-if="entry.detail" class="block truncate text-xs font-medium text-slate-500 dark:text-soft">{{ entry.detail }}</span>
           </span>
+          <span v-if="!compact && entry.badge" class="grid min-h-6 min-w-6 place-items-center rounded-full bg-red-500 px-1.5 text-xs font-black text-white">{{ Number(entry.badge) > 99 ? '99+' : entry.badge }}</span>
           <ChevronRight v-if="!compact" class="h-4 w-4 shrink-0 text-slate-400 transition" :class="openGroupId === entry.id ? 'rotate-90' : ''" />
         </button>
 
@@ -109,13 +113,15 @@ function toggleGroup(group: UiSidebarNavGroup): void {
         :title="compact ? entry.label : undefined"
         @click="emit('select', entry.id)"
       >
-        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md" :class="entry.id === activeId ? 'bg-white text-sky-700 dark:bg-surface-raised dark:text-primary' : 'text-slate-500 dark:text-soft'">
+        <span class="relative grid h-9 w-9 shrink-0 place-items-center rounded-md" :class="entry.id === activeId ? 'bg-white text-sky-700 dark:bg-surface-raised dark:text-primary' : 'text-slate-500 dark:text-soft'">
           <slot name="icon" :entry="entry" />
+          <span v-if="compact && entry.badge" class="absolute -right-1.5 -top-1.5 grid min-h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black leading-none text-white ring-2 ring-white dark:ring-surface">{{ Number(entry.badge) > 99 ? '99+' : entry.badge }}</span>
         </span>
-        <span v-if="!compact" class="min-w-0">
+        <span v-if="!compact" class="min-w-0 flex-1">
           <span class="block truncate">{{ entry.label }}</span>
           <span v-if="entry.detail" class="block truncate text-xs font-medium text-slate-500 dark:text-soft">{{ entry.detail }}</span>
         </span>
+        <span v-if="!compact && entry.badge" class="grid min-h-6 min-w-6 place-items-center rounded-full bg-red-500 px-1.5 text-xs font-black text-white">{{ Number(entry.badge) > 99 ? '99+' : entry.badge }}</span>
       </button>
     </template>
   </nav>
