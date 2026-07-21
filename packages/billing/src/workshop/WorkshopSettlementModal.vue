@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
-import { CircleDollarSign, RotateCcw, Truck } from 'lucide-vue-next';
+import { CircleDollarSign, RotateCcw } from 'lucide-vue-next';
 import { UiButton, UiInput, UiModalShell, UiSelect, UiTextarea } from '@stelfaro/ui';
 import type { WorkshopOrder } from '@stelfaro/api-client';
 
@@ -40,10 +40,6 @@ function submit() {
       <div v-if="isCancellation" class="rounded-lg border border-warning bg-warning-soft p-4">
         <div class="flex gap-3"><RotateCcw class="mt-0.5 h-5 w-5 shrink-0 text-warning" /><div><p class="font-semibold text-text">Anticipo recibido: {{ money(order.paid_total) }}</p><p class="mt-1 text-sm text-muted">Indica si una parte se aplicará a diagnóstico o trabajo realizado. El resto quedará registrado como devolución.</p></div></div>
       </div>
-      <div v-else class="rounded-lg border border-success bg-success-soft p-4">
-        <div class="flex gap-3"><Truck class="mt-0.5 h-5 w-5 shrink-0 text-success" /><div><p class="font-semibold text-text">Entrega y cierre en un solo paso</p><p class="mt-1 text-sm text-muted">Puedes cobrar ahora o entregar con saldo pendiente. El cierre registra la venta comercial, pero no genera factura.</p></div></div>
-      </div>
-
       <UiInput v-if="isCancellation" v-model="form.diagnosticCharge" label="Costo de diagnóstico o trabajo realizado" type="number" min="0" step="0.01" />
       <UiInput v-else v-model="form.finalTotal" label="Total final del trabajo" type="number" min="0" step="0.01" />
 
