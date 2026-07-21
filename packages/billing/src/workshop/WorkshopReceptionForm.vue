@@ -7,14 +7,15 @@ import BillingCustomerModal, { type BillingCustomerModalPayload } from '../compo
 import WorkshopPatternInput from './WorkshopPatternInput.vue';
 import WorkshopIdentifierInput from './WorkshopIdentifierInput.vue';
 
-const props = defineProps<{ customers: BillingCustomer[]; branches?: BillingSucursal[]; catalogs?: BillingCatalogs | null; customerLoading?: boolean; onCreateCustomer: (payload: BillingCustomerModalPayload) => Promise<BillingCustomer>; onSave: (payload: WorkshopOrderPayload) => Promise<unknown> }>();
+const props = defineProps<{ customers: BillingCustomer[]; branches?: BillingSucursal[]; catalogs?: BillingCatalogs | null; customerLoading?: boolean; continuation?: { receptionId: number; customer: Pick<BillingCustomer, 'id'|'name'|'phone'|'email'>; branchId?: number|null } | null; onCreateCustomer: (payload: BillingCustomerModalPayload) => Promise<BillingCustomer>; onSave: (payload: WorkshopOrderPayload) => Promise<unknown> }>();
 const emit = defineEmits<{ search: [query: string] }>();
-const step = ref(1);
-const selected = ref<BillingCustomer | null>(null);
-const customerQuery = ref('');
+type ReceptionCustomer = Pick<BillingCustomer, 'id'|'name'|'phone'|'email'> & { document_number?: string|null };
+const step = ref(props.continuation ? 2 : 1);
+const selected = ref<ReceptionCustomer | null>(props.continuation?.customer ?? null);
+const customerQuery = ref(props.continuation?.customer.name ?? '');
 const customerCreateOpen = ref(false);
 const customerCreateLoading = ref(false);
-const selectedBranchId = ref(String(props.branches?.[0]?.id ?? ''));
+const selectedBranchId = ref(String(props.continuation?.branchId ?? props.branches?.[0]?.id ?? ''));
 const customerDepartamento = ref('');
 const customerMunicipio = ref('');
 const optionalOpen = ref(false);
@@ -76,7 +77,7 @@ async function submit() {
     if (!validateCompletion()) return;
     const identifier = imeiSuggestion.value || form.identifier.trim();
     const imei = /^\d{15}$/.test(identifier);
-    await props.onSave({ core_sucursal_id: selectedBranch.value?.id ?? null, core_sucursal_code: selectedBranch.value?.codigo ?? null, core_sucursal_name: selectedBranch.value?.nombre ?? null, customer: { core_customer_id: selected.value.id, name: selected.value.name, phone: selected.value.phone, email: selected.value.email }, device: { type: form.type, brand: form.brand, model: form.model, color: form.color || null, imei: !form.identifier_not_visible && imei ? identifier : null, serial_number: !form.identifier_not_visible && !imei ? identifier || null : null, identifier_not_visible: form.identifier_not_visible, power_status: form.power_status, functional_tests: form.power_status === 'on' ? {...functionalTests} : {}, is_locked: form.is_locked, access_type: form.is_locked ? form.access_type : null, access_secret: form.is_locked ? form.access_secret || null : null }, reported_fault: form.reported_fault, physical_condition: form.physical_condition || null, physical_conditions: physicalConditions.value, accessories: accessoriesText.value.split(',').map(value => value.trim()).filter(Boolean), priority: form.priority, estimated_total: form.estimated_total ? estimated.value : null, advance: advance.value > 0 ? { amount: advance.value, method: form.advance_method, reference: form.advance_reference || null } : undefined });
+    await props.onSave({ reception_id: props.continuation?.receptionId ?? null, core_sucursal_id: selectedBranch.value?.id ?? null, core_sucursal_code: selectedBranch.value?.codigo ?? null, core_sucursal_name: selectedBranch.value?.nombre ?? null, customer: { core_customer_id: selected.value.id, name: selected.value.name, phone: selected.value.phone, email: selected.value.email }, device: { type: form.type, brand: form.brand, model: form.model, color: form.color || null, imei: !form.identifier_not_visible && imei ? identifier : null, serial_number: !form.identifier_not_visible && !imei ? identifier || null : null, identifier_not_visible: form.identifier_not_visible, power_status: form.power_status, functional_tests: form.power_status === 'on' ? {...functionalTests} : {}, is_locked: form.is_locked, access_type: form.is_locked ? form.access_type : null, access_secret: form.is_locked ? form.access_secret || null : null }, reported_fault: form.reported_fault, physical_condition: form.physical_condition || null, physical_conditions: physicalConditions.value, accessories: accessoriesText.value.split(',').map(value => value.trim()).filter(Boolean), priority: form.priority, estimated_total: form.estimated_total ? estimated.value : null, advance: advance.value > 0 ? { amount: advance.value, method: form.advance_method, reference: form.advance_reference || null } : undefined });
     selected.value = null; customerQuery.value = ''; accessoriesText.value = ''; optionalOpen.value = false; step.value = 1;
     Object.keys(functionalTests).forEach(key => delete functionalTests[key]); physicalConditions.value = [];
     Object.assign(form, { type: 'phone', brand: '', model: '', color: '', identifier: '', identifier_not_visible: false, power_status: 'not_tested', reported_fault: '', physical_condition: '', priority: 'normal', estimated_total: '', advance_amount: '', advance_method: 'cash', advance_reference: '', is_locked: false, access_type: 'code', access_secret: '' });
@@ -108,6 +109,7 @@ function validateCompletion() {
 
   <UiCard class="w-full overflow-hidden">
     <div class="border-b border-line px-5 py-4 sm:px-7">
+      <div v-if="continuation" class="mb-4 rounded-lg border border-primary/30 bg-primary-soft px-4 py-3"><p class="text-xs font-bold uppercase tracking-wide text-primary">Misma recepción</p><p class="mt-1 font-semibold text-text">{{ continuation.customer.name }} · Agregando otro equipo</p></div>
       <div class="flex items-center justify-between gap-4 text-sm"><span class="font-semibold text-primary">Paso {{ step }} de 4</span><span class="text-muted">{{ step === 1 ? 'Cliente' : step === 2 ? 'Equipo y pruebas' : step === 3 ? 'Detalles y valores' : 'Resumen' }}</span></div>
       <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-muted"><div class="h-full rounded-full bg-primary transition-all" :style="{ width: progress }"></div></div>
     </div>

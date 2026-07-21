@@ -5,23 +5,17 @@ import type { PrintOperation } from '../printing/printJob';
 const money = (value: number | null | undefined) => `$${Number(value || 0).toFixed(2)}`;
 
 export async function workshopReceptionTicket(
-  order: WorkshopOrder,
+  orders: WorkshopOrder[],
   company?: BillingEmpresa | null,
   ticketSettings: WorkshopTicketSettings = { receipt_copies: 2, print_equipment_label: true, terms: '' },
-  deviceAccess?: { url: string; pin: string } | null,
+  deviceAccesses: Record<number, { url: string; pin: string } | null> = {},
   preparedLogo?: ThermalLogoRaster | null,
 ): Promise<PrintOperation[]> {
+  if (!orders.length) return [];
   const settings = loadPrinterSettings();
   const separator = '-'.repeat(settings.paperWidth === '58' ? 32 : 48);
-  const branch = company?.sucursales?.[0];
-  const estimate = Number(order.estimated_total || 0);
-  const advance = Math.max(0, Number(order.paid_total || 0) - Number(order.refunded_total || 0));
-  const identifiers = [
-    order.device.imei ? `IMEI: ${order.device.imei}` : '',
-    order.device.serial_number ? `Serie: ${order.device.serial_number}` : '',
-  ].filter(Boolean);
-  const condition = [order.physical_condition, ...(order.physical_conditions || []), ...(order.accessories || [])].filter(Boolean).join(' · ');
-  const functionalTests = Object.entries(order.device.functional_tests || {}).map(([test, result]) => `${testLabel(test)}: ${resultLabel(result)}`);
+  const primary = orders[0];
+  const branch = company?.sucursales?.find(item => item.id === primary.branch?.id) ?? company?.sucursales?.[0];
   const logo = settings.showLogo && preparedLogo
     ? { name: 'imageRaster', args: [preparedLogo.width, preparedLogo.height, preparedLogo.data, 0] } satisfies PrintOperation
     : null;
@@ -29,49 +23,54 @@ export async function workshopReceptionTicket(
   const operations: PrintOperation[] = [];
 
   for (const copyLabel of copies) {
-    operations.push(...receptionCopy({ order, company, branch, copyLabel, separator, estimate, advance, identifiers, condition, functionalTests, terms: ticketSettings.terms, workshopPin: copyLabel === 'COPIA TALLER' ? deviceAccess?.pin : null, logo, showIssuerDetails: settings.showIssuerDetails }));
+    operations.push(...receptionCopy({ orders, company, branch, copyLabel, separator, terms: ticketSettings.terms, deviceAccesses: copyLabel === 'COPIA TALLER' ? deviceAccesses : {}, logo, showIssuerDetails: settings.showIssuerDetails }));
     operations.push({ name: 'cut', args: [settings.cutLines] });
   }
 
-  if (ticketSettings.print_equipment_label && deviceAccess?.url) {
-    operations.push(
-      { name: 'init', args: [] },
-      { name: 'align', args: ['center'] },
-      { name: 'bold', args: [true] },
-      { name: 'text', args: ['ETIQUETA DEL EQUIPO\n'] },
-      { name: 'size', args: [2, 2] },
-      { name: 'text', args: [`${order.ticket}\n`] },
-      { name: 'size', args: [1, 1] },
-      { name: 'bold', args: [false] },
-      { name: 'text', args: [`${order.device.brand} ${order.device.model}\n${identifiers[0] || 'Sin identificador visible'}\n`] },
-      { name: 'qr', args: [deviceAccess.url, fixedQrWidth(settings.paperWidth), 1, 0] },
-      { name: 'text', args: [`\nAcceso móvil seguro del taller\n${ticketSettings.receipt_copies === 2 ? 'El PIN se encuentra en la copia del taller.' : 'El PIN está disponible en la recepción.'}\n`] },
-      { name: 'cut', args: [settings.cutLines] },
-    );
+  if (ticketSettings.print_equipment_label) {
+    for (const order of orders) {
+      const access = deviceAccesses[order.id];
+      if (!access?.url) continue;
+      const identifiers = identifiersFor(order);
+      operations.push(
+        { name: 'init', args: [] },
+        { name: 'align', args: ['center'] },
+        { name: 'bold', args: [true] },
+        { name: 'text', args: ['ETIQUETA DEL EQUIPO\n'] },
+        { name: 'size', args: [2, 2] },
+        { name: 'text', args: [`${order.ticket}\n`] },
+        { name: 'size', args: [1, 1] },
+        { name: 'bold', args: [true] },
+        { name: 'text', args: [`${order.reception.equipment_label.toUpperCase()}\n`] },
+        { name: 'bold', args: [false] },
+        { name: 'text', args: [`${order.device.brand} ${order.device.model}\n${identifiers[0] || 'Sin identificador visible'}\n`] },
+        { name: 'qr', args: [access.url, fixedQrWidth(settings.paperWidth), 1, 0] },
+        { name: 'text', args: [`\nAcceso móvil seguro del taller\n${ticketSettings.receipt_copies === 2 ? 'El PIN se encuentra en la copia del taller.' : 'El PIN está disponible en la recepción.'}\n`] },
+        { name: 'cut', args: [settings.cutLines] },
+      );
+    }
   }
 
   return operations;
 }
 
 type CopyContext = {
-  order: WorkshopOrder;
+  orders: WorkshopOrder[];
   company?: BillingEmpresa | null;
   branch?: BillingEmpresa['sucursales'][number];
   copyLabel: string;
   separator: string;
-  estimate: number;
-  advance: number;
-  identifiers: string[];
-  condition: string;
-  functionalTests: string[];
   terms: string;
-  workshopPin?: string | null;
+  deviceAccesses: Record<number, { url: string; pin: string } | null>;
   logo: PrintOperation | null;
   showIssuerDetails: boolean;
 };
 
 function receptionCopy(context: CopyContext): PrintOperation[] {
-  const { order, company, branch, copyLabel, separator, estimate, advance, identifiers, condition, functionalTests, terms, workshopPin, logo, showIssuerDetails } = context;
+  const { orders, company, branch, copyLabel, separator, terms, deviceAccesses, logo, showIssuerDetails } = context;
+  const primary = orders[0];
+  const estimate = orders.reduce((total, order) => total + Number(order.estimated_total || 0), 0);
+  const advance = orders.reduce((total, order) => total + Math.max(0, Number(order.paid_total || 0) - Number(order.refunded_total || 0)), 0);
   const operations: PrintOperation[] = [{ name: 'init', args: [] }, { name: 'align', args: ['center'] }];
   if (logo) operations.push({ name: logo.name, args: [...logo.args] }, { name: 'text', args: ['\n'] });
   if (showIssuerDetails && company) {
@@ -88,31 +87,31 @@ function receptionCopy(context: CopyContext): PrintOperation[] {
     { name: 'text', args: [`${copyLabel}\n`] },
     { name: 'text', args: ['COMPROBANTE DE RECEPCIÓN\n'] },
     { name: 'size', args: [2, 2] },
-    { name: 'text', args: [`${order.ticket}\n`] },
+    { name: 'text', args: [`${primary.ticket}\n`] },
     { name: 'size', args: [1, 1] },
     { name: 'bold', args: [false] },
-    { name: 'text', args: [`Ingreso: ${formatDate(order.received_at)}\n${separator}\n`] },
+    { name: 'text', args: [`Ingreso: ${formatDate(primary.received_at)}\nEquipos recibidos: ${orders.length}\n${separator}\n`] },
     { name: 'align', args: ['left'] },
     { name: 'bold', args: [true] },
     { name: 'text', args: ['CLIENTE\n'] },
     { name: 'bold', args: [false] },
-    { name: 'text', args: [`${order.customer.name}\n${order.customer.phone ? `Tel: ${order.customer.phone}\n` : ''}${separator}\n`] },
-    { name: 'bold', args: [true] },
-    { name: 'text', args: ['EQUIPO RECIBIDO\n'] },
-    { name: 'bold', args: [false] },
-    { name: 'text', args: [`${deviceTypeLabel(order.device.type)} · ${order.device.brand} ${order.device.model}\n${order.device.color ? `Color: ${order.device.color}\n` : ''}${identifiers.length ? `${identifiers.join('\n')}\n` : 'Identificador: No visible\n'}Encendido: ${powerLabel(order.device.power_status)}\n${functionalTests.length ? `${functionalTests.join('\n')}\n` : ''}${separator}\n`] },
-    { name: 'bold', args: [true] },
-    { name: 'text', args: ['FALLA REPORTADA\n'] },
-    { name: 'bold', args: [false] },
-    { name: 'text', args: [`${order.reported_fault}\n${separator}\n`] },
+    { name: 'text', args: [`${primary.customer.name}\n${primary.customer.phone ? `Tel: ${primary.customer.phone}\n` : ''}${separator}\n`] },
   );
 
-  if (condition || order.device.has_access_secret) {
+  for (const order of orders) {
+    const identifiers = identifiersFor(order);
+    const condition = [order.physical_condition, ...(order.physical_conditions || []), ...(order.accessories || [])].filter(Boolean).join(' · ');
+    const functionalTests = Object.entries(order.device.functional_tests || {}).map(([test, result]) => `${testLabel(test)}: ${resultLabel(result)}`);
     operations.push(
       { name: 'bold', args: [true] },
-      { name: 'text', args: ['CONDICIÓN Y ACCESORIOS\n'] },
+      { name: 'text', args: [`${order.reception.equipment_label.toUpperCase()}\n`] },
       { name: 'bold', args: [false] },
-      { name: 'text', args: [`${condition || 'Sin detalles adicionales.'}\nAcceso registrado para revisión: ${order.device.has_access_secret ? 'Sí' : 'No'}\n${separator}\n`] },
+      { name: 'text', args: [`${deviceTypeLabel(order.device.type)} · ${order.device.brand} ${order.device.model}\n${order.device.color ? `Color: ${order.device.color}\n` : ''}${identifiers.length ? `${identifiers.join('\n')}\n` : 'Identificador: No visible\n'}Encendido: ${powerLabel(order.device.power_status)}\n${functionalTests.length ? `${functionalTests.join('\n')}\n` : ''}`] },
+      { name: 'bold', args: [true] },
+      { name: 'text', args: ['Falla reportada: '] },
+      { name: 'bold', args: [false] },
+      { name: 'text', args: [`${order.reported_fault}\n`] },
+      { name: 'text', args: [`${condition ? `Condición: ${condition}\n` : ''}Acceso registrado: ${order.device.has_access_secret ? 'Sí' : 'No'}\nEstimado: ${money(order.estimated_total)} · Anticipo: ${money(Math.max(0, Number(order.paid_total || 0) - Number(order.refunded_total || 0)))}\n${separator}\n`] },
     );
   }
 
@@ -139,11 +138,12 @@ function receptionCopy(context: CopyContext): PrintOperation[] {
 
   operations.push({ name: 'align', args: ['center'] }, { name: 'text', args: ['\nFIRMA: ___________________________\n'] });
 
-  if (workshopPin) {
+  const pins = orders.map(order => deviceAccesses[order.id]?.pin ? `${order.reception.equipment_label}: ${deviceAccesses[order.id]?.pin}` : '').filter(Boolean);
+  if (pins.length) {
     operations.push(
       { name: 'text', args: [`${separator}\n`] },
       { name: 'bold', args: [true] },
-      { name: 'text', args: [`PIN TALLER: ${workshopPin}\n`] },
+      { name: 'text', args: [`PINES DEL TALLER\n${pins.join('\n')}\n`] },
       { name: 'bold', args: [false] },
       { name: 'text', args: ['Requerido para el acceso móvil seguro.\n'] },
     );
@@ -159,6 +159,10 @@ function receptionCopy(context: CopyContext): PrintOperation[] {
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleString('es-SV', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function identifiersFor(order: WorkshopOrder): string[] {
+  return [order.device.imei ? `IMEI: ${order.device.imei}` : '', order.device.serial_number ? `Serie: ${order.device.serial_number}` : ''].filter(Boolean);
 }
 
 function powerLabel(value: string): string {

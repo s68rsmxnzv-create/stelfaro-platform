@@ -374,13 +374,14 @@ export type PlatformCatalogItemsResponse = {
 
 export type WorkshopOrder = {
   id: number; ticket: string; status: string; priority: string; reported_fault: string;
+  reception: { id: number; sequence: number; equipment_label: string; equipment_count: number };
   physical_condition: string | null; physical_conditions: string[]; accessories: string[]; diagnosis: string | null;
   estimated_total: number | null; paid_total: number; refunded_total: number; balance: number; received_at: string; photo_count: number;
   branch?: { id: number; code: string|null; name: string|null } | null;
   financial: { status: 'pending' | 'settled' | string; final_total: number | null; closed_at: string | null };
   billing: { status: 'unbilled' | 'pending' | 'invoiced' | string; dte_type: '01' | '03' | null; core_document_id: number | null; number: string | null; generation_code: string | null; invoiced_at: string | null };
   approval: { decision: string | null; method: string | null; notes: string | null; decided_at: string | null };
-  customer: { id: number; name: string; phone: string | null };
+  customer: { id: number; name: string; phone: string | null; email: string | null };
   device: { id: number; type: string; brand: string; model: string; color: string | null; imei: string | null; serial_number: string | null; identifier_not_visible: boolean; power_status: string; functional_tests: Record<string, string>; is_locked: boolean; access_type: string | null; has_access_secret: boolean };
   device_access?: { url: string; pin: string } | null;
 };
@@ -422,6 +423,7 @@ export type PlatformCashOverview = { registers: PlatformCashRegister[]; active_s
 export type PlatformSalesReport = { summary: { transactions: number; net: number; tax: number; total: number; cost: number; margin: number }; data: Array<{ id: number; date: string|null; source_type: string; source_number: string|null; document_type: string|null; operation_kind: string; customer_name: string|null; payment_status: string; net: number; tax: number; total: number }>; meta: { current_page: number; last_page: number; total: number } };
 
 export type WorkshopOrderPayload = {
+  reception_id?: number | null;
   core_sucursal_id?: number | null; core_sucursal_code?: string | null; core_sucursal_name?: string | null;
   customer: { core_customer_id: number; name: string; phone?: string | null; email?: string | null };
   device: { type: string; brand: string; model: string; color?: string | null; imei?: string | null; serial_number?: string | null; identifier_not_visible?: boolean; power_status: string; functional_tests?: Record<string, string>; is_locked?: boolean; access_type?: string | null; access_secret?: string | null };
@@ -2136,6 +2138,10 @@ export class PlatformClient {
 
   workshopOrder(tenantId: number, orderId: number): Promise<{ data: WorkshopOrder }> {
     return this.http.get(`platform/tenants/${tenantId}/workshop/orders/${orderId}`).json();
+  }
+
+  workshopReception(tenantId: number, receptionId: number): Promise<{ data: { id: number; ticket: string; received_at: string; orders: WorkshopOrder[] } }> {
+    return this.http.get(`platform/tenants/${tenantId}/workshop/receptions/${receptionId}`).json();
   }
 
   createWorkshopOrder(tenantId: number, payload: WorkshopOrderPayload): Promise<{ data: WorkshopOrder }> {
