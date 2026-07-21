@@ -21,7 +21,15 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
   async function initialize() {
     loading.value = true;
     try {
-      const [context, orderResult] = await Promise.all([core.billingContext(), platform.workshopOrders(tenantId, { per_page: initialPerPage })]);
+      const initialParams: { q?: string; status?: string; priority?: string; payment_status?: string; per_page: number } = { per_page: initialPerPage };
+      if (initialPerPage === 15 && typeof window !== 'undefined') {
+        const search = new URLSearchParams(window.location.search);
+        if (search.get('q')) initialParams.q = search.get('q') || undefined;
+        if (search.get('status')) initialParams.status = search.get('status') || undefined;
+        if (search.get('priority')) initialParams.priority = search.get('priority') || undefined;
+        if (search.get('payment_status')) initialParams.payment_status = search.get('payment_status') || undefined;
+      }
+      const [context, orderResult] = await Promise.all([core.billingContext(), platform.workshopOrders(tenantId, initialParams)]);
       empresaId.value = context.empresas[0]?.id ?? 0;
       orders.value = orderResult.data;
       orderStats.value = orderResult.stats;
@@ -60,7 +68,7 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
   async function createPhotoSession(orderId: number) {
     return (await platform.createWorkshopPhotoSession(tenantId, orderId)).data;
   }
-  async function loadOrders(params: { q?: string; status?: string; priority?: string; date_from?: string; date_to?: string; page?: number; per_page?: number } = {}) {
+  async function loadOrders(params: { q?: string; status?: string; priority?: string; payment_status?: string; date_from?: string; date_to?: string; page?: number; per_page?: number } = {}) {
     loading.value = true; error.value = null;
     try {
       const result = await platform.workshopOrders(tenantId, { per_page: 15, ...params });
@@ -86,7 +94,7 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
       throw reason;
     }
   }
-  async function updateOrder(id: number, payload: { status?: string; diagnosis?: string | null; estimated_total?: number | null; approval_decision?: 'approved' | 'rejected'; approval_method?: 'whatsapp' | 'call' | 'in_person'; approval_notes?: string | null }) {
+  async function updateOrder(id: number, payload: { status?: string; diagnosis?: string | null; estimated_total?: number | null; approval_decision?: 'approved' | 'rejected'; approval_method?: 'whatsapp' | 'call' | 'in_person'; approval_notes?: string | null; payment?: { amount: number; method: 'cash'|'card'|'transfer'|'other'; reference?: string|null; notes?: string|null } }) {
     error.value = null;
     try {
       const result = await platform.updateWorkshopOrder(tenantId, id, payload);
@@ -98,7 +106,7 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
       throw reason;
     }
   }
-  async function settleOrder(id: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null; document_choice?: 'work_order' | 'dte'; dte_type?: '01' | '03'; payment_timing?: 'paid_now'|'credit' }) {
+  async function settleOrder(id: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; amount_received?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null; document_choice?: 'work_order' | 'dte'; dte_type?: '01' | '03'; payment_timing?: 'paid_now'|'credit' }) {
     error.value = null;
     try {
       const result = await platform.settleWorkshopOrder(tenantId, id, payload);

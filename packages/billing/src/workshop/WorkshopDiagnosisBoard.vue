@@ -1,21 +1,22 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
-import { CheckCircle2, ChevronRight, ClipboardCheck, Microscope, Play, Wrench, XCircle } from 'lucide-vue-next';
+import { CheckCircle2, ChevronRight, ClipboardCheck, HandCoins, Microscope, Play, Wrench, XCircle } from 'lucide-vue-next';
 import { UiButton, UiCard, UiInput, UiSelect, UiStatusBadge, UiTextarea } from '@stelfaro/ui';
 import type { WorkshopOrder } from '@stelfaro/api-client';
 
 defineProps<{ orders: WorkshopOrder[] }>();
 const emit = defineEmits<{ update: [id: number, payload: Record<string, unknown>] }>();
-const drafts = reactive<Record<number, { diagnosis: string; estimatedTotal: string; approvalMethod: string; approvalNotes: string }>>({});
+const drafts = reactive<Record<number, { diagnosis: string; estimatedTotal: string; approvalMethod: string; approvalNotes: string; paymentAmount: string; paymentMethod: 'cash'|'card'|'transfer'|'other'; paymentReference: string }>>({});
 const saving = ref<number | null>(null);
 const approvalMethods = [{ value: 'whatsapp', label: 'WhatsApp' }, { value: 'call', label: 'Llamada' }, { value: 'in_person', label: 'Presencial' }];
+const paymentMethods = [{ value: 'cash', label: 'Efectivo' }, { value: 'card', label: 'Tarjeta' }, { value: 'transfer', label: 'Transferencia' }, { value: 'other', label: 'Otro' }];
 const statusLabels: Record<string, string> = { received: 'Recibido', diagnosing: 'En diagnóstico', awaiting_approval: 'Esperando aprobación', approved: 'Aprobado', repairing: 'En reparación', ready: 'Listo' };
 const testLabels: Record<string, string> = { display: 'Imagen', touch_controls: 'Touch / controles', charging: 'Carga', cameras: 'Cámaras', audio: 'Audio', microphone: 'Micrófono', buttons: 'Botones', connectivity: 'Conectividad' };
 const resultLabels: Record<string, string> = { passed: 'Funciona', failed: 'Falla', not_tested: 'No probado' };
 const statusTone = (status: string): 'neutral'|'success'|'warning'|'danger'|'info' => status === 'cancelled' ? 'danger' : ['ready','delivered'].includes(status) ? 'success' : ['diagnosing','awaiting_approval'].includes(status) ? 'warning' : ['received','approved','repairing'].includes(status) ? 'info' : 'neutral';
 
 function draft(order: WorkshopOrder) {
-  return drafts[order.id] ||= { diagnosis: order.diagnosis || '', estimatedTotal: order.estimated_total?.toString() || '', approvalMethod: 'whatsapp', approvalNotes: '' };
+  return drafts[order.id] ||= { diagnosis: order.diagnosis || '', estimatedTotal: order.estimated_total?.toString() || '', approvalMethod: 'whatsapp', approvalNotes: '', paymentAmount: '', paymentMethod: 'cash', paymentReference: '' };
 }
 function submit(order: WorkshopOrder, payload: Record<string, unknown>) {
   saving.value = order.id;
@@ -28,7 +29,8 @@ function saveDiagnosis(order: WorkshopOrder, requestApproval = false) {
 }
 function decide(order: WorkshopOrder, decision: 'approved' | 'rejected') {
   const value = draft(order);
-  submit(order, { approval_decision: decision, approval_method: value.approvalMethod, approval_notes: value.approvalNotes.trim() || null });
+  const paymentAmount = Number(value.paymentAmount || 0);
+  submit(order, { approval_decision: decision, approval_method: value.approvalMethod, approval_notes: value.approvalNotes.trim() || null, ...(decision === 'approved' && paymentAmount > 0 ? { payment: { amount: paymentAmount, method: value.paymentMethod, reference: value.paymentReference.trim() || null } } : {}) });
 }
 </script>
 
@@ -59,7 +61,8 @@ function decide(order: WorkshopOrder, decision: 'approved' | 'rejected') {
       <div v-else-if="order.status === 'awaiting_approval'" class="mt-5 grid gap-4 border-t border-line pt-5">
         <div class="rounded-lg border border-warning bg-warning-soft p-4"><p class="font-semibold text-warning">Presupuesto pendiente de decisión</p><p class="mt-1 text-sm text-text">{{ order.diagnosis }}</p><p class="mt-2 text-lg font-semibold text-text">${{ Number(order.estimated_total || 0).toFixed(2) }}</p></div>
         <div class="grid gap-3 sm:grid-cols-2"><UiSelect v-model="draft(order).approvalMethod" label="¿Cómo respondió el cliente?" :options="approvalMethods" /><UiInput v-model="draft(order).approvalNotes" label="Nota de confirmación" placeholder="Opcional" /></div>
-        <div class="flex flex-wrap justify-end gap-2"><UiButton variant="secondary" class="text-danger" :disabled="saving === order.id" @click="decide(order, 'rejected')"><XCircle class="h-4 w-4" />Rechazó presupuesto</UiButton><UiButton :disabled="saving === order.id" @click="decide(order, 'approved')"><CheckCircle2 class="h-4 w-4" />Aprobó presupuesto</UiButton></div>
+        <div class="rounded-lg border border-line bg-surface-muted p-4"><div class="flex items-center gap-2"><HandCoins class="h-4 w-4 text-primary" /><p class="font-semibold text-text">Abono al autorizar (opcional)</p></div><p class="mt-1 text-xs text-muted">Si el cliente abona para iniciar el trabajo, regístralo junto con la aprobación.</p><div class="mt-3 grid gap-3 sm:grid-cols-3"><UiInput v-model="draft(order).paymentAmount" label="Monto recibido" type="number" min="0" :max="order.balance" step="0.01" /><UiSelect v-if="Number(draft(order).paymentAmount || 0) > 0" v-model="draft(order).paymentMethod" label="Forma de pago" :options="paymentMethods" /><UiInput v-if="Number(draft(order).paymentAmount || 0) > 0" v-model="draft(order).paymentReference" label="Referencia" placeholder="Opcional" /></div></div>
+        <div class="flex flex-wrap justify-end gap-2"><UiButton variant="secondary" class="text-danger" :disabled="saving === order.id" @click="decide(order, 'rejected')"><XCircle class="h-4 w-4" />Rechazó presupuesto</UiButton><UiButton :disabled="saving === order.id || Number(draft(order).paymentAmount || 0) > order.balance" @click="decide(order, 'approved')"><CheckCircle2 class="h-4 w-4" />Aprobó presupuesto</UiButton></div>
       </div>
 
       <div v-else-if="order.status === 'approved'" class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-success bg-success-soft p-4"><div><p class="font-semibold text-success">Trabajo autorizado por el cliente</p><p class="text-sm text-text">Ya puede iniciar la reparación.</p></div><UiButton :disabled="saving === order.id" @click="submit(order, { status: 'repairing' })"><Wrench class="h-4 w-4" />Iniciar reparación</UiButton></div>

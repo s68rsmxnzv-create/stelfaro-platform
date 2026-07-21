@@ -420,7 +420,7 @@ export type PlatformCashRegister = { id: number; name: string; status: string; b
 export type PlatformCashSettings = { timezone: string; default_opening_balance: number; carry_forward_balance: boolean; auto_open_enabled: boolean; auto_open_time: string|null; auto_close_enabled: boolean; auto_close_time: string|null; close_grace_minutes: number; working_days: number[]; non_working_dates: string[]; use_official_holidays: boolean; allow_non_cash_when_closed: boolean; active: boolean };
 export type PlatformCashRegisterSettings = { id: number; name: string; status: string; core_sucursal_id: number|null; core_sucursal_code: string|null; core_sucursal_name: string|null; settings: PlatformCashSettings };
 export type PlatformCashOverview = { registers: PlatformCashRegister[]; active_session: PlatformCashSession | null; pending_counts: PlatformCashSession[]; summary: { inflows: number; outflows: number; pending_documents: number }; data: PlatformCashMovement[]; meta: { current_page: number; last_page: number; total: number } };
-export type PlatformSalesReport = { summary: { transactions: number; net: number; tax: number; total: number; cost: number; margin: number }; data: Array<{ id: number; date: string|null; source_type: string; source_number: string|null; document_type: string|null; operation_kind: string; customer_name: string|null; payment_status: string; net: number; tax: number; total: number }>; meta: { current_page: number; last_page: number; total: number } };
+export type PlatformSalesReport = { summary: { transactions: number; net: number; tax: number; total: number; receivable: number; cost: number; margin: number }; data: Array<{ id: number; date: string|null; source_type: string; source_number: string|null; document_type: string|null; operation_kind: string; customer_name: string|null; payment_status: string; outstanding_amount: number; net: number; tax: number; total: number }>; meta: { current_page: number; last_page: number; total: number } };
 
 export type WorkshopOrderPayload = {
   reception_id?: number | null;
@@ -2084,7 +2084,7 @@ export class PlatformClient {
     return this.http.get(`platform/tenants/${tenantId}/users`).json();
   }
 
-  workshopOrders(tenantId: number, params: { q?: string; status?: string; priority?: string; date_from?: string; date_to?: string; page?: number; per_page?: number } = {}): Promise<WorkshopOrdersResponse> {
+  workshopOrders(tenantId: number, params: { q?: string; status?: string; priority?: string; payment_status?: string; date_from?: string; date_to?: string; page?: number; per_page?: number } = {}): Promise<WorkshopOrdersResponse> {
     return this.http.get(`platform/tenants/${tenantId}/workshop/orders`, { searchParams: compactParams(params) }).json();
   }
 
@@ -2148,11 +2148,11 @@ export class PlatformClient {
     return this.http.post(`platform/tenants/${tenantId}/workshop/orders`, { json: payload }).json();
   }
 
-  updateWorkshopOrder(tenantId: number, orderId: number, payload: { status?: string; diagnosis?: string | null; estimated_total?: number | null; approval_decision?: 'approved' | 'rejected'; approval_method?: 'whatsapp' | 'call' | 'in_person'; approval_notes?: string | null }): Promise<{ data: WorkshopOrder }> {
+  updateWorkshopOrder(tenantId: number, orderId: number, payload: { status?: string; diagnosis?: string | null; estimated_total?: number | null; approval_decision?: 'approved' | 'rejected'; approval_method?: 'whatsapp' | 'call' | 'in_person'; approval_notes?: string | null; payment?: { amount: number; method: 'cash'|'card'|'transfer'|'other'; reference?: string|null; notes?: string|null } }): Promise<{ data: WorkshopOrder }> {
     return this.http.patch(`platform/tenants/${tenantId}/workshop/orders/${orderId}`, { json: payload }).json();
   }
 
-  settleWorkshopOrder(tenantId: number, orderId: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null; document_choice?: 'work_order' | 'dte'; dte_type?: '01' | '03'; payment_timing?: 'paid_now' | 'credit' }): Promise<{ data: WorkshopOrder }> {
+  settleWorkshopOrder(tenantId: number, orderId: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; amount_received?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null; document_choice?: 'work_order' | 'dte'; dte_type?: '01' | '03'; payment_timing?: 'paid_now' | 'credit' }): Promise<{ data: WorkshopOrder }> {
     return this.http.post(`platform/tenants/${tenantId}/workshop/orders/${orderId}/settlement`, { json: payload }).json();
   }
 
