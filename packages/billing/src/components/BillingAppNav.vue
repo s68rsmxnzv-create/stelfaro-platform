@@ -98,9 +98,10 @@ const baseUrl = computed(() => props.appBaseUrl.replace(/\/$/, ''));
 const responsesMenuActive = computed(() => ['mh-responses', 'mh-event-responses'].includes(props.module));
 const artifactsMenuActive = computed(() => props.module === 'artifacts');
 const operationalMenuActive = computed(() => props.extraNavItems.some((item) => item.active));
-const managementMenuActive = computed(() => ['customers', 'catalog', 'inventory'].includes(props.module));
+const managementMenuActive = computed(() => ['customers', 'catalog', 'inventory', 'cash'].includes(props.module));
 const hrefFor = (path) => `${baseUrl.value}${path}`;
 const managementOptions = computed(() => [
+  { label: 'Caja', href: hrefFor('/caja'), module: 'cash' },
   { label: 'Clientes', href: hrefFor('/clientes'), module: 'customers' },
   { label: 'Catálogo', href: hrefFor('/catalogo'), module: 'catalog' },
   { label: 'Inventario', href: hrefFor('/inventario'), module: 'inventory', newTab: true }
@@ -328,15 +329,6 @@ function navigate(event, href) {
         </template>
       </div>
     </div>
-
-    <a
-      :href="hrefFor('/caja')"
-      class="rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
-      :class="module === 'cash' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
-      @click="navigate($event, hrefFor('/caja'))"
-    >
-      Caja
-    </a>
 
     <div class="relative">
       <button
