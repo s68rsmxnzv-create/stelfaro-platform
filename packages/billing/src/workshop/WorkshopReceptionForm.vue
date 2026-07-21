@@ -145,7 +145,6 @@ function validateCompletion() {
           <div class="grid gap-4 sm:grid-cols-2"><UiInput v-model="form.color" label="Color" /><UiSelect v-model="form.priority" label="Prioridad" :options="priorities" /></div>
           <div><p class="text-sm font-semibold text-text">Condición física</p><div class="mt-2 flex flex-wrap gap-2"><button v-for="condition in conditionOptions" :key="condition.key" type="button" class="rounded-full border px-3 py-1.5 text-sm transition" :class="physicalConditions.includes(condition.key) ? 'border-warning bg-warning-soft text-warning' : 'border-line text-muted hover:bg-surface-muted'" @click="toggleCondition(condition.key)">{{ condition.label }}</button></div><UiTextarea v-model="form.physical_condition" class="mt-3" label="Observación adicional" placeholder="Solo si hace falta agregar algo más" /></div>
           <UiInput v-model="accessoriesText" label="Accesorios recibidos" hint="Separados por coma" />
-          <div class="grid gap-4 sm:grid-cols-2"><UiSelect model-value="" label="Técnico asignado" :options="[{value:'',label:'Sin asignar'}]" disabled /><p class="self-end rounded-md bg-surface-muted px-3 py-3 text-xs text-muted">Los técnicos se habilitarán desde Usuarios cuando exista el rol correspondiente.</p></div>
         </div>
         <p class="mt-4 inline-flex items-center gap-2 text-sm text-muted"><Camera class="h-4 w-4" />Las fotos se podrán agregar después desde la orden.</p>
       </section>

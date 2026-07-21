@@ -48,7 +48,7 @@ function decide(order: WorkshopOrder, decision: 'approved' | 'rejected') {
       </div>
 
       <div v-if="order.status === 'received'" class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface-muted p-4">
-        <div><p class="font-semibold text-text">Iniciar revisión técnica</p><p class="text-sm text-muted">La orden quedará identificada como equipo en diagnóstico.</p></div>
+        <div><p class="font-semibold text-text">Iniciar revisión técnica</p><p class="text-sm text-muted">Comienza la revisión y registra lo que encuentres.</p></div>
         <UiButton :disabled="saving === order.id" @click="submit(order, { status: 'diagnosing' })"><Play class="h-4 w-4" />Iniciar diagnóstico</UiButton>
       </div>
 

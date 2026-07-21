@@ -30,7 +30,7 @@ function submit() {
 <template>
   <UiModalShell :open="Boolean(order)" :title="isAdvance ? 'Registrar anticipo' : 'Registrar pago'" :description="order ? `${order.ticket} · ${order.customer.name}` : null" max-width="max-w-lg" @close="$emit('close')">
     <div v-if="order" class="space-y-4">
-      <div class="rounded-lg border border-warning bg-warning-soft p-4"><p class="text-sm text-muted">{{ isAdvance ? 'Saldo estimado' : 'Saldo pendiente' }}</p><p class="mt-1 text-2xl font-bold text-warning">${{ order.balance.toFixed(2) }}</p><p v-if="isAdvance" class="mt-1 text-xs text-muted">El anticipo se registra en Caja, pero la venta se reconocerá hasta cerrar la orden.</p></div>
+      <div class="rounded-lg border border-warning bg-warning-soft p-4"><p class="text-sm text-muted">{{ isAdvance ? 'Saldo estimado' : 'Saldo pendiente' }}</p><p class="mt-1 text-2xl font-bold text-warning">${{ order.balance.toFixed(2) }}</p><p v-if="isAdvance" class="mt-1 text-xs text-muted">El anticipo aparecerá en Caja. La venta se mostrará cuando cierres la orden.</p></div>
       <UiInput v-model="form.amount" :label="isAdvance ? 'Anticipo recibido' : 'Monto recibido'" type="number" min="0.01" :max="order.balance" step="0.01" />
       <div class="grid gap-3 sm:grid-cols-2"><UiSelect v-model="form.method" label="Forma de pago" :options="methods" /><UiInput v-model="form.reference" label="Referencia" placeholder="Opcional" /></div>
       <UiTextarea v-model="form.notes" label="Observación" :rows="2" placeholder="Opcional" />
