@@ -91,6 +91,13 @@ function animateBell(): void {
 }
 
 async function openNotification(notification: PlatformInternalNotification): Promise<void> {
+  const opensAdminRequest = notification.category === 'tenant_request'
+    && Boolean(notification.action_url?.includes('/requests'));
+
+  if (opensAdminRequest && notification.action_url) {
+    window.open(notification.action_url, '_blank', 'noopener,noreferrer');
+  }
+
   if (!notification.read_at) {
     try {
       const response = await client.value.readInternalNotification(notification.id);
@@ -101,7 +108,7 @@ async function openNotification(notification: PlatformInternalNotification): Pro
     }
   }
 
-  if (notification.action_url) window.location.assign(notification.action_url);
+  if (notification.action_url && !opensAdminRequest) window.location.assign(notification.action_url);
 }
 
 async function markAllRead(): Promise<void> {
