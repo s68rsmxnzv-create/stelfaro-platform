@@ -547,14 +547,8 @@ function navigateFromMenu(event, href) {
 
 <template>
   <div v-if="['settings', 'audit'].includes(module)" class="sf-app-background min-h-screen text-slate-950 dark:text-text">
-    <div v-if="!authToken" class="mx-auto max-w-3xl px-4 py-8">
-      <div class="rounded-md border border-red-200 bg-red-50 p-5 text-red-700">
-        No fue posible abrir la sesion fiscal.
-      </div>
-    </div>
     <component
       :is="selectedComponent"
-      v-else
       v-bind="selectedComponentProps"
     />
   </div>

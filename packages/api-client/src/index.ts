@@ -254,6 +254,62 @@ export type PlatformAuditLogsResponse = {
   };
 };
 
+export type PlatformUserProfile = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  email_verified_at: string | null;
+  password_changed_at: string | null;
+};
+
+export type PlatformUserSession = {
+  id: string;
+  current: boolean;
+  ip_address: string | null;
+  device: string;
+  last_activity: string;
+};
+
+export type PlatformUserSecurityEvent = {
+  id: number;
+  type: string;
+  severity: string | null;
+  ip_address: string | null;
+  device: string;
+  created_at: string | null;
+};
+
+export type PlatformTenantRequestType = 'user_access' | 'branch' | 'point_of_sale' | 'fiscal_identity' | 'certificate' | 'mh_credentials' | 'correlatives' | 'subscription' | 'app_access' | 'data_migration' | 'support';
+export type PlatformTenantRequestStatus = 'pending' | 'in_review' | 'needs_information' | 'approved' | 'completed' | 'rejected' | 'cancelled';
+
+export type PlatformTenantRequest = {
+  id: number;
+  public_id: string;
+  reference: string;
+  tenant: { id: number; name?: string };
+  requester: { id: number; name: string; email: string } | null;
+  assignee: { id: number; name: string; email: string } | null;
+  type: PlatformTenantRequestType;
+  status: PlatformTenantRequestStatus;
+  subject: string;
+  description: string | null;
+  payload: Record<string, unknown> | null;
+  admin_response: string | null;
+  reviewed_at: string | null;
+  completed_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type PlatformCreateTenantRequestPayload = {
+  idempotency_key: string;
+  type: PlatformTenantRequestType;
+  subject: string;
+  description?: string | null;
+  payload?: Record<string, unknown> | null;
+};
+
 export type PlatformCatalogCategory = {
   id: number;
   tenant_id: number;
@@ -1906,6 +1962,46 @@ export class PlatformClient {
 
   me(): Promise<unknown> {
     return this.http.get('me').json();
+  }
+
+  userProfile(): Promise<{ data: PlatformUserProfile }> {
+    return this.http.get('me/profile').json();
+  }
+
+  updateUserProfile(payload: Pick<PlatformUserProfile, 'name' | 'email' | 'phone'>): Promise<{ data: PlatformUserProfile }> {
+    return this.http.patch('me/profile', { json: payload }).json();
+  }
+
+  updateUserPassword(payload: { current_password: string; password: string; password_confirmation: string }): Promise<{ message: string; data: PlatformUserProfile }> {
+    return this.http.put('me/password', { json: payload }).json();
+  }
+
+  userSecurity(): Promise<{ sessions: PlatformUserSession[]; events: PlatformUserSecurityEvent[] }> {
+    return this.http.get('me/security').json();
+  }
+
+  closeUserSession(sessionId: string): Promise<{ message: string }> {
+    return this.http.delete(`me/security/sessions/${encodeURIComponent(sessionId)}`).json();
+  }
+
+  closeOtherUserSessions(): Promise<{ message: string; closed: number }> {
+    return this.http.post('me/security/sessions/revoke-others').json();
+  }
+
+  tenantRequests(tenantId: number, params: { status?: string; type?: string } = {}): Promise<{ data: PlatformTenantRequest[] }> {
+    return this.http.get(`platform/tenants/${tenantId}/requests`, { searchParams: compactParams(params) }).json();
+  }
+
+  createTenantRequest(tenantId: number, payload: PlatformCreateTenantRequestPayload): Promise<{ data: PlatformTenantRequest }> {
+    return this.http.post(`platform/tenants/${tenantId}/requests`, { json: payload }).json();
+  }
+
+  adminTenantRequests(params: { status?: string; type?: string; q?: string } = {}): Promise<{ data: PlatformTenantRequest[] }> {
+    return this.http.get('admin/platform/requests', { searchParams: compactParams(params) }).json();
+  }
+
+  updateAdminTenantRequest(requestId: number, payload: { status: PlatformTenantRequestStatus; admin_response?: string | null }): Promise<{ data: PlatformTenantRequest }> {
+    return this.http.patch(`admin/platform/requests/${requestId}`, { json: payload }).json();
   }
 
   internalNotifications(tenantId: number, limit = 20): Promise<PlatformInternalNotificationsResponse> {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch, type Component } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
-import { Building2, CalendarDays, ChevronLeft, ChevronRight, CirclePlus, CreditCard, House, Mail, ScrollText, Settings } from 'lucide-vue-next';
+import { Building2, CalendarDays, ChevronLeft, ChevronRight, CirclePlus, CreditCard, FileClock, House, Mail, ScrollText, Settings } from 'lucide-vue-next';
 import { UiHierarchicalSidebarNav, type UiSidebarNavEntry, type UiSidebarNavGroup } from '@stelfaro/ui';
 import OwnerAvatarMenu from './components/OwnerAvatarMenu.vue';
 import { useAdminSessionStore } from './stores/adminSession';
@@ -94,6 +94,7 @@ const navEntries: UiSidebarNavEntry[] = [
     ]
   },
   { id: '/subscriptions', label: 'Suscripciones', icon: 'credit-card' },
+  { id: '/requests', label: 'Solicitudes', icon: 'requests' },
   { id: '/fiscal/calendar', label: 'Calendario fiscal', icon: 'calendar' },
   { id: '/audit', label: 'Auditoría', icon: 'audit' },
   {
@@ -189,6 +190,7 @@ function adminIconComponent(icon?: string): Component {
     building: Building2,
     plus: CirclePlus,
     'credit-card': CreditCard,
+    requests: FileClock,
     mail: Mail,
     settings: Settings,
     audit: ScrollText,

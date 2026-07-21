@@ -1,0 +1,48 @@
+<script setup lang="ts">
+import { computed, onMounted, reactive, ref } from 'vue';
+import { CheckCircle2, FileClock, RefreshCw } from 'lucide-vue-next';
+import type { PlatformTenantRequest, PlatformTenantRequestStatus, PlatformTenantRequestType } from '@stelfaro/api-client';
+import { UiButton, UiModalShell, UiSearchInput, UiSelect, UiStatusBadge, UiTextarea } from '@stelfaro/ui';
+import { usePlatformSessionStore } from '../stores/platformSession';
+
+const platform = usePlatformSessionStore();
+const requests = ref<PlatformTenantRequest[]>([]);
+const loading = ref(false);
+const saving = ref(false);
+const error = ref<string | null>(null);
+const saved = ref<string | null>(null);
+const selected = ref<PlatformTenantRequest | null>(null);
+const filters = reactive({ q: '', status: '', type: '' });
+const form = reactive({ status: 'in_review' as PlatformTenantRequestStatus, admin_response: '' });
+const pendingCount = computed(() => requests.value.filter(item => ['pending', 'needs_information'].includes(item.status)).length);
+const reviewCount = computed(() => requests.value.filter(item => item.status === 'in_review').length);
+const completedCount = computed(() => requests.value.filter(item => item.status === 'completed').length);
+const statusOptions = [{ value: '', label: 'Todos los estados' }, { value: 'pending', label: 'Pendiente' }, { value: 'in_review', label: 'En revisión' }, { value: 'needs_information', label: 'Necesita información' }, { value: 'approved', label: 'Aprobada' }, { value: 'completed', label: 'Completada' }, { value: 'rejected', label: 'Rechazada' }, { value: 'cancelled', label: 'Cancelada' }];
+const typeOptions = [{ value: '', label: 'Todos los tipos' }, { value: 'user_access', label: 'Usuario o acceso' }, { value: 'branch', label: 'Sucursal' }, { value: 'point_of_sale', label: 'Punto de venta' }, { value: 'fiscal_identity', label: 'Datos fiscales' }, { value: 'certificate', label: 'Certificado' }, { value: 'mh_credentials', label: 'Credenciales MH' }, { value: 'correlatives', label: 'Correlativos' }, { value: 'subscription', label: 'Suscripción' }, { value: 'app_access', label: 'Aplicación' }, { value: 'data_migration', label: 'Migración' }, { value: 'support', label: 'Soporte' }];
+
+onMounted(() => { void load(); });
+
+async function load(): Promise<void> { loading.value = true; error.value = null; saved.value = null; try { requests.value = (await platform.client.adminTenantRequests(filters)).data; } catch (caught) { error.value = caught instanceof Error ? caught.message : 'No fue posible cargar las solicitudes.'; } finally { loading.value = false; } }
+function open(item: PlatformTenantRequest): void { selected.value = item; form.status = item.status === 'pending' ? 'in_review' : item.status; form.admin_response = item.admin_response ?? ''; error.value = null; }
+async function save(): Promise<void> { if (!selected.value || saving.value) return; saving.value = true; error.value = null; try { const response = await platform.client.updateAdminTenantRequest(selected.value.id, { status: form.status, admin_response: form.admin_response.trim() || null }); requests.value = requests.value.map(item => item.id === response.data.id ? response.data : item); selected.value = null; saved.value = `${response.data.reference} fue actualizada.`; } catch (caught) { error.value = caught instanceof Error ? caught.message : 'No fue posible actualizar la solicitud.'; } finally { saving.value = false; } }
+function statusLabel(status: PlatformTenantRequestStatus): string { return (statusOptions.find(item => item.value === status)?.label ?? status); }
+function typeLabel(type: PlatformTenantRequestType): string { return typeOptions.find(item => item.value === type)?.label ?? type; }
+function tone(status: PlatformTenantRequestStatus): 'neutral'|'success'|'warning'|'danger'|'info' { if (['approved', 'completed'].includes(status)) return 'success'; if (['rejected', 'cancelled'].includes(status)) return 'danger'; if (['pending', 'needs_information'].includes(status)) return 'warning'; return 'info'; }
+function date(value: string | null): string { return value ? new Intl.DateTimeFormat('es-SV', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '-'; }
+function payloadEntries(item: PlatformTenantRequest): Array<[string, unknown]> { return Object.entries(item.payload ?? {}).filter(([, value]) => value !== null && value !== ''); }
+</script>
+
+<template>
+  <section class="mx-auto max-w-7xl">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p class="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-soft">Administración</p><h1 class="mt-1 text-2xl font-semibold text-slate-950 dark:text-text">Solicitudes</h1><p class="mt-2 text-sm text-slate-600 dark:text-muted">Revisa solicitudes enviadas por administradores de empresa y deja una respuesta trazable.</p></div><UiButton variant="secondary" :disabled="loading" @click="load"><RefreshCw class="h-4 w-4" />Actualizar</UiButton></div>
+    <div class="mt-6 grid gap-4 sm:grid-cols-3"><div class="rounded-xl border border-line bg-surface p-4"><p class="text-xs font-bold uppercase text-soft">Requieren atención</p><p class="mt-2 text-2xl font-black text-warning">{{ pendingCount }}</p></div><div class="rounded-xl border border-line bg-surface p-4"><p class="text-xs font-bold uppercase text-soft">En revisión</p><p class="mt-2 text-2xl font-black text-primary">{{ reviewCount }}</p></div><div class="rounded-xl border border-line bg-surface p-4"><p class="text-xs font-bold uppercase text-soft">Completadas</p><p class="mt-2 text-2xl font-black text-success">{{ completedCount }}</p></div></div>
+    <div class="mt-5 grid gap-4 rounded-xl border border-line bg-surface p-4 lg:grid-cols-[minmax(0,1fr)_240px_240px_auto]"><UiSearchInput v-model="filters.q" label="Buscar" placeholder="Empresa, solicitante o asunto" @search="load" /><UiSelect v-model="filters.status" label="Estado" :options="statusOptions" /><UiSelect v-model="filters.type" label="Tipo" :options="typeOptions" /><div class="flex items-end"><UiButton class="w-full" @click="load">Buscar</UiButton></div></div>
+    <p v-if="error" class="mt-4 rounded-xl border border-danger bg-danger-soft px-4 py-3 text-sm text-danger">{{ error }}</p><p v-if="saved" class="mt-4 rounded-xl border border-success bg-success-soft px-4 py-3 text-sm text-success">{{ saved }}</p>
+    <div class="mt-5 overflow-x-auto rounded-xl border border-line bg-surface"><table class="w-full min-w-[900px] text-left text-sm"><thead class="bg-surface-muted text-muted"><tr><th class="px-4 py-3">Solicitud</th><th class="px-4 py-3">Empresa</th><th class="px-4 py-3">Solicitante</th><th class="px-4 py-3">Estado</th><th class="px-4 py-3">Fecha</th><th class="px-4 py-3 text-right">Acción</th></tr></thead><tbody class="divide-y divide-line"><tr v-for="item in requests" :key="item.id" class="sf-interactive-row text-text"><td class="px-4 py-4"><p class="font-mono text-xs font-bold text-primary">{{ item.reference }}</p><p class="mt-1 font-semibold">{{ item.subject }}</p><p class="mt-1 text-xs text-muted">{{ typeLabel(item.type) }}</p></td><td class="px-4 py-4 font-semibold">{{ item.tenant.name || `Empresa ${item.tenant.id}` }}</td><td class="px-4 py-4"><p>{{ item.requester?.name }}</p><p class="mt-1 text-xs text-muted">{{ item.requester?.email }}</p></td><td class="px-4 py-4"><UiStatusBadge :tone="tone(item.status)">{{ statusLabel(item.status) }}</UiStatusBadge></td><td class="px-4 py-4 text-muted">{{ date(item.created_at) }}</td><td class="px-4 py-4 text-right"><UiButton size="sm" variant="secondary" @click="open(item)"><FileClock class="h-4 w-4" />Revisar</UiButton></td></tr><tr v-if="!loading && requests.length === 0"><td colspan="6" class="px-4 py-12 text-center text-muted">No hay solicitudes con estos filtros.</td></tr><tr v-if="loading"><td colspan="6" class="px-4 py-12 text-center text-muted">Cargando solicitudes...</td></tr></tbody></table></div>
+  </section>
+
+  <UiModalShell :open="Boolean(selected)" :title="selected?.reference || 'Solicitud'" :description="selected ? `${selected.tenant.name} · ${typeLabel(selected.type)}` : null" max-width="max-w-3xl" @close="selected = null">
+    <div v-if="selected" class="space-y-5"><div><h2 class="text-lg font-bold text-text">{{ selected.subject }}</h2><p v-if="selected.description" class="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted">{{ selected.description }}</p></div><div v-if="payloadEntries(selected).length" class="grid gap-3 rounded-xl border border-line bg-surface-muted p-4 sm:grid-cols-2"><div v-for="entry in payloadEntries(selected)" :key="entry[0]"><p class="text-xs font-bold uppercase text-soft">{{ entry[0].replaceAll('_', ' ') }}</p><p class="mt-1 text-sm font-semibold text-text">{{ entry[1] }}</p></div></div><div class="grid gap-4 sm:grid-cols-2"><UiSelect v-model="form.status" label="Estado" :options="statusOptions.filter(item => item.value)" /><div class="rounded-xl border border-line bg-surface-muted px-4 py-3"><p class="text-xs font-bold uppercase text-soft">Solicitante</p><p class="mt-1 font-semibold text-text">{{ selected.requester?.name }}</p><p class="text-xs text-muted">{{ selected.requester?.email }}</p></div></div><UiTextarea v-model="form.admin_response" label="Respuesta para la empresa" :rows="5" placeholder="Explica el resultado o la información que hace falta." /></div>
+    <template #footer><UiButton variant="secondary" :disabled="saving" @click="selected = null">Volver</UiButton><UiButton variant="success" :disabled="saving" @click="save"><CheckCircle2 class="h-4 w-4" />{{ saving ? 'Guardando...' : 'Guardar respuesta' }}</UiButton></template>
+  </UiModalShell>
+</template>

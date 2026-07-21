@@ -7,6 +7,9 @@ import BillingSettingsPage from './BillingSettingsPage.vue';
 import BillingAuditPage from './BillingAuditPage.vue';
 import PrinterSettingsPanel from '../printing/PrinterSettingsPanel.vue';
 import ThermalTicketSettingsPanel from '../printing/ThermalTicketSettingsPanel.vue';
+import TenantRequestsPanel from '../settings/TenantRequestsPanel.vue';
+import UserProfilePanel from '../settings/UserProfilePanel.vue';
+import UserSecurityPanel from '../settings/UserSecurityPanel.vue';
 
 type CompanyView = 'summary' | 'requests' | 'profile' | 'subscription' | 'printer' | 'ticket' | 'security' | 'audit' | 'support';
 type CompanyNavId = CompanyView;
@@ -62,7 +65,9 @@ const props = withDefaults(defineProps<{
 });
 
 const selectedCompany = ref<SelectedCompany | null>(null);
-const activeView = ref<CompanyView>(props.initialView);
+const validViews: CompanyView[] = ['summary', 'requests', 'profile', 'subscription', 'printer', 'ticket', 'security', 'audit', 'support'];
+const requestedView = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null;
+const activeView = ref<CompanyView>(requestedView && validViews.includes(requestedView as CompanyView) ? requestedView as CompanyView : props.initialView);
 const subscriptionRow = ref<PlatformSubscriptionTenantRow | null>(null);
 const subscriptionLoading = ref(false);
 const subscriptionError = ref<string | null>(null);
@@ -104,7 +109,7 @@ const navItems = computed<Array<{
 }>>(() => [
   { id: 'summary', label: 'Resumen', detail: 'Información de empresa', icon: 'summary' },
   { id: 'requests', label: 'Solicitudes', detail: 'Cambios sensibles', icon: 'requests' },
-  { id: 'profile', label: 'Perfil', detail: 'Datos de contacto', icon: 'profile' },
+  { id: 'profile', label: 'Perfil de usuario', detail: 'Cuenta y contraseña', icon: 'profile' },
   { id: 'subscription', label: 'Suscripción', detail: 'Plan y vigencia', icon: 'subscription' },
   { id: 'printer', label: 'Conexión e impresora', detail: 'Agente, dispositivo y papel', icon: 'printer', group: 'Impresión' },
   { id: 'ticket', label: 'Formato del ticket', detail: 'Logo, datos y vista previa', icon: 'ticket', group: 'Impresión' },
@@ -180,6 +185,12 @@ const marketingPlans = computed<MarketingPlanCard[]>(() => [
 
 function openViewById(id: string): void {
   activeView.value = id as CompanyView;
+  if (typeof window !== 'undefined') {
+    const url = new URL(window.location.href);
+    if (activeView.value === 'summary') url.searchParams.delete('view');
+    else url.searchParams.set('view', activeView.value);
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  }
 }
 
 function setSelectedCompany(company: SelectedCompany): void {
@@ -354,39 +365,17 @@ function daysUntil(value: string | null | undefined): number | null {
         @company-view-changed="setCompanyView"
       />
 
-      <section v-else class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/5">
-        <div class="flex flex-col gap-2 border-b border-slate-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
+      <section v-else class="rounded-lg border border-line bg-surface p-6 shadow-sm shadow-slate-950/5 dark:shadow-black/20">
+        <div class="flex flex-col gap-2 border-b border-line pb-5 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 class="mt-1 text-2xl font-bold text-slate-950">{{ activeItem.label }}</h1>
+            <h1 class="mt-1 text-2xl font-bold text-text">{{ activeItem.label }}</h1>
           </div>
-          <span v-if="!['subscription', 'printer', 'ticket'].includes(activeView)" class="rounded-md bg-slate-100 px-3 py-1 text-xs font-bold uppercase text-slate-600">Placeholder</span>
+          <span v-if="activeView === 'support'" class="rounded-md bg-surface-muted px-3 py-1 text-xs font-bold uppercase text-muted">Próximamente</span>
         </div>
 
-        <div v-if="activeView === 'requests'" class="mt-6 grid gap-4 lg:grid-cols-3">
-          <article class="rounded-md border border-slate-200 bg-slate-50 p-4">
-            <p class="text-sm font-bold text-slate-950">Nueva sucursal</p>
-            <p class="mt-2 text-sm leading-6 text-slate-600">Solicita creacion de sucursales adicionales. El limite operativo para usuarios es casa matriz y 2 sucursales adicionales.</p>
-          </article>
-          <article class="rounded-md border border-slate-200 bg-slate-50 p-4">
-            <p class="text-sm font-bold text-slate-950">Certificados fiscales</p>
-            <p class="mt-2 text-sm leading-6 text-slate-600">Solicita cambio o renovacion de certificado, credenciales MH o firmador.</p>
-          </article>
-          <article class="rounded-md border border-slate-200 bg-slate-50 p-4">
-            <p class="text-sm font-bold text-slate-950">Correlativos</p>
-            <p class="mt-2 text-sm leading-6 text-slate-600">Solicita revision de series o puntos de venta cuando necesites asistencia administrativa.</p>
-          </article>
-        </div>
+        <TenantRequestsPanel v-if="activeView === 'requests'" class="mt-6" :platform-base-url="platformBaseUrl" :platform-session="platformSession" />
 
-        <div v-else-if="activeView === 'profile'" class="mt-6 grid gap-4 md:grid-cols-2">
-          <div class="rounded-md border border-slate-200 p-4">
-            <p class="text-sm font-bold text-slate-950">Datos editables</p>
-            <p class="mt-2 text-sm leading-6 text-slate-600">Nombre, nombre comercial visible, telefono, direccion y correo de contacto iran aqui.</p>
-          </div>
-          <div class="rounded-md border border-slate-200 p-4">
-            <p class="text-sm font-bold text-slate-950">Datos protegidos</p>
-            <p class="mt-2 text-sm leading-6 text-slate-600">NIT, NRC, fiscalidad, certificados, sucursales y correlativos se manejaran por solicitud.</p>
-          </div>
-        </div>
+        <UserProfilePanel v-else-if="activeView === 'profile'" class="mt-6" :platform-base-url="platformBaseUrl" :platform-session="platformSession" />
 
         <div v-else-if="activeView === 'subscription'" class="mt-6 space-y-4">
           <UiPanel v-if="!selectedCompany" variant="muted">
@@ -491,10 +480,7 @@ function daysUntil(value: string | null | undefined): number | null {
 
         <BillingAuditPage v-else-if="activeView === 'audit'" class="mt-6" :auth-token="authToken" :core-base-url="coreBaseUrl" :platform-base-url="platformBaseUrl" :platform-session="platformSession" :billing-context-cache-scope="billingContextCacheScope" />
 
-        <div v-else-if="activeView === 'security'" class="mt-6 rounded-md border border-slate-200 p-4">
-          <p class="text-sm font-bold text-slate-950">Cambio de contraseña</p>
-          <p class="mt-2 text-sm leading-6 text-slate-600">Aquí irá el flujo para actualizar contraseña y revisar accesos activos.</p>
-        </div>
+        <UserSecurityPanel v-else-if="activeView === 'security'" class="mt-6" :platform-base-url="platformBaseUrl" />
 
         <div v-else class="mt-6 grid gap-4 md:grid-cols-3">
           <div class="rounded-md border border-slate-200 p-4">
