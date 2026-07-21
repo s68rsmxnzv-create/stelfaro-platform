@@ -106,7 +106,7 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
       throw reason;
     }
   }
-  async function settleOrder(id: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; amount_received?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null; document_choice?: 'work_order' | 'dte'; dte_type?: '01' | '03'; payment_timing?: 'paid_now'|'credit' }) {
+  async function settleOrder(id: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; diagnostic_charge?: number; amount_received?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null; document_choice?: 'work_order' | 'dte'; dte_type?: '01' | '03'; payment_timing?: 'paid_now'|'credit' }) {
     error.value = null;
     try {
       const result = await platform.settleWorkshopOrder(tenantId, id, payload);

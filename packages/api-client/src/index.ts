@@ -2152,7 +2152,7 @@ export class PlatformClient {
     return this.http.patch(`platform/tenants/${tenantId}/workshop/orders/${orderId}`, { json: payload }).json();
   }
 
-  settleWorkshopOrder(tenantId: number, orderId: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; amount_received?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null; document_choice?: 'work_order' | 'dte'; dte_type?: '01' | '03'; payment_timing?: 'paid_now' | 'credit' }): Promise<{ data: WorkshopOrder }> {
+  settleWorkshopOrder(tenantId: number, orderId: number, payload: { action: 'deliver_close' | 'cancel_close'; final_total?: number; retained_amount?: number; diagnostic_charge?: number; amount_received?: number; method?: 'cash' | 'card' | 'transfer' | 'other'; reference?: string | null; notes?: string | null; document_choice?: 'work_order' | 'dte'; dte_type?: '01' | '03'; payment_timing?: 'paid_now' | 'credit' }): Promise<{ data: WorkshopOrder }> {
     return this.http.post(`platform/tenants/${tenantId}/workshop/orders/${orderId}/settlement`, { json: payload }).json();
   }
 
