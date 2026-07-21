@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import { CheckCircle2, FileClock, RefreshCw } from 'lucide-vue-next';
 import type { PlatformTenantRequest, PlatformTenantRequestStatus, PlatformTenantRequestType } from '@stelfaro/api-client';
 import { UiButton, UiModalShell, UiSearchInput, UiSelect, UiStatusBadge, UiTextarea } from '@stelfaro/ui';
 import { usePlatformSessionStore } from '../stores/platformSession';
 
 const platform = usePlatformSessionStore();
+const route = useRoute();
 const requests = ref<PlatformTenantRequest[]>([]);
 const loading = ref(false);
 const saving = ref(false);
@@ -20,7 +22,12 @@ const completedCount = computed(() => requests.value.filter(item => item.status 
 const statusOptions = [{ value: '', label: 'Todos los estados' }, { value: 'pending', label: 'Pendiente' }, { value: 'in_review', label: 'En revisión' }, { value: 'needs_information', label: 'Necesita información' }, { value: 'approved', label: 'Aprobada' }, { value: 'completed', label: 'Completada' }, { value: 'rejected', label: 'Rechazada' }, { value: 'cancelled', label: 'Cancelada' }];
 const typeOptions = [{ value: '', label: 'Todos los tipos' }, { value: 'user_access', label: 'Usuario o acceso' }, { value: 'branch', label: 'Sucursal' }, { value: 'point_of_sale', label: 'Punto de venta' }, { value: 'fiscal_identity', label: 'Datos fiscales' }, { value: 'certificate', label: 'Certificado' }, { value: 'mh_credentials', label: 'Credenciales MH' }, { value: 'correlatives', label: 'Correlativos' }, { value: 'subscription', label: 'Suscripción' }, { value: 'app_access', label: 'Aplicación' }, { value: 'data_migration', label: 'Migración' }, { value: 'support', label: 'Soporte' }];
 
-onMounted(() => { void load(); });
+onMounted(async () => {
+  await load();
+  const requestedId = Number(route.query.request || 0);
+  const requested = requests.value.find(item => item.id === requestedId);
+  if (requested) open(requested);
+});
 
 async function load(): Promise<void> { loading.value = true; error.value = null; saved.value = null; try { requests.value = (await platform.client.adminTenantRequests(filters)).data; } catch (caught) { error.value = caught instanceof Error ? caught.message : 'No fue posible cargar las solicitudes.'; } finally { loading.value = false; } }
 function open(item: PlatformTenantRequest): void { selected.value = item; form.status = item.status === 'pending' ? 'in_review' : item.status; form.admin_response = item.admin_response ?? ''; error.value = null; }

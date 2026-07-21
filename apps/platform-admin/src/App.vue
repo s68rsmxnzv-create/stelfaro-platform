@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch, type Component } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import { Building2, CalendarDays, ChevronLeft, ChevronRight, CirclePlus, CreditCard, FileClock, House, Mail, ScrollText, Settings } from 'lucide-vue-next';
 import { UiHierarchicalSidebarNav, type UiSidebarNavEntry, type UiSidebarNavGroup } from '@stelfaro/ui';
+import { InternalNotificationsBell } from '@stelfaro/billing';
 import OwnerAvatarMenu from './components/OwnerAvatarMenu.vue';
 import { useAdminSessionStore } from './stores/adminSession';
 import { useAdminWorkspaceStore } from './stores/adminWorkspace';
@@ -496,6 +497,10 @@ function adminIconComponent(icon?: string): Component {
               {{ crumb.label }}
             </span>
           </template>
+
+          <div class="ml-auto pl-5">
+            <InternalNotificationsBell :platform-base-url="platform.platformApiBaseUrl" scope="admin" appearance="light" />
+          </div>
         </div>
 
         <RouterView :key="route.fullPath" />

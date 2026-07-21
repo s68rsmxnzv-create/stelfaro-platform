@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { CirclePlus, FileClock, Send } from 'lucide-vue-next';
 import { PlatformClient, type PlatformTenantRequest, type PlatformTenantRequestStatus, type PlatformTenantRequestType } from '@stelfaro/api-client';
 import { UiButton, UiEmailInput, UiInput, UiModalShell, UiPhoneInput, UiSelect, UiStatusBadge, UiTextarea } from '@stelfaro/ui';
@@ -16,6 +16,7 @@ const loading = ref(false);
 const saving = ref(false);
 const error = ref<string | null>(null);
 const modalOpen = ref(false);
+const highlightedId = ref<number | null>(null);
 const toasts = ref<BillingFloatingToast[]>([]);
 let toastId = 0;
 const tenantId = computed(() => Number(props.platformSession?.tenant?.id || 0));
@@ -31,7 +32,16 @@ const typeOptions: Array<{ value: PlatformTenantRequestType; label: string }> = 
 const roleOptions = [{ value: 'company_admin', label: 'Administrador de empresa' }, { value: 'billing_admin', label: 'Administrador de facturación' }, { value: 'billing_user', label: 'Facturación' }, { value: 'viewer', label: 'Solo consulta' }];
 const actionOptions = [{ value: 'create', label: 'Crear usuario' }, { value: 'modify', label: 'Modificar acceso' }, { value: 'suspend', label: 'Suspender acceso' }];
 
-onMounted(() => { if (canRequest.value) void load(); });
+onMounted(async () => {
+  if (!canRequest.value) return;
+  await load();
+  const requestedId = Number(new URLSearchParams(window.location.search).get('request') || 0);
+  if (!requests.value.some(item => item.id === requestedId)) return;
+  highlightedId.value = requestedId;
+  await nextTick();
+  document.getElementById(`tenant-request-${requestedId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  window.setTimeout(() => { if (highlightedId.value === requestedId) highlightedId.value = null; }, 2400);
+});
 watch(() => form.type, () => { form.subject = defaultSubject(form.type); });
 
 async function load(): Promise<void> { if (!tenantId.value) return; loading.value = true; error.value = null; try { requests.value = (await client.tenantRequests(tenantId.value)).data; } catch (caught) { error.value = message(caught, 'No fue posible cargar las solicitudes.'); } finally { loading.value = false; } }
@@ -70,7 +80,7 @@ function notify(title: string, detail: string): void { const id = ++toastId; toa
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div class="flex items-start gap-3"><span class="grid h-11 w-11 place-items-center rounded-xl bg-primary-soft text-primary"><FileClock class="h-5 w-5" /></span><div><h2 class="font-bold text-text">Solicitudes de {{ platformSession?.tenant?.name }}</h2><p class="mt-1 text-sm text-muted">Pide usuarios, sucursales y cambios controlados; podrás seguir la respuesta desde aquí.</p></div></div><UiButton @click="openCreate"><CirclePlus class="h-4 w-4" />Nueva solicitud</UiButton></div>
     <div class="mt-6 space-y-3">
       <div v-if="loading" class="rounded-xl border border-line bg-surface p-5 text-sm text-muted">Cargando solicitudes...</div>
-      <article v-for="item in requests" v-else :key="item.id" class="rounded-xl border border-line bg-surface p-4 sm:p-5"><div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div class="flex flex-wrap items-center gap-2"><span class="font-mono text-xs font-bold text-primary">{{ item.reference }}</span><UiStatusBadge :tone="statusTone(item.status)">{{ statusLabel(item.status) }}</UiStatusBadge></div><h3 class="mt-2 font-bold text-text">{{ item.subject }}</h3><p class="mt-1 text-sm text-muted">{{ typeLabel(item.type) }} · {{ date(item.created_at) }}</p><p v-if="item.description" class="mt-3 text-sm leading-6 text-text">{{ item.description }}</p></div><span v-if="item.assignee" class="text-xs text-muted">Atiende: {{ item.assignee.name }}</span></div><div v-if="item.admin_response" class="mt-4 rounded-xl border border-primary/20 bg-primary-soft px-4 py-3"><p class="text-xs font-bold uppercase tracking-wide text-primary">Respuesta</p><p class="mt-1 text-sm text-text">{{ item.admin_response }}</p></div></article>
+      <article v-for="item in requests" v-else :id="`tenant-request-${item.id}`" :key="item.id" class="rounded-xl border bg-surface p-4 transition sm:p-5" :class="highlightedId === item.id ? 'border-primary ring-4 ring-primary/15' : 'border-line'"><div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div class="flex flex-wrap items-center gap-2"><span class="font-mono text-xs font-bold text-primary">{{ item.reference }}</span><UiStatusBadge :tone="statusTone(item.status)">{{ statusLabel(item.status) }}</UiStatusBadge></div><h3 class="mt-2 font-bold text-text">{{ item.subject }}</h3><p class="mt-1 text-sm text-muted">{{ typeLabel(item.type) }} · {{ date(item.created_at) }}</p><p v-if="item.description" class="mt-3 text-sm leading-6 text-text">{{ item.description }}</p></div><span v-if="item.assignee" class="text-xs text-muted">Atiende: {{ item.assignee.name }}</span></div><div v-if="item.admin_response" class="mt-4 rounded-xl border border-primary/20 bg-primary-soft px-4 py-3"><p class="text-xs font-bold uppercase tracking-wide text-primary">Respuesta</p><p class="mt-1 text-sm text-text">{{ item.admin_response }}</p></div></article>
       <div v-if="!loading && requests.length === 0" class="rounded-xl border border-dashed border-line bg-surface-muted p-8 text-center text-sm text-muted">Aún no hay solicitudes para esta empresa.</div>
     </div>
   </template>

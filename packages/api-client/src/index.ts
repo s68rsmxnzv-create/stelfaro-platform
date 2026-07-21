@@ -2004,16 +2004,24 @@ export class PlatformClient {
     return this.http.patch(`admin/platform/requests/${requestId}`, { json: payload }).json();
   }
 
-  internalNotifications(tenantId: number, limit = 20): Promise<PlatformInternalNotificationsResponse> {
-    return this.http.get('platform/notifications', { searchParams: { tenant_id: tenantId, limit } }).json();
+  internalNotifications(tenantId: number, limit = 50): Promise<PlatformInternalNotificationsResponse> {
+    return this.http.get('platform/notifications', { searchParams: { tenant_id: tenantId, limit, scope: 'tenant' } }).json();
+  }
+
+  adminInternalNotifications(limit = 50): Promise<PlatformInternalNotificationsResponse> {
+    return this.http.get('platform/notifications', { searchParams: { limit, scope: 'admin' } }).json();
   }
 
   readInternalNotification(notificationId: number): Promise<{ data: PlatformInternalNotification }> {
     return this.http.post(`platform/notifications/${notificationId}/read`).json();
   }
 
-  readAllInternalNotifications(tenantId: number): Promise<{ unread_count: number }> {
-    return this.http.post('platform/notifications/read-all', { json: { tenant_id: tenantId } }).json();
+  readAllInternalNotifications(tenantId?: number | null, scope: 'tenant' | 'admin' = 'tenant'): Promise<{ unread_count: number }> {
+    return this.http.post('platform/notifications/read-all', { json: { tenant_id: tenantId || null, scope } }).json();
+  }
+
+  deleteInternalNotification(notificationId: number): Promise<{ message: string }> {
+    return this.http.delete(`platform/notifications/${notificationId}`).json();
   }
 
   globalUsers(): Promise<{ users: PlatformGlobalUser[] }> {
