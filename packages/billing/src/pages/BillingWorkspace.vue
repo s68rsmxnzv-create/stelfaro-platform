@@ -25,7 +25,6 @@ import {
 import { currency, type BillingItem, type DocumentType } from '@stelfaro/shared';
 import { UiAutocompleteInput, UiButton, UiCard, UiCloseButton, UiInput, UiSearchInput, UiLoadingMark, UiSelect, UiTextarea } from '@stelfaro/ui';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
-import BillingFiscalCustomerModal, { type BillingFiscalCustomerModalPayload } from '../components/BillingFiscalCustomerModal.vue';
 import BillingSujetoExcluidoModal, { type BillingSujetoExcluidoModalPayload } from '../components/BillingSujetoExcluidoModal.vue';
 import BillingFiscalOptions from '../components/BillingFiscalOptions.vue';
 import BillingCustomerSearchModal from '../components/BillingCustomerSearchModal.vue';
@@ -2066,7 +2065,7 @@ function isCustomerReadyForCreditoFiscal(customer: BillingCustomer): boolean {
   );
 }
 
-function fiscalCustomerInitialValue(customer: BillingCustomer | null): Partial<BillingFiscalCustomerModalPayload> | null {
+function fiscalCustomerInitialValue(customer: BillingCustomer | null): Partial<BillingCustomerModalPayload> | null {
   if (!customer) return null;
 
   return {
@@ -2099,7 +2098,7 @@ function closeFiscalCustomerModal(): void {
   fiscalCustomerTarget.value = null;
 }
 
-async function handleFiscalCustomerSave(payload: BillingFiscalCustomerModalPayload): Promise<void> {
+async function handleFiscalCustomerSave(payload: BillingCustomerModalPayload): Promise<void> {
   if (!selectedEmpresa.value) {
     error.value = 'Selecciona una empresa emisora antes de guardar clientes.';
     return;
@@ -2760,6 +2759,7 @@ function updatePaymentCondition(value: string): void {
       :open="Boolean(customerModalMode)"
       :mode="customerModalMode"
       :loading="loading"
+      :actividad-options="actividadOptions"
       :departamento-options="departamentoOptions"
       :municipio-options="municipioOptions"
       :distrito-options="distritoOptions"
@@ -2779,8 +2779,10 @@ function updatePaymentCondition(value: string): void {
       @update:municipio="fiscalModalMunicipio = $event"
     />
 
-    <BillingFiscalCustomerModal
+    <BillingCustomerModal
       :open="fiscalCustomerModalOpen"
+      :mode="fiscalCustomerTarget ? 'edit' : 'new'"
+      intent="fiscal"
       :loading="loading"
       :initial-value="fiscalCustomerInitialValue(fiscalCustomerTarget)"
       :actividad-options="actividadOptions"

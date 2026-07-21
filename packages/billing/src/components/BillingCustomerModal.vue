@@ -4,6 +4,7 @@ import { UiButton, UiEmailInput, UiFiscalDocumentInput, UiInput, UiPhoneInput, U
 import BillingModalShell from './BillingModalShell.vue';
 
 export type BillingCustomerModalMode = 'new' | 'quick' | 'edit';
+export type BillingCustomerModalIntent = 'standard' | 'fiscal';
 type SelectOption = {
   value: string;
   label: string;
@@ -31,6 +32,7 @@ export type BillingCustomerModalPayload = {
 const props = withDefaults(defineProps<{
   open: boolean;
   mode: BillingCustomerModalMode;
+  intent?: BillingCustomerModalIntent;
   loading?: boolean;
   initialValue?: Partial<BillingCustomerModalPayload> | null;
   actividadOptions?: SelectOption[];
@@ -40,6 +42,7 @@ const props = withDefaults(defineProps<{
   allowOptionalAddress?: boolean;
 }>(), {
   loading: false,
+  intent: 'standard',
   initialValue: null,
   actividadOptions: () => [],
   departamentoOptions: () => [],
@@ -81,10 +84,14 @@ const detection = reactive<FiscalDocumentDetection>({
 });
 
 const title = computed(() => {
+  if (props.intent === 'fiscal') return props.initialValue ? 'Completar datos fiscales' : 'Nuevo cliente fiscal';
   if (props.mode === 'edit') return 'Editar cliente';
   return props.mode === 'new' ? 'Nuevo cliente' : 'Cliente rapido';
 });
-const documentRequired = computed(() => props.mode === 'new');
+const description = computed(() => props.intent === 'fiscal'
+  ? 'Completa la información necesaria para emitir Crédito Fiscal.'
+  : null);
+const documentRequired = computed(() => props.mode === 'new' || props.intent === 'fiscal');
 const documentIsValid = computed(() => {
   if (!form.document.trim()) return !documentRequired.value;
   const digits = form.document.replace(/\D+/g, '');
@@ -92,13 +99,14 @@ const documentIsValid = computed(() => {
 });
 const selectedActividad = computed(() => props.actividadOptions.find((option) => option.value === form.actividad) ?? null);
 const isEditMode = computed(() => props.mode === 'edit');
+const isFiscalMode = computed(() => props.intent === 'fiscal' || isEditMode.value);
 const hasFiscalIntent = computed(() => Boolean(
-  isEditMode.value
-  && (
+  props.intent === 'fiscal'
+  || (isEditMode.value && (
     form.nrc.trim()
     || form.actividad.trim()
     || (props.initialValue?.allowed_dte_codes ?? []).includes('03')
-  )
+  ))
 ));
 const fiscalComplete = computed(() => Boolean(
   !hasFiscalIntent.value
@@ -138,7 +146,7 @@ watch(() => props.open, (open) => {
   form.municipio = props.initialValue?.municipio ?? '';
   form.distrito = props.initialValue?.distrito ?? '';
   form.direccion = props.initialValue?.direccion_complemento ?? '';
-  showAddress.value = isEditMode.value || Boolean(form.departamento || form.municipio || form.distrito || form.direccion);
+  showAddress.value = props.intent === 'fiscal' || isEditMode.value || Boolean(form.departamento || form.municipio || form.distrito || form.direccion);
   nextTick(() => {
     hydrating.value = false;
   });
@@ -185,7 +193,7 @@ function submit(): void {
 
   emit('save', {
     name: form.name.trim(),
-    document_type: form.document.trim() === '' ? null : detection.typeLabel === 'NIT' || documentDigits.length === 14 ? '36' : '13',
+    document_type: form.document.trim() === '' ? null : hasFiscalIntent.value || detection.typeLabel === 'NIT' || documentDigits.length === 14 ? '36' : '13',
     document_number: form.document.trim() === '' ? null : documentDigits,
     email: form.email.trim() || null,
     phone: form.phone.trim() || null,
@@ -193,12 +201,12 @@ function submit(): void {
     nrc: hasFiscalIntent.value ? form.nrc.replace(/\D+/g, '') || null : props.initialValue?.nrc ?? null,
     cod_actividad: hasFiscalIntent.value ? form.actividad || null : props.initialValue?.cod_actividad ?? null,
     desc_actividad: hasFiscalIntent.value ? activity?.label ?? null : props.initialValue?.desc_actividad ?? null,
-    nombre_comercial: isEditMode.value ? form.nombreComercial.trim() || null : props.initialValue?.nombre_comercial ?? null,
+    nombre_comercial: isFiscalMode.value ? form.nombreComercial.trim() || null : props.initialValue?.nombre_comercial ?? null,
     departamento: showAddress.value ? form.departamento || null : null,
     municipio: showAddress.value ? form.municipio || null : null,
     distrito: showAddress.value && form.distrito ? form.distrito.replace(/\D+/g, '').padStart(2, '0') : null,
     direccion_complemento: showAddress.value ? form.direccion.trim() || null : null,
-    allowed_dte_codes: isEditMode.value ? Array.from(allowedDteCodes) : undefined
+    allowed_dte_codes: hasFiscalIntent.value ? Array.from(allowedDteCodes) : isEditMode.value ? Array.from(allowedDteCodes) : undefined
   });
 }
 </script>
@@ -206,18 +214,19 @@ function submit(): void {
 <template>
   <BillingModalShell
     :open="open"
-    eyebrow="Receptor"
+    :eyebrow="intent === 'fiscal' ? 'Receptor CCF' : 'Receptor'"
     :title="title"
-    :max-width="isEditMode ? 'max-w-3xl' : 'max-w-xl'"
+    :description="description"
+    :max-width="isFiscalMode ? 'max-w-3xl' : 'max-w-xl'"
     panel-as="form"
-    :panel-class="isEditMode ? 'max-h-[92vh] overflow-hidden' : ''"
-    :body-class="isEditMode ? 'grid min-h-0 gap-4 overflow-y-auto px-5 py-5' : 'grid gap-4 px-5 py-5'"
+    :panel-class="isFiscalMode ? 'max-h-[92vh] overflow-hidden' : ''"
+    :body-class="isFiscalMode ? 'grid min-h-0 gap-4 overflow-y-auto px-5 py-5' : 'grid gap-4 px-5 py-5'"
     @close="emit('close')"
     @submit="submit"
   >
-    <div class="grid gap-4" :class="isEditMode ? 'md:grid-cols-2' : ''">
-      <UiInput v-model="form.name" :label="mode === 'quick' ? 'Nombre en factura' : 'Nombre del cliente'" />
-      <div v-if="isEditMode">
+    <div class="grid gap-4" :class="isFiscalMode ? 'md:grid-cols-2' : ''">
+      <UiInput v-model="form.name" :label="intent === 'fiscal' ? 'Nombre fiscal / razón social' : mode === 'quick' ? 'Nombre en factura' : 'Nombre del cliente'" />
+      <div v-if="isFiscalMode">
         <UiInput
           :model-value="form.nombreComercial"
           label="Nombre comercial"
@@ -236,11 +245,11 @@ function submit(): void {
         :label="documentRequired ? 'DUI/NIT del cliente' : 'DUI/NIT del cliente (opcional)'"
         @detected="updateDetection"
       />
-      <UiInput v-if="isEditMode" v-model="form.nrc" label="NRC" />
+      <UiInput v-if="isFiscalMode" v-model="form.nrc" label="NRC" />
     </div>
 
     <UiSearchSelect
-      v-if="isEditMode"
+      v-if="isFiscalMode"
       v-model="form.actividad"
       label="Actividad economica"
       :options="actividadOptions"
@@ -253,7 +262,7 @@ function submit(): void {
     </div>
 
     <button
-      v-if="!isEditMode && allowOptionalAddress"
+      v-if="!isFiscalMode && allowOptionalAddress"
       type="button"
       class="text-left text-sm font-semibold text-sky-700 transition hover:text-sky-600 dark:text-primary"
       @click="showAddress = !showAddress"
@@ -261,7 +270,7 @@ function submit(): void {
       {{ showAddress ? 'Ocultar direccion opcional' : 'Agregar direccion opcional' }}
     </button>
     <div v-if="showAddress" class="grid gap-4 rounded-md border border-blue-100 bg-blue-50/40 p-4 dark:border-line dark:bg-surface-muted">
-      <p v-if="isEditMode" class="text-sm font-semibold text-slate-700 dark:text-muted">Direccion</p>
+      <p v-if="isFiscalMode" class="text-sm font-semibold text-slate-700 dark:text-muted">Dirección</p>
       <div class="grid gap-4 md:grid-cols-2">
         <UiSearchSelect
           v-model="form.departamento"
@@ -287,7 +296,7 @@ function submit(): void {
       <UiInput v-model="form.direccion" label="Direccion" />
     </div>
 
-    <p v-if="isEditMode && hasFiscalIntent && !fiscalComplete" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800 dark:bg-warning-soft dark:text-warning">
+    <p v-if="hasFiscalIntent && !fiscalComplete" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800 dark:bg-warning-soft dark:text-warning">
       Para usar este cliente en Credito Fiscal completa NIT/DUI, NRC, actividad, direccion, correo y telefono.
     </p>
 

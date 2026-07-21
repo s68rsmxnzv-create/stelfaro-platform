@@ -2,18 +2,20 @@
 import { computed, reactive, ref } from 'vue';
 import { Camera, Check, ChevronLeft, ChevronRight, SlidersHorizontal, Smartphone, UserRound, X } from 'lucide-vue-next';
 import { UiButton, UiCard, UiInput, UiSearchInput, UiSelect, UiTextarea, UiToggle } from '@stelfaro/ui';
-import type { BillingCustomer, WorkshopOrderPayload } from '@stelfaro/api-client';
+import type { BillingCatalogs, BillingCustomer, WorkshopOrderPayload } from '@stelfaro/api-client';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import WorkshopPatternInput from './WorkshopPatternInput.vue';
 import WorkshopIdentifierInput from './WorkshopIdentifierInput.vue';
 
-const props = defineProps<{ customers: BillingCustomer[]; customerLoading?: boolean; onCreateCustomer: (payload: BillingCustomerModalPayload) => Promise<BillingCustomer>; onSave: (payload: WorkshopOrderPayload) => Promise<unknown> }>();
+const props = defineProps<{ customers: BillingCustomer[]; catalogs?: BillingCatalogs | null; customerLoading?: boolean; onCreateCustomer: (payload: BillingCustomerModalPayload) => Promise<BillingCustomer>; onSave: (payload: WorkshopOrderPayload) => Promise<unknown> }>();
 const emit = defineEmits<{ search: [query: string] }>();
 const step = ref(1);
 const selected = ref<BillingCustomer | null>(null);
 const customerQuery = ref('');
 const customerCreateOpen = ref(false);
 const customerCreateLoading = ref(false);
+const customerDepartamento = ref('');
+const customerMunicipio = ref('');
 const optionalOpen = ref(false);
 const accessoriesText = ref('');
 const saving = ref(false);
@@ -33,6 +35,16 @@ const advance = computed(() => Number(form.advance_amount || 0));
 const balance = computed(() => Math.max(estimated.value - advance.value, 0));
 const selectedConditionLabels = computed(() => conditionOptions.filter(option => physicalConditions.value.includes(option.key)).map(option => option.label));
 const testedFunctions = computed(() => testOptions.filter(option => functionalTests[option.key] && functionalTests[option.key] !== 'not_tested').map(option => `${option.label}: ${functionalTests[option.key] === 'passed' ? 'funciona' : 'falla'}`));
+const departamentoOptions = computed(() => (props.catalogs?.departamentos ?? []).map(item => ({ value: item.code, label: item.label, hint: item.code })));
+const municipioOptions = computed(() => (props.catalogs?.municipios ?? [])
+  .filter(item => departmentCode(item.departamento) === departmentCode(customerDepartamento.value))
+  .map(item => ({ value: item.code, label: item.label, hint: item.code })));
+const distritoOptions = computed(() => (props.catalogs?.distritos ?? [])
+  .filter(item => departmentCode(item.departamento) === departmentCode(customerDepartamento.value) && String(item.municipio) === String(customerMunicipio.value))
+  .map(item => ({ value: item.code, label: item.label.replace(/^Distrito\s+/i, ''), hint: item.code })));
+const actividadOptions = computed(() => (props.catalogs?.actividadesEconomicas ?? []).map(item => ({ value: item.code, label: item.label, hint: item.code })));
+
+function departmentCode(value: string | number | null | undefined): string { return String(value ?? '').replace(/\D+/g, '').padStart(2, '0'); }
 
 function updateCustomerSearch(value: string) { if (selected.value && value !== selected.value.name) selected.value = null; customerQuery.value = value; emit('search', value); }
 function clearCustomerSearch() { selected.value = null; customerQuery.value = ''; emit('search', ''); }
@@ -76,7 +88,20 @@ function validateCompletion() {
 </script>
 
 <template>
-  <BillingCustomerModal :open="customerCreateOpen" mode="new" :loading="customerCreateLoading" :allow-optional-address="false" @close="customerCreateOpen = false" @save="createCustomer" />
+  <BillingCustomerModal
+    :open="customerCreateOpen"
+    mode="new"
+    :loading="customerCreateLoading"
+    :allow-optional-address="Boolean(catalogs)"
+    :actividad-options="actividadOptions"
+    :departamento-options="departamentoOptions"
+    :municipio-options="municipioOptions"
+    :distrito-options="distritoOptions"
+    @close="customerCreateOpen = false"
+    @save="createCustomer"
+    @update:departamento="customerDepartamento = $event"
+    @update:municipio="customerMunicipio = $event"
+  />
 
   <UiCard class="w-full overflow-hidden">
     <div class="border-b border-line px-5 py-4 sm:px-7">
