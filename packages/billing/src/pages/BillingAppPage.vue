@@ -730,6 +730,9 @@ function navigateFromMenu(event, href) {
         </div>
       </div>
 
+    </nav>
+
+    <Teleport to="body">
       <div
         v-if="mobileMenuOpen"
         id="billing-mobile-navigation"
@@ -765,7 +768,7 @@ function navigateFromMenu(event, href) {
           />
         </div>
       </div>
-    </nav>
+    </Teleport>
 
     <header class="relative z-10 border-b border-blue-100/70 bg-white/85 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:shadow-black/20">
       <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
