@@ -42,7 +42,7 @@ const props = withDefaults(defineProps<{
 });
 
 const emit = defineEmits<{
-  companySelected: [company: { id: number; coreEmpresaId: number; name: string; tradeName: string; documentLabel: string; lifecycleStatus: string; ambiente: '00' | '01'; logoUrl: string | null; nit: string; nrc: string | null; activity: string }];
+  companySelected: [company: { id: number; coreEmpresaId: number; name: string; tradeName: string; documentLabel: string; lifecycleStatus: string; ambiente: '00' | '01'; logoUrl: string | null; nit: string; nrc: string | null; activity: string; sucursales: BillingSucursal[] }];
   companyCleared: [];
   companyViewChanged: [view: 'summary' | 'data' | 'fiscal' | 'sucursales' | 'correlativos'];
 }>();
@@ -745,7 +745,8 @@ function emitSelectedCompany(empresa: BillingEmpresa): void {
     logoUrl: empresa.logo_url,
     nit: empresa.nit,
     nrc: empresa.nrc,
-    activity: empresa.desc_actividad
+    activity: empresa.desc_actividad,
+    sucursales: empresa.sucursales
   });
 }
 

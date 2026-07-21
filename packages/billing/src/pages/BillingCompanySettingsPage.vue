@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
-import { PlatformClient, type PlatformSubscriptionTenantRow } from '@stelfaro/api-client';
+import { PlatformClient, type BillingSucursal, type PlatformSubscriptionTenantRow } from '@stelfaro/api-client';
 import { UiButton, UiPanel, UiRefreshButton, UiStatusBadge, UiSubscriptionPlanCard } from '@stelfaro/ui';
 import BillingSectionLayout from '../components/BillingSectionLayout.vue';
 import BillingSettingsPage from './BillingSettingsPage.vue';
@@ -10,11 +10,12 @@ import ThermalTicketSettingsPanel from '../printing/ThermalTicketSettingsPanel.v
 import TenantRequestsPanel from '../settings/TenantRequestsPanel.vue';
 import UserProfilePanel from '../settings/UserProfilePanel.vue';
 import UserSecurityPanel from '../settings/UserSecurityPanel.vue';
+import CashSettingsPanel from '../settings/CashSettingsPanel.vue';
 
-type CompanyView = 'summary' | 'requests' | 'profile' | 'subscription' | 'printer' | 'ticket' | 'security' | 'audit' | 'support';
+type CompanyView = 'summary' | 'requests' | 'profile' | 'subscription' | 'cash' | 'printer' | 'ticket' | 'security' | 'audit' | 'support';
 type CompanyNavId = CompanyView;
 type SettingsCompanyView = 'summary' | 'data' | 'fiscal' | 'sucursales' | 'correlativos';
-type NavIcon = 'summary' | 'requests' | 'profile' | 'subscription' | 'printer' | 'ticket' | 'security' | 'support';
+type NavIcon = 'summary' | 'requests' | 'profile' | 'subscription' | 'cash' | 'printer' | 'ticket' | 'security' | 'support';
 type SelectedCompany = {
   id: number;
   coreEmpresaId: number;
@@ -27,6 +28,7 @@ type SelectedCompany = {
   nit: string;
   nrc: string | null;
   activity: string;
+  sucursales: BillingSucursal[];
 };
 type MarketingPlanCard = {
   key: 'entrepreneur' | 'professional' | 'enterprise';
@@ -65,7 +67,7 @@ const props = withDefaults(defineProps<{
 });
 
 const selectedCompany = ref<SelectedCompany | null>(null);
-const validViews: CompanyView[] = ['summary', 'requests', 'profile', 'subscription', 'printer', 'ticket', 'security', 'audit', 'support'];
+const validViews: CompanyView[] = ['summary', 'requests', 'profile', 'subscription', 'cash', 'printer', 'ticket', 'security', 'audit', 'support'];
 const requestedView = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null;
 const activeView = ref<CompanyView>(requestedView && validViews.includes(requestedView as CompanyView) ? requestedView as CompanyView : props.initialView);
 const subscriptionRow = ref<PlatformSubscriptionTenantRow | null>(null);
@@ -111,6 +113,7 @@ const navItems = computed<Array<{
   { id: 'requests', label: 'Solicitudes', detail: 'Cambios sensibles', icon: 'requests' },
   { id: 'profile', label: 'Perfil de usuario', detail: 'Cuenta y contraseña', icon: 'profile' },
   { id: 'subscription', label: 'Suscripción', detail: 'Plan y vigencia', icon: 'subscription' },
+  { id: 'cash', label: 'Caja', detail: 'Horarios y sucursales', icon: 'cash', group: 'Operación' },
   { id: 'printer', label: 'Conexión e impresora', detail: 'Agente, dispositivo y papel', icon: 'printer', group: 'Impresión' },
   { id: 'ticket', label: 'Formato del ticket', detail: 'Logo, datos y vista previa', icon: 'ticket', group: 'Impresión' },
   { id: 'security', label: 'Seguridad', detail: 'Contraseña y acceso', icon: 'security' },
@@ -475,6 +478,8 @@ function daysUntil(value: string | null | undefined): number | null {
         </div>
 
         <div v-else-if="activeView === 'printer'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><PrinterSettingsPanel /></div>
+
+        <CashSettingsPanel v-else-if="activeView === 'cash'" class="mt-6" :tenant-id="Number(platformSession?.tenant?.id || 0)" :platform-base-url="platformBaseUrl" :auth-token="authToken" :branches="selectedCompany?.sucursales || []" />
 
         <div v-else-if="activeView === 'ticket'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><ThermalTicketSettingsPanel :company="selectedCompany" :workshop-enabled="workshopEnabled" :tenant-id="Number(platformSession?.tenant?.id || 0)" :platform-base-url="platformBaseUrl" /></div>
 

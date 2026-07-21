@@ -2,6 +2,7 @@
 import {
   Archive,
   ArrowLeftRight,
+  Banknote,
   Box,
   ChevronLeft,
   ChevronRight,
@@ -89,6 +90,7 @@ function iconComponent(icon: string): Component {
     ticket: ReceiptText,
     security: ShieldCheck,
     support: MessageSquare,
+    cash: Banknote,
     stock: PackageSearch,
     entries: PackagePlus,
     purchases: ReceiptText,

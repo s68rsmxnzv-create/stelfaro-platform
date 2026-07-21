@@ -2,18 +2,19 @@
 import { computed, reactive, ref } from 'vue';
 import { Camera, Check, ChevronLeft, ChevronRight, SlidersHorizontal, Smartphone, UserRound, X } from 'lucide-vue-next';
 import { UiButton, UiCard, UiInput, UiSearchInput, UiSelect, UiTextarea, UiToggle } from '@stelfaro/ui';
-import type { BillingCatalogs, BillingCustomer, WorkshopOrderPayload } from '@stelfaro/api-client';
+import type { BillingCatalogs, BillingCustomer, BillingSucursal, WorkshopOrderPayload } from '@stelfaro/api-client';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import WorkshopPatternInput from './WorkshopPatternInput.vue';
 import WorkshopIdentifierInput from './WorkshopIdentifierInput.vue';
 
-const props = defineProps<{ customers: BillingCustomer[]; catalogs?: BillingCatalogs | null; customerLoading?: boolean; onCreateCustomer: (payload: BillingCustomerModalPayload) => Promise<BillingCustomer>; onSave: (payload: WorkshopOrderPayload) => Promise<unknown> }>();
+const props = defineProps<{ customers: BillingCustomer[]; branches?: BillingSucursal[]; catalogs?: BillingCatalogs | null; customerLoading?: boolean; onCreateCustomer: (payload: BillingCustomerModalPayload) => Promise<BillingCustomer>; onSave: (payload: WorkshopOrderPayload) => Promise<unknown> }>();
 const emit = defineEmits<{ search: [query: string] }>();
 const step = ref(1);
 const selected = ref<BillingCustomer | null>(null);
 const customerQuery = ref('');
 const customerCreateOpen = ref(false);
 const customerCreateLoading = ref(false);
+const selectedBranchId = ref(String(props.branches?.[0]?.id ?? ''));
 const customerDepartamento = ref('');
 const customerMunicipio = ref('');
 const optionalOpen = ref(false);
@@ -43,6 +44,8 @@ const distritoOptions = computed(() => (props.catalogs?.distritos ?? [])
   .filter(item => departmentCode(item.departamento) === departmentCode(customerDepartamento.value) && String(item.municipio) === String(customerMunicipio.value))
   .map(item => ({ value: item.code, label: item.label.replace(/^Distrito\s+/i, ''), hint: item.code })));
 const actividadOptions = computed(() => (props.catalogs?.actividadesEconomicas ?? []).map(item => ({ value: item.code, label: item.label, hint: item.code })));
+const branchOptions = computed(() => (props.branches ?? []).map(item => ({ value: String(item.id), label: `${item.codigo} · ${item.nombre}` })));
+const selectedBranch = computed(() => (props.branches ?? []).find(item => String(item.id) === selectedBranchId.value) ?? props.branches?.[0] ?? null);
 
 function departmentCode(value: string | number | null | undefined): string { return String(value ?? '').replace(/\D+/g, '').padStart(2, '0'); }
 
@@ -60,7 +63,7 @@ async function createCustomer(payload: BillingCustomerModalPayload) {
 }
 function next() {
   validationMessage.value = '';
-  if (step.value === 1 && !selected.value) { validationMessage.value = 'Selecciona un cliente para continuar.'; return; }
+  if (step.value === 1 && (!selected.value || ((props.branches?.length ?? 0) > 0 && !selectedBranch.value))) { validationMessage.value = !selected.value ? 'Selecciona un cliente para continuar.' : 'Selecciona la sucursal que recibe el equipo.'; return; }
   if (step.value === 2 && (!form.brand.trim() || !form.model.trim() || !form.reported_fault.trim())) { validationMessage.value = 'Completa marca, modelo y falla reportada.'; return; }
   if (step.value === 3 && !validateCompletion()) return;
   step.value = Math.min(4, step.value + 1);
@@ -73,7 +76,7 @@ async function submit() {
     if (!validateCompletion()) return;
     const identifier = imeiSuggestion.value || form.identifier.trim();
     const imei = /^\d{15}$/.test(identifier);
-    await props.onSave({ customer: { core_customer_id: selected.value.id, name: selected.value.name, phone: selected.value.phone, email: selected.value.email }, device: { type: form.type, brand: form.brand, model: form.model, color: form.color || null, imei: !form.identifier_not_visible && imei ? identifier : null, serial_number: !form.identifier_not_visible && !imei ? identifier || null : null, identifier_not_visible: form.identifier_not_visible, power_status: form.power_status, functional_tests: form.power_status === 'on' ? {...functionalTests} : {}, is_locked: form.is_locked, access_type: form.is_locked ? form.access_type : null, access_secret: form.is_locked ? form.access_secret || null : null }, reported_fault: form.reported_fault, physical_condition: form.physical_condition || null, physical_conditions: physicalConditions.value, accessories: accessoriesText.value.split(',').map(value => value.trim()).filter(Boolean), priority: form.priority, estimated_total: form.estimated_total ? estimated.value : null, advance: advance.value > 0 ? { amount: advance.value, method: form.advance_method, reference: form.advance_reference || null } : undefined });
+    await props.onSave({ core_sucursal_id: selectedBranch.value?.id ?? null, core_sucursal_code: selectedBranch.value?.codigo ?? null, core_sucursal_name: selectedBranch.value?.nombre ?? null, customer: { core_customer_id: selected.value.id, name: selected.value.name, phone: selected.value.phone, email: selected.value.email }, device: { type: form.type, brand: form.brand, model: form.model, color: form.color || null, imei: !form.identifier_not_visible && imei ? identifier : null, serial_number: !form.identifier_not_visible && !imei ? identifier || null : null, identifier_not_visible: form.identifier_not_visible, power_status: form.power_status, functional_tests: form.power_status === 'on' ? {...functionalTests} : {}, is_locked: form.is_locked, access_type: form.is_locked ? form.access_type : null, access_secret: form.is_locked ? form.access_secret || null : null }, reported_fault: form.reported_fault, physical_condition: form.physical_condition || null, physical_conditions: physicalConditions.value, accessories: accessoriesText.value.split(',').map(value => value.trim()).filter(Boolean), priority: form.priority, estimated_total: form.estimated_total ? estimated.value : null, advance: advance.value > 0 ? { amount: advance.value, method: form.advance_method, reference: form.advance_reference || null } : undefined });
     selected.value = null; customerQuery.value = ''; accessoriesText.value = ''; optionalOpen.value = false; step.value = 1;
     Object.keys(functionalTests).forEach(key => delete functionalTests[key]); physicalConditions.value = [];
     Object.assign(form, { type: 'phone', brand: '', model: '', color: '', identifier: '', identifier_not_visible: false, power_status: 'not_tested', reported_fault: '', physical_condition: '', priority: 'normal', estimated_total: '', advance_amount: '', advance_method: 'cash', advance_reference: '', is_locked: false, access_type: 'code', access_secret: '' });
@@ -116,6 +119,7 @@ function validateCompletion() {
         <div v-if="customerLoading" class="mt-2 text-sm text-muted">Buscando clientes…</div>
         <div v-else-if="!selected && customerQuery.trim().length >= 2 && customers.length" class="mt-2 max-h-64 divide-y divide-line overflow-y-auto rounded-md border border-line bg-surface-raised"><button v-for="customer in customers" :key="customer.id" type="button" class="block w-full px-4 py-3 text-left hover:bg-primary-soft" @click="choose(customer)"><strong class="block text-text">{{ customer.name }}</strong><span class="mt-1 block text-xs text-muted">{{ customer.document_number || 'Sin documento' }}<template v-if="customer.phone"> · {{ customer.phone }}</template></span></button></div>
         <p v-else-if="!selected && customerQuery.trim().length >= 2" class="mt-2 rounded-md bg-surface-muted px-4 py-3 text-sm text-muted">No encontramos clientes con esa búsqueda.</p>
+        <UiSelect v-if="branchOptions.length > 1" v-model="selectedBranchId" class="mt-5" label="Sucursal que recibe" :options="branchOptions" />
       </section>
 
       <section v-else-if="step === 2">

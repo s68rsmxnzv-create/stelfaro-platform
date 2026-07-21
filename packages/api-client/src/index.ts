@@ -376,6 +376,7 @@ export type WorkshopOrder = {
   id: number; ticket: string; status: string; priority: string; reported_fault: string;
   physical_condition: string | null; physical_conditions: string[]; accessories: string[]; diagnosis: string | null;
   estimated_total: number | null; paid_total: number; refunded_total: number; balance: number; received_at: string; photo_count: number;
+  branch?: { id: number; code: string|null; name: string|null } | null;
   financial: { status: 'pending' | 'settled' | string; final_total: number | null; closed_at: string | null };
   billing: { status: 'unbilled' | 'pending' | 'invoiced' | string; dte_type: '01' | '03' | null; core_document_id: number | null; number: string | null; generation_code: string | null; invoiced_at: string | null };
   approval: { decision: string | null; method: string | null; notes: string | null; decided_at: string | null };
@@ -412,12 +413,16 @@ export type PlatformCommercialDashboard = {
   commercial: { sales_today: number; sales_net_today: number; sales_tax_today: number; sales_month: number; sales_net_month: number; sales_tax_month: number };
 };
 
-export type PlatformCashSession = { id: number; status: string; opening_balance: number; inflows: number; outflows: number; expected: number; opened_at: string; closed_at: string | null; declared_balance: number | null; difference: number | null; register: { id: number; name: string; branch_name: string | null } };
+export type PlatformCashSession = { id: number; status: string; business_date: string|null; opening_source: string; count_status: string; opening_balance: number; inflows: number; outflows: number; expected: number; opened_at: string; closed_at: string | null; declared_balance: number | null; difference: number | null; register: { id: number; name: string; branch_id: number|null; branch_name: string | null } };
 export type PlatformCashMovement = { id: number; direction: 'in'|'out'; kind: string; method: string; amount: number; description: string; reference: string | null; occurred_at: string; reversed_at: string | null; expense: { id: number; status: string; category: string; supplier: string | null } | null; order: { id: number; ticket: string } | null };
-export type PlatformCashOverview = { active_session: PlatformCashSession | null; summary: { inflows: number; outflows: number; pending_documents: number }; data: PlatformCashMovement[]; meta: { current_page: number; last_page: number; total: number } };
+export type PlatformCashRegister = { id: number; name: string; status: string; branch_id: number|null; branch_code: string|null; branch_name: string|null; configured: boolean };
+export type PlatformCashSettings = { timezone: string; default_opening_balance: number; carry_forward_balance: boolean; auto_open_enabled: boolean; auto_open_time: string|null; auto_close_enabled: boolean; auto_close_time: string|null; close_grace_minutes: number; working_days: number[]; non_working_dates: string[]; use_official_holidays: boolean; allow_non_cash_when_closed: boolean; active: boolean };
+export type PlatformCashRegisterSettings = { id: number; name: string; status: string; core_sucursal_id: number|null; core_sucursal_code: string|null; core_sucursal_name: string|null; settings: PlatformCashSettings };
+export type PlatformCashOverview = { registers: PlatformCashRegister[]; active_session: PlatformCashSession | null; pending_counts: PlatformCashSession[]; summary: { inflows: number; outflows: number; pending_documents: number }; data: PlatformCashMovement[]; meta: { current_page: number; last_page: number; total: number } };
 export type PlatformSalesReport = { summary: { transactions: number; net: number; tax: number; total: number; cost: number; margin: number }; data: Array<{ id: number; date: string|null; source_type: string; source_number: string|null; document_type: string|null; operation_kind: string; customer_name: string|null; payment_status: string; net: number; tax: number; total: number }>; meta: { current_page: number; last_page: number; total: number } };
 
 export type WorkshopOrderPayload = {
+  core_sucursal_id?: number | null; core_sucursal_code?: string | null; core_sucursal_name?: string | null;
   customer: { core_customer_id: number; name: string; phone?: string | null; email?: string | null };
   device: { type: string; brand: string; model: string; color?: string | null; imei?: string | null; serial_number?: string | null; identifier_not_visible?: boolean; power_status: string; functional_tests?: Record<string, string>; is_locked?: boolean; access_type?: string | null; access_secret?: string | null };
   reported_fault: string; physical_condition?: string | null; physical_conditions?: string[]; accessories?: string[]; priority?: string; estimated_total?: number | null;
@@ -2089,11 +2094,23 @@ export class PlatformClient {
     return this.http.get(`platform/tenants/${tenantId}/commercial/dashboard`).json();
   }
 
-  cashOverview(tenantId: number, params: { date_from?: string; date_to?: string; method?: string; direction?: string; page?: number; per_page?: number } = {}): Promise<PlatformCashOverview> {
+  cashOverview(tenantId: number, params: { date_from?: string; date_to?: string; method?: string; direction?: string; cash_register_id?: number; page?: number; per_page?: number } = {}): Promise<PlatformCashOverview> {
     return this.http.get(`platform/tenants/${tenantId}/cash`, { searchParams: compactParams(params) }).json();
   }
 
-  openCashSession(tenantId: number, payload: { opening_balance: number; name?: string; notes?: string|null }): Promise<{ data: PlatformCashSession }> {
+  cashSettings(tenantId: number): Promise<{ data: PlatformCashRegisterSettings[] }> {
+    return this.http.get(`platform/tenants/${tenantId}/cash/settings`).json();
+  }
+
+  createCashSettings(tenantId: number, payload: Record<string, unknown>): Promise<{ data: PlatformCashRegisterSettings }> {
+    return this.http.post(`platform/tenants/${tenantId}/cash/settings`, { json: payload }).json();
+  }
+
+  updateCashSettings(tenantId: number, registerId: number, payload: Record<string, unknown>): Promise<{ data: PlatformCashRegisterSettings }> {
+    return this.http.put(`platform/tenants/${tenantId}/cash/settings/${registerId}`, { json: payload }).json();
+  }
+
+  openCashSession(tenantId: number, payload: { opening_balance: number; cash_register_id?: number; name?: string; notes?: string|null }): Promise<{ data: PlatformCashSession }> {
     return this.http.post(`platform/tenants/${tenantId}/cash/sessions`, { json: payload }).json();
   }
 
@@ -2113,7 +2130,7 @@ export class PlatformClient {
     return this.http.post(`platform/tenants/${tenantId}/cash/expenses/${expenseId}/reconcile`, { json: { inventory_purchase_id: purchaseId } }).json();
   }
 
-  commercialSalesReport(tenantId: number, params: { date_from?: string; date_to?: string; source_type?: string; document_type?: string; payment_status?: string; page?: number; per_page?: number } = {}): Promise<PlatformSalesReport> {
+  commercialSalesReport(tenantId: number, params: { date_from?: string; date_to?: string; source_type?: string; document_type?: string; payment_status?: string; core_sucursal_id?: number; page?: number; per_page?: number } = {}): Promise<PlatformSalesReport> {
     return this.http.get(`platform/tenants/${tenantId}/cash/sales-report`, { searchParams: compactParams(params) }).json();
   }
 
