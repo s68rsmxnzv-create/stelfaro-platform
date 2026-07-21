@@ -1673,6 +1673,10 @@ function broadcastInventoryChange(action: 'reserved' | 'confirmed' | 'released',
 }
 
 function saleMetadata(): Record<string, unknown> {
+  const cashAmount = paymentCondition.value === 1
+    ? roundMoney(paymentLines.value.filter((payment) => payment.codigo === '01').reduce((sum, payment) => sum + Number(payment.montoPago || 0), 0))
+    : 0;
+
   return {
     document_type: form.documentType,
     customer_name: form.customerName || null,
@@ -1680,6 +1684,9 @@ function saleMetadata(): Record<string, unknown> {
     commercial_net: saleNetAmount(),
     commercial_iva: saleTaxAmount(),
     commercial_total: saleGrossAmount(),
+    payment_condition: paymentCondition.value,
+    payment_status: paymentCondition.value === 2 ? 'receivable' : 'paid',
+    cash_amount: cashAmount,
     inventory_bypass: lines.value
       .filter((line) => line.inventoryBypassReason)
       .map((line) => ({

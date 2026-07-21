@@ -412,6 +412,11 @@ export type PlatformCommercialDashboard = {
   commercial: { sales_today: number; sales_net_today: number; sales_tax_today: number; sales_month: number; sales_net_month: number; sales_tax_month: number };
 };
 
+export type PlatformCashSession = { id: number; status: string; opening_balance: number; inflows: number; outflows: number; expected: number; opened_at: string; closed_at: string | null; declared_balance: number | null; difference: number | null; register: { id: number; name: string; branch_name: string | null } };
+export type PlatformCashMovement = { id: number; direction: 'in'|'out'; kind: string; method: string; amount: number; description: string; reference: string | null; occurred_at: string; reversed_at: string | null; expense: { id: number; status: string; category: string; supplier: string | null } | null; order: { id: number; ticket: string } | null };
+export type PlatformCashOverview = { active_session: PlatformCashSession | null; summary: { inflows: number; outflows: number; pending_documents: number }; data: PlatformCashMovement[]; meta: { current_page: number; last_page: number; total: number } };
+export type PlatformSalesReport = { summary: { transactions: number; net: number; tax: number; total: number; cost: number; margin: number }; data: Array<{ id: number; date: string|null; source_type: string; source_number: string|null; document_type: string|null; operation_kind: string; customer_name: string|null; payment_status: string; net: number; tax: number; total: number }>; meta: { current_page: number; last_page: number; total: number } };
+
 export type WorkshopOrderPayload = {
   customer: { core_customer_id: number; name: string; phone?: string | null; email?: string | null };
   device: { type: string; brand: string; model: string; color?: string | null; imei?: string | null; serial_number?: string | null; identifier_not_visible?: boolean; power_status: string; functional_tests?: Record<string, string>; is_locked?: boolean; access_type?: string | null; access_secret?: string | null };
@@ -2082,6 +2087,34 @@ export class PlatformClient {
 
   commercialDashboard(tenantId: number): Promise<PlatformCommercialDashboard> {
     return this.http.get(`platform/tenants/${tenantId}/commercial/dashboard`).json();
+  }
+
+  cashOverview(tenantId: number, params: { date_from?: string; date_to?: string; method?: string; direction?: string; page?: number; per_page?: number } = {}): Promise<PlatformCashOverview> {
+    return this.http.get(`platform/tenants/${tenantId}/cash`, { searchParams: compactParams(params) }).json();
+  }
+
+  openCashSession(tenantId: number, payload: { opening_balance: number; name?: string; notes?: string|null }): Promise<{ data: PlatformCashSession }> {
+    return this.http.post(`platform/tenants/${tenantId}/cash/sessions`, { json: payload }).json();
+  }
+
+  closeCashSession(tenantId: number, sessionId: number, payload: { declared_balance: number; notes?: string|null }): Promise<{ data: PlatformCashSession }> {
+    return this.http.post(`platform/tenants/${tenantId}/cash/sessions/${sessionId}/close`, { json: payload }).json();
+  }
+
+  createCashMovement(tenantId: number, payload: Record<string, unknown>): Promise<{ data: PlatformCashMovement }> {
+    return this.http.post(`platform/tenants/${tenantId}/cash/movements`, { json: payload }).json();
+  }
+
+  reverseCashMovement(tenantId: number, movementId: number, reason: string): Promise<{ data: PlatformCashMovement }> {
+    return this.http.post(`platform/tenants/${tenantId}/cash/movements/${movementId}/reverse`, { json: { reason } }).json();
+  }
+
+  reconcileCashExpense(tenantId: number, expenseId: number, purchaseId: number): Promise<{ data: { id: number; status: string; inventory_purchase_id: number; difference: number } }> {
+    return this.http.post(`platform/tenants/${tenantId}/cash/expenses/${expenseId}/reconcile`, { json: { inventory_purchase_id: purchaseId } }).json();
+  }
+
+  commercialSalesReport(tenantId: number, params: { date_from?: string; date_to?: string; source_type?: string; document_type?: string; payment_status?: string; page?: number; per_page?: number } = {}): Promise<PlatformSalesReport> {
+    return this.http.get(`platform/tenants/${tenantId}/cash/sales-report`, { searchParams: compactParams(params) }).json();
   }
 
   workshopOrder(tenantId: number, orderId: number): Promise<{ data: WorkshopOrder }> {

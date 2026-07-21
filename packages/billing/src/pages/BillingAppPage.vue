@@ -12,6 +12,7 @@ import BillingAnnexesPage from './BillingAnnexesPage.vue';
 import BillingCustomersPage from './BillingCustomersPage.vue';
 import CatalogPage from './CatalogPage.vue';
 import BillingDashboardPage from './BillingDashboardPage.vue';
+import CashPage from './CashPage.vue';
 import BillingOperationalPlaceholderPage from './BillingOperationalPlaceholderPage.vue';
 import BillingWorkspace from './BillingWorkspace.vue';
 import WorkshopAppPage from '../workshop/WorkshopAppPage.vue';
@@ -229,6 +230,7 @@ const fallbackBillingTypes = [
 ];
 const moduleComponents = {
   dashboard: BillingDashboardPage,
+  cash: CashPage,
   'operational-placeholder': BillingOperationalPlaceholderPage,
   'workshop-reception': WorkshopAppPage,
   'workshop-orders': WorkshopAppPage,
@@ -252,7 +254,7 @@ const eventOptions = [
 ];
 
 const selectedComponent = computed(() => moduleComponents[props.module] || BillingWorkspace);
-const requiresFiscalSession = computed(() => !['audit', 'catalog', 'inventory', 'operational-placeholder'].includes(props.module));
+const requiresFiscalSession = computed(() => !['audit', 'catalog', 'inventory', 'cash', 'operational-placeholder'].includes(props.module));
 const selectedDocumentType = computed(() => documentTypeBySlug[props.documentSlug] || '01');
 const selectedEventType = computed(() => eventTypeBySlug[props.eventSlug] || 'invalidacion');
 const selectedArtifactType = computed(() => artifactTypeBySlug[props.artifactSlug] || 'dte');
@@ -292,6 +294,10 @@ const selectedComponentProps = computed(() => {
       tenantId: Number(props.platformSession?.tenant?.id || 0),
       workshopEnabled: props.app.id === 'taller'
     };
+  }
+
+  if (props.module === 'cash') {
+    return { platformBaseUrl: props.platformBaseUrl, authToken: props.authToken, tenantId: Number(props.platformSession?.tenant?.id || 0), workshopEnabled: props.app.id === 'taller' };
   }
 
   if (props.module === 'mh-events') {
@@ -381,6 +387,7 @@ const pageTitle = computed(() => {
   if (props.module === 'catalog') return 'Catálogo';
   if (props.module === 'customers') return 'Clientes';
   if (props.module === 'inventory') return 'Inventario';
+  if (props.module === 'cash') return 'Caja';
 
   if (props.module === 'mh-events') {
     return eventOptions.find((item) => item.slug === props.eventSlug)?.label ?? 'Eventos MH';
