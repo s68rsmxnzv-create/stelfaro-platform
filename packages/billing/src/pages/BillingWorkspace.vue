@@ -250,6 +250,23 @@ const paymentLines = ref<PaymentLine[]>([]);
 
 const empresas = computed(() => context.value?.empresas ?? []);
 const selectedEmpresa = computed<BillingEmpresa | null>(() => empresas.value.find((empresa) => empresa.id === form.empresaId) ?? null);
+const selectedFiscalConfig = computed(() => selectedEmpresa.value?.mh_configs.find((config) => (
+  config.active
+  && config.ambiente === selectedEmpresa.value?.ambiente
+  && config.profile === 'v2'
+)) ?? null);
+const selectedFiscalCertificate = computed(() => selectedEmpresa.value?.certificados.find((certificate) => (
+  certificate.id === selectedFiscalConfig.value?.certificado_id
+  && certificate.activo
+  && certificate.ambiente === selectedEmpresa.value?.ambiente
+)) ?? null);
+const fiscalEmissionReady = computed(() => Boolean(
+  selectedEmpresa.value?.lifecycle_status === 'active'
+  && selectedFiscalConfig.value?.signing_provider === 'jar'
+  && selectedFiscalConfig.value?.transmission_provider === 'mh'
+  && selectedFiscalCertificate.value
+  && (!selectedFiscalCertificate.value.vence_at || new Date(selectedFiscalCertificate.value.vence_at).getTime() > Date.now())
+));
 const sucursales = computed(() => selectedEmpresa.value?.sucursales ?? []);
 const sucursalOptions = computed(() => sucursales.value.map((sucursal) => ({
   value: sucursal.id,
@@ -477,6 +494,7 @@ const genericCustomerBlockedByAmount = computed(() => (
 ));
 const canBuild = computed(() => Boolean(
   selectedEmpresa.value
+  && fiscalEmissionReady.value
   && selectedSucursal.value
   && selectedPuntoVenta.value
   && correlativoPreview.value
@@ -631,6 +649,10 @@ const customerIdentificationByAmountMessage = computed(() => (
   `Factura Electronica por ${currency(finalConsumerIdentificationThreshold)} o mas requiere identificar al cliente antes de enviar a MH. Selecciona un cliente de base o agrega un cliente con nombre y DUI/NIT.`
 ));
 const issueDisabledReason = computed(() => {
+  if (selectedEmpresa.value && !fiscalEmissionReady.value) {
+    return 'Completa la firma y conexión con Hacienda en Configuración.';
+  }
+
   if (!requiresCustomerIdentificationByAmount.value || hasRequiredCustomerIdentification.value) {
     if (!canIssuePositiveTotal.value) {
       return null;
@@ -3079,6 +3101,14 @@ function updatePaymentCondition(value: string): void {
           :source="replacementSourceDocument"
           :loading="replacementLoading"
         />
+
+        <div
+          v-if="selectedEmpresa && !fiscalEmissionReady"
+          class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-warning/30 dark:bg-warning-soft dark:text-warning"
+        >
+          <p class="font-semibold">Emisión pendiente de configuración</p>
+          <p class="mt-1">Completa la firma, el certificado y la conexión con Hacienda en Configuración antes de emitir.</p>
+        </div>
 
         <section v-if="isAdjustmentNote" class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:text-text dark:shadow-surface">
           <div class="flex flex-wrap items-start justify-between gap-3">
