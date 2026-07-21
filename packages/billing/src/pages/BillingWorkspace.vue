@@ -2753,7 +2753,7 @@ function updatePaymentCondition(value: string): void {
 </script>
 
 <template>
-  <div class="grid gap-6 pb-28">
+  <div class="grid min-w-0 gap-6 pb-28">
     <BillingCustomerModal
       v-if="customerModalMode"
       :open="Boolean(customerModalMode)"
@@ -3414,7 +3414,85 @@ function updatePaymentCondition(value: string): void {
               v-model:retain-iva="ccfRetainIva10"
             />
           </div>
-          <div class="mt-4 overflow-visible rounded-md border border-slate-200 dark:border-line">
+          <div v-if="!isAdjustmentNote" class="mt-4 grid gap-3 md:hidden">
+            <UiAutocompleteInput
+              :model-value="draftLine.description"
+              :options="catalogLineSuggestions"
+              :open="catalogLineSuggestionsOpen && canUseCatalogLineSearch"
+              :loading="catalogLineLoading"
+              :show-suffix="Boolean(draftLine.description.trim())"
+              :placeholder="isSujetoExcluido ? 'Compra o servicio recibido' : 'Buscar catálogo o escribir descripción libre'"
+              empty-text="Sin resultados. Se agregará como descripción libre."
+              label="Descripción"
+              @blur="closeCatalogLineSuggestions"
+              @focus="scheduleCatalogLineSearch(draftLine.description)"
+              @select="selectCatalogItemForDraft"
+              @update:model-value="onDraftLineDescriptionInput"
+            >
+              <template #suffix>
+                <span
+                  v-if="draftLine.description.trim()"
+                  class="inline-flex max-w-[9rem] truncate rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                  :class="lineOriginClass(draftLine)"
+                >
+                  {{ lineOriginLabel(draftLine) }}
+                  <template v-if="draftLine.lineOrigin === 'inventory' && branchStockForItem(draftLine.catalogItemId) !== null">
+                    · {{ formatStock(branchStockForItem(draftLine.catalogItemId) ?? 0) }}
+                  </template>
+                </span>
+              </template>
+              <template #option="{ option: item }">
+                <span class="block font-semibold text-slate-950 dark:text-text">{{ item.name }}</span>
+                <span class="mt-0.5 block text-xs text-slate-500 dark:text-soft">{{ item.sku || 'Sin código' }} · {{ currency(item.base_price) }}</span>
+              </template>
+            </UiAutocompleteInput>
+
+            <div class="grid grid-cols-2 gap-3">
+              <UiInput v-model.number="draftLine.quantity" label="Cantidad" min="0.01" step="0.01" type="number" />
+              <UiInput v-model.number="draftLine.unitPrice" :label="isSujetoExcluido ? 'Monto compra' : 'Precio'" min="0" step="0.01" type="number" />
+              <UiInput
+                v-model.number="draftLine.discountPercent"
+                class="col-span-2"
+                :label="isSujetoExcluido ? 'Descuento' : 'Porcentaje descuento'"
+                :suffix="lineDiscountAmount(draftLine) > 0 ? `(-${currency(lineDiscountAmount(draftLine))})` : undefined"
+                max="100"
+                min="0"
+                step="0.01"
+                type="number"
+              />
+            </div>
+
+            <div class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 p-3 dark:bg-surface-muted">
+              <div>
+                <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Neto</p>
+                <p class="mt-1 font-bold text-slate-950 dark:text-text">{{ currency(lineNetTotal(draftLine)) }}</p>
+              </div>
+              <UiButton class="shrink-0" :disabled="Boolean(draftInventoryShortage)" @click="addLine">Agregar</UiButton>
+            </div>
+
+            <div v-if="lines.length" class="grid gap-2">
+              <article v-for="line in lines" :key="line.id" class="rounded-lg border border-slate-200 bg-white p-3 dark:border-line dark:bg-surface-muted">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="break-words font-semibold text-slate-950 dark:text-text">{{ line.description }}</p>
+                    <span class="mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold" :class="lineOriginClass(line)">{{ lineOriginLabel(line) }}</span>
+                  </div>
+                  <UiButton class="shrink-0" variant="ghost" size="sm" type="button" @click="removeLine(line.id)">Quitar</UiButton>
+                </div>
+                <div class="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <div><span class="block text-slate-500 dark:text-soft">Cantidad</span><strong class="text-slate-950 dark:text-text">{{ Number(line.quantity) }}</strong></div>
+                  <div><span class="block text-slate-500 dark:text-soft">Precio</span><strong class="text-slate-950 dark:text-text">{{ currency(Number(line.unitPrice)) }}</strong></div>
+                  <div class="text-right"><span class="block text-slate-500 dark:text-soft">Neto</span><strong class="text-slate-950 dark:text-text">{{ currency(lineNetTotal(line)) }}</strong></div>
+                </div>
+              </article>
+            </div>
+            <p v-else class="rounded-lg bg-slate-50 px-3 py-4 text-sm text-slate-500 dark:bg-surface-muted dark:text-muted">Aún no hay líneas agregadas.</p>
+          </div>
+
+          <div
+            class="mt-4 rounded-md border border-slate-200 dark:border-line"
+            :class="isAdjustmentNote ? 'overflow-x-auto' : 'hidden overflow-visible md:block'"
+          >
             <table class="w-full min-w-[780px] text-left text-sm dark:text-text">
               <thead class="bg-blue-50/70 text-xs uppercase text-slate-500 dark:bg-surface-muted dark:text-muted">
                 <tr>

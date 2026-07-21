@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { CoreDteClient } from '@stelfaro/api-client';
-import { CircleQuestionMark } from 'lucide-vue-next';
+import { CircleQuestionMark, Menu, X } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingAppNav from '../components/BillingAppNav.vue';
 import BillingHelpModal from '../components/BillingHelpModal.vue';
@@ -92,6 +92,7 @@ const props = defineProps({
 const helpModalOpen = ref(false);
 const helpTooltip = ref(null);
 const userMenuOpen = ref(false);
+const mobileMenuOpen = ref(false);
 const userMenuRef = ref(null);
 const darkMode = ref(false);
 const contextLoading = ref(false);
@@ -472,6 +473,7 @@ function closeHelpOnEscape(event) {
   if (event.key === 'Escape') {
     helpModalOpen.value = false;
     userMenuOpen.value = false;
+    mobileMenuOpen.value = false;
   }
 }
 
@@ -536,6 +538,7 @@ function toggleTheme() {
 }
 
 function navigate(event, href) {
+  mobileMenuOpen.value = false;
   emit('navigate', { event, href });
 }
 
@@ -567,6 +570,17 @@ function navigateFromMenu(event, href) {
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
           <div class="flex items-center">
+            <button
+              class="inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-200 transition hover:bg-white/10 hover:text-white focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-400 md:hidden"
+              type="button"
+              :aria-expanded="mobileMenuOpen ? 'true' : 'false'"
+              aria-controls="billing-mobile-navigation"
+              :aria-label="mobileMenuOpen ? 'Cerrar navegación' : 'Abrir navegación'"
+              @click="mobileMenuOpen = !mobileMenuOpen"
+            >
+              <X v-if="mobileMenuOpen" class="h-6 w-6" aria-hidden="true" />
+              <Menu v-else class="h-6 w-6" aria-hidden="true" />
+            </button>
             <div class="hidden items-baseline gap-1 md:flex">
               <a
                 :href="dashboardHref"
@@ -715,12 +729,48 @@ function navigateFromMenu(event, href) {
           </div>
         </div>
       </div>
+
+      <div
+        v-if="mobileMenuOpen"
+        id="billing-mobile-navigation"
+        class="fixed inset-x-0 bottom-0 top-16 z-40 md:hidden"
+      >
+        <button
+          class="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
+          type="button"
+          aria-label="Cerrar navegación"
+          @click="mobileMenuOpen = false"
+        />
+        <div class="sf-app-navbar relative h-full w-[min(88vw,22rem)] overflow-y-auto border-r border-white/10 px-3 py-4 shadow-2xl shadow-black/40">
+          <a
+            :href="dashboardHref"
+            class="mb-2 block rounded-lg px-3 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
+            :class="module === 'dashboard' ? 'bg-sky-500 text-white shadow-sm shadow-sky-950/20' : ''"
+            @click="navigate($event, dashboardHref)"
+          >
+            Dashboard
+          </a>
+          <BillingAppNav
+            mobile
+            :auth-token="authToken"
+            :core-base-url="coreBaseUrl"
+            :document-slug="documentSlug"
+            :event-slug="eventSlug"
+            :artifact-slug="artifactSlug"
+            :extra-nav-items="extraNavItems"
+            :module="module"
+            :app-base-url="appBaseUrl"
+            :billing-context-cache-scope="billingContextCacheScope"
+            @navigate="navigate($event.event, $event.href)"
+          />
+        </div>
+      </div>
     </nav>
 
     <header class="relative z-10 border-b border-blue-100/70 bg-white/85 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:shadow-black/20">
       <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div class="flex flex-wrap items-center gap-3">
-          <h1 class="text-3xl font-bold tracking-tight text-slate-950 dark:text-text">{{ pageTitle }}</h1>
+          <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl dark:text-text">{{ pageTitle }}</h1>
           <div v-if="currentHelp">
             <button
               class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-sky-600 bg-sky-600 text-white shadow-sm shadow-sky-950/20 transition hover:border-sky-700 hover:bg-sky-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500 dark:border-primary dark:bg-primary dark:text-primary-contrast dark:shadow-black/20 dark:hover:border-primary-hover dark:hover:bg-primary-hover"
