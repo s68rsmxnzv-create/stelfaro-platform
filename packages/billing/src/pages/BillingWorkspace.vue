@@ -74,7 +74,6 @@ const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: 
 const platformClient = computed(() => new PlatformClient(props.platformBaseUrl, { credentials: 'same-origin' }));
 const platformTenantId = computed(() => Number((props.platformSession as PlatformSessionProp)?.tenant?.id || 0));
 const workshopOrderId = Number(new URLSearchParams(window.location.search).get('workshop_order') || 0);
-const salesOrderId = Number(new URLSearchParams(window.location.search).get('sales_order') || 0);
 const workshopPrintDrawer = new URLSearchParams(window.location.search).get('open_drawer') === '1';
 const replacementOfDteId = Number(new URLSearchParams(window.location.search).get('replacement_of') || 0);
 const loading = ref(false);
@@ -869,7 +868,6 @@ onMounted(async () => {
   await loadContext();
   await loadReplacementPrefill();
   await loadWorkshopOrderPrefill();
-  await loadSalesOrderPrefill();
 });
 
 let inventoryAvailabilityToken = 0;
@@ -932,53 +930,6 @@ async function loadWorkshopOrderPrefill(): Promise<void> {
     }
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar la orden de trabajo para facturación.';
-  }
-}
-
-async function loadSalesOrderPrefill(): Promise<void> {
-  if (!salesOrderId || !platformTenantId.value) return;
-  try {
-    const order = (await platformClient.value.salesOrder(platformTenantId.value, salesOrderId)).data;
-    if (order.billing.status === 'invoiced') {
-      error.value = `La orden ${order.number} ya está vinculada al DTE ${order.billing.number || ''}.`;
-      return;
-    }
-    if (order.status !== 'delivered') {
-      error.value = 'La orden debe entregarse antes de emitir el comprobante.';
-      return;
-    }
-    if (order.customer.id) {
-      const customer = (await client.value.customer(order.customer.id)).customer;
-      customerMode.value = 'base';
-      applyCustomer(customer);
-    }
-    const branch = sucursales.value.find((entry) => entry.id === order.branch.id);
-    if (branch) form.sucursalId = branch.id;
-    lines.value = order.lines.map((source) => {
-      const line = newInvoiceLine();
-      const gross = Number(source.quantity) * Number(source.unit_price);
-      line.description = source.description;
-      line.quantity = Number(source.quantity);
-      line.unitPrice = Number(source.unit_price);
-      line.discountPercent = gross > 0 ? Math.min(100, (Number(source.discount_amount || 0) / gross) * 100) : 0;
-      line.catalogItemId = source.catalog_item_id;
-      line.catalogSku = source.sku;
-      line.catalogName = source.description;
-      line.lineOrigin = 'catalog';
-      line.controlsInventory = false;
-      line.unitCode = source.unit_code;
-      line.taxable = source.taxable !== false;
-      line.itemPriceIncludesIva = Boolean(source.price_includes_tax);
-      return line;
-    });
-    form.observations = order.notes || '';
-    resetPayments();
-    if (order.balance > 0) {
-      paymentCondition.value = 2;
-      paymentLines.value = supportsAdvancedPayments.value ? [newPaymentLine(roundMoney(totalLabel.value))] : [];
-    }
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'No fue posible cargar la orden para facturación.';
   }
 }
 
@@ -1651,7 +1602,6 @@ async function prepareDteFiscalSync(idempotencyKey: string): Promise<PlatformFis
   const response = await platformClient.value.prepareDteFiscalSync(platformTenantId.value, {
     idempotency_key: idempotencyKey,
     workshop_order_id: workshopOrderId || null,
-    sales_order_id: salesOrderId || null,
     reservation: inventoryIssueLines.value.length > 0 ? {
       ...branch,
       source_type: 'dte',
@@ -1665,7 +1615,7 @@ async function prepareDteFiscalSync(idempotencyKey: string): Promise<PlatformFis
     } : null,
     sale: {
       ...branch,
-      source_type: workshopOrderId ? 'workshop_order' : salesOrderId ? 'sales_order' : 'dte',
+      source_type: workshopOrderId ? 'workshop_order' : 'dte',
       sale_date: new Date().toISOString().slice(0, 10),
       fiscal_document_type: form.documentType,
       net_amount: saleNetAmount(),

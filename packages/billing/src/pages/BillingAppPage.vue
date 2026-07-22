@@ -13,7 +13,7 @@ import BillingCustomersPage from './BillingCustomersPage.vue';
 import CatalogPage from './CatalogPage.vue';
 import BillingDashboardPage from './BillingDashboardPage.vue';
 import CashPage from './CashPage.vue';
-import SalesOrdersPage from './SalesOrdersPage.vue';
+import FollowUpNotesPage from './FollowUpNotesPage.vue';
 import BillingOperationalPlaceholderPage from './BillingOperationalPlaceholderPage.vue';
 import BillingWorkspace from './BillingWorkspace.vue';
 import WorkshopAppPage from '../workshop/WorkshopAppPage.vue';
@@ -232,7 +232,7 @@ const fallbackBillingTypes = [
 const moduleComponents = {
   dashboard: BillingDashboardPage,
   cash: CashPage,
-  'sales-orders': SalesOrdersPage,
+  'follow-ups': FollowUpNotesPage,
   'operational-placeholder': BillingOperationalPlaceholderPage,
   'workshop-reception': WorkshopAppPage,
   'workshop-orders': WorkshopAppPage,
@@ -302,7 +302,7 @@ const selectedComponentProps = computed(() => {
     return { platformBaseUrl: props.platformBaseUrl, authToken: props.authToken, tenantId: Number(props.platformSession?.tenant?.id || 0), workshopEnabled: props.app.id === 'taller' };
   }
 
-  if (props.module === 'sales-orders') {
+  if (props.module === 'follow-ups') {
     return {
       ...baseProps,
       platformBaseUrl: props.platformBaseUrl,
@@ -399,7 +399,7 @@ const pageTitle = computed(() => {
   if (props.module === 'customers') return 'Clientes';
   if (props.module === 'inventory') return 'Inventario';
   if (props.module === 'cash') return 'Caja';
-  if (props.module === 'sales-orders') return 'Órdenes de venta';
+  if (props.module === 'follow-ups') return 'Pendientes';
 
   if (props.module === 'mh-events') {
     return eventOptions.find((item) => item.slug === props.eventSlug)?.label ?? 'Eventos MH';

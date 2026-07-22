@@ -386,28 +386,22 @@ export type WorkshopOrder = {
   device_access?: { url: string; pin: string } | null;
 };
 
-export type SalesOrder = {
+export type FollowUpNote = {
   id: number;
-  number: string;
-  status: 'open' | 'delivered' | 'cancelled' | string;
-  branch: { id: number | null; code: string | null; name: string | null };
-  customer: { id: number | null; name: string; phone: string | null; email: string | null };
-  subtotal: number;
-  discount_total: number;
-  total: number;
-  paid_total: number;
-  balance: number;
-  notes: string | null;
-  financial_status: 'pending' | 'settled' | string;
-  billing: { status: 'unbilled' | 'pending' | 'invoiced' | string; dte_type: '01' | '03' | null; core_document_id: number | null; number: string | null; generation_code: string | null; invoiced_at: string | null };
-  lines: Array<{ id: number; catalog_item_id: number | null; line_origin: 'free' | 'catalog' | 'inventory' | string; description: string; sku: string | null; unit_code: string; taxable: boolean; price_includes_tax: boolean; quantity: number; unit_price: number; discount_amount: number; total: number }>;
-  payments: Array<{ id: number; amount: number; method: string; reference: string | null; received_at: string | null }>;
+  person: { customer_id: number | null; name: string; phone: string | null; email: string | null };
+  title: string;
+  description: string | null;
+  category: 'collection' | 'loan' | 'commitment' | 'other' | string;
+  occurred_on: string;
+  remind_at: string | null;
+  status: 'pending' | 'resolved' | 'discarded' | string;
+  resolution: { type: string | null; note: string | null; reference: string | null; resolved_at: string | null; resolved_by: string | null };
+  created_by: string | null;
   created_at: string | null;
-  delivered_at: string | null;
-  cancelled_at: string | null;
+  updated_at: string | null;
 };
 
-export type SalesOrdersResponse = { data: SalesOrder[]; meta: PaginationMeta; stats: { open: number; receivable: number } };
+export type FollowUpNotesResponse = { data: FollowUpNote[]; meta: PaginationMeta; stats: { pending: number; overdue: number; today: number } };
 
 export type WorkshopTicketSettings = {
   receipt_copies: 1 | 2;
@@ -743,7 +737,6 @@ export type PlatformFiscalSyncOperation = {
 export type PlatformDteSyncPayload = {
   idempotency_key: string;
   workshop_order_id?: number | null;
-  sales_order_id?: number | null;
   reservation?: Omit<PlatformInventoryReservationPayload, 'idempotency_key'> | null;
   sale: Omit<PlatformInventorySalePayload, 'source_id'> & { source_id?: string };
 };
@@ -2112,28 +2105,24 @@ export class PlatformClient {
     return this.http.get(`platform/tenants/${tenantId}/workshop/orders`, { searchParams: compactParams(params) }).json();
   }
 
-  salesOrders(tenantId: number, params: { q?: string; status?: string; payment_status?: string; page?: number; per_page?: number } = {}): Promise<SalesOrdersResponse> {
-    return this.http.get(`platform/tenants/${tenantId}/sales-orders`, { searchParams: compactParams(params) }).json();
+  followUpNotes(tenantId: number, params: { q?: string; status?: string; category?: string; due?: string; note_id?: number; page?: number; per_page?: number } = {}): Promise<FollowUpNotesResponse> {
+    return this.http.get(`platform/tenants/${tenantId}/follow-up-notes`, { searchParams: compactParams(params) }).json();
   }
 
-  salesOrder(tenantId: number, orderId: number): Promise<{ data: SalesOrder }> {
-    return this.http.get(`platform/tenants/${tenantId}/sales-orders/${orderId}`).json();
+  createFollowUpNote(tenantId: number, payload: Record<string, unknown>): Promise<{ data: FollowUpNote }> {
+    return this.http.post(`platform/tenants/${tenantId}/follow-up-notes`, { json: payload }).json();
   }
 
-  createSalesOrder(tenantId: number, payload: Record<string, unknown>): Promise<{ data: SalesOrder }> {
-    return this.http.post(`platform/tenants/${tenantId}/sales-orders`, { json: payload }).json();
+  updateFollowUpNote(tenantId: number, noteId: number, payload: Record<string, unknown>): Promise<{ data: FollowUpNote }> {
+    return this.http.put(`platform/tenants/${tenantId}/follow-up-notes/${noteId}`, { json: payload }).json();
   }
 
-  deliverSalesOrder(tenantId: number, orderId: number, payload: { amount_received: number; method?: 'cash'|'card'|'transfer'|'other'; reference?: string|null; document_choice: 'order'|'dte'; dte_type?: '01'|'03' }): Promise<{ data: SalesOrder }> {
-    return this.http.post(`platform/tenants/${tenantId}/sales-orders/${orderId}/deliver`, { json: payload }).json();
+  resolveFollowUpNote(tenantId: number, noteId: number, payload: { resolution_type: 'invoiced'|'returned'|'completed'|'other'; resolution_note?: string|null; resolution_reference?: string|null }): Promise<{ data: FollowUpNote }> {
+    return this.http.post(`platform/tenants/${tenantId}/follow-up-notes/${noteId}/resolve`, { json: payload }).json();
   }
 
-  recordSalesOrderPayment(tenantId: number, orderId: number, payload: { idempotency_key: string; amount: number; method: 'cash'|'card'|'transfer'|'other'; reference?: string|null; notes?: string|null }): Promise<{ data: SalesOrder }> {
-    return this.http.post(`platform/tenants/${tenantId}/sales-orders/${orderId}/payments`, { json: payload }).json();
-  }
-
-  cancelSalesOrder(tenantId: number, orderId: number): Promise<{ data: SalesOrder }> {
-    return this.http.post(`platform/tenants/${tenantId}/sales-orders/${orderId}/cancel`).json();
+  discardFollowUpNote(tenantId: number, noteId: number, reason: string): Promise<{ data: FollowUpNote }> {
+    return this.http.post(`platform/tenants/${tenantId}/follow-up-notes/${noteId}/discard`, { json: { reason } }).json();
   }
 
   workshopDashboard(tenantId: number): Promise<WorkshopDashboard> {
