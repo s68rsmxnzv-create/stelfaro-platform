@@ -422,13 +422,13 @@ export type WorkshopOrdersResponse = {
 export type WorkshopDashboard = {
   generated_at: string;
   orders: { active: number; received_today: number; awaiting_approval: number; ready: number; urgent: number };
-  commercial: { sales_today: number; sales_net_today: number; sales_tax_today: number; sales_month: number; sales_net_month: number; sales_tax_month: number; receivables: number };
+  commercial: { sales_today: number; sales_net_today: number; sales_tax_today: number; sales_month: number; sales_net_month: number; sales_tax_month: number; purchase_tax_credit_month: number; estimated_tax_payable_month: number; estimated_tax_credit_balance_month: number; receivables: number };
   recent_orders: WorkshopOrder[];
 };
 
 export type PlatformCommercialDashboard = {
   generated_at: string;
-  commercial: { sales_today: number; sales_net_today: number; sales_tax_today: number; sales_month: number; sales_net_month: number; sales_tax_month: number };
+  commercial: { sales_today: number; sales_net_today: number; sales_tax_today: number; sales_month: number; sales_net_month: number; sales_tax_month: number; purchase_tax_credit_month: number; estimated_tax_payable_month: number; estimated_tax_credit_balance_month: number };
 };
 
 export type PlatformCashSession = { id: number; status: string; business_date: string|null; opening_source: string; count_status: string; opening_balance: number; inflows: number; outflows: number; expected: number; opened_at: string; closed_at: string | null; declared_balance: number | null; difference: number | null; register: { id: number; name: string; branch_id: number|null; branch_name: string | null } };
