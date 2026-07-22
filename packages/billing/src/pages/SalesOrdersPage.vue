@@ -99,7 +99,7 @@ function openCreate() {
 async function searchCustomers() {
   if (!props.company?.id) return;
   customerLoading.value = true;
-  try { customerResults.value = (await core.value.customers({ empresa_id: props.company.id, q: customerQuery.value.trim(), per_page: 8 })).data; }
+  try { customerResults.value = (await core.value.customers({ empresa_id: props.company.id, q: customerQuery.value.trim(), per_page: 10 })).data; }
   catch (error) { notify('No se pudo buscar clientes', errorMessage(error), 'error'); }
   finally { customerLoading.value = false; }
 }
@@ -190,7 +190,11 @@ function statusTone(order) { return order.status === 'delivered' ? 'success' : o
 function money(value) { return new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(Number(value || 0)); }
 function uuid() { return crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
 function notify(title, message = null, variant = 'info') { const id = uuid(); toasts.value.push({ id, title, message, variant }); setTimeout(() => { toasts.value = toasts.value.filter((toast) => toast.id !== id); }, 4300); }
-function errorMessage(error) { return error?.message || 'Revisá los datos e intentá nuevamente.'; }
+function errorMessage(error) {
+  const message = String(error?.message || '');
+  if (!message || message.startsWith('validation.')) return 'Revisá los datos e intentá nuevamente.';
+  return message;
+}
 </script>
 
 <template>
