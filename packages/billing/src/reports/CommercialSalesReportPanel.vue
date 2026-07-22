@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PlatformClient, type BillingEmpresa, type PlatformSalesReport, type WorkshopOrder } from '@stelfaro/api-client';
-import { UiButton, UiCard, UiInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
+import { UiButton, UiCard, UiInput, UiModalShell, UiSelect, UiStatusBadge, UiTextarea } from '@stelfaro/ui';
 import { CalendarDays, ChevronLeft, ChevronRight, CircleDollarSign, FileSpreadsheet, HandCoins, Printer, Scale } from 'lucide-vue-next';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
@@ -25,6 +25,8 @@ const report = ref<PlatformSalesReport|null>(null);
 const loading = ref(false);
 const exporting = ref(false);
 const paymentOrder = ref<WorkshopOrder|null>(null);
+const dtePaymentSale = ref<SaleRow|null>(null);
+const dtePaymentForm = reactive({ amount: 0, method: 'cash' as 'cash'|'card'|'transfer'|'other', reference: '', notes: '', idempotency_key: '' });
 const toasts = ref<any[]>([]);
 const period = ref<Period>('month');
 const filters = reactive({ date_from: '', date_to: '', source_type: '', document_type: '', payment_status: '', page: 1, per_page: 20 });
@@ -34,6 +36,7 @@ const integer = (value: number) => new Intl.NumberFormat('es-SV').format(value |
 const sourceOptions = [{ value: '', label: 'Todos los orígenes' }, { value: 'dte', label: 'Facturación' }, { value: 'workshop_order', label: 'Taller' }];
 const documentOptions = [{ value: '', label: 'Todos los comprobantes' }, { value: '01', label: 'Factura electrónica' }, { value: '03', label: 'Crédito fiscal' }, { value: '05', label: 'Nota de crédito' }, { value: '06', label: 'Nota de débito' }, { value: '14', label: 'Sujeto excluido' }];
 const paymentOptions = [{ value: '', label: 'Todos los estados' }, { value: 'paid', label: 'Cobrado' }, { value: 'receivable', label: 'Pendiente de cobro' }];
+const collectionMethodOptions = [{ value: 'cash', label: 'Efectivo' }, { value: 'transfer', label: 'Transferencia' }, { value: 'card', label: 'Tarjeta' }, { value: 'other', label: 'Otro' }];
 const paymentLabels: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', other: 'Otro' };
 const paymentCards: Array<{ key: 'cash'|'card'|'transfer'|'other'; label: string }> = [{ key: 'cash', label: 'Efectivo' }, { key: 'transfer', label: 'Transferencia' }, { key: 'card', label: 'Tarjeta' }, { key: 'other', label: 'Otros' }];
 const companyName = computed(() => props.company?.nombre_comercial || props.company?.razon_social || 'Reporte de ventas');
@@ -108,6 +111,7 @@ function csvCell(value: unknown): string {
 }
 function rowMethods(row: SaleRow): string {
   const methods = Object.entries(row.payment_methods || {}).filter(([, amount]) => Number(amount) !== 0).map(([method, amount]) => `${paymentLabels[method] || 'Otro'} ${money(Number(amount))}`);
+  if (row.payment_status === 'receivable') methods.push(`Crédito · pendiente ${money(row.outstanding_amount)}`);
   return methods.length ? methods.join(' · ') : 'Sin clasificar';
 }
 function paymentAmount(method: 'cash'|'card'|'transfer'|'other'): number { return report.value?.summary.payments[method] || 0; }
@@ -153,6 +157,26 @@ async function openReceivablePayment(sale: SaleRow): Promise<void> {
   loading.value = true;
   try { paymentOrder.value = (await client.value.workshopOrder(props.tenantId, Number(sale.source_id))).data; }
   catch (error) { notify('No se pudo abrir el cobro', errorMessage(error), 'error'); }
+  finally { loading.value = false; }
+}
+async function openCollection(sale: SaleRow): Promise<void> {
+  if (sale.source_type === 'workshop_order') {
+    await openReceivablePayment(sale);
+    return;
+  }
+  dtePaymentSale.value = sale;
+  Object.assign(dtePaymentForm, { amount: sale.outstanding_amount, method: 'cash', reference: '', notes: '', idempotency_key: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}` });
+}
+async function recordDtePayment(): Promise<void> {
+  if (!dtePaymentSale.value || dtePaymentForm.amount <= 0) return;
+  loading.value = true;
+  try {
+    const result = await client.value.recordCommercialSalePayment(props.tenantId, dtePaymentSale.value.id, { ...dtePaymentForm, reference: dtePaymentForm.reference.trim() || null, notes: dtePaymentForm.notes.trim() || null });
+    dtePaymentSale.value = null;
+    notify('Pago registrado', result.data.outstanding_amount > 0 ? `Quedan ${money(result.data.outstanding_amount)} por cobrar.` : 'La venta quedó completamente cobrada.');
+    await loadReport();
+    emit('cashChanged');
+  } catch (error) { notify('No se pudo registrar el pago', errorMessage(error), 'error'); }
   finally { loading.value = false; }
 }
 async function recordReceivablePayment(orderId: number, payload: { amount: number; method: 'cash'|'card'|'transfer'|'other'; reference?: string|null; notes?: string|null }): Promise<void> {
@@ -237,7 +261,7 @@ onMounted(() => {
               <td class="px-5 py-4 text-muted">{{ rowMethods(sale) }}</td>
               <td class="px-5 py-4"><UiStatusBadge :tone="sale.payment_status === 'receivable' ? 'warning' : 'success'">{{ sale.payment_status === 'receivable' ? 'Por cobrar' : 'Cobrado' }}</UiStatusBadge></td>
               <td class="px-5 py-4 text-right"><p class="font-bold text-text">{{ money(sale.total) }}</p><p v-if="sale.payment_status === 'receivable'" class="text-xs font-semibold text-warning">Pendiente {{ money(sale.outstanding_amount) }}</p></td>
-              <td class="px-5 py-4 text-right"><UiButton v-if="sale.payment_status === 'receivable' && sale.source_type === 'workshop_order'" size="sm" variant="success" :disabled="loading" @click="openReceivablePayment(sale)"><HandCoins class="h-4 w-4" />Cobrar</UiButton><span v-else class="text-xs text-muted">—</span></td>
+              <td class="px-5 py-4 text-right"><UiButton v-if="sale.payment_status === 'receivable'" size="sm" variant="success" :disabled="loading" @click="openCollection(sale)"><HandCoins class="h-4 w-4" />Cobrar</UiButton><span v-else class="text-xs text-muted">—</span></td>
             </tr>
             <tr v-if="!report?.data.length"><td colspan="7" class="px-5 py-12 text-center text-muted">No hay ventas en este período.</td></tr>
           </tbody>
@@ -247,5 +271,9 @@ onMounted(() => {
     </UiCard>
 
     <WorkshopPaymentModal :order="paymentOrder" @pay="recordReceivablePayment" @close="paymentOrder = null" />
+    <UiModalShell :open="Boolean(dtePaymentSale)" title="Registrar pago" :description="dtePaymentSale ? `${dtePaymentSale.source_number} · Saldo ${money(dtePaymentSale.outstanding_amount)}` : ''" @close="dtePaymentSale = null">
+      <div class="grid gap-4 sm:grid-cols-2"><UiInput v-model.number="dtePaymentForm.amount" type="number" min="0.01" :max="dtePaymentSale?.outstanding_amount || 0" step="0.01" label="Monto recibido" suffix="USD" /><UiSelect v-model="dtePaymentForm.method" label="Forma de pago" :options="collectionMethodOptions" /><UiInput v-model="dtePaymentForm.reference" class="sm:col-span-2" label="Referencia opcional" placeholder="Ej. número de transferencia" /><UiTextarea v-model="dtePaymentForm.notes" class="sm:col-span-2" label="Nota opcional" /></div>
+      <template #footer><UiButton variant="ghost" @click="dtePaymentSale = null">Cancelar</UiButton><UiButton :disabled="loading || dtePaymentForm.amount <= 0 || dtePaymentForm.amount > (dtePaymentSale?.outstanding_amount || 0)" @click="recordDtePayment"><HandCoins class="h-4 w-4" />Registrar pago</UiButton></template>
+    </UiModalShell>
   </div>
 </template>

@@ -2174,6 +2174,10 @@ export class PlatformClient {
     return this.http.get(`platform/tenants/${tenantId}/cash/sales-report`, { searchParams: compactParams(params) }).json();
   }
 
+  recordCommercialSalePayment(tenantId: number, saleId: number, payload: { amount: number; method: 'cash'|'card'|'transfer'|'other'; reference?: string|null; notes?: string|null; idempotency_key: string }): Promise<{ data: { sale_id: number; payment_status: string; outstanding_amount: number; movement_id: number; created: boolean } }> {
+    return this.http.post(`platform/tenants/${tenantId}/cash/sales/${saleId}/payments`, { json: payload }).json();
+  }
+
   workshopOrder(tenantId: number, orderId: number): Promise<{ data: WorkshopOrder }> {
     return this.http.get(`platform/tenants/${tenantId}/workshop/orders/${orderId}`).json();
   }
