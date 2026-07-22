@@ -296,6 +296,7 @@ export type PlatformTenantRequest = {
   description: string | null;
   payload: Record<string, unknown> | null;
   admin_response: string | null;
+  fulfillment: { user: { id: number; name: string; email: string }; credentials_available: boolean; credentials_revealed_at: string | null } | null;
   reviewed_at: string | null;
   completed_at: string | null;
   created_at: string | null;
@@ -926,6 +927,7 @@ export type PlatformInviteTenantUserPayload = {
 
 export type PlatformCreateTenantUserPayload = PlatformInviteTenantUserPayload & {
   name: string;
+  phone?: string | null;
 };
 
 export type PlatformCreateTenantUserResponse = {
@@ -2032,6 +2034,14 @@ export class PlatformClient {
 
   updateAdminTenantRequest(requestId: number, payload: { status: PlatformTenantRequestStatus; admin_response?: string | null }): Promise<{ data: PlatformTenantRequest }> {
     return this.http.patch(`admin/platform/requests/${requestId}`, { json: payload }).json();
+  }
+
+  createUserFromAdminRequest(requestId: number, payload: PlatformCreateTenantUserPayload): Promise<{ data: PlatformTenantRequest; user: { id: number; name: string; email: string }; temporary_password: string | null; temporary_password_delivery: PlatformCreateTenantUserResponse['temporary_password_delivery']; created: boolean }> {
+    return this.http.post(`admin/platform/requests/${requestId}/create-user`, { json: payload }).json();
+  }
+
+  revealTenantRequestCredentials(tenantId: number, requestId: number): Promise<{ data: { email: string; temporary_password: string } }> {
+    return this.http.post(`platform/tenants/${tenantId}/requests/${requestId}/credentials`).json();
   }
 
   internalNotifications(tenantId: number, limit = 50): Promise<PlatformInternalNotificationsResponse> {

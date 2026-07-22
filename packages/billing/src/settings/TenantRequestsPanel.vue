@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
-import { CirclePlus, FileClock, Send } from 'lucide-vue-next';
+import { CirclePlus, Copy, FileClock, KeyRound, Send } from 'lucide-vue-next';
 import { PlatformClient, type PlatformTenantRequest, type PlatformTenantRequestStatus, type PlatformTenantRequestType } from '@stelfaro/api-client';
 import { UiButton, UiEmailInput, UiInput, UiModalShell, UiPhoneInput, UiSelect, UiStatusBadge, UiTextarea } from '@stelfaro/ui';
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
@@ -17,6 +17,7 @@ const saving = ref(false);
 const error = ref<string | null>(null);
 const modalOpen = ref(false);
 const highlightedId = ref<number | null>(null);
+const credentials = ref<{ email: string; temporary_password: string } | null>(null);
 const toasts = ref<BillingFloatingToast[]>([]);
 let toastId = 0;
 const tenantId = computed(() => Number(props.platformSession?.tenant?.id || 0));
@@ -64,6 +65,18 @@ async function submit(): Promise<void> {
   finally { saving.value = false; }
 }
 
+async function revealCredentials(item: PlatformTenantRequest): Promise<void> {
+  if (!tenantId.value) return;
+  error.value = null;
+  try { credentials.value = (await client.revealTenantRequestCredentials(tenantId.value, item.id)).data; }
+  catch (caught) { error.value = message(caught, 'No fue posible consultar las credenciales.'); }
+}
+async function copyCredentials(): Promise<void> {
+  if (!credentials.value) return;
+  await navigator.clipboard?.writeText(`Usuario: ${credentials.value.email}\nContraseña temporal: ${credentials.value.temporary_password}`);
+  notify('Credenciales copiadas', 'Compártelas por un medio seguro.');
+}
+
 function defaultSubject(type: PlatformTenantRequestType): string { return ({ user_access: 'Crear o modificar usuario', branch: 'Crear nueva sucursal', point_of_sale: 'Crear punto de venta', fiscal_identity: 'Actualizar datos fiscales', certificate: 'Revisar certificado electrónico', mh_credentials: 'Revisar credenciales MH', correlatives: 'Revisar correlativos', subscription: 'Cambiar suscripción', app_access: 'Habilitar aplicación', data_migration: 'Solicitar migración de datos', support: 'Solicitud de soporte' } as Record<PlatformTenantRequestType, string>)[type]; }
 function typeLabel(type: PlatformTenantRequestType): string { return typeOptions.find(item => item.value === type)?.label ?? type; }
 function statusLabel(status: PlatformTenantRequestStatus): string { return ({ pending: 'Pendiente', in_review: 'En revisión', needs_information: 'Necesita información', approved: 'Aprobada', completed: 'Completada', rejected: 'Rechazada', cancelled: 'Cancelada' } as Record<PlatformTenantRequestStatus, string>)[status]; }
@@ -80,7 +93,7 @@ function notify(title: string, detail: string): void { const id = ++toastId; toa
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div class="flex items-start gap-3"><span class="grid h-11 w-11 place-items-center rounded-xl bg-primary-soft text-primary"><FileClock class="h-5 w-5" /></span><div><h2 class="font-bold text-text">Solicitudes de {{ platformSession?.tenant?.name }}</h2><p class="mt-1 text-sm text-muted">Pide usuarios, sucursales y cambios controlados; podrás seguir la respuesta desde aquí.</p></div></div><UiButton @click="openCreate"><CirclePlus class="h-4 w-4" />Nueva solicitud</UiButton></div>
     <div class="mt-6 space-y-3">
       <div v-if="loading" class="rounded-xl border border-line bg-surface p-5 text-sm text-muted">Cargando solicitudes...</div>
-      <article v-for="item in requests" v-else :id="`tenant-request-${item.id}`" :key="item.id" class="rounded-xl border bg-surface p-4 transition sm:p-5" :class="highlightedId === item.id ? 'border-primary ring-4 ring-primary/15' : 'border-line'"><div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div class="flex flex-wrap items-center gap-2"><span class="font-mono text-xs font-bold text-primary">{{ item.reference }}</span><UiStatusBadge :tone="statusTone(item.status)">{{ statusLabel(item.status) }}</UiStatusBadge></div><h3 class="mt-2 font-bold text-text">{{ item.subject }}</h3><p class="mt-1 text-sm text-muted">{{ typeLabel(item.type) }} · {{ date(item.created_at) }}</p><p v-if="item.description" class="mt-3 text-sm leading-6 text-text">{{ item.description }}</p></div><span v-if="item.assignee" class="text-xs text-muted">Atiende: {{ item.assignee.name }}</span></div><div v-if="item.admin_response" class="mt-4 rounded-xl border border-primary/20 bg-primary-soft px-4 py-3"><p class="text-xs font-bold uppercase tracking-wide text-primary">Respuesta</p><p class="mt-1 text-sm text-text">{{ item.admin_response }}</p></div></article>
+      <article v-for="item in requests" v-else :id="`tenant-request-${item.id}`" :key="item.id" class="rounded-xl border bg-surface p-4 transition sm:p-5" :class="highlightedId === item.id ? 'border-primary ring-4 ring-primary/15' : 'border-line'"><div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div class="flex flex-wrap items-center gap-2"><span class="font-mono text-xs font-bold text-primary">{{ item.reference }}</span><UiStatusBadge :tone="statusTone(item.status)">{{ statusLabel(item.status) }}</UiStatusBadge></div><h3 class="mt-2 font-bold text-text">{{ item.subject }}</h3><p class="mt-1 text-sm text-muted">{{ typeLabel(item.type) }} · {{ date(item.created_at) }}</p><p v-if="item.description" class="mt-3 text-sm leading-6 text-text">{{ item.description }}</p></div><span v-if="item.assignee" class="text-xs text-muted">Atiende: {{ item.assignee.name }}</span></div><div v-if="item.admin_response" class="mt-4 rounded-xl border border-primary/20 bg-primary-soft px-4 py-3"><p class="text-xs font-bold uppercase tracking-wide text-primary">Respuesta</p><p class="mt-1 text-sm text-text">{{ item.admin_response }}</p></div><div v-if="item.fulfillment" class="mt-4 flex flex-col gap-3 rounded-xl border border-success/30 bg-success-soft p-4 sm:flex-row sm:items-center sm:justify-between"><div><p class="font-semibold text-text">{{ item.fulfillment.user.name }}</p><p class="text-sm text-muted">{{ item.fulfillment.user.email }}</p></div><UiButton v-if="item.fulfillment.credentials_available" size="sm" variant="secondary" @click="revealCredentials(item)"><KeyRound class="h-4 w-4" />Ver credenciales</UiButton><UiStatusBadge v-else tone="success">Acceso habilitado</UiStatusBadge></div></article>
       <div v-if="!loading && requests.length === 0" class="rounded-xl border border-dashed border-line bg-surface-muted p-8 text-center text-sm text-muted">Aún no hay solicitudes para esta empresa.</div>
     </div>
   </template>
@@ -95,4 +108,5 @@ function notify(title: string, detail: string): void { const id = ++toastId; toa
     </div>
     <template #footer><UiButton variant="secondary" :disabled="saving" @click="modalOpen = false">Volver</UiButton><UiButton :disabled="saving || !form.subject.trim()" @click="submit"><Send class="h-4 w-4" />{{ saving ? 'Enviando...' : 'Enviar solicitud' }}</UiButton></template>
   </UiModalShell>
+  <UiModalShell :open="Boolean(credentials)" title="Credenciales temporales" description="Compártelas únicamente con la persona autorizada." @close="credentials = null"><div v-if="credentials" class="space-y-3"><div class="rounded-xl border border-line bg-surface-muted p-4"><p class="text-xs font-bold uppercase text-soft">Usuario</p><p class="mt-1 font-semibold text-text">{{ credentials.email }}</p><p class="mt-4 text-xs font-bold uppercase text-soft">Contraseña temporal</p><p class="mt-1 rounded-lg bg-surface px-3 py-2 font-mono text-text">{{ credentials.temporary_password }}</p></div><p class="text-sm text-muted">La contraseña dejará de ser útil cuando el usuario la cambie al iniciar sesión.</p></div><template #footer><UiButton variant="secondary" @click="credentials = null">Cerrar</UiButton><UiButton @click="copyCredentials"><Copy class="h-4 w-4" />Copiar credenciales</UiButton></template></UiModalShell>
 </template>
