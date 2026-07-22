@@ -295,8 +295,9 @@ export type PlatformTenantRequest = {
   subject: string;
   description: string | null;
   payload: Record<string, unknown> | null;
+  reviewed_payload: Record<string, unknown> | null;
   admin_response: string | null;
-  fulfillment: { user: { id: number; name: string; email: string }; credentials_available: boolean; credentials_revealed_at: string | null } | null;
+  fulfillment: { user?: { id: number; name: string; email: string }; resource_type?: string; resource_id?: string; credentials_available: boolean; credentials_revealed_at?: string | null } | null;
   reviewed_at: string | null;
   completed_at: string | null;
   created_at: string | null;
@@ -2036,8 +2037,20 @@ export class PlatformClient {
     return this.http.patch(`admin/platform/requests/${requestId}`, { json: payload }).json();
   }
 
+  reviewAdminTenantRequest(requestId: number): Promise<{ data: PlatformTenantRequest }> {
+    return this.http.post(`admin/platform/requests/${requestId}/review`).json();
+  }
+
   createUserFromAdminRequest(requestId: number, payload: PlatformCreateTenantUserPayload): Promise<{ data: PlatformTenantRequest; user: { id: number; name: string; email: string }; temporary_password: string | null; temporary_password_delivery: PlatformCreateTenantUserResponse['temporary_password_delivery']; created: boolean }> {
     return this.http.post(`admin/platform/requests/${requestId}/create-user`, { json: payload }).json();
+  }
+
+  createBranchFromAdminRequest(requestId: number, payload: BillingSucursalPayload): Promise<{ data: PlatformTenantRequest }> {
+    return this.http.post(`admin/platform/requests/${requestId}/create-branch`, { json: payload }).json();
+  }
+
+  createPointOfSaleFromAdminRequest(requestId: number, payload: BillingPuntoVentaPayload & { sucursal_id: number }): Promise<{ data: PlatformTenantRequest }> {
+    return this.http.post(`admin/platform/requests/${requestId}/create-point-of-sale`, { json: payload }).json();
   }
 
   revealTenantRequestCredentials(tenantId: number, requestId: number): Promise<{ data: { email: string; temporary_password: string } }> {
