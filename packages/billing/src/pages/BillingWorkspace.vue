@@ -1676,6 +1676,17 @@ function saleMetadata(): Record<string, unknown> {
   const cashAmount = paymentCondition.value === 1
     ? roundMoney(paymentLines.value.filter((payment) => payment.codigo === '01').reduce((sum, payment) => sum + Number(payment.montoPago || 0), 0))
     : 0;
+  const methodByCode: Record<string, 'cash'|'card'|'transfer'|'other'> = { '01': 'cash', '02': 'card', '04': 'transfer' };
+  const paymentMethods = paymentCondition.value === 1
+    ? paymentLines.value
+      .filter((payment) => Number(payment.montoPago || 0) > 0)
+      .map((payment) => ({
+        method: methodByCode[payment.codigo] || 'other',
+        code: payment.codigo,
+        amount: roundMoney(Number(payment.montoPago || 0)),
+        reference: normalizedPaymentReference(payment),
+      }))
+    : [];
 
   return {
     document_type: form.documentType,
@@ -1687,6 +1698,7 @@ function saleMetadata(): Record<string, unknown> {
     payment_condition: paymentCondition.value,
     payment_status: paymentCondition.value === 2 ? 'receivable' : 'paid',
     cash_amount: cashAmount,
+    payment_methods: paymentMethods,
     inventory_bypass: lines.value
       .filter((line) => line.inventoryBypassReason)
       .map((line) => ({

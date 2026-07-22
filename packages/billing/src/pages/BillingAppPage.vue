@@ -299,7 +299,7 @@ const selectedComponentProps = computed(() => {
   }
 
   if (props.module === 'cash') {
-    return { platformBaseUrl: props.platformBaseUrl, authToken: props.authToken, tenantId: Number(props.platformSession?.tenant?.id || 0), workshopEnabled: props.app.id === 'taller' };
+    return { platformBaseUrl: props.platformBaseUrl, authToken: props.authToken, tenantId: Number(props.platformSession?.tenant?.id || 0), workshopEnabled: props.app.id === 'taller', company: activeCompany.value };
   }
 
   if (props.module === 'follow-ups') {
