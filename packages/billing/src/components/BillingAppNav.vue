@@ -118,6 +118,7 @@ const billingOptions = computed(() => {
       enabled: Boolean(type.implemented)
     }));
 });
+const billingMenuActive = computed(() => ['billing', 'sales-orders'].includes(props.module));
 const visibleEventOptions = computed(() => {
   const enabled = new Set(enabledEventTypes.value);
 
@@ -297,7 +298,7 @@ function navigate(event, href) {
     <div class="relative">
       <button
         class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
-        :class="module === 'billing' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
+        :class="billingMenuActive ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
         type="button"
         @click="toggleBillingMenu"
       >
@@ -313,6 +314,15 @@ function navigate(event, href) {
         v-if="billingMenuOpen"
         class="sf-app-menu absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
       >
+        <a
+          :href="hrefFor('/ordenes-venta')"
+          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
+          :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === 'sales-orders' }"
+          @click="navigate($event, hrefFor('/ordenes-venta'))"
+        >
+          Órdenes de venta
+        </a>
+        <div class="my-1 border-t border-white/10" />
         <template v-for="option in billingOptions" :key="option.label">
           <a
             v-if="option.enabled"

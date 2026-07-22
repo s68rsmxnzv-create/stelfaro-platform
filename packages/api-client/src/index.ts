@@ -386,6 +386,29 @@ export type WorkshopOrder = {
   device_access?: { url: string; pin: string } | null;
 };
 
+export type SalesOrder = {
+  id: number;
+  number: string;
+  status: 'open' | 'delivered' | 'cancelled' | string;
+  branch: { id: number | null; code: string | null; name: string | null };
+  customer: { id: number | null; name: string; phone: string | null; email: string | null };
+  subtotal: number;
+  discount_total: number;
+  total: number;
+  paid_total: number;
+  balance: number;
+  notes: string | null;
+  financial_status: 'pending' | 'settled' | string;
+  billing: { status: 'unbilled' | 'pending' | 'invoiced' | string; dte_type: '01' | '03' | null; core_document_id: number | null; number: string | null; generation_code: string | null; invoiced_at: string | null };
+  lines: Array<{ id: number; catalog_item_id: number | null; line_origin: 'free' | 'catalog' | 'inventory' | string; description: string; sku: string | null; unit_code: string; taxable: boolean; price_includes_tax: boolean; quantity: number; unit_price: number; discount_amount: number; total: number }>;
+  payments: Array<{ id: number; amount: number; method: string; reference: string | null; received_at: string | null }>;
+  created_at: string | null;
+  delivered_at: string | null;
+  cancelled_at: string | null;
+};
+
+export type SalesOrdersResponse = { data: SalesOrder[]; meta: PaginationMeta; stats: { open: number; receivable: number } };
+
 export type WorkshopTicketSettings = {
   receipt_copies: 1 | 2;
   print_equipment_label: boolean;
@@ -720,6 +743,7 @@ export type PlatformFiscalSyncOperation = {
 export type PlatformDteSyncPayload = {
   idempotency_key: string;
   workshop_order_id?: number | null;
+  sales_order_id?: number | null;
   reservation?: Omit<PlatformInventoryReservationPayload, 'idempotency_key'> | null;
   sale: Omit<PlatformInventorySalePayload, 'source_id'> & { source_id?: string };
 };
@@ -2086,6 +2110,30 @@ export class PlatformClient {
 
   workshopOrders(tenantId: number, params: { q?: string; status?: string; priority?: string; payment_status?: string; date_from?: string; date_to?: string; page?: number; per_page?: number } = {}): Promise<WorkshopOrdersResponse> {
     return this.http.get(`platform/tenants/${tenantId}/workshop/orders`, { searchParams: compactParams(params) }).json();
+  }
+
+  salesOrders(tenantId: number, params: { q?: string; status?: string; payment_status?: string; page?: number; per_page?: number } = {}): Promise<SalesOrdersResponse> {
+    return this.http.get(`platform/tenants/${tenantId}/sales-orders`, { searchParams: compactParams(params) }).json();
+  }
+
+  salesOrder(tenantId: number, orderId: number): Promise<{ data: SalesOrder }> {
+    return this.http.get(`platform/tenants/${tenantId}/sales-orders/${orderId}`).json();
+  }
+
+  createSalesOrder(tenantId: number, payload: Record<string, unknown>): Promise<{ data: SalesOrder }> {
+    return this.http.post(`platform/tenants/${tenantId}/sales-orders`, { json: payload }).json();
+  }
+
+  deliverSalesOrder(tenantId: number, orderId: number, payload: { amount_received: number; method?: 'cash'|'card'|'transfer'|'other'; reference?: string|null; document_choice: 'order'|'dte'; dte_type?: '01'|'03' }): Promise<{ data: SalesOrder }> {
+    return this.http.post(`platform/tenants/${tenantId}/sales-orders/${orderId}/deliver`, { json: payload }).json();
+  }
+
+  recordSalesOrderPayment(tenantId: number, orderId: number, payload: { idempotency_key: string; amount: number; method: 'cash'|'card'|'transfer'|'other'; reference?: string|null; notes?: string|null }): Promise<{ data: SalesOrder }> {
+    return this.http.post(`platform/tenants/${tenantId}/sales-orders/${orderId}/payments`, { json: payload }).json();
+  }
+
+  cancelSalesOrder(tenantId: number, orderId: number): Promise<{ data: SalesOrder }> {
+    return this.http.post(`platform/tenants/${tenantId}/sales-orders/${orderId}/cancel`).json();
   }
 
   workshopDashboard(tenantId: number): Promise<WorkshopDashboard> {
