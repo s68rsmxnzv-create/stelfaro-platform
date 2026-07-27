@@ -11,11 +11,12 @@ import TenantRequestsPanel from '../settings/TenantRequestsPanel.vue';
 import UserProfilePanel from '../settings/UserProfilePanel.vue';
 import UserSecurityPanel from '../settings/UserSecurityPanel.vue';
 import CashSettingsPanel from '../settings/CashSettingsPanel.vue';
+import DownloadCenterPanel from '../settings/DownloadCenterPanel.vue';
 
-type CompanyView = 'summary' | 'requests' | 'profile' | 'subscription' | 'cash' | 'printer' | 'ticket' | 'security' | 'audit' | 'support';
+type CompanyView = 'summary' | 'requests' | 'profile' | 'subscription' | 'downloads' | 'cash' | 'printer' | 'ticket' | 'security' | 'audit' | 'support';
 type CompanyNavId = CompanyView;
 type SettingsCompanyView = 'summary' | 'data' | 'fiscal' | 'sucursales' | 'correlativos';
-type NavIcon = 'summary' | 'requests' | 'profile' | 'subscription' | 'cash' | 'printer' | 'ticket' | 'security' | 'support';
+type NavIcon = 'summary' | 'requests' | 'profile' | 'subscription' | 'downloads' | 'cash' | 'printer' | 'ticket' | 'security' | 'support';
 type SelectedCompany = {
   id: number;
   coreEmpresaId: number;
@@ -67,7 +68,7 @@ const props = withDefaults(defineProps<{
 });
 
 const selectedCompany = ref<SelectedCompany | null>(null);
-const validViews: CompanyView[] = ['summary', 'requests', 'profile', 'subscription', 'cash', 'printer', 'ticket', 'security', 'audit', 'support'];
+const validViews: CompanyView[] = ['summary', 'requests', 'profile', 'subscription', 'downloads', 'cash', 'printer', 'ticket', 'security', 'audit', 'support'];
 const requestedView = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null;
 const activeView = ref<CompanyView>(requestedView && validViews.includes(requestedView as CompanyView) ? requestedView as CompanyView : props.initialView);
 const subscriptionRow = ref<PlatformSubscriptionTenantRow | null>(null);
@@ -113,6 +114,7 @@ const navItems = computed<Array<{
   { id: 'requests', label: 'Solicitudes', detail: 'Cambios sensibles', icon: 'requests' },
   { id: 'profile', label: 'Perfil de usuario', detail: 'Cuenta y contraseña', icon: 'profile' },
   { id: 'subscription', label: 'Suscripción', detail: 'Plan y vigencia', icon: 'subscription' },
+  { id: 'downloads', label: 'Centro de descargas', detail: 'Agentes para tus dispositivos', icon: 'downloads' },
   { id: 'cash', label: 'Caja', detail: 'Horarios y sucursales', icon: 'cash', group: 'Operación' },
   { id: 'printer', label: 'Conexión e impresora', detail: 'Agente, dispositivo y papel', icon: 'printer', group: 'Impresión' },
   { id: 'ticket', label: 'Formato del ticket', detail: 'Logo, datos y vista previa', icon: 'ticket', group: 'Impresión' },
@@ -379,6 +381,8 @@ function daysUntil(value: string | null | undefined): number | null {
         <TenantRequestsPanel v-if="activeView === 'requests'" class="mt-6" :platform-base-url="platformBaseUrl" :platform-session="platformSession" />
 
         <UserProfilePanel v-else-if="activeView === 'profile'" class="mt-6" :platform-base-url="platformBaseUrl" :platform-session="platformSession" />
+
+        <DownloadCenterPanel v-else-if="activeView === 'downloads'" class="mt-6" />
 
         <div v-else-if="activeView === 'subscription'" class="mt-6 space-y-4">
           <UiPanel v-if="!selectedCompany" variant="muted">
