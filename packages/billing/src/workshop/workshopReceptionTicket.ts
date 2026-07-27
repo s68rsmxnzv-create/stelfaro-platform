@@ -14,6 +14,7 @@ export async function workshopReceptionTicket(
   if (!orders.length) return [];
   const settings = loadPrinterSettings();
   const separator = '-'.repeat(settings.paperWidth === '58' ? 32 : 48);
+  const receptionTicketNumberSize: [number, number] = settings.paperWidth === '58' ? [1, 1] : [2, 2];
   const primary = orders[0];
   const branch = company?.sucursales?.find(item => item.id === primary.branch?.id) ?? company?.sucursales?.[0];
   const logo = settings.showLogo && preparedLogo
@@ -23,7 +24,7 @@ export async function workshopReceptionTicket(
   const operations: PrintOperation[] = [];
 
   for (const copyLabel of copies) {
-    operations.push(...receptionCopy({ orders, company, branch, copyLabel, separator, terms: ticketSettings.terms, deviceAccesses: copyLabel === 'COPIA TALLER' ? deviceAccesses : {}, logo, showIssuerDetails: settings.showIssuerDetails }));
+    operations.push(...receptionCopy({ orders, company, branch, copyLabel, separator, terms: ticketSettings.terms, deviceAccesses: copyLabel === 'COPIA TALLER' ? deviceAccesses : {}, logo, showIssuerDetails: settings.showIssuerDetails, ticketNumberSize: receptionTicketNumberSize }));
     operations.push({ name: 'cut', args: [settings.cutLines] });
   }
 
@@ -64,10 +65,11 @@ type CopyContext = {
   deviceAccesses: Record<number, { url: string; pin: string } | null>;
   logo: PrintOperation | null;
   showIssuerDetails: boolean;
+  ticketNumberSize: [number, number];
 };
 
 function receptionCopy(context: CopyContext): PrintOperation[] {
-  const { orders, company, branch, copyLabel, separator, terms, deviceAccesses, logo, showIssuerDetails } = context;
+  const { orders, company, branch, copyLabel, separator, terms, deviceAccesses, logo, showIssuerDetails, ticketNumberSize } = context;
   const primary = orders[0];
   const estimate = orders.reduce((total, order) => total + Number(order.estimated_total || 0), 0);
   const advance = orders.reduce((total, order) => total + Math.max(0, Number(order.paid_total || 0) - Number(order.refunded_total || 0)), 0);
@@ -86,7 +88,7 @@ function receptionCopy(context: CopyContext): PrintOperation[] {
     { name: 'bold', args: [true] },
     { name: 'text', args: [`${copyLabel}\n`] },
     { name: 'text', args: ['COMPROBANTE DE RECEPCIÓN\n'] },
-    { name: 'size', args: [2, 2] },
+    { name: 'size', args: ticketNumberSize },
     { name: 'text', args: [`${primary.ticket}\n`] },
     { name: 'size', args: [1, 1] },
     { name: 'bold', args: [false] },

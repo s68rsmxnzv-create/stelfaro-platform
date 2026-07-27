@@ -154,6 +154,36 @@ function escposQr(content, size = 6, correction = 49) {
   ]);
 }
 
+function escposQrPair58(leftContent, rightContent, moduleSize = 3) {
+  const width = 384;
+  const height = 190;
+  const leftX = 8;
+  const rightX = 200;
+  const topY = 8;
+  const position = (x, y) => Buffer.from([
+    0x1b, 0x24, x & 0xff, (x >> 8) & 0xff,
+    0x1d, 0x24, y & 0xff, (y >> 8) & 0xff,
+  ]);
+
+  return Buffer.concat([
+    // ESC L: modo pagina. ESC W: area imprimible completa de 384 x 190 puntos.
+    Buffer.from([
+      0x1b, 0x4c,
+      0x1b, 0x57,
+      0x00, 0x00, 0x00, 0x00,
+      width & 0xff, (width >> 8) & 0xff,
+      height & 0xff, (height >> 8) & 0xff,
+      0x1b, 0x54, 0x00,
+    ]),
+    position(leftX, topY),
+    escposQr(leftContent, moduleSize, 49),
+    position(rightX, topY),
+    escposQr(rightContent, moduleSize, 49),
+    // FF imprime el buffer de pagina; ESC S vuelve inmediatamente a estandar.
+    Buffer.from([0x0c, 0x1b, 0x53, 0x0a]),
+  ]);
+}
+
 function escposRasterImage(width, height, base64Data, mode = 0) {
   const data = Buffer.from(String(base64Data || ''), 'base64');
   const bytesPerRow = Math.ceil(Number(width || 0) / 8);
@@ -274,6 +304,14 @@ export function buildEscpos(payload) {
       case 'bold':
         buffers.push(Buffer.from([0x1b, 0x45, args[0] ? 1 : 0]));
         break;
+      case 'font': {
+        const font = String(args[0] || 'A').toUpperCase() === 'B' || Number(args[0]) === 1 ? 1 : 0;
+        // Some compact 58 mm mechanisms (notably PT-210 variants) consume
+        // ESC M without rendering the following text. ESC ! bit 0 selects
+        // the same font while remaining compatible with those firmwares.
+        buffers.push(Buffer.from([0x1b, 0x21, font]));
+        break;
+      }
       case 'size': {
         const width = Math.max(1, Math.min(8, Number(args[0] || 1)));
         const height = Math.max(1, Math.min(8, Number(args[1] || width)));
@@ -282,6 +320,9 @@ export function buildEscpos(payload) {
       }
       case 'qr':
         buffers.push(escposQr(args[0] || '', Math.round(Number(args[1] || 280) / 48), 49 + Number(args[2] || 1)));
+        break;
+      case 'qrPair58':
+        buffers.push(escposQrPair58(args[0] || '', args[1] || '', Math.max(2, Math.min(4, Number(args[2]) || 3))));
         break;
       case 'imageRaster':
         buffers.push(escposRasterImage(args[0], args[1], args[2], args[3] || 0));
@@ -385,7 +426,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/health') {
       assertAllowedOrigin(req);
-      return json(req, res, 200, { ok: true, name: 'Stelfaro Print Agent', version: '0.2.4-dev', platform: os.platform(), dryRun });
+      return json(req, res, 200, { ok: true, name: 'Stelfaro Print Agent', version: '0.2.8-dev', platform: os.platform(), dryRun });
     }
 
     if (req.method === 'GET' && (url.pathname === '/printers' || url.pathname === '/impresoras')) {

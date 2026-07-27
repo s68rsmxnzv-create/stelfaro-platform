@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DteThermalArtifact } from '@stelfaro/api-client';
 import { dteFiscalTicketFromArtifact } from '../../../packages/billing/src/printing/dteFiscalTicket';
 
 describe('dteFiscalTicketFromArtifact', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it('prints the conserved fiscal representation instead of a workshop closure receipt', () => {
     const artifact = {
       format: 'stelfaro-dte-thermal',
@@ -26,7 +28,36 @@ describe('dteFiscalTicketFromArtifact', () => {
     expect(printedText).not.toContain('ORDEN CERRADA');
     expect(printedText).not.toContain('Representacion grafica de DTE');
     expect(operations.some(({ name }) => name === 'imageRaster')).toBe(false);
-    expect(operations.find(({ name }) => name === 'qr')?.args[1]).toBe(280);
+    expect(operations.find(({ name }) => name === 'qr')?.args[1]).toBe(252);
     expect(operations.at(-1)).toMatchObject({ name: 'cut' });
+  });
+
+  it('splits only the 58 mm fiscal QR raster into buffer-safe bands', () => {
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: () => JSON.stringify({ paperWidth: '58' }),
+      },
+    });
+    const width = 376;
+    const height = 180;
+    const data = btoa('\0'.repeat((width / 8) * height));
+    const artifact = {
+      format: 'stelfaro-dte-thermal',
+      version: 2,
+      documentId: 731,
+      numeroControl: 'DTE-01-M001P001-000000000000176',
+      codigoGeneracion: 'D0403216-CEED-4612-B312-FC7CA319B6E9',
+      profiles: {
+        '58': { paperWidth: 58, widthChars: 32, operations: [{ name: 'imageRaster', args: [width, height, data, 0], section: 'qr_pair' }] },
+        '80': { paperWidth: 80, widthChars: 48, operations: [] },
+      },
+    } satisfies DteThermalArtifact;
+
+    const operations = dteFiscalTicketFromArtifact(artifact);
+    const bands = operations.filter(({ name }) => name === 'imageRaster');
+
+    expect(bands).toHaveLength(8);
+    expect(bands.reduce((rows, { args }) => rows + Number(args[1]), 0)).toBe(height);
+    expect(bands.every(({ args }) => args[0] === width && Number(args[1]) <= 24)).toBe(true);
   });
 });

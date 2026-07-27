@@ -3,6 +3,8 @@ import { onMounted, reactive, ref, watch } from 'vue';
 import { Cable, Printer, RefreshCw, TestTube2 } from 'lucide-vue-next';
 import { UiButton, UiInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import { defaultPrinterSettings, loadPrinterSettings, requestPrintAgent, savePrinterSettings, type PrinterSettings } from './printerSettings';
+import { printerTestOperations } from './printerTestJob';
+import { sendPrintOperations } from './printJob';
 
 type AgentHealth = { ok: boolean; name?: string; version?: string; platform?: string; dryRun?: boolean };
 type AgentPrinter = { name: string; source?: string };
@@ -35,7 +37,7 @@ async function testPrint() {
   if (!settings.printer) { status.value = 'error'; message.value = 'Selecciona una impresora antes de realizar la prueba.'; return; }
   checking.value = true;
   try {
-    await requestPrintAgent(settings, '/print', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ printer: settings.printer, operations: [{ name: 'init', args: [] }, { name: 'align', args: ['center'] }, { name: 'bold', args: [true] }, { name: 'text', args: ['STELFARO\n'] }, { name: 'bold', args: [false] }, { name: 'text', args: ['Impresión configurada correctamente\n'] }, { name: 'text', args: ['José Hernández / Muñoz / Elías\n'] }, { name: 'text', args: [new Date().toLocaleString('es-SV') + '\n'] }, { name: 'cut', args: [settings.cutLines] }] }) });
+    await sendPrintOperations(settings, printerTestOperations(settings));
     status.value = 'ok'; message.value = 'La prueba fue enviada correctamente.';
   } catch (error) { status.value = 'error'; message.value = error instanceof Error ? error.message : 'No fue posible imprimir la prueba.'; }
   finally { checking.value = false; }

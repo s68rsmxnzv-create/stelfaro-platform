@@ -43,3 +43,27 @@ test('keeps large ESC/POS payloads outside the Windows command line', () => {
   assert.equal(invocation.options.env.STELFARO_PRINT_PAYLOAD.endsWith('ticket.escpos'), true);
   assert.equal(commandLine.length < 8000, true);
 });
+
+test('places the 58 mm QR pair in native ESC/POS page mode', () => {
+  const bytes = buildEscpos({ operations: [
+    { name: 'qrPair58', args: ['https://example.test/hacienda', 'https://example.test/documento', 3] },
+  ] });
+
+  assert.equal(bytes[0], 0x1b);
+  assert.equal(bytes[1], 0x4c);
+  assert.equal(bytes.includes(Buffer.from([0x1b, 0x57])), true);
+  assert.equal(bytes.includes(Buffer.from([0x1b, 0x24, 0x08, 0x00])), true);
+  assert.equal(bytes.includes(Buffer.from([0x1b, 0x24, 0xc8, 0x00])), true);
+  assert.equal(bytes.includes(Buffer.from([0x0c, 0x1b, 0x53, 0x0a])), true);
+});
+
+test('selects compact font B and restores font A', () => {
+  const bytes = buildEscpos({ operations: [
+    { name: 'font', args: ['B'] },
+    { name: 'text', args: ['DB2551FC-8FED-4CF0-B265-253C64EC854F\n'] },
+    { name: 'font', args: ['A'] },
+  ] });
+
+  assert.deepEqual([...bytes.subarray(0, 3)], [0x1b, 0x21, 0x01]);
+  assert.deepEqual([...bytes.subarray(-3)], [0x1b, 0x21, 0x00]);
+});

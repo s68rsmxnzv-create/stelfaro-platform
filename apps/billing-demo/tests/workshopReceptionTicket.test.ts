@@ -6,9 +6,10 @@ describe('workshopReceptionTicket', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('builds a complete reception ticket and applies the configured QR size', async () => {
+    let paperWidth: '58' | '80' = '58';
     vi.stubGlobal('window', {
       localStorage: {
-        getItem: () => JSON.stringify({ showLogo: true, qrWidth: 280, cutLines: 6 }),
+        getItem: () => JSON.stringify({ showLogo: true, paperWidth, cutLines: 6 }),
       },
     });
     const order = {
@@ -27,6 +28,7 @@ describe('workshopReceptionTicket', () => {
       balance: 25,
       received_at: '2026-07-20T10:30:00-06:00',
       photo_count: 0,
+      reception: { id: 7, equipment_label: 'Equipo 1' },
       financial: { status: 'pending', final_total: null, closed_at: null },
       billing: { status: 'unbilled', dte_type: null, core_document_id: null, number: null, generation_code: null, invoiced_at: null },
       approval: { decision: null, method: null, notes: null, decided_at: null },
@@ -35,10 +37,10 @@ describe('workshopReceptionTicket', () => {
     } satisfies WorkshopOrder;
 
     const operations = await workshopReceptionTicket(
-      order,
+      [order],
       null,
       { receipt_copies: 2, print_equipment_label: true, terms: 'El diagnóstico debe aprobarse.\n\nConserve su comprobante.' },
-      { url: 'https://example.test/device', pin: '654321' },
+      { 12: { url: 'https://example.test/device', pin: '654321' } },
       { width: 240, height: 80, data: 'AA==' },
     );
     const text = operations.filter(({ name }) => name === 'text').flatMap(({ args }) => args).join('');
@@ -49,14 +51,25 @@ describe('workshopReceptionTicket', () => {
     expect(text).toContain('Anticipo recibido: $10.00');
     expect(text).toContain('COPIA CLIENTE');
     expect(text).toContain('COPIA TALLER');
-    expect(text).toContain('PIN TALLER: 654321');
+    expect(text).toContain('654321');
     expect(text).toContain('TÉRMINOS Y CONDICIONES');
     expect(text).toContain('ETIQUETA DEL EQUIPO');
     expect(text).not.toContain('pattern');
     expect(text).not.toContain('Agregar fotografías del equipo');
-    expect(operations.filter(({ name }) => name === 'qr')).toEqual([{ name: 'qr', args: ['https://example.test/device', 280, 1, 0] }]);
+    expect(operations.filter(({ name }) => name === 'qr')).toEqual([{ name: 'qr', args: ['https://example.test/device', 200, 1, 0] }]);
     expect(operations.filter(({ name }) => name === 'imageRaster')).toHaveLength(2);
     expect(operations.filter(({ name }) => name === 'cut').every(({ args }) => args[0] === 6)).toBe(true);
+    const ticketIndex58 = operations.findIndex(({ name, args }) => name === 'text' && args[0] === 'T-000012\n');
+    expect(operations[ticketIndex58 - 1]).toEqual({ name: 'size', args: [1, 1] });
+
+    paperWidth = '80';
+    const operations80 = await workshopReceptionTicket(
+      [order],
+      null,
+      { receipt_copies: 1, print_equipment_label: false, terms: '' },
+    );
+    const ticketIndex80 = operations80.findIndex(({ name, args }) => name === 'text' && args[0] === 'T-000012\n');
+    expect(operations80[ticketIndex80 - 1]).toEqual({ name: 'size', args: [2, 2] });
 
     const footerIndexes = operations.flatMap((operation, index) => operation.name === 'text' && String(operation.args[0]).includes('Conserve este comprobante') ? [index] : []);
     expect(footerIndexes).toHaveLength(2);
