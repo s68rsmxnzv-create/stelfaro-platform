@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { PlatformClient, type BillingSucursal, type PlatformSubscriptionTenantRow } from '@stelfaro/api-client';
 import { UiButton, UiPanel, UiRefreshButton, UiStatusBadge, UiSubscriptionPlanCard } from '@stelfaro/ui';
 import BillingSectionLayout from '../components/BillingSectionLayout.vue';
@@ -12,6 +12,8 @@ import UserProfilePanel from '../settings/UserProfilePanel.vue';
 import UserSecurityPanel from '../settings/UserSecurityPanel.vue';
 import CashSettingsPanel from '../settings/CashSettingsPanel.vue';
 import DownloadCenterPanel from '../settings/DownloadCenterPanel.vue';
+import MobilePrinterSettingsPanel from '../printing/MobilePrinterSettingsPanel.vue';
+import { detectMobilePrintingDevice } from '../printing/deviceClass';
 
 type CompanyView = 'summary' | 'requests' | 'profile' | 'subscription' | 'downloads' | 'cash' | 'printer' | 'ticket' | 'security' | 'audit' | 'support';
 type CompanyNavId = CompanyView;
@@ -68,6 +70,7 @@ const props = withDefaults(defineProps<{
 });
 
 const selectedCompany = ref<SelectedCompany | null>(null);
+const mobilePrintingDevice = ref(false);
 const validViews: CompanyView[] = ['summary', 'requests', 'profile', 'subscription', 'downloads', 'cash', 'printer', 'ticket', 'security', 'audit', 'support'];
 const requestedView = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null;
 const activeView = ref<CompanyView>(requestedView && validViews.includes(requestedView as CompanyView) ? requestedView as CompanyView : props.initialView);
@@ -80,6 +83,21 @@ const wompiCheckoutUrls: Partial<Record<MarketingPlanCard['key'], string>> = {
   entrepreneur: 'https://pagos.wompi.sv/IntentoPago/Redirect?id=bdfd9af6-ace2-48b1-92e4-07bd182619db',
   professional: 'https://pagos.wompi.sv/IntentoPago/Redirect?id=33bcab4e-0036-4477-a0a0-326a4a415c31'
 };
+
+function updatePrintingDeviceClass(): void {
+  mobilePrintingDevice.value = detectMobilePrintingDevice();
+}
+
+onMounted(() => {
+  updatePrintingDeviceClass();
+  window.addEventListener('resize', updatePrintingDeviceClass, { passive: true });
+  window.addEventListener('orientationchange', updatePrintingDeviceClass, { passive: true });
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updatePrintingDeviceClass);
+  window.removeEventListener('orientationchange', updatePrintingDeviceClass);
+});
 
 const companyTitle = computed(() => selectedCompany.value?.tradeName || selectedCompany.value?.name || String(props.platformSession?.tenant?.name || 'Mi empresa'));
 const activeItem = computed(() => navItems.value.find((item) => item.id === activeView.value) ?? navItems.value[0]);
@@ -480,6 +498,8 @@ function daysUntil(value: string | null | undefined): number | null {
             </UiPanel>
           </template>
         </div>
+
+        <MobilePrinterSettingsPanel v-else-if="activeView === 'printer' && mobilePrintingDevice" class="mt-6" />
 
         <div v-else-if="activeView === 'printer'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><PrinterSettingsPanel /></div>
 
