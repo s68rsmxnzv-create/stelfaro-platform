@@ -888,7 +888,7 @@ function navigateFromMenu(event, href) {
     />
 
     <main class="relative z-10">
-      <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+      <div class="mx-auto w-full min-w-0 max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div v-if="requiresFiscalSession && !authToken" class="rounded-md border border-red-200 bg-red-50 p-5 text-red-700">
           No fue posible abrir la sesion fiscal.
         </div>

@@ -2804,7 +2804,7 @@ function updatePaymentCondition(value: string): void {
 </script>
 
 <template>
-  <div class="grid min-w-0 gap-6 pb-28">
+  <div class="grid w-full min-w-0 max-w-full gap-6 pb-28">
     <BillingCustomerModal
       v-if="customerModalMode"
       :open="Boolean(customerModalMode)"
@@ -3264,8 +3264,8 @@ function updatePaymentCondition(value: string): void {
           </div>
         </section>
 
-        <div class="grid gap-3 md:hidden">
-          <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm shadow-black/25">
+        <div class="grid w-full min-w-0 max-w-full gap-3 md:hidden">
+          <section class="w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm shadow-black/25">
             <button
               type="button"
               class="flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left active:bg-slate-800"
@@ -3310,7 +3310,7 @@ function updatePaymentCondition(value: string): void {
             </div>
           </section>
 
-          <section v-if="!isAdjustmentNote" class="rounded-2xl border border-blue-100/80 bg-white/90 p-3 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface">
+          <section v-if="!isAdjustmentNote" class="w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-blue-100/80 bg-white/90 p-3 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface">
             <div v-if="hasReceptorCard" class="flex min-h-14 items-center gap-3 rounded-xl bg-sky-50/80 px-3 py-2.5 dark:bg-surface-muted">
               <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-sm font-black text-sky-700 shadow-sm dark:bg-primary-soft dark:text-primary">
                 {{ form.customerName.trim().slice(0, 1).toUpperCase() || 'C' }}
@@ -3361,7 +3361,7 @@ function updatePaymentCondition(value: string): void {
             <p v-if="requiresCustomerIdentificationByAmount && !hasRequiredCustomerIdentification" class="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">{{ customerIdentificationByAmountMessage }}</p>
           </section>
 
-          <section v-if="!isAdjustmentNote && supportsAdvancedPayments" class="rounded-2xl border border-blue-100/80 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface">
+          <section v-if="!isAdjustmentNote && supportsAdvancedPayments" class="w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-blue-100/80 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface">
             <div class="flex min-h-14 items-center gap-2">
               <button type="button" class="min-w-0 flex-1 text-left" @click="openPaymentModal">
                 <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Forma de pago</span>
@@ -3605,7 +3605,7 @@ function updatePaymentCondition(value: string): void {
         </div>
 
         <section
-          class="relative rounded-2xl border border-blue-100/80 bg-white/90 p-3 shadow-sm shadow-blue-950/5 backdrop-blur md:rounded-md md:p-4 dark:border-line dark:bg-surface dark:text-text dark:shadow-surface"
+          class="relative w-full min-w-0 max-w-full rounded-2xl border border-blue-100/80 bg-white/90 p-3 shadow-sm shadow-blue-950/5 backdrop-blur md:rounded-md md:p-4 dark:border-line dark:bg-surface dark:text-text dark:shadow-surface"
           :class="catalogLineSuggestionsOpen ? 'z-40' : 'z-10'"
         >
           <div class="flex flex-wrap items-center justify-between gap-3">
