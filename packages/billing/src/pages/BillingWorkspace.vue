@@ -628,6 +628,7 @@ const issueEventMessage = (event: DteIssueProgressEvent): string => {
 const selectedCustomer = computed(() => selectedCustomerRecord.value);
 const hasReceptorCard = computed(() => Boolean(
   selectedCustomer.value
+  || (customerMode.value === 'quick' && form.customerName.trim())
   || (replacementSourceDocument.value && customerSearchLocked.value && form.customerName.trim())
   || (isAdjustmentNote.value && selectedSourceDocument.value)
 ));
@@ -869,6 +870,7 @@ onMounted(async () => {
   window.addEventListener(INVENTORY_CHANGED_EVENT, handleInventoryAvailabilityChanged);
   window.addEventListener('storage', handleInventoryAvailabilityChanged);
   await loadContext();
+  restoreQuickCustomer();
   await loadReplacementPrefill();
   await loadWorkshopOrderPrefill();
 });
@@ -2091,6 +2093,7 @@ function selectCustomerMode(mode: CustomerMode): void {
 
   customerMode.value = mode;
   if (mode === 'generic') {
+    clearQuickCustomerCache();
     mobileCustomerExpanded.value = false;
   }
   if (mode === 'base') {
@@ -2187,6 +2190,29 @@ async function handleSujetoExcluidoSave(payload: BillingSujetoExcluidoModalPaylo
   }
 }
 
+function quickCustomerCacheKey(): string {
+  return `stelfaro:billing:quick-customer:${props.billingContextCacheScope}:${form.documentType}`;
+}
+
+function cacheQuickCustomer(payload: BillingCustomerModalPayload): void {
+  window.sessionStorage.setItem(quickCustomerCacheKey(), JSON.stringify(payload));
+}
+
+function clearQuickCustomerCache(): void {
+  window.sessionStorage.removeItem(quickCustomerCacheKey());
+}
+
+function restoreQuickCustomer(): void {
+  if (requiresStructuredCustomer.value || selectedCustomerId.value) return;
+
+  try {
+    const cached = JSON.parse(window.sessionStorage.getItem(quickCustomerCacheKey()) || 'null') as BillingCustomerModalPayload | null;
+    if (cached?.name?.trim()) applyQuickCustomer(cached);
+  } catch {
+    clearQuickCustomerCache();
+  }
+}
+
 function applyQuickCustomer(payload: BillingCustomerModalPayload): void {
   selectedCustomerId.value = null;
   customerMode.value = 'quick';
@@ -2200,6 +2226,7 @@ function applyQuickCustomer(payload: BillingCustomerModalPayload): void {
   form.customerDistrict = payload.distrito ?? '';
   form.customerAddress = payload.direccion_complemento ?? '';
   mobileCustomerExpanded.value = false;
+  cacheQuickCustomer(payload);
 }
 
 async function handleCustomerModalSave(payload: BillingCustomerModalPayload): Promise<void> {
@@ -2265,6 +2292,7 @@ async function loadCustomers(): Promise<void> {
 }
 
 function applyCustomer(customer: BillingCustomer): void {
+  clearQuickCustomerCache();
   selectedCustomerId.value = customer.id;
   selectedCustomerRecord.value = customer;
   customerSearchLocked.value = true;
@@ -2300,6 +2328,25 @@ function clearSelectedCustomer(): void {
   customerSearch.value = '';
   customers.value = [];
   clearCustomerFields('');
+}
+
+function openActiveCustomer(): void {
+  if (customerMode.value === 'quick') {
+    customerModalMode.value = 'quick';
+    return;
+  }
+
+  customerSearchModalOpen.value = true;
+}
+
+function clearActiveCustomer(): void {
+  const wasQuick = customerMode.value === 'quick';
+  clearSelectedCustomer();
+  if (wasQuick) {
+    clearQuickCustomerCache();
+    customerMode.value = 'generic';
+    setGenericCustomer();
+  }
 }
 
 function updateCustomerSearch(value: string): void {
@@ -3315,12 +3362,12 @@ function updatePaymentCondition(value: string): void {
               <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-sm font-black text-sky-700 shadow-sm dark:bg-primary-soft dark:text-primary">
                 {{ form.customerName.trim().slice(0, 1).toUpperCase() || 'C' }}
               </span>
-              <button type="button" class="min-w-0 flex-1 text-left" @click="customerSearchModalOpen = true">
-                <span class="block text-[11px] font-bold uppercase tracking-wide text-sky-700 dark:text-primary">Cliente seleccionado</span>
+              <button type="button" class="min-w-0 flex-1 text-left" @click="openActiveCustomer">
+                <span class="block text-[11px] font-bold uppercase tracking-wide text-sky-700 dark:text-primary">{{ customerMode === 'quick' ? 'Cliente temporal' : 'Cliente seleccionado' }}</span>
                 <strong class="mt-0.5 block truncate text-sm text-slate-950 dark:text-text">{{ form.customerName }}</strong>
-                <span class="block truncate text-xs text-slate-500 dark:text-muted">{{ customerDocumentNumberLabel }} · Tocar para cambiar</span>
+                <span class="block truncate text-xs text-slate-500 dark:text-muted">{{ customerMode === 'quick' ? customerSummary : customerDocumentNumberLabel }} · Tocar para {{ customerMode === 'quick' ? 'editar' : 'cambiar' }}</span>
               </button>
-              <UiCloseButton label="Quitar cliente seleccionado" @click="clearSelectedCustomer" />
+              <UiCloseButton label="Quitar cliente seleccionado" @click="clearActiveCustomer" />
             </div>
 
             <template v-else>

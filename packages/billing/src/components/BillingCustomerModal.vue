@@ -74,6 +74,7 @@ const form = reactive({
 const showAddress = ref(false);
 const commercialNameTouched = ref(false);
 const hydrating = ref(false);
+const nameInput = ref<{ $el?: HTMLElement } | null>(null);
 
 const detection = reactive<FiscalDocumentDetection>({
   valid: false,
@@ -149,6 +150,10 @@ watch(() => props.open, (open) => {
   showAddress.value = props.intent === 'fiscal' || isEditMode.value || Boolean(form.departamento || form.municipio || form.distrito || form.direccion);
   nextTick(() => {
     hydrating.value = false;
+    if (props.mode === 'quick') {
+      const input = nameInput.value?.$el?.querySelector('input');
+      input?.focus({ preventScroll: true });
+    }
   });
 }, { immediate: true });
 
@@ -225,7 +230,7 @@ function submit(): void {
     @submit="submit"
   >
     <div class="grid gap-4" :class="isFiscalMode ? 'md:grid-cols-2' : ''">
-      <UiInput v-model="form.name" :label="intent === 'fiscal' ? 'Nombre fiscal / razón social' : mode === 'quick' ? 'Nombre en factura' : 'Nombre del cliente'" />
+      <UiInput ref="nameInput" v-model="form.name" :autofocus="mode === 'quick'" autocomplete="name" :label="intent === 'fiscal' ? 'Nombre fiscal / razón social' : mode === 'quick' ? 'Nombre en factura' : 'Nombre del cliente'" />
       <div v-if="isFiscalMode">
         <UiInput
           :model-value="form.nombreComercial"
