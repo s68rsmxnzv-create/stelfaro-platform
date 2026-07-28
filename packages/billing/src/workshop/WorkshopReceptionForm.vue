@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
 import { Camera, Check, ChevronLeft, ChevronRight, SlidersHorizontal, Smartphone, UserRound, X } from 'lucide-vue-next';
-import { UiButton, UiCard, UiInput, UiSearchInput, UiSelect, UiTextarea, UiToggle } from '@stelfaro/ui';
+import { UiButton, UiInput, UiSearchInput, UiSelect, UiTextarea, UiToggle } from '@stelfaro/ui';
 import type { BillingCatalogs, BillingCustomer, BillingSucursal, WorkshopOrderPayload } from '@stelfaro/api-client';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import WorkshopPatternInput from './WorkshopPatternInput.vue';
@@ -107,21 +107,24 @@ function validateCompletion() {
     @update:municipio="customerMunicipio = $event"
   />
 
-  <UiCard class="w-full overflow-hidden">
-    <div class="border-b border-line px-5 py-4 sm:px-7">
+  <section class="w-full overflow-hidden bg-transparent md:rounded-lg md:border md:border-blue-100/80 md:bg-white/85 md:p-5 md:shadow-md md:shadow-blue-950/5 md:backdrop-blur dark:md:border-line dark:md:bg-surface dark:md:text-text dark:md:shadow-surface">
+    <div class="border-b border-line px-4 py-3 sm:px-7 sm:py-4">
       <div v-if="continuation" class="mb-4 rounded-lg border border-primary/30 bg-primary-soft px-4 py-3"><p class="text-xs font-bold uppercase tracking-wide text-primary">Misma recepción</p><p class="mt-1 font-semibold text-text">{{ continuation.customer.name }} · Agregando otro equipo</p></div>
-      <div class="flex items-center justify-between gap-4 text-sm"><span class="font-semibold text-primary">Paso {{ step }} de 4</span><span class="text-muted">{{ step === 1 ? 'Cliente' : step === 2 ? 'Equipo y pruebas' : step === 3 ? 'Detalles y valores' : 'Resumen' }}</span></div>
-      <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-muted"><div class="h-full rounded-full bg-primary transition-all" :style="{ width: progress }"></div></div>
+      <div class="flex items-center justify-between gap-4 text-xs sm:text-sm"><span class="font-bold text-primary">Paso {{ step }} de 4</span><span class="font-medium text-muted">{{ step === 1 ? 'Cliente' : step === 2 ? 'Equipo y pruebas' : step === 3 ? 'Detalles y valores' : 'Resumen' }}</span></div>
+      <div class="mt-2.5 h-1 overflow-hidden rounded-full bg-surface-muted sm:mt-3 sm:h-1.5"><div class="h-full rounded-full bg-primary transition-all" :style="{ width: progress }"></div></div>
     </div>
 
-    <form class="p-5 sm:p-7" @submit.prevent="submit">
+    <form class="p-4 sm:p-7" @submit.prevent="submit">
       <section v-if="step === 1">
-        <div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3"><UserRound class="h-6 w-6 text-primary" /><h2 class="text-xl font-semibold text-text">¿Quién trae el equipo?</h2></div><UiButton type="button" variant="secondary" @click="customerCreateOpen = true">Nuevo cliente</UiButton></div>
-        <div class="workshop-customer-search relative mt-6"><UiSearchInput :model-value="customerQuery" label="Buscar cliente" placeholder="Nombre, documento o teléfono" @update:model-value="updateCustomerSearch" /><button v-if="selected" type="button" class="absolute bottom-2 right-2 grid h-8 w-8 place-items-center rounded-md text-danger transition hover:bg-danger-soft" aria-label="Quitar cliente seleccionado" @click="clearCustomerSearch"><X class="h-4 w-4" /></button></div>
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex min-w-0 items-center gap-3"><UserRound class="hidden h-6 w-6 shrink-0 text-primary sm:block" /><h2 class="truncate text-lg font-bold text-text sm:text-xl sm:font-semibold">¿Quién trae el equipo?</h2></div>
+          <UiButton class="shrink-0 px-3" size="sm" type="button" variant="secondary" @click="customerCreateOpen = true">Nuevo cliente</UiButton>
+        </div>
+        <div class="workshop-customer-search relative mt-4 sm:mt-6"><UiSearchInput :model-value="customerQuery" label="Buscar cliente" placeholder="Nombre, documento o teléfono" @update:model-value="updateCustomerSearch" /><button v-if="selected" type="button" class="absolute bottom-2 right-2 grid h-8 w-8 place-items-center rounded-md text-danger transition hover:bg-danger-soft" aria-label="Quitar cliente seleccionado" @click="clearCustomerSearch"><X class="h-4 w-4" /></button></div>
         <div v-if="customerLoading" class="mt-2 text-sm text-muted">Buscando clientes…</div>
-        <div v-else-if="!selected && customerQuery.trim().length >= 2 && customers.length" class="mt-2 max-h-64 divide-y divide-line overflow-y-auto rounded-md border border-line bg-surface-raised"><button v-for="customer in customers" :key="customer.id" type="button" class="block w-full px-4 py-3 text-left hover:bg-primary-soft" @click="choose(customer)"><strong class="block text-text">{{ customer.name }}</strong><span class="mt-1 block text-xs text-muted">{{ customer.document_number || 'Sin documento' }}<template v-if="customer.phone"> · {{ customer.phone }}</template></span></button></div>
+        <div v-else-if="!selected && customerQuery.trim().length >= 2 && customers.length" class="mt-2 max-h-[min(40dvh,16rem)] divide-y divide-line overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface-raised sm:rounded-md"><button v-for="customer in customers" :key="customer.id" type="button" class="block min-h-14 w-full px-4 py-3 text-left active:bg-primary-soft sm:hover:bg-primary-soft" @click="choose(customer)"><strong class="block text-text">{{ customer.name }}</strong><span class="mt-1 block text-xs text-muted">{{ customer.document_number || 'Sin documento' }}<template v-if="customer.phone"> · {{ customer.phone }}</template></span></button></div>
         <p v-else-if="!selected && customerQuery.trim().length >= 2" class="mt-2 rounded-md bg-surface-muted px-4 py-3 text-sm text-muted">No encontramos clientes con esa búsqueda.</p>
-        <UiSelect v-if="branchOptions.length > 1" v-model="selectedBranchId" class="mt-5" label="Sucursal que recibe" :options="branchOptions" />
+        <UiSelect v-if="branchOptions.length > 1" v-model="selectedBranchId" class="mt-4 sm:mt-5" label="Sucursal que recibe" :options="branchOptions" />
       </section>
 
       <section v-else-if="step === 2">
@@ -162,9 +165,9 @@ function validateCompletion() {
       </section>
 
       <p v-if="validationMessage" class="mt-5 rounded-md bg-danger-soft px-4 py-3 text-sm font-medium text-danger">{{ validationMessage }}</p>
-      <div class="mt-7 flex items-center justify-between border-t border-line pt-5"><UiButton v-if="step > 1" type="button" variant="secondary" @click="previous"><ChevronLeft class="mr-2 h-4 w-4" />Atrás</UiButton><span v-else></span><UiButton v-if="step < 4" type="button" @click="next">Siguiente<ChevronRight class="ml-2 h-4 w-4" /></UiButton><UiButton v-else type="submit" :disabled="saving">{{ saving ? 'Registrando…' : 'Registrar equipo' }}</UiButton></div>
+      <div class="mt-5 grid grid-cols-2 gap-3 border-t border-line pt-4 sm:mt-7 sm:flex sm:items-center sm:justify-between sm:pt-5"><UiButton v-if="step > 1" class="w-full sm:w-auto" type="button" variant="secondary" @click="previous"><ChevronLeft class="mr-2 h-4 w-4" />Atrás</UiButton><span v-else class="hidden sm:block"></span><UiButton v-if="step < 4" class="w-full sm:w-auto" :class="step === 1 ? 'col-span-2' : ''" type="button" @click="next">Siguiente<ChevronRight class="ml-2 h-4 w-4" /></UiButton><UiButton v-else class="w-full sm:w-auto" type="submit" :disabled="saving">{{ saving ? 'Registrando…' : 'Registrar equipo' }}</UiButton></div>
     </form>
-  </UiCard>
+  </section>
 </template>
 
 <style scoped>

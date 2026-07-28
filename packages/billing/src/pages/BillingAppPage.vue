@@ -818,9 +818,12 @@ function navigateFromMenu(event, href) {
 
     <header
       class="relative z-10 border-b border-blue-100/70 bg-white/85 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:shadow-black/20"
-      :class="['dashboard', 'billing'].includes(module) ? 'hidden md:block' : ''"
+      :class="['dashboard', 'billing', 'workshop-reception'].includes(module) ? 'hidden md:block' : ''"
     >
-      <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+      <div
+        class="mx-auto max-w-7xl"
+        :class="module === 'workshop-reception' ? 'px-0 py-0 md:px-6 md:py-4 lg:px-8' : 'px-4 py-4 sm:px-6 lg:px-8'"
+      >
         <div class="flex flex-wrap items-center gap-3">
           <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl dark:text-text">{{ pageTitle }}</h1>
           <div v-if="currentHelp">

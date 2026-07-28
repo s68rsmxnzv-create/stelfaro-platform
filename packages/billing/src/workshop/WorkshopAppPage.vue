@@ -50,7 +50,7 @@ onUnmounted(() => floatingToastTimers.forEach(timer => window.clearTimeout(timer
 </script>
 
 <template>
-  <section class="mx-auto max-w-7xl px-5 py-6">
+  <section class="mx-auto max-w-7xl px-0 py-0 md:px-5 md:py-6">
     <BillingFloatingToastStack :toasts="floatingToasts" />
     <p v-if="workshop.error.value" class="mb-4 rounded-md border border-danger bg-danger-soft px-4 py-3 text-sm text-danger">{{ workshop.error.value }}</p>
     <UiLoadingMark v-if="workshop.loading.value && view !== 'orders'" label="Cargando taller" />
