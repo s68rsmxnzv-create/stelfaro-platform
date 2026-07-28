@@ -1,6 +1,7 @@
 import { loadPrinterSettings, requestPrintAgent } from './printerSettings';
 import type { PrinterSettings } from './printerSettings';
 import { prepare58MmQrOperations } from './qrRaster';
+import { enqueueAndroidPrint, isAndroidDevice, isIosDevice, loadAndroidPrintContext } from './androidPrint';
 
 export type PrintOperation = { name: string; args: unknown[]; section?: string };
 
@@ -46,6 +47,17 @@ export async function sendPrintOperations(
   operations: PrintOperation[],
 ): Promise<void> {
   const preparedOperations = prepare58MmQrOperations(settings.paperWidth, operations);
+  if (isAndroidDevice()) {
+    const context = loadAndroidPrintContext();
+    if (!context) throw new Error('Configura y empareja el agente Android antes de imprimir.');
+    await enqueueAndroidPrint(
+      context,
+      settings.paperWidth,
+      preparedOperations,
+      settings.openDrawer && preparedOperations.some(operation => operation.name === 'openDrawer'),
+    );
+    return;
+  }
   const jobs = partitionPortableRasterJob(settings, preparedOperations);
   for (let index = 0; index < jobs.length; index += 1) {
     try {
@@ -70,6 +82,7 @@ export async function sendPrintOperations(
 }
 
 export async function sendSilentPrint(operations: PrintOperation[]): Promise<'printed' | 'disabled'> {
+  if (isIosDevice()) return 'disabled';
   const settings = loadPrinterSettings();
   if (!settings.enabled || !settings.printer) return 'disabled';
   await sendPrintOperations(settings, operations);

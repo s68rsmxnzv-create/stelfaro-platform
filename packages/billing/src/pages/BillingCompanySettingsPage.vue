@@ -499,7 +499,12 @@ function daysUntil(value: string | null | undefined): number | null {
           </template>
         </div>
 
-        <MobilePrinterSettingsPanel v-else-if="activeView === 'printer' && mobilePrintingDevice" class="mt-6" />
+        <MobilePrinterSettingsPanel
+          v-else-if="activeView === 'printer' && mobilePrintingDevice"
+          class="mt-6"
+          :tenant-id="Number(platformSession?.tenant?.id || 0)"
+          :platform-base-url="platformBaseUrl"
+        />
 
         <div v-else-if="activeView === 'printer'" class="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-6"><PrinterSettingsPanel /></div>
 

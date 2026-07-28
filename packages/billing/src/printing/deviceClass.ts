@@ -33,3 +33,7 @@ export function detectMobilePrintingDevice(): boolean {
     viewportHeight: window.innerHeight,
   });
 }
+
+export function detectAndroidPrintingDevice(): boolean {
+  return typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+}
