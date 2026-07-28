@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import type { BillingCustomer } from '@stelfaro/api-client';
 import { UiSearchInput } from '@stelfaro/ui';
+import { nextTick, ref, watch } from 'vue';
 import BillingModalShell from './BillingModalShell.vue';
 
-defineProps<{
+const props = defineProps<{
   open: boolean;
   loading?: boolean;
   search: string;
   results: BillingCustomer[];
   selectedCustomerId: number | null;
 }>();
+const searchInput = ref<InstanceType<typeof UiSearchInput> | null>(null);
 
 const emit = defineEmits<{
   close: [];
@@ -33,6 +35,12 @@ function customerDocumentLabel(customer: BillingCustomer): string {
 
   return value ? `${label} ${value}` : 'Sin documento';
 }
+
+watch(() => props.open, async (open) => {
+  if (!open || !window.matchMedia('(max-width: 767px)').matches) return;
+  await nextTick();
+  searchInput.value?.focus();
+});
 </script>
 
 <template>
@@ -47,7 +55,9 @@ function customerDocumentLabel(customer: BillingCustomer): string {
   >
     <div class="relative shrink-0">
       <UiSearchInput
+        ref="searchInput"
         :model-value="search"
+        autofocus
         label="Cliente"
         placeholder="Escribe al menos 2 caracteres"
         :show-button="false"

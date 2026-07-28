@@ -1,20 +1,30 @@
 <script setup lang="ts">
+import { ref } from 'vue';
+
+const input = ref<HTMLInputElement | null>(null);
+
 withDefaults(defineProps<{
   label: string;
   modelValue: string | number | null | undefined;
   placeholder?: string;
   buttonLabel?: string;
   showButton?: boolean;
+  autofocus?: boolean;
 }>(), {
   placeholder: 'Buscar',
   buttonLabel: 'Buscar',
-  showButton: false
+  showButton: false,
+  autofocus: false
 });
 
 defineEmits<{
   'update:modelValue': [value: string];
   search: [];
 }>();
+
+defineExpose({
+  focus: () => input.value?.focus({ preventScroll: true })
+});
 </script>
 
 <template>
@@ -27,10 +37,12 @@ defineEmits<{
         </svg>
       </span>
       <input
+        ref="input"
         type="search"
+        :autofocus="autofocus"
         :value="modelValue ?? ''"
         :placeholder="placeholder"
-        class="block h-12 w-full rounded-full border border-blue-100 bg-white/90 py-0 pl-9 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised"
+        class="block h-12 w-full rounded-full border border-blue-100 bg-white/90 py-0 pl-9 text-base text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 md:text-sm dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised"
         :class="showButton ? 'pr-28' : 'pr-12'"
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
         @keydown.enter.prevent="$emit('search')"
