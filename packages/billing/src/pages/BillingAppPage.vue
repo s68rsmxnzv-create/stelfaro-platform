@@ -723,11 +723,9 @@ function navigateFromMenu(event, href) {
                   </a>
                   <a
                     :href="`${appBaseUrl || ''}/configuracion`"
-                    target="_blank"
-                    rel="noopener noreferrer"
                     class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text"
                     role="menuitem"
-                    @click="userMenuOpen = false"
+                    @click="navigateFromMenu($event, `${appBaseUrl || ''}/configuracion`)"
                   >
                     <svg class="h-5 w-5 text-slate-500 dark:text-soft" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                       <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
