@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue';
-import { Bell, CalendarClock, CheckCheck, FileClock, Trash2 } from 'lucide-vue-next';
+import { Bell, CalendarClock, CheckCheck, FileClock, Trash2, X } from 'lucide-vue-next';
 import { PlatformClient, type PlatformInternalNotification } from '@stelfaro/api-client';
 import { UiButton, UiStatusBadge } from '@stelfaro/ui';
 
@@ -17,7 +17,9 @@ const props = withDefaults(defineProps<{
 });
 
 const root = ref<HTMLElement | null>(null);
+const panel = ref<HTMLElement | null>(null);
 const open = ref(false);
+const mobileViewport = ref(false);
 const loading = ref(false);
 const notifications = ref<PlatformInternalNotification[]>([]);
 const unreadCount = ref(0);
@@ -25,10 +27,14 @@ const ringing = ref(false);
 let pollTimer: number | null = null;
 let ringTimer: number | null = null;
 let refreshing = false;
+let mobileMedia: MediaQueryList | null = null;
 
 const client = computed(() => new PlatformClient(props.platformBaseUrl, { credentials: 'include' }));
 
 onMounted(() => {
+  mobileMedia = window.matchMedia('(max-width: 767px)');
+  mobileViewport.value = mobileMedia.matches;
+  mobileMedia.addEventListener('change', syncMobileViewport);
   void load();
   pollTimer = window.setInterval(() => {
     if (!document.hidden) void load(true);
@@ -46,9 +52,18 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', refreshWhenVisible);
   window.removeEventListener('focus', refreshOnFocus);
   window.removeEventListener('keydown', closeOnEscape);
+  mobileMedia?.removeEventListener('change', syncMobileViewport);
+  document.body.style.overflow = '';
 });
 
 watch(() => [props.tenantId, props.scope], () => void load());
+watch([open, mobileViewport], ([isOpen, isMobile]) => {
+  document.body.style.overflow = isOpen && isMobile ? 'hidden' : '';
+});
+
+function syncMobileViewport(event: MediaQueryListEvent): void {
+  mobileViewport.value = event.matches;
+}
 
 async function load(silent = false): Promise<void> {
   if (refreshing || (props.scope === 'tenant' && !props.tenantId)) return;
@@ -134,7 +149,8 @@ async function removeNotification(notification: PlatformInternalNotification): P
 }
 
 function closeOutside(event: MouseEvent): void {
-  if (open.value && root.value && !root.value.contains(event.target as Node)) open.value = false;
+  const target = event.target as Node;
+  if (open.value && root.value && !root.value.contains(target) && !panel.value?.contains(target)) open.value = false;
 }
 
 function closeOnEscape(event: KeyboardEvent): void {
@@ -181,16 +197,27 @@ function createdLabel(value: string | null): string {
       <span v-if="unreadCount" class="absolute right-0.5 top-0.5 grid min-h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black leading-none text-white ring-2 ring-slate-950" :class="ringing ? 'animate-pulse' : ''">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
     </button>
 
-    <section v-if="open" class="absolute right-0 z-40 mt-3 w-[min(92vw,390px)] overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-950 shadow-2xl shadow-slate-950/20 dark:border-line dark:bg-surface dark:text-text" role="dialog" aria-label="Notificaciones internas">
-      <header class="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-line">
+    <Teleport to="body" :disabled="!mobileViewport">
+    <section
+      v-if="open"
+      ref="panel"
+      class="fixed inset-0 z-[100] flex flex-col overflow-hidden bg-white text-slate-950 dark:bg-surface dark:text-text md:absolute md:inset-auto md:right-0 md:z-40 md:mt-3 md:block md:w-[min(92vw,390px)] md:rounded-xl md:border md:border-slate-200 md:shadow-2xl md:shadow-slate-950/20 md:dark:border-line"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Notificaciones internas"
+    >
+      <header class="flex min-h-16 items-center justify-between gap-3 border-b border-slate-200 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] dark:border-line md:min-h-0 md:py-3">
         <div>
-          <p class="font-black">Notificaciones</p>
+          <p class="text-lg font-black md:text-base">Notificaciones</p>
           <p class="mt-0.5 text-xs text-slate-500 dark:text-muted">{{ unreadCount ? `${unreadCount} sin leer` : 'Todo al día' }}</p>
         </div>
-        <UiButton v-if="unreadCount" size="sm" variant="ghost" @click="markAllRead"><CheckCheck class="h-4 w-4" />Marcar leídas</UiButton>
+        <div class="flex items-center gap-1">
+          <UiButton v-if="unreadCount" size="sm" variant="ghost" @click="markAllRead"><CheckCheck class="h-4 w-4" /><span class="hidden min-[360px]:inline">Marcar leídas</span></UiButton>
+          <button type="button" class="grid h-11 w-11 place-items-center rounded-full text-slate-500 active:bg-slate-100 md:hidden dark:text-muted dark:active:bg-surface-muted" aria-label="Cerrar notificaciones" @click="open = false"><X class="h-6 w-6" /></button>
+        </div>
       </header>
 
-      <div class="max-h-[min(70vh,520px)] overscroll-contain overflow-y-auto">
+      <div class="min-h-0 flex-1 overscroll-contain overflow-y-auto pb-[env(safe-area-inset-bottom)] md:max-h-[min(70vh,520px)]">
         <p v-if="loading" class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted">Cargando notificaciones...</p>
         <div v-else-if="notifications.length === 0" class="px-5 py-10 text-center">
           <Bell class="mx-auto h-9 w-9 text-slate-300 dark:text-soft" />
@@ -218,5 +245,6 @@ function createdLabel(value: string | null): string {
         </article>
       </div>
     </section>
+    </Teleport>
   </div>
 </template>
