@@ -108,6 +108,7 @@ const pendingEmailToast = ref<Omit<BillingFloatingToast, 'id'> | null>(null);
 const pendingAutomaticPrintToast = ref<Omit<BillingFloatingToast, 'id'> | null>(null);
 const stationPreferenceVersion = ref(0);
 const mobileIssuerExpanded = ref(false);
+const mobileCustomerExpanded = ref(false);
 const mobileSourcePickerOpen = ref(false);
 type IssueLogEntry = {
   message: string;
@@ -2089,6 +2090,9 @@ function selectCustomerMode(mode: CustomerMode): void {
   }
 
   customerMode.value = mode;
+  if (mode === 'generic') {
+    mobileCustomerExpanded.value = false;
+  }
   if (mode === 'base') {
     customerSearchModalOpen.value = true;
   }
@@ -2195,6 +2199,7 @@ function applyQuickCustomer(payload: BillingCustomerModalPayload): void {
   form.customerMunicipality = payload.municipio ?? '';
   form.customerDistrict = payload.distrito ?? '';
   form.customerAddress = payload.direccion_complemento ?? '';
+  mobileCustomerExpanded.value = false;
 }
 
 async function handleCustomerModalSave(payload: BillingCustomerModalPayload): Promise<void> {
@@ -2280,6 +2285,7 @@ function applyCustomer(customer: BillingCustomer): void {
   customerSearch.value = customerSearchLabel(customer);
   customers.value = [];
   customerSearchModalOpen.value = false;
+  mobileCustomerExpanded.value = false;
 
   if (isCreditoFiscal.value && !isCustomerReadyForCreditoFiscal(customer)) {
     openFiscalComplement(customer);
@@ -3145,7 +3151,7 @@ function updatePaymentCondition(value: string): void {
         No hay empresas configuradas. Debes registrar empresa, sucursal, punto de venta y correlativos activos.
       </div>
 
-      <div v-else class="grid gap-6">
+      <div v-else class="grid gap-3 md:gap-6">
         <BillingReplacementNotice
           v-if="replacementSourceDocument && !replacementIssuedDocument"
           :source="replacementSourceDocument"
@@ -3259,35 +3265,35 @@ function updatePaymentCondition(value: string): void {
         </section>
 
         <div class="grid gap-3 md:hidden">
-          <section class="overflow-hidden rounded-2xl border border-blue-100/80 bg-white/90 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface">
+          <section class="border-b border-blue-100/80 bg-white/45 dark:border-line dark:bg-surface/45">
             <button
               type="button"
-              class="flex min-h-[4.5rem] w-full items-center gap-3 px-4 py-3 text-left active:bg-blue-50/70 dark:active:bg-surface-muted"
+              class="flex min-h-14 w-full items-center gap-3 px-1 py-2 text-left active:bg-blue-50/70 dark:active:bg-surface-muted"
               :aria-expanded="mobileIssuerExpanded"
               @click="mobileIssuerExpanded = !mobileIssuerExpanded"
             >
               <span
-                class="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-sm font-black"
+                class="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-black"
                 :class="correlativoPreview ? 'bg-emerald-50 text-emerald-700 dark:bg-success-soft dark:text-success' : 'bg-red-50 text-red-700 dark:bg-danger-soft dark:text-danger'"
               >
                 {{ selectedSucursal?.codigo?.slice(-2) || '—' }}
               </span>
               <span class="min-w-0 flex-1">
-                <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Sucursal activa</span>
-                <span class="mt-0.5 block truncate text-sm font-bold text-slate-950 dark:text-text">
+                <span class="block text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Sucursal</span>
+                <span class="block truncate text-sm font-bold text-slate-950 dark:text-text">
                   {{ selectedSucursal?.nombre || selectedEmpresa?.razon_social }}
                 </span>
-                <span class="mt-0.5 block truncate font-mono text-[11px] text-slate-500 dark:text-muted">
+                <span class="block truncate font-mono text-[10px] text-slate-500 dark:text-muted">
                   {{ correlativoLoading ? 'Consultando correlativo…' : correlativoPreview?.numero_control || 'Sin correlativo disponible' }}
                 </span>
               </span>
               <span class="shrink-0 text-right">
                 <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">{{ selectedPuntoVenta?.codigo || 'Sin PV' }}</span>
-                <span class="mt-1 block text-xs font-bold text-sky-700 dark:text-primary">{{ mobileIssuerExpanded ? 'Cerrar' : 'Ver / cambiar' }}</span>
+                <span class="block text-xs font-bold text-sky-700 dark:text-primary">{{ mobileIssuerExpanded ? 'Cerrar' : 'Cambiar' }}</span>
               </span>
             </button>
 
-            <div v-if="mobileIssuerExpanded" class="border-t border-slate-100 px-4 py-4 dark:border-line">
+            <div v-if="mobileIssuerExpanded" class="mb-2 rounded-xl border border-slate-100 bg-white px-3 py-3 dark:border-line dark:bg-surface">
               <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
                 <p><span class="block text-slate-500 dark:text-soft">Emisor</span><strong class="mt-0.5 block truncate text-slate-950 dark:text-text">{{ selectedEmpresa?.razon_social }}</strong></p>
                 <p><span class="block text-slate-500 dark:text-soft">Documento</span><strong class="mt-0.5 block text-slate-950 dark:text-text">{{ documentLabel }}</strong></p>
@@ -3319,49 +3325,52 @@ function updatePaymentCondition(value: string): void {
             </div>
 
             <template v-else>
-              <div class="mb-3 flex items-center justify-between px-1">
-                <div><h2 class="text-sm font-bold text-slate-950 dark:text-text">Cliente</h2><p class="text-xs text-slate-500 dark:text-muted">¿A quién se factura?</p></div>
-                <span v-if="customerMode === 'generic'" class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600 dark:bg-surface-muted dark:text-muted">Sin identificar</span>
-              </div>
-              <div class="grid grid-cols-2 gap-2">
+              <button type="button" class="flex min-h-12 w-full items-center gap-3 px-1 text-left" :aria-expanded="mobileCustomerExpanded" @click="mobileCustomerExpanded = !mobileCustomerExpanded">
+                <span class="min-w-0 flex-1">
+                  <span class="block text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Cliente</span>
+                  <strong class="block truncate text-sm text-slate-950 dark:text-text">{{ form.customerName || 'Consumidor final' }}</strong>
+                  <span class="block truncate text-xs text-slate-500 dark:text-muted">{{ customerSummary }}</span>
+                </span>
+                <span class="shrink-0 text-xs font-bold text-sky-700 dark:text-primary">{{ mobileCustomerExpanded ? 'Cerrar' : 'Cambiar' }}</span>
+              </button>
+              <div v-if="mobileCustomerExpanded" class="mt-3 border-t border-slate-100 pt-3 dark:border-line">
+                <div class="grid grid-cols-2 gap-2">
+                  <button
+                    v-for="mode in customerModes"
+                    :key="mode.key"
+                    class="min-h-11 rounded-xl px-2.5 py-2 text-xs font-semibold leading-tight transition active:scale-[0.98]"
+                    :class="customerModeButtonClass(mode)"
+                    :disabled="mode.key === 'generic' && requiresCustomerIdentificationByAmount"
+                    type="button"
+                    @click="selectCustomerMode(mode.key)"
+                  >
+                    {{ mode.label }}
+                  </button>
+                </div>
                 <button
-                  v-for="mode in customerModes"
-                  :key="mode.key"
-                  class="min-h-11 rounded-xl px-2.5 py-2 text-xs font-semibold leading-tight transition active:scale-[0.98]"
-                  :class="customerModeButtonClass(mode)"
-                  :disabled="mode.key === 'generic' && requiresCustomerIdentificationByAmount"
+                  v-if="customerMode === 'quick' || customerMode === 'new'"
                   type="button"
-                  @click="selectCustomerMode(mode.key)"
+                  class="mt-2 flex w-full items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5 text-left dark:bg-surface-muted"
+                  @click="customerMode === 'quick' ? customerModalMode = 'quick' : undefined"
                 >
-                  {{ mode.label }}
+                  <span class="min-w-0"><strong class="block truncate text-sm text-slate-950 dark:text-text">{{ form.customerName }}</strong><span class="block truncate text-xs text-slate-500 dark:text-muted">{{ customerSummary }}</span></span>
+                  <span v-if="customerMode === 'quick'" class="ml-2 shrink-0 text-xs font-bold text-sky-700 dark:text-primary">Editar</span>
                 </button>
               </div>
-              <button
-                v-if="customerMode === 'generic' || customerMode === 'quick' || customerMode === 'new'"
-                type="button"
-                class="mt-3 flex w-full items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5 text-left dark:bg-surface-muted"
-                @click="customerMode === 'quick' ? customerModalMode = 'quick' : undefined"
-              >
-                <span class="min-w-0"><strong class="block truncate text-sm text-slate-950 dark:text-text">{{ form.customerName || 'Consumidor final' }}</strong><span class="block truncate text-xs text-slate-500 dark:text-muted">{{ customerSummary }}</span></span>
-                <span v-if="customerMode === 'quick'" class="ml-2 shrink-0 text-xs font-bold text-sky-700 dark:text-primary">Editar</span>
-              </button>
             </template>
 
             <p v-if="requiresCustomerIdentificationByAmount && !hasRequiredCustomerIdentification" class="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">{{ customerIdentificationByAmountMessage }}</p>
           </section>
 
-          <section v-if="!isAdjustmentNote && supportsAdvancedPayments" class="rounded-2xl border border-blue-100/80 bg-white/90 p-3 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface">
-            <div class="flex min-h-14 items-center gap-3">
+          <section v-if="!isAdjustmentNote && supportsAdvancedPayments" class="rounded-2xl border border-blue-100/80 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface">
+            <div class="flex min-h-14 items-center gap-2">
               <button type="button" class="min-w-0 flex-1 text-left" @click="openPaymentModal">
                 <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Forma de pago</span>
                 <strong class="mt-0.5 block truncate text-sm text-slate-950 dark:text-text">{{ paymentConditionLabel }} · {{ paymentSummaryLabel }}</strong>
                 <span class="block text-xs" :class="paymentTotalMatches ? 'text-emerald-700 dark:text-success' : 'text-red-700 dark:text-danger'">{{ currency(paymentTotal) }} de {{ currency(totalLabel) }}</span>
               </button>
-              <button type="button" class="min-h-11 shrink-0 rounded-xl bg-sky-50 px-3 text-sm font-bold text-sky-700 active:bg-sky-100 dark:bg-primary-soft dark:text-primary" @click="openPaymentModal">Cambiar</button>
-            </div>
-            <div class="mt-2 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 dark:border-line">
-              <button type="button" class="min-h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-700 active:bg-slate-50 dark:border-line dark:text-text dark:active:bg-surface-muted" @click="setCashPayment">Pago contado</button>
-              <button type="button" class="min-h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-700 active:bg-slate-50 dark:border-line dark:text-text dark:active:bg-surface-muted" @click="observationsModalOpen = true">{{ form.observations.trim() ? 'Editar nota' : 'Agregar nota' }}</button>
+              <button type="button" class="min-h-10 shrink-0 rounded-xl bg-sky-50 px-3 text-xs font-bold text-sky-700 active:bg-sky-100 dark:bg-primary-soft dark:text-primary" @click="openPaymentModal">Cambiar</button>
+              <button type="button" class="min-h-10 shrink-0 rounded-xl px-2 text-xs font-bold text-slate-600 active:bg-slate-100 dark:text-muted dark:active:bg-surface-muted" @click="observationsModalOpen = true">{{ form.observations.trim() ? 'Nota ✓' : 'Nota' }}</button>
             </div>
           </section>
         </div>
@@ -3597,7 +3606,7 @@ function updatePaymentCondition(value: string): void {
         </div>
 
         <section
-          class="relative rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:text-text dark:shadow-surface"
+          class="relative rounded-2xl border border-blue-100/80 bg-white/90 p-3 shadow-sm shadow-blue-950/5 backdrop-blur md:rounded-md md:p-4 dark:border-line dark:bg-surface dark:text-text dark:shadow-surface"
           :class="catalogLineSuggestionsOpen ? 'z-40' : 'z-10'"
         >
           <div class="flex flex-wrap items-center justify-between gap-3">
@@ -3642,13 +3651,12 @@ function updatePaymentCondition(value: string): void {
               </template>
             </span>
 
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-3 gap-2">
               <UiInput v-model.number="draftLine.quantity" label="Cantidad" min="0.01" step="0.01" type="number" />
               <UiInput v-model.number="draftLine.unitPrice" :label="isSujetoExcluido ? 'Monto compra' : 'Precio'" min="0" step="0.01" type="number" />
               <UiInput
                 v-model.number="draftLine.discountPercent"
-                class="col-span-2"
-                :label="isSujetoExcluido ? 'Descuento' : 'Porcentaje descuento'"
+                :label="isSujetoExcluido ? 'Desc.' : 'Desc. %'"
                 :suffix="lineDiscountAmount(draftLine) > 0 ? `(-${currency(lineDiscountAmount(draftLine))})` : undefined"
                 max="100"
                 min="0"
@@ -3681,7 +3689,7 @@ function updatePaymentCondition(value: string): void {
                 </div>
               </article>
             </div>
-            <p v-else class="rounded-lg bg-slate-50 px-3 py-4 text-sm text-slate-500 dark:bg-surface-muted dark:text-muted">Aún no hay líneas agregadas.</p>
+            <p v-else class="rounded-lg bg-slate-50 px-3 py-3 text-center text-xs text-slate-500 dark:bg-surface-muted dark:text-muted">Agrega el primer producto o servicio.</p>
           </div>
 
           <div v-if="isAdjustmentNote" class="mt-4 grid gap-3 md:hidden">
