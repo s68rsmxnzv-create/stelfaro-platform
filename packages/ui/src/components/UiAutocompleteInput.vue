@@ -13,6 +13,7 @@ defineProps<{
   open?: boolean;
   loading?: boolean;
   emptyText?: string;
+  inlineEmpty?: boolean;
   hideLabel?: boolean;
   showSuffix?: boolean;
 }>();
@@ -45,8 +46,15 @@ defineEmits<{
       </span>
     </span>
 
+    <p
+      v-if="open && inlineEmpty && !loading && options.length === 0"
+      class="mt-1.5 px-1 text-xs text-slate-500 dark:text-muted"
+    >
+      {{ emptyText || 'Sin resultados.' }}
+    </p>
+
     <div
-      v-if="open"
+      v-if="open && (!inlineEmpty || loading || options.length > 0)"
       class="absolute z-[100] mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-blue-100 bg-white p-1.5 text-sm shadow-xl shadow-blue-950/15 dark:border-line dark:bg-surface-raised dark:shadow-black/35"
     >
       <div v-if="loading" class="px-3 py-3 text-xs font-medium text-slate-500 dark:text-muted">Buscando…</div>

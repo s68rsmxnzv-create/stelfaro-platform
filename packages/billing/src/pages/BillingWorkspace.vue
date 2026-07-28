@@ -3616,7 +3616,8 @@ function updatePaymentCondition(value: string): void {
               :options="catalogLineSuggestions"
               :open="catalogLineSuggestionsOpen && canUseCatalogLineSearch"
               :loading="catalogLineLoading"
-              :show-suffix="Boolean(draftLine.description.trim())"
+              inline-empty
+              :show-suffix="false"
               :placeholder="isSujetoExcluido ? 'Compra o servicio recibido' : 'Buscar catálogo o escribir descripción libre'"
               empty-text="Sin resultados. Se agregará como descripción libre."
               label="Descripción"
@@ -3625,23 +3626,21 @@ function updatePaymentCondition(value: string): void {
               @select="selectCatalogItemForDraft"
               @update:model-value="onDraftLineDescriptionInput"
             >
-              <template #suffix>
-                <span
-                  v-if="draftLine.description.trim()"
-                  class="inline-flex max-w-[9rem] truncate rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                  :class="lineOriginClass(draftLine)"
-                >
-                  {{ lineOriginLabel(draftLine) }}
-                  <template v-if="draftLine.lineOrigin === 'inventory' && branchStockForItem(draftLine.catalogItemId) !== null">
-                    · {{ formatStock(branchStockForItem(draftLine.catalogItemId) ?? 0) }}
-                  </template>
-                </span>
-              </template>
               <template #option="{ option: item }">
                 <span class="block font-semibold text-slate-950 dark:text-text">{{ item.name }}</span>
                 <span class="mt-0.5 block text-xs text-slate-500 dark:text-soft">{{ item.sku || 'Sin código' }} · {{ currency(item.base_price) }}</span>
               </template>
             </UiAutocompleteInput>
+            <span
+              v-if="draftLine.description.trim()"
+              class="-mt-1 inline-flex w-fit max-w-full truncate rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              :class="lineOriginClass(draftLine)"
+            >
+              {{ lineOriginLabel(draftLine) }}
+              <template v-if="draftLine.lineOrigin === 'inventory' && branchStockForItem(draftLine.catalogItemId) !== null">
+                · Disponible {{ formatStock(branchStockForItem(draftLine.catalogItemId) ?? 0) }}
+              </template>
+            </span>
 
             <div class="grid grid-cols-2 gap-3">
               <UiInput v-model.number="draftLine.quantity" label="Cantidad" min="0.01" step="0.01" type="number" />
