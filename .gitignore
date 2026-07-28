@@ -10,3 +10,8 @@ dist-ssr
 coverage
 playwright-report
 test-results
+
+# Artefactos locales y documentos de trabajo
+/storage/
+/Calendario-Tributario-*.pdf
+/*-*-*-*-*.json
