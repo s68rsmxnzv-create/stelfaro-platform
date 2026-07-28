@@ -61,14 +61,23 @@ onMounted(load);
 
       <p v-if="error" class="rounded-xl border border-danger bg-danger-soft px-4 py-3 text-sm text-danger">{{ error }}</p>
 
-      <a
-        :href="workshopEnabled ? `${base}/recepcion` : `${base}/facturacion/fe`"
-        class="flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-primary px-5 py-4 text-base font-bold text-primary-contrast shadow-lg shadow-primary/20 active:scale-[0.99]"
-      >
-        <Smartphone v-if="workshopEnabled" class="h-6 w-6" />
-        <FileCheck2 v-else class="h-6 w-6" />
-        {{ workshopEnabled ? 'Recibir nuevo equipo' : 'Crear nueva factura' }}
-      </a>
+      <section class="grid gap-3" :class="workshopEnabled ? 'grid-cols-2' : 'grid-cols-1'">
+        <a
+          v-if="workshopEnabled"
+          :href="`${base}/recepcion`"
+          class="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl bg-primary px-3 py-4 text-center text-sm font-bold text-primary-contrast shadow-lg shadow-primary/20 active:scale-[0.98]"
+        >
+          <Smartphone class="h-7 w-7" />
+          Recibir equipo
+        </a>
+        <a
+          :href="`${base}/facturacion/fe`"
+          class="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl bg-primary px-3 py-4 text-center text-sm font-bold text-primary-contrast shadow-lg shadow-primary/20 active:scale-[0.98]"
+        >
+          <FileCheck2 class="h-7 w-7" />
+          Emitir factura
+        </a>
+      </section>
 
       <section>
         <div class="mb-3 flex items-center justify-between">
@@ -194,14 +203,6 @@ onMounted(load);
         </div>
       </section>
 
-      <a
-        v-if="workshopEnabled"
-        :href="`${base}/facturacion/fe`"
-        class="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm font-semibold text-text active:bg-surface-muted"
-      >
-        <FileCheck2 class="h-5 w-5 text-primary" />
-        Crear factura
-      </a>
     </div>
 
     <div class="hidden space-y-5 md:block">
