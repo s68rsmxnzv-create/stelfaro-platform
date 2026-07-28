@@ -41,7 +41,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown));
         </span>
       </button>
     </div>
-    <div v-else class="mt-4 rounded-lg border border-dashed border-line bg-surface-muted px-4 py-8 text-center"><Images class="mx-auto h-8 w-8 text-muted" /><p class="mt-2 text-sm font-medium text-text">Aún no hay fotografías</p><p class="mt-1 text-xs text-muted">Después de subirlas desde el QR, pulsa Actualizar.</p></div>
+    <div v-else class="mt-4 rounded-lg border border-dashed border-line bg-surface-muted px-4 py-8 text-center"><Images class="mx-auto h-8 w-8 text-muted" /><p class="mt-2 text-sm font-medium text-text">Aún no hay fotografías</p><p class="mt-1 text-xs text-muted">Después de subirlas desde este u otro dispositivo, pulsa Actualizar.</p></div>
 
     <Teleport to="body">
       <div v-if="selected" class="fixed inset-0 z-50 grid place-items-center bg-black/85 p-4" role="dialog" aria-modal="true" aria-label="Vista ampliada de fotografía" @click.self="close">
