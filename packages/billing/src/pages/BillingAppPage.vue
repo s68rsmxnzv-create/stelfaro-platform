@@ -600,11 +600,11 @@ function navigateFromMenu(event, href) {
     />
   </div>
 
-  <div v-else class="relative min-h-screen overflow-x-hidden bg-app pt-16 text-slate-950 dark:text-text">
-    <div class="sf-app-background pointer-events-none fixed inset-x-0 bottom-0 top-16 z-0"></div>
+  <div v-else class="relative min-h-screen overflow-x-hidden bg-app pt-[calc(4rem+env(safe-area-inset-top))] text-slate-950 dark:text-text md:pt-16">
+    <div class="sf-app-background pointer-events-none fixed inset-x-0 bottom-0 top-[calc(4rem+env(safe-area-inset-top))] z-0 md:top-16"></div>
 
     <nav class="sf-app-navbar fixed inset-x-0 top-0 z-50 shadow-sm backdrop-blur">
-      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-7xl pb-0 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] md:px-6 md:pt-0 lg:px-8">
         <div class="flex h-16 items-center justify-between">
           <div class="flex items-center">
             <button
@@ -783,7 +783,7 @@ function navigateFromMenu(event, href) {
       <div
         v-if="mobileMenuOpen"
         id="billing-mobile-navigation"
-        class="fixed inset-x-0 bottom-0 top-16 z-40 md:hidden"
+        class="fixed inset-x-0 bottom-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 md:hidden"
       >
         <button
           class="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
