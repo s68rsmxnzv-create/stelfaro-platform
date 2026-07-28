@@ -15,6 +15,7 @@ const props = withDefaults(defineProps<{
   panelClass?: string;
   bodyClass?: string;
   zIndexClass?: string;
+  mobileFullscreen?: boolean;
 }>(), {
   eyebrow: null,
   description: null,
@@ -25,7 +26,8 @@ const props = withDefaults(defineProps<{
   panelAs: 'section',
   panelClass: '',
   bodyClass: 'px-5 py-5',
-  zIndexClass: 'z-50'
+  zIndexClass: 'z-50',
+  mobileFullscreen: false
 });
 
 const emit = defineEmits<{
@@ -69,19 +71,29 @@ onBeforeUnmount(() => {
     <div
       v-if="open"
       class="fixed inset-0 grid place-items-center overflow-y-auto bg-slate-950/45 px-4 py-6 backdrop-blur-sm"
-      :class="zIndexClass"
+      :class="[
+        zIndexClass,
+        mobileFullscreen ? 'place-items-stretch overflow-hidden p-0 md:place-items-center md:overflow-y-auto md:px-4 md:py-6' : ''
+      ]"
       @click.self="closeFromBackdrop"
     >
       <component
         :is="panelAs"
         class="flex w-full flex-col rounded-md border border-blue-100 bg-white shadow-2xl shadow-slate-950/25 dark:border-line dark:bg-surface dark:shadow-black/40"
-        :class="[maxWidth, panelClass]"
+        :class="[
+          maxWidth,
+          panelClass,
+          mobileFullscreen ? 'h-[100dvh] max-h-[100dvh] rounded-none border-0 md:h-auto md:max-h-[calc(100dvh-3rem)] md:rounded-md md:border' : ''
+        ]"
         role="dialog"
         aria-modal="true"
         :aria-label="title"
         @submit.prevent="emit('submit')"
       >
-        <header class="shrink-0 border-b border-slate-200 px-5 py-4 dark:border-line">
+        <header
+          class="shrink-0 border-b border-slate-200 px-5 py-4 dark:border-line"
+          :class="mobileFullscreen ? 'pt-[max(1rem,env(safe-area-inset-top))] md:pt-4' : ''"
+        >
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
               <p v-if="eyebrow" class="text-sm font-semibold uppercase tracking-wide text-sky-700 dark:text-primary">{{ eyebrow }}</p>
@@ -92,7 +104,7 @@ onBeforeUnmount(() => {
           </div>
         </header>
 
-        <div :class="bodyClass">
+        <div :class="[mobileFullscreen ? 'min-h-0 flex-1 overflow-hidden' : '', bodyClass]">
           <slot />
         </div>
 

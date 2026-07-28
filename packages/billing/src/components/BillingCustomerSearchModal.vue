@@ -41,10 +41,11 @@ function customerDocumentLabel(customer: BillingCustomer): string {
     eyebrow="Receptor"
     title="Buscar cliente guardado"
     max-width="max-w-2xl"
-    body-class="px-5 py-5"
+    mobile-fullscreen
+    body-class="flex min-h-0 flex-col px-4 py-3 md:block md:px-5 md:py-5"
     @close="emit('close')"
   >
-    <div class="relative">
+    <div class="relative shrink-0">
       <UiSearchInput
         :model-value="search"
         label="Cliente"
@@ -63,7 +64,7 @@ function customerDocumentLabel(customer: BillingCustomer): string {
       </button>
     </div>
 
-    <div v-if="results.length" class="mt-4 max-h-80 divide-y divide-slate-200 overflow-y-auto rounded-md border border-slate-200 bg-white dark:divide-line dark:border-line dark:bg-surface-raised">
+    <div v-if="results.length" class="mt-3 min-h-0 flex-1 divide-y divide-slate-200 overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white md:mt-4 md:max-h-80 md:flex-none md:rounded-md dark:divide-line dark:border-line dark:bg-surface-raised">
       <button
         v-for="customer in results"
         :key="customer.id"
