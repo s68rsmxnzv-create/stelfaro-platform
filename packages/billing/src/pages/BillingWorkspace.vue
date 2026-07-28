@@ -3265,40 +3265,39 @@ function updatePaymentCondition(value: string): void {
         </section>
 
         <div class="grid gap-3 md:hidden">
-          <section class="border-b border-blue-100/80 bg-white/45 dark:border-line dark:bg-surface/45">
+          <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm shadow-black/25">
             <button
               type="button"
-              class="flex min-h-14 w-full items-center gap-3 px-1 py-2 text-left active:bg-blue-50/70 dark:active:bg-surface-muted"
+              class="flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left active:bg-slate-800"
               :aria-expanded="mobileIssuerExpanded"
               @click="mobileIssuerExpanded = !mobileIssuerExpanded"
             >
               <span
                 class="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-black"
-                :class="correlativoPreview ? 'bg-emerald-50 text-emerald-700 dark:bg-success-soft dark:text-success' : 'bg-red-50 text-red-700 dark:bg-danger-soft dark:text-danger'"
+                :class="correlativoPreview ? 'bg-emerald-900 text-emerald-200' : 'bg-red-950 text-red-200'"
               >
                 {{ selectedSucursal?.codigo?.slice(-2) || '—' }}
               </span>
               <span class="min-w-0 flex-1">
-                <span class="block text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Sucursal</span>
-                <span class="block truncate text-sm font-bold text-slate-950 dark:text-text">
+                <span class="block text-[10px] font-bold uppercase tracking-wide text-slate-400">Sucursal</span>
+                <span class="block truncate text-sm font-bold text-white">
                   {{ selectedSucursal?.nombre || selectedEmpresa?.razon_social }}
                 </span>
-                <span class="block truncate font-mono text-[10px] text-slate-500 dark:text-muted">
-                  {{ correlativoLoading ? 'Consultando correlativo…' : correlativoPreview?.numero_control || 'Sin correlativo disponible' }}
+                <span class="block truncate font-mono text-[10px] text-slate-400">
+                  {{ selectedPuntoVenta?.codigo || 'Sin PV' }} · {{ correlativoLoading ? 'Consultando correlativo…' : correlativoPreview?.numero_control || 'Sin correlativo disponible' }}
                 </span>
               </span>
               <span class="shrink-0 text-right">
-                <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">{{ selectedPuntoVenta?.codigo || 'Sin PV' }}</span>
-                <span class="block text-xs font-bold text-sky-700 dark:text-primary">{{ mobileIssuerExpanded ? 'Cerrar' : 'Cambiar' }}</span>
+                <span class="block text-xs font-bold text-sky-300">{{ mobileIssuerExpanded ? 'Cerrar' : 'Cambiar' }}</span>
               </span>
             </button>
 
-            <div v-if="mobileIssuerExpanded" class="mb-2 rounded-xl border border-slate-100 bg-white px-3 py-3 dark:border-line dark:bg-surface">
+            <div v-if="mobileIssuerExpanded" class="border-t border-slate-700 bg-slate-950 px-3 py-3">
               <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
-                <p><span class="block text-slate-500 dark:text-soft">Emisor</span><strong class="mt-0.5 block truncate text-slate-950 dark:text-text">{{ selectedEmpresa?.razon_social }}</strong></p>
-                <p><span class="block text-slate-500 dark:text-soft">Documento</span><strong class="mt-0.5 block text-slate-950 dark:text-text">{{ documentLabel }}</strong></p>
-                <p><span class="block text-slate-500 dark:text-soft">Ambiente</span><strong class="mt-0.5 block text-slate-950 dark:text-text">{{ selectedEmpresa?.ambiente === '01' ? 'Producción' : 'Pruebas' }}</strong></p>
-                <p><span class="block text-slate-500 dark:text-soft">Punto de venta</span><strong class="mt-0.5 block text-slate-950 dark:text-text">{{ selectedPuntoVenta?.codigo || '—' }}</strong></p>
+                <p><span class="block text-slate-400">Emisor</span><strong class="mt-0.5 block truncate text-white">{{ selectedEmpresa?.razon_social }}</strong></p>
+                <p><span class="block text-slate-400">Documento</span><strong class="mt-0.5 block text-white">{{ documentLabel }}</strong></p>
+                <p><span class="block text-slate-400">Ambiente</span><strong class="mt-0.5 block text-white">{{ selectedEmpresa?.ambiente === '01' ? 'Producción' : 'Pruebas' }}</strong></p>
+                <p><span class="block text-slate-400">Punto de venta</span><strong class="mt-0.5 block text-white">{{ selectedPuntoVenta?.codigo || '—' }}</strong></p>
               </div>
               <div v-if="sucursales.length > 1 || puntosVenta.length > 1" class="mt-4 grid gap-3">
                 <UiSelect v-if="sucursales.length > 1" v-model.number="form.sucursalId" label="Cambiar sucursal" :options="sucursalOptions" />
