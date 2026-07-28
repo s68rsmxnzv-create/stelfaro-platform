@@ -2,8 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { CoreDteClient, type DteDraftSummary, type MhFiscalEventSummary, type PaginationMeta } from '@stelfaro/api-client';
 import { currency, fiscalDateTime } from '@stelfaro/shared';
-import { UiActionDropdown, UiActionMenuItem, UiCard, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiMailIcon, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
-import { Printer } from 'lucide-vue-next';
+import { UiActionDropdown, UiActionMenuItem, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiMailIcon, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
+import { Printer, SlidersHorizontal } from 'lucide-vue-next';
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
 import { dteFiscalTicketFromArtifact } from '../printing/dteFiscalTicket';
 import { sendSilentPrint } from '../printing/printJob';
@@ -49,6 +49,7 @@ const resendingEmailId = ref<number | null>(null);
 const printingId = ref<number | null>(null);
 const error = ref<string | null>(null);
 const query = ref('');
+const filtersOpen = ref(false);
 const tipoDte = ref('');
 const eventType = ref('');
 const documents = ref<DteDraftSummary[]>([]);
@@ -74,6 +75,12 @@ const currentMeta = computed(() => activeTab.value === 'dte' ? dteMeta.value : e
 const currentPage = computed(() => activeTab.value === 'dte' ? dtePage.value : eventPage.value);
 const resultCount = computed(() => currentMeta.value?.total ?? (activeTab.value === 'dte' ? documents.value.length : events.value.length));
 const paginationItems = computed<PageItem[]>(() => pageItems(currentMeta.value?.last_page ?? 1, currentPage.value));
+const activeFilterLabel = computed(() => {
+  const value = activeTab.value === 'dte' ? tipoDte.value : eventType.value;
+  const options = activeTab.value === 'dte' ? dteTypeOptions : artifactEventTypeOptions;
+
+  return options.find((option) => option.value === value)?.label ?? 'Todos';
+});
 
 onMounted(() => {
   void loadActiveTab();
@@ -438,16 +445,38 @@ function formatDate(value?: string | null): string {
     <p v-if="error" class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ error }}</p>
     <BillingFloatingToastStack :toasts="floatingToasts" />
 
-    <UiCard>
-      <div class="space-y-4 p-1">
-        <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_240px_120px] md:items-end">
+    <div class="rounded-2xl border border-line bg-surface p-3 shadow-sm md:rounded-lg md:p-5">
+      <div class="space-y-3">
+        <div class="flex items-end gap-2">
           <UiSearchInput
             v-model="query"
+            class="min-w-0 flex-1"
             :label="activeTab === 'dte' ? 'Buscar comprobante' : 'Buscar evento'"
             placeholder="Numero, codigo, sello, empresa o NIT"
             @search="loadActiveTab"
           />
 
+          <button
+            type="button"
+            class="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-line bg-surface-raised text-muted md:hidden"
+            :class="filtersOpen ? 'border-primary bg-primary-soft text-primary' : ''"
+            :aria-expanded="filtersOpen"
+            aria-label="Mostrar filtros"
+            @click="filtersOpen = !filtersOpen"
+          >
+            <SlidersHorizontal class="h-5 w-5" />
+            <span
+              v-if="activeFilterLabel !== 'Todos'"
+              class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary"
+            ></span>
+          </button>
+        </div>
+
+        <div
+          class="gap-3 md:grid md:grid-cols-[minmax(0,1fr)_240px_auto] md:items-end"
+          :class="filtersOpen ? 'grid' : 'hidden'"
+        >
+          <div class="hidden md:block"></div>
           <UiSelect
             v-if="activeTab === 'dte'"
             v-model="tipoDte"
@@ -462,16 +491,21 @@ function formatDate(value?: string | null): string {
             :options="artifactEventTypeOptions"
           />
 
-          <div class="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600">
-            <p class="text-xs font-semibold uppercase text-slate-500">Resultados</p>
-            <p class="mt-1 text-lg font-bold text-slate-950">{{ resultCount }}</p>
+          <div class="flex items-center justify-between rounded-xl bg-surface-raised px-3 py-2 text-sm text-muted md:block md:min-w-28 md:rounded-md">
+            <p class="text-xs font-semibold uppercase">Resultados</p>
+            <p class="text-base font-bold text-text md:mt-1 md:text-lg">{{ resultCount }}</p>
           </div>
         </div>
-      </div>
-    </UiCard>
 
-    <UiCard>
-      <div class="overflow-visible rounded-md border border-slate-200">
+        <div class="flex items-center justify-between px-1 text-xs text-muted md:hidden">
+          <span>{{ activeFilterLabel }}</span>
+          <strong>{{ resultCount }} {{ resultCount === 1 ? 'resultado' : 'resultados' }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="md:rounded-lg md:border md:border-line md:bg-surface md:p-5 md:shadow-sm">
+      <div class="overflow-visible md:rounded-md md:border md:border-line">
         <div
           v-if="activeTab === 'dte'"
           class="hidden grid-cols-[minmax(0,1.5fr)_160px_150px_96px] gap-4 rounded-t-md bg-slate-50 px-4 py-3 text-xs font-semibold uppercase text-slate-500 md:grid"
@@ -499,33 +533,38 @@ function formatDate(value?: string | null): string {
           {{ activeTab === 'dte' ? 'No hay comprobantes para mostrar.' : eventEmptyMessage() }}
         </div>
 
-        <div v-else-if="activeTab === 'dte'" class="divide-y divide-slate-100">
+        <div v-else-if="activeTab === 'dte'" class="space-y-3 md:divide-y md:divide-line md:space-y-0">
           <article
             v-for="document in documents"
             :key="document.id"
-            class="sf-interactive-row grid grid-cols-1 gap-3 px-4 py-4 md:grid-cols-[minmax(0,1.5fr)_160px_150px_96px] md:items-center"
+            class="sf-interactive-row relative grid grid-cols-1 gap-3 rounded-2xl border border-line bg-surface px-4 py-4 shadow-sm md:grid-cols-[minmax(0,1.5fr)_160px_150px_96px] md:items-center md:rounded-none md:border-0 md:bg-transparent md:shadow-none"
           >
-            <div class="min-w-0">
+            <div class="min-w-0 pr-12 md:pr-0">
               <p class="flex min-w-0 items-center gap-2 font-semibold text-slate-950">
                 <UiDocumentIcon class="h-5 w-5 shrink-0 text-sky-600" />
                 <span class="truncate">{{ document.numeroControl }}</span>
               </p>
               <p class="mt-1 truncate font-mono text-xs text-slate-500">{{ document.codigoGeneracion }}</p>
-              <p class="mt-2 text-xs font-semibold uppercase text-sky-700">{{ typeLabel(document.tipoDte) }}</p>
+              <p class="mt-2 text-xs font-semibold uppercase text-primary">{{ typeLabel(document.tipoDte) }}</p>
             </div>
 
-            <div>
-              <p class="text-sm text-slate-600">{{ formatDate(document.processed_at ?? document.created_at) }}</p>
-              <p class="mt-1 text-sm font-semibold text-slate-900">{{ currency(document.totalPagar ?? 0) }}</p>
+            <div class="flex items-end justify-between gap-3 md:block">
+              <div>
+                <p class="text-xs text-muted md:text-sm">{{ formatDate(document.processed_at ?? document.created_at) }}</p>
+                <p class="mt-1 text-lg font-bold text-text md:text-sm md:font-semibold">{{ currency(document.totalPagar ?? 0) }}</p>
+              </div>
+              <UiStatusBadge class="md:hidden" :tone="documentStatusTone(document.estado)">
+                {{ documentStatusLabel(document.estado) }}
+              </UiStatusBadge>
             </div>
 
-            <div>
+            <div class="hidden md:block">
               <UiStatusBadge :tone="documentStatusTone(document.estado)">
                 {{ documentStatusLabel(document.estado) }}
               </UiStatusBadge>
             </div>
 
-            <UiActionDropdown label="Abrir acciones del comprobante" menu-width="w-52">
+            <UiActionDropdown class="absolute right-3 top-3 md:static" label="Abrir acciones del comprobante" menu-width="w-52">
               <button
                 type="button"
                 class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
@@ -567,24 +606,24 @@ function formatDate(value?: string | null): string {
           </article>
         </div>
 
-        <div v-else class="divide-y divide-slate-100">
+        <div v-else class="space-y-3 md:divide-y md:divide-line md:space-y-0">
           <article
             v-for="event in events"
             :key="event.id"
-            class="sf-interactive-row grid grid-cols-1 gap-3 px-4 py-4 md:grid-cols-[minmax(0,1.5fr)_160px_96px] md:items-center"
+            class="sf-interactive-row relative grid grid-cols-1 gap-3 rounded-2xl border border-line bg-surface px-4 py-4 shadow-sm md:grid-cols-[minmax(0,1.5fr)_160px_96px] md:items-center md:rounded-none md:border-0 md:bg-transparent md:shadow-none"
           >
-            <div class="min-w-0">
+            <div class="min-w-0 pr-12 md:pr-0">
               <p class="flex min-w-0 items-center gap-2 font-semibold text-slate-950">
                 <UiDocumentIcon class="h-5 w-5 shrink-0 text-sky-600" />
                 <span class="truncate">{{ event.numeroControl ?? event.codigoGeneracion ?? `Evento ${event.id}` }}</span>
               </p>
               <p class="mt-1 truncate font-mono text-xs text-slate-500">{{ event.codigoGeneracion }}</p>
-              <p class="mt-2 text-xs font-semibold uppercase text-sky-700">{{ eventLabel(event.eventType) }}</p>
+              <p class="mt-2 text-xs font-semibold uppercase text-primary">{{ eventLabel(event.eventType) }}</p>
             </div>
 
             <p class="text-sm text-slate-600">{{ formatDate(event.processed_at ?? event.created_at) }}</p>
 
-            <UiActionDropdown label="Abrir acciones del evento" menu-width="w-48">
+            <UiActionDropdown class="absolute right-3 top-3 md:static" label="Abrir acciones del evento" menu-width="w-48">
               <button
                 type="button"
                 class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
@@ -610,9 +649,9 @@ function formatDate(value?: string | null): string {
 
         <div
           v-if="currentMeta && currentMeta.total > 0"
-          class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+          class="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-3 py-3 md:mt-0 md:rounded-none md:border-x-0 md:border-b-0 md:bg-surface-raised md:px-4 md:py-4"
         >
-          <p class="text-sm text-slate-600">
+          <p class="text-sm text-muted">
             {{ currentMeta.from }}-{{ currentMeta.to }} de {{ currentMeta.total }}
           </p>
 
@@ -664,6 +703,6 @@ function formatDate(value?: string | null): string {
           </nav>
         </div>
       </div>
-    </UiCard>
+    </div>
   </section>
 </template>
