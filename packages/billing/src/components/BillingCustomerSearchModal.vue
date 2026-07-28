@@ -37,7 +37,7 @@ function customerDocumentLabel(customer: BillingCustomer): string {
 }
 
 watch(() => props.open, async (open) => {
-  if (!open || !window.matchMedia('(max-width: 767px)').matches) return;
+  if (!open) return;
   await nextTick();
   searchInput.value?.focus();
 });
