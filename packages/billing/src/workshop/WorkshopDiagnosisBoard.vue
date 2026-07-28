@@ -4,7 +4,7 @@ import { CheckCircle2, ChevronRight, ClipboardCheck, HandCoins, Microscope, Play
 import { UiButton, UiCard, UiInput, UiSelect, UiStatusBadge, UiTextarea } from '@stelfaro/ui';
 import type { WorkshopOrder } from '@stelfaro/api-client';
 
-defineProps<{ orders: WorkshopOrder[] }>();
+withDefaults(defineProps<{ orders: WorkshopOrder[]; embedded?: boolean }>(), { embedded: false });
 const emit = defineEmits<{ update: [id: number, payload: Record<string, unknown>] }>();
 const drafts = reactive<Record<number, { diagnosis: string; estimatedTotal: string; approvalMethod: string; approvalNotes: string; paymentAmount: string; paymentMethod: 'cash'|'card'|'transfer'|'other'; paymentReference: string }>>({});
 const saving = ref<number | null>(null);
@@ -36,18 +36,18 @@ function decide(order: WorkshopOrder, decision: 'approved' | 'rejected') {
 
 <template>
   <div class="grid gap-4">
-    <UiCard v-for="order in orders" :key="order.id" class="border-0 p-0 shadow-none md:border md:p-6 md:shadow-sm">
-      <div class="hidden flex-wrap items-start justify-between gap-3 md:flex">
+    <UiCard v-for="order in orders" :key="order.id" class="border-0 p-0 shadow-none" :class="embedded ? '' : 'md:border md:p-6 md:shadow-sm'">
+      <div v-if="!embedded" class="hidden flex-wrap items-start justify-between gap-3 md:flex">
         <div class="flex gap-3"><Microscope class="mt-1 h-5 w-5 shrink-0 text-primary" /><div><p class="font-semibold text-text">{{ order.ticket }} · {{ order.device.brand }} {{ order.device.model }}</p><p class="mt-1 text-sm text-muted">{{ order.customer.name }} · {{ order.reported_fault }}</p></div></div>
         <UiStatusBadge :tone="statusTone(order.status)">{{ statusLabels[order.status] || order.status }}</UiStatusBadge>
       </div>
 
-      <div class="flex items-center justify-between gap-3 md:hidden">
+      <div v-if="!embedded" class="flex items-center justify-between gap-3 md:hidden">
         <p class="text-sm font-bold text-text">{{ statusLabels[order.status] || order.status }}</p>
         <UiStatusBadge :tone="statusTone(order.status)">Paso actual</UiStatusBadge>
       </div>
 
-      <details class="mt-3 rounded-xl border border-line bg-surface-muted px-3 py-2 md:hidden">
+      <details v-if="!embedded" class="mt-3 rounded-xl border border-line bg-surface-muted px-3 py-2 md:hidden">
         <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted">Datos de recepción</summary>
         <p class="mt-3 text-xs font-semibold uppercase tracking-wide text-muted">Falla reportada</p>
         <p class="mt-1 text-sm text-text">{{ order.reported_fault }}</p>
@@ -57,7 +57,7 @@ function decide(order: WorkshopOrder, decision: 'approved' | 'rejected') {
         </template>
       </details>
 
-      <details v-if="Object.keys(order.device.functional_tests).length" class="mt-5 hidden border-t border-line pt-4 md:block" open>
+      <details v-if="!embedded && Object.keys(order.device.functional_tests).length" class="mt-5 hidden border-t border-line pt-4 md:block" open>
         <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted">Pruebas de recepción</summary>
         <div class="mt-2 flex flex-wrap gap-2"><UiStatusBadge v-for="(result, test) in order.device.functional_tests" :key="test" :tone="result === 'passed' ? 'success' : result === 'failed' ? 'danger' : 'neutral'">{{ testLabels[test] || test }}: {{ resultLabels[result] || result }}</UiStatusBadge></div>
       </details>
