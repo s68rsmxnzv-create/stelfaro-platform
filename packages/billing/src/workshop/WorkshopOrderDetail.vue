@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { CircleDollarSign, Images, KeyRound, Package, Smartphone, UserRound, Wrench } from 'lucide-vue-next';
+import { CircleDollarSign, Clock3, Images, KeyRound, Package, Smartphone, UserRound, Wrench } from 'lucide-vue-next';
 import { UiModalShell, UiStatusBadge } from '@stelfaro/ui';
 import type { WorkshopOrder, WorkshopOrderPhoto } from '@stelfaro/api-client';
 import WorkshopPhotoGallery from './WorkshopPhotoGallery.vue';
@@ -28,9 +28,16 @@ const money = (value: number) => new Intl.NumberFormat('es-SV', { style: 'curren
 <template>
   <UiModalShell mobile-fullscreen :open="Boolean(order)" :title="order?.ticket || 'Orden'" :description="order ? `${order.customer.name} · ${order.device.brand} ${order.device.model}` : null" max-width="max-w-6xl" @close="$emit('close')">
     <div v-if="order" class="-mx-1 px-1 md:max-h-[75vh] md:overflow-y-auto">
-      <div class="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface-muted p-3 sm:p-4">
-        <div><p class="text-sm text-muted">Estado actual</p><UiStatusBadge class="mt-1" :tone="statusTone(order.status)">{{ statusLabels[order.status] || order.status }}</UiStatusBadge></div>
-        <div class="text-right"><p class="text-xs text-muted sm:text-sm">Ingreso</p><p class="text-sm font-semibold text-text sm:text-base">{{ new Date(order.received_at).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' }) }}</p></div>
+      <div class="flex min-h-10 items-center justify-between gap-3 px-1 md:rounded-xl md:border md:border-line md:bg-surface-muted md:p-4">
+        <div>
+          <p class="hidden text-sm text-muted md:block">Estado actual</p>
+          <UiStatusBadge class="md:mt-1" :tone="statusTone(order.status)">{{ statusLabels[order.status] || order.status }}</UiStatusBadge>
+        </div>
+        <div class="flex items-center gap-1.5 text-right text-sm text-muted md:block">
+          <Clock3 class="h-4 w-4 md:hidden" />
+          <p class="hidden text-sm text-muted md:block">Ingreso</p>
+          <p class="font-medium text-text md:font-semibold">{{ new Date(order.received_at).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' }) }}</p>
+        </div>
       </div>
 
       <nav class="sticky top-0 z-10 -mx-1 mt-3 grid grid-cols-4 gap-1 border-y border-line bg-surface/95 px-1 py-2 backdrop-blur md:hidden" aria-label="Secciones de la orden">
