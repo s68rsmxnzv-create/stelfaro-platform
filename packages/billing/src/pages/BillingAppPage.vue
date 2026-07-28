@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { CoreDteClient } from '@stelfaro/api-client';
-import { CircleQuestionMark, Download, Menu, X } from 'lucide-vue-next';
+import { CircleQuestionMark, ClipboardList, Download, FileText, Home, Menu, X } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingAppNav from '../components/BillingAppNav.vue';
 import BillingHelpModal from '../components/BillingHelpModal.vue';
@@ -387,6 +387,7 @@ const selectedComponentProps = computed(() => {
   return baseProps;
 });
 const dashboardHref = computed(() => props.dashboardUrl || props.appBaseUrl || '/');
+const mobileInvoiceHref = computed(() => `${props.appBaseUrl.replace(/\/$/, '')}/facturacion/fe`);
 const pageTitle = computed(() => {
   if (props.module === 'dashboard') return 'Dashboard';
   if (props.module === 'operational-placeholder') return props.operationalPage?.title ?? props.app.name;
@@ -790,15 +791,41 @@ function navigateFromMenu(event, href) {
           aria-label="Cerrar navegación"
           @click="mobileMenuOpen = false"
         />
-        <div class="sf-app-navbar relative h-full w-[min(88vw,22rem)] overflow-y-auto border-r border-white/10 px-3 py-4 shadow-2xl shadow-black/40">
-          <a
-            :href="dashboardHref"
-            class="mb-2 block rounded-lg px-3 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
-            :class="module === 'dashboard' ? 'bg-sky-500 text-white shadow-sm shadow-sky-950/20' : ''"
-            @click="navigate($event, dashboardHref)"
-          >
-            Dashboard
-          </a>
+        <div class="sf-app-navbar relative h-full w-full overflow-y-auto px-4 pb-8 pt-5 shadow-2xl shadow-black/40">
+          <p class="mb-3 px-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Accesos rápidos</p>
+          <div class="mb-7 grid grid-cols-2 gap-2">
+            <a
+              :href="dashboardHref"
+              class="flex min-h-24 flex-col justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-bold text-white transition active:scale-[0.98] active:bg-white/10"
+              :class="module === 'dashboard' ? 'border-sky-400/60 bg-sky-500/20 text-sky-100' : ''"
+              @click="navigate($event, dashboardHref)"
+            >
+              <Home class="h-6 w-6 text-sky-400" />
+              Dashboard
+            </a>
+            <a
+              v-for="item in extraNavItems"
+              :key="item.href"
+              :href="item.href"
+              class="flex min-h-24 flex-col justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-bold text-white transition active:scale-[0.98] active:bg-white/10"
+              :class="item.active ? 'border-sky-400/60 bg-sky-500/20 text-sky-100' : ''"
+              @click="navigate($event, item.href)"
+            >
+              <ClipboardList class="h-6 w-6 text-sky-400" />
+              {{ item.label }}
+            </a>
+            <a
+              :href="mobileInvoiceHref"
+              class="flex min-h-24 flex-col justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-bold text-white transition active:scale-[0.98] active:bg-white/10"
+              :class="module === 'billing' && documentSlug === 'fe' ? 'border-sky-400/60 bg-sky-500/20 text-sky-100' : ''"
+              @click="navigate($event, mobileInvoiceHref)"
+            >
+              <FileText class="h-6 w-6 text-sky-400" />
+              Emitir factura
+            </a>
+          </div>
+
+          <p class="mb-2 px-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Más opciones</p>
           <BillingAppNav
             mobile
             :auth-token="authToken"
@@ -806,7 +833,7 @@ function navigateFromMenu(event, href) {
             :document-slug="documentSlug"
             :event-slug="eventSlug"
             :artifact-slug="artifactSlug"
-            :extra-nav-items="extraNavItems"
+            :extra-nav-items="[]"
             :module="module"
             :app-base-url="appBaseUrl"
             :billing-context-cache-scope="billingContextCacheScope"
@@ -818,7 +845,7 @@ function navigateFromMenu(event, href) {
 
     <header
       class="relative z-10 border-b border-blue-100/70 bg-white/85 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:shadow-black/20"
-      :class="['dashboard', 'billing', 'workshop-reception'].includes(module) ? 'hidden md:block' : ''"
+      :class="['dashboard', 'billing', 'workshop-reception', 'workshop-orders'].includes(module) ? 'hidden md:block' : ''"
     >
       <div
         class="mx-auto max-w-7xl"

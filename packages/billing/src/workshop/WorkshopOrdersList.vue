@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
-import { Camera, ChevronLeft, ChevronRight, ClipboardCheck, FileText, HandCoins, MessageCircle, Microscope, PackageCheck, Printer, XCircle } from 'lucide-vue-next';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { Camera, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, FileText, Filter, HandCoins, MessageCircle, Microscope, PackageCheck, Printer, RotateCcw, XCircle } from 'lucide-vue-next';
 import { UiActionDropdown, UiActionMenuItem, UiButton, UiCard, UiInput, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import type { WorkshopOrder } from '@stelfaro/api-client';
 import { workshopWhatsAppUrl } from './workshopWhatsApp';
@@ -13,6 +13,7 @@ const priority = ref('');
 const paymentStatus = ref('');
 const dateFrom = ref('');
 const dateTo = ref('');
+const filtersOpen = ref(false);
 let timer: ReturnType<typeof setTimeout> | null = null;
 const statusOptions = [
   { value: '', label: 'Todas' }, { value: 'received', label: 'Recibidas' }, { value: 'diagnosing', label: 'Diagnóstico' },
@@ -20,11 +21,13 @@ const statusOptions = [
   { value: 'ready', label: 'Listas' }, { value: 'delivered', label: 'Entregadas' }, { value: 'cancelled', label: 'Canceladas' },
 ];
 const quickStatuses = [{ value: 'received', label: 'Recibidas' }, { value: 'awaiting_approval', label: 'Por aprobar' }, { value: 'ready', label: 'Listas' }];
+const activeFilterCount = computed(() => [status.value, priority.value, paymentStatus.value, dateFrom.value, dateTo.value].filter(Boolean).length);
 const labels: Record<string, string> = { received: 'Recibido', diagnosing: 'Diagnóstico', awaiting_approval: 'Por aprobar', approved: 'Aprobado', repairing: 'En reparación', ready: 'Listo', delivered: 'Entregado', cancelled: 'Cancelado' };
 function params(page = 1) { return { q: query.value || undefined, status: status.value || undefined, priority: priority.value || undefined, payment_status: paymentStatus.value || undefined, date_from: dateFrom.value || undefined, date_to: dateTo.value || undefined, page, per_page: props.meta.per_page }; }
 function searchLater() { if (timer) clearTimeout(timer); timer = setTimeout(() => emit('search', params()), 300); }
 function apply() { emit('search', params()); }
 function chooseStatus(value: string) { status.value = value; apply(); }
+function clearFilters() { status.value = ''; priority.value = ''; paymentStatus.value = ''; dateFrom.value = ''; dateTo.value = ''; apply(); }
 function age(date: string) { const days = Math.floor((Date.now() - new Date(date).getTime()) / 86400000); return days <= 0 ? 'Hoy' : days === 1 ? '1 día' : `${days} días`; }
 function sendWhatsApp(order: WorkshopOrder) { const url = workshopWhatsAppUrl(order); if (url) window.open(url, '_blank', 'noopener'); }
 function workActionLabel(status: string) { return status === 'received' ? 'Iniciar diagnóstico' : status === 'diagnosing' ? 'Continuar diagnóstico' : status === 'awaiting_approval' ? 'Registrar respuesta del cliente' : status === 'approved' ? 'Iniciar reparación' : 'Gestionar reparación'; }
@@ -42,7 +45,104 @@ onMounted(() => {
 
 <template>
   <div class="space-y-4">
-    <UiCard class="overflow-hidden">
+    <div class="space-y-3 md:hidden">
+      <header class="flex items-end justify-between gap-3 px-1 pb-1">
+        <div>
+          <h1 class="text-2xl font-black tracking-tight text-text">Órdenes</h1>
+          <p class="mt-0.5 text-sm text-muted">Gestiona el taller desde aquí</p>
+        </div>
+        <span class="rounded-full bg-primary-soft px-3 py-1 text-xs font-bold text-primary">{{ meta.total }}</span>
+      </header>
+
+      <section class="px-1">
+        <UiSearchInput v-model="query" label="Buscar órdenes" placeholder="Ticket, cliente, equipo o teléfono" :show-button="false" @update:model-value="searchLater" @search="apply" />
+      </section>
+
+      <section class="grid grid-cols-3 gap-2">
+        <button
+          v-for="option in quickStatuses"
+          :key="option.value"
+          type="button"
+          class="min-h-16 rounded-xl border px-2 py-2 text-center transition active:scale-[0.98]"
+          :class="status === option.value ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-surface text-muted'"
+          @click="chooseStatus(status === option.value ? '' : option.value)"
+        >
+          <strong class="block text-xl text-text">{{ stats[option.value] || 0 }}</strong>
+          <span class="mt-0.5 block text-xs font-semibold">{{ option.label }}</span>
+        </button>
+      </section>
+
+      <section class="overflow-hidden rounded-xl border border-line bg-surface">
+        <button type="button" class="flex min-h-12 w-full items-center gap-3 px-4 text-left" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">
+          <Filter class="h-5 w-5 text-primary" />
+          <span class="flex-1 text-sm font-bold text-text">Filtros</span>
+          <span v-if="activeFilterCount" class="grid min-h-6 min-w-6 place-items-center rounded-full bg-primary px-1.5 text-xs font-black text-primary-contrast">{{ activeFilterCount }}</span>
+          <ChevronDown class="h-5 w-5 text-muted transition" :class="filtersOpen ? 'rotate-180' : ''" />
+        </button>
+        <div v-if="filtersOpen" class="grid gap-3 border-t border-line bg-surface-muted/40 p-3">
+          <UiSelect v-model="status" label="Estado" :options="statusOptions" @update:model-value="apply" />
+          <div class="grid grid-cols-2 gap-3">
+            <UiSelect v-model="priority" label="Prioridad" :options="[{value:'',label:'Todas'},{value:'urgent',label:'Urgente'},{value:'high',label:'Alta'},{value:'normal',label:'Normal'},{value:'low',label:'Baja'}]" @update:model-value="apply" />
+            <UiSelect v-model="paymentStatus" label="Cobro" :options="[{value:'',label:'Todos'},{value:'receivable',label:'Por cobrar'}]" @update:model-value="apply" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <UiInput v-model="dateFrom" type="date" label="Desde" @change="apply" />
+            <UiInput v-model="dateTo" type="date" label="Hasta" @change="apply" />
+          </div>
+          <button v-if="activeFilterCount" type="button" class="flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold text-muted active:bg-surface" @click="clearFilters"><RotateCcw class="h-4 w-4" />Limpiar filtros</button>
+        </div>
+      </section>
+
+      <p class="px-1 text-xs font-medium text-muted">{{ meta.total }} orden{{ meta.total === 1 ? '' : 'es' }} encontrada{{ meta.total === 1 ? '' : 's' }}</p>
+
+      <section v-if="orders.length" class="grid gap-3">
+        <article v-for="order in orders" :key="order.id" class="rounded-2xl border border-line bg-surface shadow-sm">
+          <button type="button" class="block w-full px-4 pb-3 pt-4 text-left active:bg-surface-muted" @click="$emit('select', order)">
+            <span class="flex items-start justify-between gap-3">
+              <span class="min-w-0">
+                <span class="flex flex-wrap items-center gap-2">
+                  <strong class="text-base text-primary">{{ order.ticket }}</strong>
+                  <UiStatusBadge :tone="statusTone(order.status)">{{ labels[order.status] || order.status }}</UiStatusBadge>
+                </span>
+                <strong class="mt-2 block truncate text-base text-text">{{ order.customer.name }}</strong>
+                <span class="mt-0.5 block truncate text-sm text-muted">{{ order.device.brand }} {{ order.device.model }} · {{ order.reception.equipment_label }}</span>
+              </span>
+              <span class="shrink-0 text-right">
+                <strong class="block text-base" :class="order.balance > 0 ? 'text-warning' : 'text-text'">${{ order.balance.toFixed(2) }}</strong>
+                <span class="mt-1 block text-xs text-muted">{{ age(order.received_at) }}</span>
+              </span>
+            </span>
+            <span class="mt-3 block rounded-xl bg-surface-muted px-3 py-2 text-sm leading-5 text-text">{{ order.reported_fault }}</span>
+            <span v-if="order.financial.closed_at" class="mt-2 block text-xs" :class="order.balance > 0 ? 'text-warning' : 'text-success'">{{ order.balance > 0 ? 'Cerrada · saldo pendiente' : order.billing.status === 'invoiced' ? 'Facturada' : 'Cerrada · sin facturar' }}</span>
+          </button>
+
+          <div class="flex items-center gap-2 border-t border-line px-3 py-2.5" @click.stop>
+            <UiButton class="min-h-11 flex-1 justify-center" size="sm" variant="secondary" @click="$emit('select', order)">Ver orden</UiButton>
+            <UiActionDropdown :label="`Acciones de ${order.ticket} ${order.reception.equipment_label}`">
+              <UiActionMenuItem v-if="['received','diagnosing','awaiting_approval','approved','repairing'].includes(order.status)" @select="$emit('diagnose', order)"><template #icon><Microscope class="h-4 w-4" /></template>{{ workActionLabel(order.status) }}</UiActionMenuItem>
+              <UiActionMenuItem v-if="!order.financial.closed_at && ['received','diagnosing','awaiting_approval','approved','repairing','ready'].includes(order.status)" class="text-danger" @select="$emit('cancel', order)"><template #icon><XCircle class="h-4 w-4" /></template>Cancelar orden</UiActionMenuItem>
+              <UiActionMenuItem v-if="order.status === 'ready' && order.financial.status !== 'settled'" @select="$emit('settle', order)"><template #icon><PackageCheck class="h-4 w-4" /></template>Entregar y cerrar</UiActionMenuItem>
+              <UiActionMenuItem v-if="order.status === 'cancelled' && order.financial.status !== 'settled'" @select="$emit('settle', order)"><template #icon><HandCoins class="h-4 w-4" /></template>{{ order.paid_total > 0 ? 'Resolver cancelación' : 'Cerrar cancelación' }}</UiActionMenuItem>
+              <UiActionMenuItem v-if="!order.financial.closed_at && order.estimated_total !== null && order.balance > 0 && order.status !== 'cancelled'" @select="$emit('pay', order)"><template #icon><HandCoins class="h-4 w-4" /></template>Registrar anticipo</UiActionMenuItem>
+              <UiActionMenuItem v-if="order.financial.closed_at && order.balance > 0 && order.status !== 'cancelled'" @select="$emit('pay', order)"><template #icon><HandCoins class="h-4 w-4" /></template>Registrar pago</UiActionMenuItem>
+              <UiActionMenuItem v-if="order.financial.closed_at && order.billing.status !== 'invoiced' && order.status !== 'cancelled'" @select="$emit('invoice', order)"><template #icon><FileText class="h-4 w-4" /></template>Facturar orden</UiActionMenuItem>
+              <UiActionMenuItem :disabled="!order.customer.phone" @select="sendWhatsApp(order)"><template #icon><MessageCircle class="h-4 w-4" /></template>Reenviar por WhatsApp</UiActionMenuItem>
+              <UiActionMenuItem @select="$emit('printReception', order)"><template #icon><ClipboardCheck class="h-4 w-4" /></template>Reimprimir recepción</UiActionMenuItem>
+              <UiActionMenuItem v-if="order.financial.closed_at" @select="$emit('print', order)"><template #icon><Printer class="h-4 w-4" /></template>{{ order.billing.status === 'invoiced' && order.billing.core_document_id ? 'Reimprimir DTE' : 'Imprimir orden cerrada' }}</UiActionMenuItem>
+              <UiActionMenuItem @select="$emit('addPhotos', order)"><template #icon><Camera class="h-4 w-4" /></template>{{ order.photo_count ? 'Agregar fotos' : 'Agregar primera foto' }}</UiActionMenuItem>
+            </UiActionDropdown>
+          </div>
+        </article>
+      </section>
+      <p v-else class="rounded-2xl border border-dashed border-line bg-surface px-4 py-10 text-center text-sm text-muted">No encontramos órdenes con estos filtros.</p>
+
+      <div v-if="meta.last_page > 1" class="grid grid-cols-2 gap-2 pt-1">
+        <UiButton class="w-full justify-center" variant="secondary" :disabled="loading || meta.current_page <= 1" @click="$emit('search', params(meta.current_page - 1))"><ChevronLeft class="mr-1 h-4 w-4" />Anterior</UiButton>
+        <UiButton class="w-full justify-center" variant="secondary" :disabled="loading || meta.current_page >= meta.last_page" @click="$emit('search', params(meta.current_page + 1))">Siguiente<ChevronRight class="ml-1 h-4 w-4" /></UiButton>
+      </div>
+    </div>
+
+    <UiCard class="hidden overflow-hidden md:block">
       <div class="border-b border-line p-5">
         <UiSearchInput v-model="query" label="Buscar órdenes" placeholder="Ticket, cliente, teléfono, equipo, IMEI, serie o falla" show-button button-label="Buscar" @update:model-value="searchLater" @search="apply" />
         <div class="mt-4 flex flex-wrap items-center gap-2"><span class="mr-1 text-xs font-semibold uppercase tracking-wide text-muted">Atajos</span><button v-for="option in quickStatuses" :key="option.value" type="button" class="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition" :class="status === option.value ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-surface text-muted hover:border-primary/50'" @click="chooseStatus(status === option.value ? '' : option.value)"><span>{{ option.label }}</span><strong class="rounded-full bg-surface-muted px-1.5 py-0.5 text-xs text-text">{{ stats[option.value] || 0 }}</strong></button></div>
