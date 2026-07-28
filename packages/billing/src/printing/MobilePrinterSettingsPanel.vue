@@ -226,7 +226,7 @@ function lastSeen(value?: string | null): string {
         <div v-if="pairingCode" class="mt-4 rounded-xl border-2 border-primary/30 bg-primary-soft p-5 text-center">
           <p class="text-xs font-bold uppercase tracking-widest text-muted">Código temporal</p>
           <p class="mt-2 font-mono text-4xl font-black tracking-[0.18em] text-primary">{{ pairingCode }}</p>
-          <p class="mt-2 text-xs text-muted">Vence {{ new Date(pairingExpiresAt).toLocaleTimeString('es-SV') }}. En el APK usa la URL <strong>https://taller.stelfaro.com</strong>.</p>
+          <p class="mt-2 text-xs text-muted">Vence {{ new Date(pairingExpiresAt).toLocaleTimeString('es-SV') }}. En el APK usa la URL <strong>https://platform.stelfaro.com/taller</strong>.</p>
         </div>
       </section>
 

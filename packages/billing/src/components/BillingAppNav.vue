@@ -17,6 +17,10 @@ const props = defineProps({
     type: String,
     default: ''
   },
+  billingBasePath: {
+    type: String,
+    default: '/facturacion'
+  },
   module: {
     type: String,
     default: 'billing'
@@ -114,7 +118,7 @@ const billingOptions = computed(() => {
     .filter((type) => ['01', '03', '05', '06', '14'].includes(type.code))
     .map((type) => ({
       label: type.label,
-      href: hrefFor(`/facturacion/${billingSlugByType[type.code] ?? 'fe'}`),
+      href: hrefFor(`${props.billingBasePath}/${billingSlugByType[type.code] ?? 'fe'}`),
       slug: billingSlugByType[type.code] ?? 'fe',
       enabled: Boolean(type.implemented)
     }));

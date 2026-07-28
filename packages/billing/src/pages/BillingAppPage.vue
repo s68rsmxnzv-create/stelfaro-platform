@@ -387,7 +387,8 @@ const selectedComponentProps = computed(() => {
   return baseProps;
 });
 const dashboardHref = computed(() => props.dashboardUrl || props.appBaseUrl || '/');
-const mobileInvoiceHref = computed(() => `${props.appBaseUrl.replace(/\/$/, '')}/facturacion/fe`);
+const billingBasePath = computed(() => props.app.id === 'taller' ? '/facturacion' : '');
+const mobileInvoiceHref = computed(() => `${props.appBaseUrl.replace(/\/$/, '')}${billingBasePath.value}/fe`);
 const pageTitle = computed(() => {
   if (props.module === 'dashboard') return 'Dashboard';
   if (props.module === 'operational-placeholder') return props.operationalPage?.title ?? props.app.name;
@@ -637,6 +638,7 @@ function navigateFromMenu(event, href) {
                 :extra-nav-items="extraNavItems"
                 :module="module"
                 :app-base-url="appBaseUrl"
+                :billing-base-path="billingBasePath"
                 :billing-context-cache-scope="billingContextCacheScope"
                 @navigate="navigate($event.event, $event.href)"
               />
@@ -834,6 +836,7 @@ function navigateFromMenu(event, href) {
             :extra-nav-items="[]"
             :module="module"
             :app-base-url="appBaseUrl"
+            :billing-base-path="billingBasePath"
             :billing-context-cache-scope="billingContextCacheScope"
             @navigate="navigate($event.event, $event.href)"
           />

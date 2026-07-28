@@ -9,6 +9,7 @@ const core = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: pr
 const platform = computed(() => new PlatformClient(props.platformBaseUrl, { authToken: props.authToken }));
 const workshop = ref<WorkshopDashboard | null>(null); const commercial = ref<PlatformCommercialDashboard['commercial'] | null>(null); const fiscal = ref<DteDashboardSummary | null>(null); const loading = ref(false); const error = ref('');
 const base = computed(() => props.appBaseUrl.replace(/\/$/, ''));
+const invoiceHref = computed(() => `${base.value}${props.workshopEnabled ? '/facturacion' : ''}/fe`);
 const money = (value: number) => new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(value || 0);
 const hasEstimatedTaxCredit = computed(() => (commercial.value?.estimated_tax_credit_balance_month ?? 0) > 0);
 const estimatedTaxAmount = computed(() => hasEstimatedTaxCredit.value
@@ -71,7 +72,7 @@ onMounted(load);
           Recibir equipo
         </a>
         <a
-          :href="`${base}/facturacion/fe`"
+          :href="invoiceHref"
           class="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl bg-primary px-3 py-4 text-center text-sm font-bold text-primary-contrast shadow-lg shadow-primary/20 active:scale-[0.98]"
         >
           <FileCheck2 class="h-7 w-7" />
@@ -208,7 +209,7 @@ onMounted(load);
     <div class="hidden space-y-5 md:block">
     <section class="flex flex-col gap-4 rounded-xl border border-primary/20 bg-gradient-to-r from-primary-soft to-surface p-5 sm:flex-row sm:items-center sm:justify-between">
       <div><p class="text-sm font-semibold uppercase tracking-wide text-primary">{{ workshopEnabled ? 'Resumen del taller' : 'Resumen de facturación' }}</p><h2 class="mt-1 text-2xl font-bold text-text">Lo importante para hoy</h2><p class="mt-1 text-sm text-muted">{{ workshopEnabled ? 'Órdenes, cobros y facturación en un solo vistazo.' : 'Ventas y documentos fiscales en un solo vistazo.' }}</p></div>
-      <div class="flex flex-wrap gap-2"><a v-if="workshopEnabled" :href="`${base}/recepcion`" class="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-contrast transition hover:bg-primary-hover"><Smartphone class="h-4 w-4" />Recibir equipo</a><a :href="`${base}/facturacion/fe`" class="inline-flex h-11 items-center gap-2 rounded-lg border border-line bg-surface px-4 text-sm font-semibold text-text transition hover:bg-surface-muted"><FileCheck2 class="h-4 w-4" />Nueva factura</a><UiButton variant="ghost" size="sm" :disabled="loading" aria-label="Actualizar dashboard" @click="load"><RefreshCw class="h-4 w-4" :class="loading ? 'animate-spin' : ''" /></UiButton></div>
+      <div class="flex flex-wrap gap-2"><a v-if="workshopEnabled" :href="`${base}/recepcion`" class="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-contrast transition hover:bg-primary-hover"><Smartphone class="h-4 w-4" />Recibir equipo</a><a :href="invoiceHref" class="inline-flex h-11 items-center gap-2 rounded-lg border border-line bg-surface px-4 text-sm font-semibold text-text transition hover:bg-surface-muted"><FileCheck2 class="h-4 w-4" />Nueva factura</a><UiButton variant="ghost" size="sm" :disabled="loading" aria-label="Actualizar dashboard" @click="load"><RefreshCw class="h-4 w-4" :class="loading ? 'animate-spin' : ''" /></UiButton></div>
     </section>
 
     <p v-if="error" class="rounded-lg border border-danger bg-danger-soft px-4 py-3 text-sm text-danger">{{ error }}</p>
