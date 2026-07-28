@@ -4,8 +4,10 @@ import {
   ArrowLeftRight,
   Banknote,
   Box,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   ClipboardList,
   CreditCard,
   Download,
@@ -66,6 +68,7 @@ const emit = defineEmits<{
 }>();
 
 const compactSidebar = ref(false);
+const mobileNavOpen = ref(false);
 const sidebarWidthClass = computed(() => compactSidebar.value ? 'w-20' : 'w-80');
 const mainOffsetClass = computed(() => compactSidebar.value ? 'lg:pl-24' : 'lg:pl-[344px]');
 
@@ -120,6 +123,7 @@ function toggleSidebar(): void {
 
 function selectNavItem(id: string): void {
   const item = props.navItems.find((candidate) => candidate.id === id);
+  mobileNavOpen.value = false;
   if (item?.href) {
     window.location.assign(item.href);
     return;
@@ -201,6 +205,50 @@ const hierarchicalEntries = computed<UiSidebarNavEntry[]>(() => {
     </aside>
 
     <main class="px-4 py-6 transition-[padding] duration-200 sm:px-6 lg:pr-8" :class="mainOffsetClass">
+      <div class="mb-5 rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-950/5 dark:border-line dark:bg-surface lg:hidden">
+        <button
+          type="button"
+          class="flex min-h-14 w-full items-center gap-3 px-4 text-left"
+          :aria-expanded="mobileNavOpen"
+          aria-controls="section-mobile-navigation"
+          @click="mobileNavOpen = !mobileNavOpen"
+        >
+          <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-sky-50 text-sky-700 dark:bg-primary-soft dark:text-primary">
+            <component :is="iconComponent(activeItem?.icon || icon)" class="h-5 w-5" aria-hidden="true" />
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="block text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">{{ title }}</span>
+            <span class="block truncate text-sm font-bold text-slate-950 dark:text-text">{{ activeItem?.label }}</span>
+          </span>
+          <ChevronUp v-if="mobileNavOpen" class="h-5 w-5 shrink-0 text-slate-500 dark:text-soft" aria-hidden="true" />
+          <ChevronDown v-else class="h-5 w-5 shrink-0 text-slate-500 dark:text-soft" aria-hidden="true" />
+        </button>
+
+        <nav
+          v-if="mobileNavOpen"
+          id="section-mobile-navigation"
+          class="max-h-[60vh] overflow-y-auto border-t border-slate-200 p-2 dark:border-line"
+          :aria-label="`Navegación de ${title}`"
+        >
+          <button
+            v-for="item in navItems"
+            :key="item.id"
+            type="button"
+            class="flex min-h-12 w-full items-center gap-3 rounded-md px-3 py-2 text-left transition"
+            :class="item.id === activeId
+              ? 'bg-sky-50 text-sky-800 dark:bg-primary-soft dark:text-primary'
+              : 'text-slate-700 hover:bg-slate-100 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text'"
+            @click="selectNavItem(item.id)"
+          >
+            <component :is="iconComponent(item.icon)" class="h-5 w-5 shrink-0" aria-hidden="true" />
+            <span class="min-w-0">
+              <span class="block text-sm font-bold">{{ item.label }}</span>
+              <span class="block truncate text-xs opacity-75">{{ item.detail }}</span>
+            </span>
+          </button>
+        </nav>
+      </div>
+
       <div class="mb-5 flex items-center overflow-x-auto whitespace-nowrap">
         <a :href="homeHref" class="text-slate-600 transition hover:text-slate-950 dark:text-soft dark:hover:text-text" aria-label="Inicio">
           <Home class="h-5 w-5" aria-hidden="true" />
