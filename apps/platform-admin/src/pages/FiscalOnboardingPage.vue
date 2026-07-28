@@ -31,8 +31,8 @@ const floatingToasts = ref<BillingFloatingToast[]>([]);
 let toastId = 0;
 const toastTimers: ReturnType<typeof window.setTimeout>[] = [];
 let redirectTimer: ReturnType<typeof window.setTimeout> | null = null;
-const adminPlatformApiBaseUrl = import.meta.env.VITE_PLATFORM_API_BASE_URL || 'https://platform.stelfaro.com/api/v1';
-const platformLoginUrl = 'https://platform.stelfaro.com/login';
+const adminPlatformApiBaseUrl = import.meta.env.VITE_PLATFORM_API_BASE_URL || '/platform-api/v1';
+const platformLoginUrl = '/login';
 const dteOptions = [
   { code: '01', label: 'Factura consumidor final', short: 'FCF' },
   { code: '03', label: 'Comprobante credito fiscal', short: 'CCF' },

@@ -2,7 +2,7 @@ import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { NotificationsClient } from '@stelfaro/api-client';
 
-const platformApiBaseUrl = import.meta.env.VITE_PLATFORM_API_BASE_URL || 'https://platform.stelfaro.com/api/v1';
+const platformApiBaseUrl = import.meta.env.VITE_PLATFORM_API_BASE_URL || '/platform-api/v1';
 const defaultBaseUrl = import.meta.env.VITE_NOTIFICATIONS_API_BASE_URL || `${platformApiBaseUrl}/admin/notifications`;
 
 export const useAdminSessionStore = defineStore('admin-session', () => {

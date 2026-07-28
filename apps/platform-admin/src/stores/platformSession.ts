@@ -16,8 +16,8 @@ type PlatformSession = {
   platform_admin_url: string;
 };
 
-const loginUrl = 'https://platform.stelfaro.com/login';
-const platformApiBaseUrl = import.meta.env.VITE_PLATFORM_API_BASE_URL || 'https://platform.stelfaro.com/api/v1';
+const loginUrl = '/login';
+const platformApiBaseUrl = import.meta.env.VITE_PLATFORM_API_BASE_URL || '/platform-api/v1';
 
 export const usePlatformSessionStore = defineStore('platform-session', () => {
   const session = ref<PlatformSession | null>(null);

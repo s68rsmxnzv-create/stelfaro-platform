@@ -1,9 +1,9 @@
 <script setup lang="ts">
 const apps = [
-  { name: 'Taller', status: 'Disponible', scope: 'Operacion vertical', route: 'taller.stelfaro.com', tenants: 1 },
-  { name: 'Facturacion libre', status: 'Disponible', scope: 'Fiscal independiente', route: 'facturacion.stelfaro.com', tenants: 1 },
-  { name: 'Clinica', status: 'Futuro', scope: 'Operacion vertical', route: 'clinica.stelfaro.com', tenants: 0 },
-  { name: 'Laboratorio', status: 'Futuro', scope: 'Operacion vertical', route: 'lab.stelfaro.com', tenants: 0 }
+  { name: 'Taller', status: 'Disponible', scope: 'Operacion vertical', route: '/taller', tenants: 1 },
+  { name: 'Facturacion libre', status: 'Disponible', scope: 'Fiscal independiente', route: '/facturacion', tenants: 1 },
+  { name: 'Clinica', status: 'Futuro', scope: 'Operacion vertical', route: '/clinica', tenants: 0 },
+  { name: 'Laboratorio', status: 'Futuro', scope: 'Operacion vertical', route: '/laboratorio', tenants: 0 }
 ];
 </script>
 
