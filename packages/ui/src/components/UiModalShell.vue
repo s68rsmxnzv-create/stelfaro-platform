@@ -8,11 +8,13 @@ withDefaults(defineProps<{
   maxWidth?: string;
   closeLabel?: string;
   closeOnBackdrop?: boolean;
+  mobileFullscreen?: boolean;
 }>(), {
   description: null,
   maxWidth: 'max-w-2xl',
   closeLabel: 'Cerrar',
-  closeOnBackdrop: true
+  closeOnBackdrop: true,
+  mobileFullscreen: false
 });
 
 const emit = defineEmits<{
@@ -30,17 +32,18 @@ function closeFromBackdrop(closeOnBackdrop: boolean): void {
   <Teleport to="body">
     <div
       v-if="open"
-      class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 px-4 py-6 backdrop-blur-sm"
+      class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 backdrop-blur-sm"
+      :class="mobileFullscreen ? 'p-0 md:px-4 md:py-6' : 'px-4 py-6'"
       @click.self="closeFromBackdrop(closeOnBackdrop)"
     >
       <section
-        class="w-full rounded-md border border-blue-100 bg-white text-slate-950 shadow-2xl shadow-slate-950/25 dark:border-line dark:bg-surface dark:text-text dark:shadow-black/30"
-        :class="maxWidth"
+        class="w-full border border-blue-100 bg-white text-slate-950 shadow-2xl shadow-slate-950/25 dark:border-line dark:bg-surface dark:text-text dark:shadow-black/30"
+        :class="[maxWidth, mobileFullscreen ? 'flex h-[100dvh] flex-col rounded-none md:h-auto md:max-h-[calc(100dvh-3rem)] md:rounded-md' : 'rounded-md']"
         role="dialog"
         aria-modal="true"
         :aria-label="title"
       >
-        <header class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-line">
+        <header class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-4 py-3 dark:border-line sm:px-5 sm:py-4">
           <div class="min-w-0">
             <p class="text-lg font-bold text-slate-950 dark:text-text">{{ title }}</p>
             <p v-if="description" class="mt-1 text-sm text-slate-500 dark:text-muted">{{ description }}</p>
@@ -48,7 +51,7 @@ function closeFromBackdrop(closeOnBackdrop: boolean): void {
           <UiCloseButton :label="closeLabel" @click="emit('close')" />
         </header>
 
-        <div class="px-5 py-5">
+        <div :class="mobileFullscreen ? 'min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5' : 'px-5 py-5'">
           <slot />
         </div>
 

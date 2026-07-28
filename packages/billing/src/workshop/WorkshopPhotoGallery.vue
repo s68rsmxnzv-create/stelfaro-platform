@@ -21,14 +21,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown));
 </script>
 
 <template>
-  <section class="mt-7 border-t border-line pt-7">
-    <div class="flex items-end justify-between gap-4">
+  <section class="mt-5 border-t border-line pt-5 sm:mt-7 sm:pt-7">
+    <div class="grid gap-3 sm:flex sm:items-end sm:justify-between sm:gap-4">
       <div>
         <p class="text-sm font-semibold uppercase tracking-wide text-primary">Vista previa</p>
-        <h3 class="mt-1 text-2xl font-bold text-text">Fotografías del equipo</h3>
-        <p class="mt-2 text-sm text-muted">Haz clic en una fotografía para abrirla y navegar por la galería.</p>
+        <h3 class="mt-1 text-xl font-bold text-text sm:text-2xl">Fotografías del equipo</h3>
+        <p class="mt-1 text-sm text-muted sm:mt-2">Toca una fotografía para ampliarla.</p>
       </div>
-      <div class="flex flex-wrap gap-2"><UiButton v-if="allowAdd" @click="$emit('addPhotos')"><Camera class="mr-2 h-4 w-4" />{{ photos.length ? 'Agregar fotos' : 'Agregar primera foto' }}</UiButton><UiButton variant="secondary" :disabled="loading" @click="$emit('refresh')"><RefreshCw class="mr-2 h-4 w-4" :class="{ 'animate-spin': loading }" />Actualizar</UiButton></div>
+      <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap"><UiButton v-if="allowAdd" class="justify-center" @click="$emit('addPhotos')"><Camera class="mr-2 h-4 w-4" />{{ photos.length ? 'Agregar' : 'Primera foto' }}</UiButton><UiButton class="justify-center" variant="secondary" :disabled="loading" @click="$emit('refresh')"><RefreshCw class="mr-2 h-4 w-4" :class="{ 'animate-spin': loading }" />Actualizar</UiButton></div>
     </div>
 
     <div v-if="photos.length" class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
