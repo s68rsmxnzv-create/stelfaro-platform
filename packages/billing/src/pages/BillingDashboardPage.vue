@@ -40,6 +40,171 @@ onMounted(load);
 
 <template>
   <div class="space-y-5">
+    <div class="space-y-5 md:hidden">
+      <section class="flex items-start justify-between gap-3">
+        <div>
+          <p class="text-sm font-medium text-muted">Resumen de hoy</p>
+          <h1 class="mt-0.5 text-2xl font-bold tracking-tight text-text">
+            {{ workshopEnabled ? 'Tu taller' : 'Tu facturación' }}
+          </h1>
+        </div>
+        <button
+          type="button"
+          class="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-line bg-surface text-muted shadow-sm"
+          :disabled="loading"
+          aria-label="Actualizar dashboard"
+          @click="load"
+        >
+          <RefreshCw class="h-5 w-5" :class="loading ? 'animate-spin' : ''" />
+        </button>
+      </section>
+
+      <p v-if="error" class="rounded-xl border border-danger bg-danger-soft px-4 py-3 text-sm text-danger">{{ error }}</p>
+
+      <a
+        :href="workshopEnabled ? `${base}/recepcion` : `${base}/facturacion/fe`"
+        class="flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-primary px-5 py-4 text-base font-bold text-primary-contrast shadow-lg shadow-primary/20 active:scale-[0.99]"
+      >
+        <Smartphone v-if="workshopEnabled" class="h-6 w-6" />
+        <FileCheck2 v-else class="h-6 w-6" />
+        {{ workshopEnabled ? 'Recibir nuevo equipo' : 'Crear nueva factura' }}
+      </a>
+
+      <section>
+        <div class="mb-3 flex items-center justify-between">
+          <h2 class="text-sm font-bold uppercase tracking-wide text-muted">Hoy</h2>
+          <span class="text-xs text-muted">Actividad actual</span>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <a
+            v-if="workshopEnabled"
+            :href="`${base}/ordenes`"
+            class="min-h-28 rounded-2xl border border-line bg-surface p-4 shadow-sm active:bg-surface-muted"
+          >
+            <Wrench class="h-5 w-5 text-primary" />
+            <strong class="mt-3 block text-2xl text-text">{{ workshop?.orders.active ?? '—' }}</strong>
+            <span class="mt-0.5 block text-sm text-muted">Órdenes activas</span>
+          </a>
+          <a
+            v-if="workshopEnabled"
+            :href="`${base}/ordenes?status=ready`"
+            class="min-h-28 rounded-2xl border border-line bg-surface p-4 shadow-sm active:bg-surface-muted"
+          >
+            <PackageCheck class="h-5 w-5 text-success" />
+            <strong class="mt-3 block text-2xl text-text">{{ workshop?.orders.ready ?? '—' }}</strong>
+            <span class="mt-0.5 block text-sm text-muted">Listas para entregar</span>
+          </a>
+          <a
+            :href="`${base}/caja`"
+            class="min-h-28 rounded-2xl border border-line bg-surface p-4 shadow-sm active:bg-surface-muted"
+          >
+            <CircleDollarSign class="h-5 w-5 text-success" />
+            <strong class="mt-3 block truncate text-xl text-text">{{ commercial ? money(commercial.sales_today) : '—' }}</strong>
+            <span class="mt-0.5 block text-sm text-muted">Ventas de hoy</span>
+          </a>
+          <a
+            v-if="workshopEnabled"
+            :href="`${base}/caja?tab=sales&payment_status=receivable`"
+            class="min-h-28 rounded-2xl border border-line bg-surface p-4 shadow-sm active:bg-surface-muted"
+          >
+            <Clock3 class="h-5 w-5 text-warning" />
+            <strong class="mt-3 block truncate text-xl" :class="workshop?.commercial.receivables ? 'text-warning' : 'text-text'">{{ workshop ? money(workshop.commercial.receivables) : '—' }}</strong>
+            <span class="mt-0.5 block text-sm text-muted">Por cobrar</span>
+          </a>
+          <div
+            v-else
+            class="min-h-28 rounded-2xl border border-line bg-surface p-4 shadow-sm"
+          >
+            <CalendarDays class="h-5 w-5 text-primary" />
+            <strong class="mt-3 block truncate text-xl text-text">{{ commercial ? money(commercial.sales_month) : '—' }}</strong>
+            <span class="mt-0.5 block text-sm text-muted">Ventas del mes</span>
+          </div>
+          <a
+            v-if="!workshopEnabled"
+            :href="`${base}/comprobantes/dte`"
+            class="min-h-28 rounded-2xl border border-line bg-surface p-4 shadow-sm active:bg-surface-muted"
+          >
+            <FileCheck2 class="h-5 w-5 text-success" />
+            <strong class="mt-3 block text-2xl text-text">{{ fiscal?.totals.accepted ?? '—' }}</strong>
+            <span class="mt-0.5 block text-sm text-muted">DTE aceptados</span>
+          </a>
+          <a
+            v-if="!workshopEnabled"
+            :href="`${base}/comprobantes/dte`"
+            class="min-h-28 rounded-2xl border border-line bg-surface p-4 shadow-sm active:bg-surface-muted"
+          >
+            <TriangleAlert class="h-5 w-5" :class="fiscal?.totals.rejected ? 'text-danger' : 'text-muted'" />
+            <strong class="mt-3 block text-2xl" :class="fiscal?.totals.rejected ? 'text-danger' : 'text-text'">{{ fiscal?.totals.rejected ?? '—' }}</strong>
+            <span class="mt-0.5 block text-sm text-muted">DTE rechazados</span>
+          </a>
+        </div>
+      </section>
+
+      <section v-if="workshopEnabled" class="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
+        <div class="border-b border-line px-4 py-3">
+          <h2 class="text-sm font-bold uppercase tracking-wide text-muted">Requieren atención</h2>
+        </div>
+        <div v-if="workshop && (workshop.orders.urgent || workshop.orders.awaiting_approval || workshop.orders.ready)" class="divide-y divide-line">
+          <a v-if="workshop.orders.urgent" :href="`${base}/ordenes?priority=urgent`" class="flex min-h-16 items-center gap-3 px-4 py-3 active:bg-danger-soft">
+            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-danger-soft text-danger"><TriangleAlert class="h-5 w-5" /></span>
+            <div class="min-w-0 flex-1"><strong class="block text-sm text-text">{{ workshop.orders.urgent }} urgente{{ workshop.orders.urgent === 1 ? '' : 's' }}</strong><span class="text-xs text-muted">Necesitan atención prioritaria</span></div>
+            <ArrowRight class="h-5 w-5 shrink-0 text-muted" />
+          </a>
+          <a v-if="workshop.orders.awaiting_approval" :href="`${base}/ordenes?status=awaiting_approval`" class="flex min-h-16 items-center gap-3 px-4 py-3 active:bg-warning-soft">
+            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-warning-soft text-warning"><ClipboardCheck class="h-5 w-5" /></span>
+            <div class="min-w-0 flex-1"><strong class="block text-sm text-text">{{ workshop.orders.awaiting_approval }} por aprobar</strong><span class="text-xs text-muted">Esperando respuesta del cliente</span></div>
+            <ArrowRight class="h-5 w-5 shrink-0 text-muted" />
+          </a>
+          <a v-if="workshop.orders.ready" :href="`${base}/ordenes?status=ready`" class="flex min-h-16 items-center gap-3 px-4 py-3 active:bg-success-soft">
+            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-success-soft text-success"><PackageCheck class="h-5 w-5" /></span>
+            <div class="min-w-0 flex-1"><strong class="block text-sm text-text">{{ workshop.orders.ready }} lista{{ workshop.orders.ready === 1 ? '' : 's' }}</strong><span class="text-xs text-muted">Preparadas para entregar</span></div>
+            <ArrowRight class="h-5 w-5 shrink-0 text-muted" />
+          </a>
+        </div>
+        <p v-else class="px-4 py-5 text-sm text-muted">Todo al día. No hay órdenes que requieran atención inmediata.</p>
+      </section>
+
+      <section v-if="workshopEnabled" class="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
+        <div class="flex items-center justify-between border-b border-line px-4 py-3">
+          <h2 class="text-sm font-bold uppercase tracking-wide text-muted">Trabajo reciente</h2>
+          <a :href="`${base}/ordenes`" class="text-sm font-semibold text-primary">Ver todo</a>
+        </div>
+        <div v-if="workshop?.recent_orders.length" class="divide-y divide-line">
+          <a v-for="order in workshop.recent_orders.slice(0, 4)" :key="order.id" :href="orderUrl(order)" class="flex min-h-[4.5rem] items-center gap-3 px-4 py-3 active:bg-surface-muted">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2"><strong class="text-sm text-primary">{{ order.ticket }}</strong><UiStatusBadge :tone="tone(order.status)">{{ labels[order.status] || order.status }}</UiStatusBadge></div>
+              <p class="mt-1 truncate text-sm font-medium text-text">{{ order.device.brand }} {{ order.device.model }} · {{ order.customer.name }}</p>
+              <p class="mt-0.5 text-xs text-muted">{{ orderAge(order.received_at) }}</p>
+            </div>
+            <ArrowRight class="h-5 w-5 shrink-0 text-muted" />
+          </a>
+        </div>
+        <p v-else class="px-4 py-6 text-center text-sm text-muted">Aún no hay órdenes activas.</p>
+      </section>
+
+      <section v-else class="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
+        <div class="flex items-center justify-between border-b border-line px-4 py-3">
+          <div><h2 class="text-sm font-bold uppercase tracking-wide text-muted">Estado fiscal</h2><p class="mt-1 text-xs text-muted">Documentos procesados por Hacienda</p></div>
+          <UiStatusBadge :tone="!fiscal ? 'neutral' : fiscal.totals.rejected ? 'warning' : 'success'">{{ !fiscal ? 'Sin datos' : fiscal.totals.rejected ? 'Revisar' : 'Operativo' }}</UiStatusBadge>
+        </div>
+        <div class="divide-y divide-line px-4 text-sm">
+          <div class="flex items-center justify-between py-3.5"><span class="text-muted">IVA generado este mes</span><strong class="text-text">{{ commercial ? money(commercial.sales_tax_month) : '—' }}</strong></div>
+          <div class="flex items-center justify-between py-3.5"><span class="text-muted">IVA deducible</span><strong class="text-success">− {{ commercial ? money(commercial.purchase_tax_credit_month) : '—' }}</strong></div>
+          <div class="flex items-center justify-between py-3.5"><span class="font-semibold text-text">{{ hasEstimatedTaxCredit ? 'Crédito fiscal a favor' : 'IVA estimado por pagar' }}</span><strong :class="hasEstimatedTaxCredit ? 'text-success' : 'text-text'">{{ commercial ? money(estimatedTaxAmount) : '—' }}</strong></div>
+        </div>
+      </section>
+
+      <a
+        v-if="workshopEnabled"
+        :href="`${base}/facturacion/fe`"
+        class="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm font-semibold text-text active:bg-surface-muted"
+      >
+        <FileCheck2 class="h-5 w-5 text-primary" />
+        Crear factura
+      </a>
+    </div>
+
+    <div class="hidden space-y-5 md:block">
     <section class="flex flex-col gap-4 rounded-xl border border-primary/20 bg-gradient-to-r from-primary-soft to-surface p-5 sm:flex-row sm:items-center sm:justify-between">
       <div><p class="text-sm font-semibold uppercase tracking-wide text-primary">{{ workshopEnabled ? 'Resumen del taller' : 'Resumen de facturación' }}</p><h2 class="mt-1 text-2xl font-bold text-text">Lo importante para hoy</h2><p class="mt-1 text-sm text-muted">{{ workshopEnabled ? 'Órdenes, cobros y facturación en un solo vistazo.' : 'Ventas y documentos fiscales en un solo vistazo.' }}</p></div>
       <div class="flex flex-wrap gap-2"><a v-if="workshopEnabled" :href="`${base}/recepcion`" class="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-contrast transition hover:bg-primary-hover"><Smartphone class="h-4 w-4" />Recibir equipo</a><a :href="`${base}/facturacion/fe`" class="inline-flex h-11 items-center gap-2 rounded-lg border border-line bg-surface px-4 text-sm font-semibold text-text transition hover:bg-surface-muted"><FileCheck2 class="h-4 w-4" />Nueva factura</a><UiButton variant="ghost" size="sm" :disabled="loading" aria-label="Actualizar dashboard" @click="load"><RefreshCw class="h-4 w-4" :class="loading ? 'animate-spin' : ''" /></UiButton></div>
@@ -80,5 +245,6 @@ onMounted(load);
       <UiCard><div class="flex items-center gap-2"><CircleDollarSign class="h-5 w-5 text-primary" /><h3 class="font-semibold text-text">Resumen comercial</h3></div><div class="mt-4 divide-y divide-line text-sm"><div class="flex items-center justify-between py-3"><span class="text-muted">Venta bruta de hoy</span><strong class="text-text">{{ commercial ? money(commercial.sales_today) : '—' }}</strong></div><div class="flex items-center justify-between py-3"><span class="text-muted">Venta neta de hoy</span><strong class="text-text">{{ commercial ? money(commercial.sales_net_today) : '—' }}</strong></div><div class="flex items-center justify-between py-3"><span class="text-muted">IVA generado este mes</span><strong class="text-text">{{ commercial ? money(commercial.sales_tax_month) : '—' }}</strong></div><div class="flex items-center justify-between py-3"><span class="text-muted">IVA deducible en compras</span><strong class="text-success">{{ commercial ? `− ${money(commercial.purchase_tax_credit_month)}` : '—' }}</strong></div><div class="flex items-center justify-between py-3"><span class="font-semibold text-text">{{ hasEstimatedTaxCredit ? 'Crédito fiscal a favor' : 'IVA estimado por pagar' }}</span><strong :class="hasEstimatedTaxCredit ? 'text-success' : 'text-text'">{{ commercial ? money(estimatedTaxAmount) : '—' }}</strong></div></div></UiCard>
       <UiCard><div class="flex items-center justify-between"><div><p class="font-semibold text-text">Estado fiscal</p><p class="mt-1 text-xs text-muted">Documentos procesados por Hacienda</p></div><UiStatusBadge :tone="!fiscal ? 'neutral' : fiscal.totals.rejected ? 'warning' : 'success'">{{ !fiscal ? 'Sin datos' : fiscal.totals.rejected ? 'Revisar' : 'Operativo' }}</UiStatusBadge></div><div class="mt-5 grid grid-cols-2 gap-3 text-sm"><div class="rounded-lg bg-success-soft p-4"><p class="text-xs text-success">Aceptados</p><strong class="mt-1 block text-2xl text-text">{{ fiscal?.totals.accepted ?? '—' }}</strong></div><div class="rounded-lg bg-danger-soft p-4"><p class="text-xs text-danger">Rechazados</p><strong class="mt-1 block text-2xl text-text">{{ fiscal?.totals.rejected ?? '—' }}</strong></div></div></UiCard>
     </section>
+    </div>
   </div>
 </template>

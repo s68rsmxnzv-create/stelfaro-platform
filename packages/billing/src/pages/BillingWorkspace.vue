@@ -107,6 +107,7 @@ const floatingToasts = ref<BillingFloatingToast[]>([]);
 const pendingEmailToast = ref<Omit<BillingFloatingToast, 'id'> | null>(null);
 const pendingAutomaticPrintToast = ref<Omit<BillingFloatingToast, 'id'> | null>(null);
 const stationPreferenceVersion = ref(0);
+const mobileIssuerExpanded = ref(false);
 type IssueLogEntry = {
   message: string;
   status: 'ok' | 'error';
@@ -2885,7 +2886,34 @@ function updatePaymentCondition(value: string): void {
           </div>
         </div>
 
-        <div class="overflow-x-auto rounded-md border border-slate-200 dark:border-line">
+        <div class="grid gap-3 md:hidden">
+          <article v-for="(payment, paymentIndex) in paymentLines" :key="payment.id" class="rounded-xl border border-slate-200 bg-white p-3 dark:border-line dark:bg-surface">
+            <div class="mb-3 flex items-center justify-between">
+              <strong class="text-sm text-slate-950 dark:text-text">Pago {{ paymentIndex + 1 }}</strong>
+              <UiButton v-if="paymentLines.length > 1" variant="ghost" size="sm" type="button" @click="removePaymentLine(payment.id)">Quitar</UiButton>
+            </div>
+            <div class="grid gap-3">
+              <UiSelect v-model="payment.codigo" label="Forma de pago" :options="paymentMethodOptions" />
+              <div class="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+                <UiInput v-model.number="payment.montoPago" label="Monto" min="0" step="0.01" type="number" />
+                <UiButton class="min-h-11" variant="secondary" size="sm" type="button" @click="fillRemainingPayment(payment)">Saldo</UiButton>
+              </div>
+              <UiInput
+                v-model="payment.referencia"
+                label="Referencia"
+                :disabled="paymentReferenceDisabled(payment)"
+                maxlength="50"
+                :placeholder="paymentReferenceDisabled(payment) ? 'No aplica' : 'Opcional'"
+              />
+              <div v-if="paymentCondition !== 1" class="grid grid-cols-2 gap-3">
+                <UiSelect v-model="payment.plazo" label="Plazo" :options="paymentTermOptions" />
+                <UiInput v-model.number="payment.periodo" label="Periodo" min="1" step="1" type="number" :disabled="!payment.plazo" />
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="hidden overflow-x-auto rounded-md border border-slate-200 md:block dark:border-line">
           <table class="w-full min-w-[960px] text-left text-sm">
             <thead class="bg-blue-50/70 text-xs uppercase text-slate-500 dark:bg-surface-muted dark:text-soft">
               <tr>
@@ -3219,7 +3247,115 @@ function updatePaymentCondition(value: string): void {
           </div>
         </section>
 
-        <div v-if="!isAdjustmentNote" class="grid gap-4 xl:grid-cols-3">
+        <div v-if="!isAdjustmentNote" class="grid gap-3 md:hidden">
+          <section class="overflow-hidden rounded-2xl border border-blue-100/80 bg-white/90 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface">
+            <button
+              type="button"
+              class="flex min-h-[4.5rem] w-full items-center gap-3 px-4 py-3 text-left active:bg-blue-50/70 dark:active:bg-surface-muted"
+              :aria-expanded="mobileIssuerExpanded"
+              @click="mobileIssuerExpanded = !mobileIssuerExpanded"
+            >
+              <span
+                class="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-sm font-black"
+                :class="correlativoPreview ? 'bg-emerald-50 text-emerald-700 dark:bg-success-soft dark:text-success' : 'bg-red-50 text-red-700 dark:bg-danger-soft dark:text-danger'"
+              >
+                {{ selectedSucursal?.codigo?.slice(-2) || '—' }}
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Sucursal activa</span>
+                <span class="mt-0.5 block truncate text-sm font-bold text-slate-950 dark:text-text">
+                  {{ selectedSucursal?.nombre || selectedEmpresa?.razon_social }}
+                </span>
+                <span class="mt-0.5 block truncate font-mono text-[11px] text-slate-500 dark:text-muted">
+                  {{ correlativoLoading ? 'Consultando correlativo…' : correlativoPreview?.numero_control || 'Sin correlativo disponible' }}
+                </span>
+              </span>
+              <span class="shrink-0 text-right">
+                <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">{{ selectedPuntoVenta?.codigo || 'Sin PV' }}</span>
+                <span class="mt-1 block text-xs font-bold text-sky-700 dark:text-primary">{{ mobileIssuerExpanded ? 'Cerrar' : 'Ver / cambiar' }}</span>
+              </span>
+            </button>
+
+            <div v-if="mobileIssuerExpanded" class="border-t border-slate-100 px-4 py-4 dark:border-line">
+              <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
+                <p><span class="block text-slate-500 dark:text-soft">Emisor</span><strong class="mt-0.5 block truncate text-slate-950 dark:text-text">{{ selectedEmpresa?.razon_social }}</strong></p>
+                <p><span class="block text-slate-500 dark:text-soft">Documento</span><strong class="mt-0.5 block text-slate-950 dark:text-text">{{ documentLabel }}</strong></p>
+                <p><span class="block text-slate-500 dark:text-soft">Ambiente</span><strong class="mt-0.5 block text-slate-950 dark:text-text">{{ selectedEmpresa?.ambiente === '01' ? 'Producción' : 'Pruebas' }}</strong></p>
+                <p><span class="block text-slate-500 dark:text-soft">Punto de venta</span><strong class="mt-0.5 block text-slate-950 dark:text-text">{{ selectedPuntoVenta?.codigo || '—' }}</strong></p>
+              </div>
+              <div v-if="sucursales.length > 1 || puntosVenta.length > 1" class="mt-4 grid gap-3">
+                <UiSelect v-if="sucursales.length > 1" v-model.number="form.sucursalId" label="Cambiar sucursal" :options="sucursalOptions" />
+                <UiSelect v-if="puntosVenta.length > 1" v-model.number="form.puntoVentaId" label="Cambiar punto de venta" :options="puntoVentaOptions" />
+              </div>
+              <div v-if="selectedSucursal && selectedPuntoVenta && canManageBillingStation" class="mt-3 flex flex-wrap gap-2">
+                <UiButton v-if="!selectedStationIsFixed" size="sm" variant="secondary" type="button" @click="saveBillingStationPreference">Fijar en este equipo</UiButton>
+                <UiButton v-if="billingStationPreference" size="sm" variant="ghost" type="button" @click="clearBillingStationPreference">Quitar fijación</UiButton>
+              </div>
+            </div>
+          </section>
+
+          <section class="rounded-2xl border border-blue-100/80 bg-white/90 p-3 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface">
+            <div v-if="hasReceptorCard" class="flex min-h-14 items-center gap-3 rounded-xl bg-sky-50/80 px-3 py-2.5 dark:bg-surface-muted">
+              <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-sm font-black text-sky-700 shadow-sm dark:bg-primary-soft dark:text-primary">
+                {{ form.customerName.trim().slice(0, 1).toUpperCase() || 'C' }}
+              </span>
+              <button type="button" class="min-w-0 flex-1 text-left" @click="customerSearchModalOpen = true">
+                <span class="block text-[11px] font-bold uppercase tracking-wide text-sky-700 dark:text-primary">Cliente seleccionado</span>
+                <strong class="mt-0.5 block truncate text-sm text-slate-950 dark:text-text">{{ form.customerName }}</strong>
+                <span class="block truncate text-xs text-slate-500 dark:text-muted">{{ customerDocumentNumberLabel }} · Tocar para cambiar</span>
+              </button>
+              <UiCloseButton label="Quitar cliente seleccionado" @click="clearSelectedCustomer" />
+            </div>
+
+            <template v-else>
+              <div class="mb-3 flex items-center justify-between px-1">
+                <div><h2 class="text-sm font-bold text-slate-950 dark:text-text">Cliente</h2><p class="text-xs text-slate-500 dark:text-muted">¿A quién se factura?</p></div>
+                <span v-if="customerMode === 'generic'" class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600 dark:bg-surface-muted dark:text-muted">Sin identificar</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  v-for="mode in customerModes"
+                  :key="mode.key"
+                  class="min-h-11 rounded-xl px-2.5 py-2 text-xs font-semibold leading-tight transition active:scale-[0.98]"
+                  :class="customerModeButtonClass(mode)"
+                  :disabled="mode.key === 'generic' && requiresCustomerIdentificationByAmount"
+                  type="button"
+                  @click="selectCustomerMode(mode.key)"
+                >
+                  {{ mode.label }}
+                </button>
+              </div>
+              <button
+                v-if="customerMode === 'generic' || customerMode === 'quick' || customerMode === 'new'"
+                type="button"
+                class="mt-3 flex w-full items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5 text-left dark:bg-surface-muted"
+                @click="customerMode === 'quick' ? customerModalMode = 'quick' : undefined"
+              >
+                <span class="min-w-0"><strong class="block truncate text-sm text-slate-950 dark:text-text">{{ form.customerName || 'Consumidor final' }}</strong><span class="block truncate text-xs text-slate-500 dark:text-muted">{{ customerSummary }}</span></span>
+                <span v-if="customerMode === 'quick'" class="ml-2 shrink-0 text-xs font-bold text-sky-700 dark:text-primary">Editar</span>
+              </button>
+            </template>
+
+            <p v-if="requiresCustomerIdentificationByAmount && !hasRequiredCustomerIdentification" class="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">{{ customerIdentificationByAmountMessage }}</p>
+          </section>
+
+          <section v-if="supportsAdvancedPayments" class="rounded-2xl border border-blue-100/80 bg-white/90 p-3 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface">
+            <div class="flex min-h-14 items-center gap-3">
+              <button type="button" class="min-w-0 flex-1 text-left" @click="openPaymentModal">
+                <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Forma de pago</span>
+                <strong class="mt-0.5 block truncate text-sm text-slate-950 dark:text-text">{{ paymentConditionLabel }} · {{ paymentSummaryLabel }}</strong>
+                <span class="block text-xs" :class="paymentTotalMatches ? 'text-emerald-700 dark:text-success' : 'text-red-700 dark:text-danger'">{{ currency(paymentTotal) }} de {{ currency(totalLabel) }}</span>
+              </button>
+              <button type="button" class="min-h-11 shrink-0 rounded-xl bg-sky-50 px-3 text-sm font-bold text-sky-700 active:bg-sky-100 dark:bg-primary-soft dark:text-primary" @click="openPaymentModal">Cambiar</button>
+            </div>
+            <div class="mt-2 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 dark:border-line">
+              <button type="button" class="min-h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-700 active:bg-slate-50 dark:border-line dark:text-text dark:active:bg-surface-muted" @click="setCashPayment">Pago contado</button>
+              <button type="button" class="min-h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-700 active:bg-slate-50 dark:border-line dark:text-text dark:active:bg-surface-muted" @click="observationsModalOpen = true">{{ form.observations.trim() ? 'Editar nota' : 'Agregar nota' }}</button>
+            </div>
+          </section>
+        </div>
+
+        <div v-if="!isAdjustmentNote" class="hidden gap-4 md:grid xl:grid-cols-3">
           <section class="rounded-md border border-blue-100/80 bg-white/75 px-4 py-3 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:text-text dark:shadow-surface">
             <div class="flex h-full flex-col justify-between gap-4">
               <div class="min-w-0">
