@@ -100,10 +100,8 @@ const darkMode = ref(false);
 const contextLoading = ref(false);
 const documentTypes = ref([]);
 const billingCompanies = ref([]);
-const mobileChromeVisible = ref(true);
 const pwaCanInstall = ref(false);
 const pwaDisplayMode = ref('browser');
-let mobileChromeTimer = null;
 const emit = defineEmits(['logout', 'navigate']);
 const themeStorageKey = 'stelfaro:theme';
 
@@ -487,16 +485,12 @@ onMounted(() => {
   window.addEventListener('keydown', closeHelpOnEscape);
   window.addEventListener('stelfaro:pwa-state', syncPwaState);
   document.addEventListener('click', closeUserMenuOnOutsideClick);
-  document.addEventListener('pointerdown', revealMobileChrome, true);
-  scheduleMobileChromeHide();
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', closeHelpOnEscape);
   window.removeEventListener('stelfaro:pwa-state', syncPwaState);
   document.removeEventListener('click', closeUserMenuOnOutsideClick);
-  document.removeEventListener('pointerdown', revealMobileChrome, true);
-  if (mobileChromeTimer) window.clearTimeout(mobileChromeTimer);
 });
 
 function syncPwaState(event = null) {
@@ -509,24 +503,6 @@ async function installPwa() {
   const result = await window.stelfaroPwa?.install?.();
   if (result?.outcome === 'accepted') userMenuOpen.value = false;
   syncPwaState();
-}
-
-function isMobileBillingWorkspace() {
-  return props.module === 'billing' && window.matchMedia('(max-width: 767px)').matches;
-}
-
-function scheduleMobileChromeHide() {
-  if (!isMobileBillingWorkspace()) return;
-  if (mobileChromeTimer) window.clearTimeout(mobileChromeTimer);
-  mobileChromeTimer = window.setTimeout(() => {
-    if (!mobileMenuOpen.value && !userMenuOpen.value) mobileChromeVisible.value = false;
-  }, 2200);
-}
-
-function revealMobileChrome() {
-  if (!isMobileBillingWorkspace()) return;
-  mobileChromeVisible.value = true;
-  scheduleMobileChromeHide();
 }
 
 function closeHelpOnEscape(event) {
@@ -623,21 +599,10 @@ function navigateFromMenu(event, href) {
     />
   </div>
 
-  <div
-    v-else
-    class="relative min-h-screen overflow-x-hidden bg-app text-slate-950 dark:text-text"
-    :class="module === 'billing' ? 'pt-0 md:pt-16' : 'pt-16'"
-  >
-    <div
-      class="sf-app-background pointer-events-none fixed inset-x-0 bottom-0 z-0"
-      :class="module === 'billing' ? 'top-0 md:top-16' : 'top-16'"
-    ></div>
+  <div v-else class="relative min-h-screen overflow-x-hidden bg-app pt-16 text-slate-950 dark:text-text">
+    <div class="sf-app-background pointer-events-none fixed inset-x-0 bottom-0 top-16 z-0"></div>
 
-    <nav
-      class="sf-app-navbar fixed inset-x-0 top-0 z-50 shadow-sm backdrop-blur transition-transform duration-300"
-      :class="module === 'billing' && !mobileChromeVisible ? '-translate-y-full md:translate-y-0' : 'translate-y-0'"
-      @pointerenter="revealMobileChrome"
-    >
+    <nav class="sf-app-navbar fixed inset-x-0 top-0 z-50 shadow-sm backdrop-blur">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
           <div class="flex items-center">

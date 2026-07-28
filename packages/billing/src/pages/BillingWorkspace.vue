@@ -108,6 +108,7 @@ const pendingEmailToast = ref<Omit<BillingFloatingToast, 'id'> | null>(null);
 const pendingAutomaticPrintToast = ref<Omit<BillingFloatingToast, 'id'> | null>(null);
 const stationPreferenceVersion = ref(0);
 const mobileIssuerExpanded = ref(false);
+const mobileSourcePickerOpen = ref(false);
 type IssueLogEntry = {
   message: string;
   status: 'ok' | 'error';
@@ -2382,6 +2383,7 @@ async function selectSourceDocument(document: DteDraftSummary): Promise<void> {
     sourceDocumentSearch.value = `${detail.numeroControl} · ${sourceReceptorName(detail)}`;
     sourceDocuments.value = [];
     applyNotaCreditoSource(detail);
+    mobileSourcePickerOpen.value = false;
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar el documento origen.';
   } finally {
@@ -2391,6 +2393,7 @@ async function selectSourceDocument(document: DteDraftSummary): Promise<void> {
 
 function clearSourceDocument(): void {
   selectedSourceDocument.value = null;
+  mobileSourcePickerOpen.value = true;
   sourceDocumentSearch.value = '';
   sourceDocuments.value = [];
   selectedCustomerId.value = null;
@@ -2886,7 +2889,7 @@ function updatePaymentCondition(value: string): void {
           </div>
         </div>
 
-        <div class="grid gap-3 md:hidden">
+        <div class="order-first grid gap-3 md:order-none md:hidden">
           <article v-for="(payment, paymentIndex) in paymentLines" :key="payment.id" class="rounded-xl border border-slate-200 bg-white p-3 dark:border-line dark:bg-surface">
             <div class="mb-3 flex items-center justify-between">
               <strong class="text-sm text-slate-950 dark:text-text">Pago {{ paymentIndex + 1 }}</strong>
@@ -3161,13 +3164,21 @@ function updatePaymentCondition(value: string): void {
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 class="text-base font-semibold text-slate-950 dark:text-text">Documento origen</h2>
-              <p class="mt-1 text-sm text-slate-500 dark:text-muted">
+              <p class="mt-1 hidden text-sm text-slate-500 md:block dark:text-muted">
                 Selecciona un CCF aceptado para {{ isNotaDebito ? 'incrementar o ajustar cargos' : 'acreditar total o parcialmente' }}.
               </p>
             </div>
             <button
               v-if="selectedSourceDocument"
-              class="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-600 hover:text-white"
+              class="rounded-lg bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700 md:hidden dark:bg-primary-soft dark:text-primary"
+              type="button"
+              @click="mobileSourcePickerOpen = !mobileSourcePickerOpen"
+            >
+              {{ mobileSourcePickerOpen ? 'Cerrar búsqueda' : 'Cambiar CCF' }}
+            </button>
+            <button
+              v-if="selectedSourceDocument"
+              class="hidden rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-600 hover:text-white md:block"
               type="button"
               @click="clearSourceDocument"
             >
@@ -3175,7 +3186,7 @@ function updatePaymentCondition(value: string): void {
             </button>
           </div>
 
-          <div class="mt-4">
+          <div class="mt-4" :class="selectedSourceDocument && !mobileSourcePickerOpen ? 'hidden md:block' : ''">
             <UiSearchInput
               v-model="sourceDocumentSearch"
               label="Buscar CCF aceptado"
@@ -3247,7 +3258,7 @@ function updatePaymentCondition(value: string): void {
           </div>
         </section>
 
-        <div v-if="!isAdjustmentNote" class="grid gap-3 md:hidden">
+        <div class="grid gap-3 md:hidden">
           <section class="overflow-hidden rounded-2xl border border-blue-100/80 bg-white/90 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface">
             <button
               type="button"
@@ -3294,7 +3305,7 @@ function updatePaymentCondition(value: string): void {
             </div>
           </section>
 
-          <section class="rounded-2xl border border-blue-100/80 bg-white/90 p-3 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface">
+          <section v-if="!isAdjustmentNote" class="rounded-2xl border border-blue-100/80 bg-white/90 p-3 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface">
             <div v-if="hasReceptorCard" class="flex min-h-14 items-center gap-3 rounded-xl bg-sky-50/80 px-3 py-2.5 dark:bg-surface-muted">
               <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-sm font-black text-sky-700 shadow-sm dark:bg-primary-soft dark:text-primary">
                 {{ form.customerName.trim().slice(0, 1).toUpperCase() || 'C' }}
@@ -3339,7 +3350,7 @@ function updatePaymentCondition(value: string): void {
             <p v-if="requiresCustomerIdentificationByAmount && !hasRequiredCustomerIdentification" class="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">{{ customerIdentificationByAmountMessage }}</p>
           </section>
 
-          <section v-if="supportsAdvancedPayments" class="rounded-2xl border border-blue-100/80 bg-white/90 p-3 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface">
+          <section v-if="!isAdjustmentNote && supportsAdvancedPayments" class="rounded-2xl border border-blue-100/80 bg-white/90 p-3 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface">
             <div class="flex min-h-14 items-center gap-3">
               <button type="button" class="min-w-0 flex-1 text-left" @click="openPaymentModal">
                 <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Forma de pago</span>
@@ -3674,9 +3685,81 @@ function updatePaymentCondition(value: string): void {
             <p v-else class="rounded-lg bg-slate-50 px-3 py-4 text-sm text-slate-500 dark:bg-surface-muted dark:text-muted">Aún no hay líneas agregadas.</p>
           </div>
 
+          <div v-if="isAdjustmentNote" class="mt-4 grid gap-3 md:hidden">
+            <article
+              v-for="line in lines"
+              :key="line.id"
+              class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-line dark:bg-surface-muted"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="break-words text-sm font-bold text-slate-950 dark:text-text">{{ line.description }}</p>
+                  <span class="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-surface dark:text-muted">
+                    {{ line.sourceLine === false ? 'Nueva línea' : 'Origen CCF' }}
+                  </span>
+                </div>
+                <UiButton class="shrink-0" variant="ghost" size="sm" type="button" @click="removeLine(line.id)">Quitar</UiButton>
+              </div>
+
+              <div class="mt-3 grid grid-cols-2 gap-3">
+                <UiInput
+                  label="Cantidad"
+                  :suffix="isNotaCredito ? `Máx. ${Number(line.originalQuantity ?? line.quantity ?? 0)}` : line.sourceLine !== false ? `Orig. ${Number(line.originalQuantity ?? line.quantity ?? 0)}` : undefined"
+                  :max="isNotaCredito ? Number(line.originalQuantity ?? line.quantity ?? 0) : undefined"
+                  :min="isNotaDebito && line.sourceLine !== false ? Number(line.originalQuantity ?? line.quantity ?? 0) : 0.01"
+                  step="0.01"
+                  type="number"
+                  :model-value="Number(line.quantity)"
+                  @update:model-value="updateAdjustmentQuantity(line, String($event))"
+                />
+                <UiInput
+                  :label="isNotaDebito ? 'Nuevo valor' : 'Precio'"
+                  :suffix="isNotaCredito ? `Máx. ${currency(Number(line.originalUnitPrice ?? line.unitPrice ?? 0))}` : line.sourceLine !== false ? `Orig. ${currency(Number(line.originalUnitPrice ?? line.unitPrice ?? 0))}` : undefined"
+                  :max="isNotaCredito ? Number(line.originalUnitPrice ?? line.unitPrice ?? 0) : undefined"
+                  min="0"
+                  step="0.01"
+                  type="number"
+                  :model-value="Number(line.unitPrice)"
+                  @update:model-value="updateNotaCreditoPrice(line, String($event))"
+                />
+              </div>
+
+              <div class="mt-3 flex items-end justify-between rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-surface">
+                <div>
+                  <span class="block text-[11px] font-semibold uppercase text-slate-500 dark:text-soft">{{ isNotaDebito ? 'Incremento' : 'Ajuste' }}</span>
+                  <strong class="mt-0.5 block text-sm text-slate-950 dark:text-text">{{ isNotaDebito && line.sourceLine !== false ? notaDebitoIncrementLabel(line) : currency(lineNetTotal(line)) }}</strong>
+                </div>
+                <div class="text-right">
+                  <span class="block text-[11px] text-slate-500 dark:text-soft">Neto</span>
+                  <strong class="block text-base text-slate-950 dark:text-text">{{ currency(lineNetTotal(line)) }}</strong>
+                  <span class="text-[10px] text-slate-500 dark:text-muted">IVA {{ currency(lineIvaAmount(line)) }}</span>
+                </div>
+              </div>
+            </article>
+
+            <article v-if="isNotaDebito && selectedSourceDocument" class="rounded-xl border border-dashed border-sky-300 bg-sky-50/60 p-3 dark:border-primary/40 dark:bg-primary-soft/30">
+              <p class="mb-3 text-sm font-bold text-slate-950 dark:text-text">Agregar un cargo nuevo</p>
+              <div class="grid gap-3">
+                <UiInput v-model="draftLine.description" label="Descripción" placeholder="Nueva línea a debitar" suffix="Nueva" />
+                <div class="grid grid-cols-2 gap-3">
+                  <UiInput v-model.number="draftLine.quantity" label="Cantidad" min="0.01" step="0.01" type="number" />
+                  <UiInput v-model.number="draftLine.unitPrice" label="Monto" min="0.01" step="0.01" type="number" />
+                </div>
+                <div class="flex items-center justify-between rounded-xl bg-white px-3 py-2.5 dark:bg-surface">
+                  <div><span class="block text-[11px] text-slate-500 dark:text-soft">Total nuevo</span><strong class="text-slate-950 dark:text-text">{{ currency(lineNetTotal(draftLine)) }}</strong></div>
+                  <UiButton type="button" @click="addLine">Agregar</UiButton>
+                </div>
+              </div>
+            </article>
+
+            <p v-if="lines.length === 0" class="rounded-xl bg-slate-50 px-3 py-4 text-sm text-slate-500 dark:bg-surface-muted dark:text-muted">
+              Selecciona un CCF origen para cargar las líneas de {{ isNotaDebito ? 'débito' : 'crédito' }}.
+            </p>
+          </div>
+
           <div
-            class="mt-4 rounded-md border border-slate-200 dark:border-line"
-            :class="isAdjustmentNote ? 'overflow-x-auto' : 'hidden overflow-visible md:block'"
+            class="mt-4 hidden rounded-md border border-slate-200 md:block dark:border-line"
+            :class="isAdjustmentNote ? 'overflow-x-auto' : 'overflow-visible'"
           >
             <table class="w-full min-w-[780px] text-left text-sm dark:text-text">
               <thead class="bg-blue-50/70 text-xs uppercase text-slate-500 dark:bg-surface-muted dark:text-muted">
