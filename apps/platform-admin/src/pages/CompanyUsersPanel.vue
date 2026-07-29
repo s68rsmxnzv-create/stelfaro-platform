@@ -359,7 +359,7 @@ function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
 
 async function errorMessageFromResponse(caught: unknown, fallback: string): Promise<string> {
   if (caught && typeof caught === 'object' && 'response' in caught) {
-    const response = (caught as { response?: { json?: () => Promise<unknown> } }).response;
+    const response = (caught as { response?: { json?: () => Promise<unknown>; headers?: Headers; status?: number } }).response;
     const payload = await response?.json?.().catch(() => null);
 
     if (payload && typeof payload === 'object') {
@@ -374,9 +374,20 @@ async function errorMessageFromResponse(caught: unknown, fallback: string): Prom
         return firstError;
       }
     }
+
+    const contentType = response?.headers?.get('content-type') ?? '';
+    if (contentType.includes('text/html')) {
+      return response?.status === 404
+        ? 'La acción solicitada no está disponible. Actualiza la página e inténtalo nuevamente.'
+        : fallback;
+    }
   }
 
-  return caught instanceof Error ? caught.message : fallback;
+  if (caught instanceof Error && !caught.message.trim().startsWith('<!DOCTYPE')) {
+    return caught.message;
+  }
+
+  return fallback;
 }
 
 function roleLabel(role: string): string {
