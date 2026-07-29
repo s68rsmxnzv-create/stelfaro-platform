@@ -54,6 +54,7 @@ const emit = defineEmits(['navigate']);
 
 const operationalMenuOpen = ref(false);
 const billingMenuOpen = ref(false);
+const moreBillingOptionsOpen = ref(false);
 const managementMenuOpen = ref(false);
 const eventMenuOpen = ref(false);
 const responsesMenuOpen = ref(false);
@@ -117,12 +118,15 @@ const billingOptions = computed(() => {
   return source
     .filter((type) => ['01', '03', '05', '06', '14'].includes(type.code))
     .map((type) => ({
+      code: type.code,
       label: type.label,
       href: hrefFor(`${props.billingBasePath}/${billingSlugByType[type.code] ?? 'fe'}`),
       slug: billingSlugByType[type.code] ?? 'fe',
       enabled: Boolean(type.implemented)
     }));
 });
+const primaryBillingOptions = computed(() => billingOptions.value.filter((option) => ['01', '03'].includes(option.code)));
+const secondaryBillingOptions = computed(() => billingOptions.value.filter((option) => !['01', '03'].includes(option.code)));
 const visibleEventOptions = computed(() => {
   const enabled = new Set(enabledEventTypes.value);
 
@@ -187,6 +191,7 @@ function toggleOperationalMenu() {
 function toggleBillingMenu() {
   const next = !billingMenuOpen.value;
   billingMenuOpen.value = next;
+  if (!next) moreBillingOptionsOpen.value = false;
   operationalMenuOpen.value = false;
   managementMenuOpen.value = false;
   eventMenuOpen.value = false;
@@ -237,6 +242,7 @@ function toggleArtifactsMenu() {
 function closeMenus() {
   operationalMenuOpen.value = false;
   billingMenuOpen.value = false;
+  moreBillingOptionsOpen.value = false;
   managementMenuOpen.value = false;
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
@@ -318,19 +324,73 @@ function navigate(event, href) {
         v-if="billingMenuOpen"
         class="sf-app-menu absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
       >
-        <template v-for="option in billingOptions" :key="option.label">
-          <a
-            v-if="option.enabled"
-            :href="option.href"
-            class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
-            :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === 'billing' && documentSlug === option.slug }"
-            @click="navigate($event, option.href)"
+        <template v-if="mobile">
+          <p class="px-3 pb-2 pt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Emitir documento</p>
+
+          <template v-for="option in primaryBillingOptions" :key="option.code">
+            <a
+              v-if="option.enabled"
+              :href="option.href"
+              class="mb-1 flex min-h-12 items-center justify-between rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-200 transition active:bg-sky-500/20"
+              :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === 'billing' && documentSlug === option.slug }"
+              @click="navigate($event, option.href)"
+            >
+              <span>{{ option.code === '01' ? 'Factura' : 'Crédito fiscal' }}</span>
+              <span class="text-xs font-medium text-slate-500">{{ option.code }}</span>
+            </a>
+            <span v-else class="mb-1 flex min-h-12 cursor-not-allowed items-center rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-500">
+              {{ option.code === '01' ? 'Factura' : 'Crédito fiscal' }}
+            </span>
+          </template>
+
+          <button
+            v-if="secondaryBillingOptions.length"
+            type="button"
+            class="mt-1 flex min-h-11 w-full items-center justify-between rounded-lg border border-white/10 px-3 text-left text-sm font-semibold text-slate-300 transition active:bg-white/10"
+            :aria-expanded="moreBillingOptionsOpen"
+            @click="moreBillingOptionsOpen = !moreBillingOptionsOpen"
           >
-            {{ option.label }}
-          </a>
-          <span v-else class="block cursor-not-allowed rounded-md px-3 py-2 text-sm font-semibold text-slate-500">
-            {{ option.label }}
-          </span>
+            {{ moreBillingOptionsOpen ? 'Ocultar otras opciones' : 'Ver más opciones' }}
+            <span
+              class="h-1.5 w-1.5 rotate-45 border-b-2 border-r-2 border-current text-slate-500 transition"
+              :class="moreBillingOptionsOpen ? 'rotate-[225deg]' : ''"
+              aria-hidden="true"
+            />
+          </button>
+
+          <div v-if="moreBillingOptionsOpen" class="mt-1 border-l border-white/10 pl-2">
+            <template v-for="option in secondaryBillingOptions" :key="option.code">
+              <a
+                v-if="option.enabled"
+                :href="option.href"
+                class="flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-semibold text-slate-300 transition active:bg-sky-500/20"
+                :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === 'billing' && documentSlug === option.slug }"
+                @click="navigate($event, option.href)"
+              >
+                {{ option.label }}
+              </a>
+              <span v-else class="flex min-h-11 cursor-not-allowed items-center rounded-lg px-3 py-2 text-sm font-semibold text-slate-500">
+                {{ option.label }}
+              </span>
+            </template>
+          </div>
+        </template>
+
+        <template v-else>
+          <template v-for="option in billingOptions" :key="option.label">
+            <a
+              v-if="option.enabled"
+              :href="option.href"
+              class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
+              :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === 'billing' && documentSlug === option.slug }"
+              @click="navigate($event, option.href)"
+            >
+              {{ option.label }}
+            </a>
+            <span v-else class="block cursor-not-allowed rounded-md px-3 py-2 text-sm font-semibold text-slate-500">
+              {{ option.label }}
+            </span>
+          </template>
         </template>
       </div>
     </div>
