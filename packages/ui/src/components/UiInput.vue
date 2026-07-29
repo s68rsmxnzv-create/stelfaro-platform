@@ -30,6 +30,14 @@ function updateValue(event: Event) {
   const value = (event.target as HTMLInputElement).value;
   emit('update:modelValue', props.modelModifiers?.number ? Number(value) : value);
 }
+
+function clearInitialZero(event: FocusEvent) {
+  const input = event.target as HTMLInputElement;
+  if (inputType.value === 'number' && input.value !== '' && Number(input.value) === 0) {
+    input.value = '';
+    emit('update:modelValue', '');
+  }
+}
 </script>
 
 <template>
@@ -52,6 +60,7 @@ function updateValue(event: Event) {
           canReveal ? 'pr-20' : suffix ? 'pr-16' : 'pr-3',
           suffix && inputType === 'number' ? 'ui-input-number-with-suffix' : ''
         ]"
+        @focus="clearInitialZero"
         @input="updateValue"
       >
       <button
