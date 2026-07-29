@@ -1457,7 +1457,6 @@ async function issueDocument(): Promise<void> {
     });
     if (result) {
       const rejected = isIssueResponseRejected(result);
-      if (fiscalSyncOperation) await completeDteFiscalSync(fiscalSyncOperation, result);
       if (!rejected) {
         const replacementReceived = ['accepted', 'received_by_mh'].includes(String(result.document.estado).toLowerCase())
           && Boolean(result.document.selloRecibido);
@@ -1467,13 +1466,12 @@ async function issueDocument(): Promise<void> {
       }
       issueResult.value = result;
       draft.value = result.document;
-      if (!rejected) await prepareAutomaticDtePrint(result.document, form.customerEmail);
-      void notifyEmailDelivery(result.document);
       correlativoPreview.value = null;
       preview.value = null;
       history.value = [];
       currentIssueIdempotencyKey = null;
-      await previewNextCorrelativo();
+      issuing.value = false;
+      void finishIssueAfterMh(result, fiscalSyncOperation, rejected, form.customerEmail);
     }
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible emitir el DTE.';
@@ -1481,6 +1479,24 @@ async function issueDocument(): Promise<void> {
   } finally {
     issuing.value = false;
   }
+}
+
+async function finishIssueAfterMh(
+  result: DteIssueResponse,
+  fiscalSyncOperation: PlatformFiscalSyncOperation | null,
+  rejected: boolean,
+  recipientEmail?: string | null,
+): Promise<void> {
+  if (fiscalSyncOperation) {
+    await completeDteFiscalSync(fiscalSyncOperation, result);
+  }
+
+  if (!rejected) {
+    await prepareAutomaticDtePrint(result.document, recipientEmail);
+  }
+
+  void notifyEmailDelivery(result.document);
+  await previewNextCorrelativo();
 }
 
 async function prepareAutomaticDtePrint(document: DteDraftSummary, recipientEmail?: string | null): Promise<void> {
