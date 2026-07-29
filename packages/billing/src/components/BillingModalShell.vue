@@ -70,10 +70,10 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div
       v-if="open"
-      class="fixed inset-0 grid place-items-center overflow-y-auto bg-slate-950/45 px-4 py-6 backdrop-blur-sm"
+      class="sf-safe-overlay fixed inset-0 grid place-items-center overflow-y-auto bg-slate-950/45 backdrop-blur-sm"
       :class="[
         zIndexClass,
-        mobileFullscreen ? 'place-items-stretch overflow-hidden p-0 md:place-items-center md:overflow-y-auto md:px-4 md:py-6' : ''
+        mobileFullscreen ? 'sf-safe-overlay-full place-items-stretch overflow-hidden md:place-items-center md:overflow-y-auto' : ''
       ]"
       @click.self="closeFromBackdrop"
     >
@@ -83,7 +83,7 @@ onBeforeUnmount(() => {
         :class="[
           maxWidth,
           panelClass,
-          mobileFullscreen ? 'h-[100dvh] max-h-[100dvh] rounded-none border-0 md:h-auto md:max-h-[calc(100dvh-3rem)] md:rounded-md md:border' : ''
+          mobileFullscreen ? 'h-full max-h-full rounded-none border-0 md:h-auto md:max-h-[calc(100dvh-3rem)] md:rounded-md md:border' : ''
         ]"
         role="dialog"
         aria-modal="true"
@@ -92,7 +92,7 @@ onBeforeUnmount(() => {
       >
         <header
           class="shrink-0 border-b border-slate-200 px-5 py-4 dark:border-line"
-          :class="mobileFullscreen ? 'pt-[max(1rem,env(safe-area-inset-top))] md:pt-4' : ''"
+          :class="mobileFullscreen ? 'pt-4' : ''"
         >
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">

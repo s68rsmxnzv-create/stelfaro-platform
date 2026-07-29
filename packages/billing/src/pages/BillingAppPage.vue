@@ -610,18 +610,18 @@ function navigateFromMenu(event, href) {
     />
   </div>
 
-  <div v-else-if="module === 'inventory'" class="sf-app-background min-h-screen text-slate-950 dark:text-text">
+  <div v-else-if="module === 'inventory'" class="sf-app-background sf-safe-screen text-slate-950 dark:text-text">
     <component
       :is="selectedComponent"
       v-bind="selectedComponentProps"
     />
   </div>
 
-  <div v-else class="relative min-h-screen overflow-x-hidden bg-app pt-[calc(4rem+env(safe-area-inset-top))] text-slate-950 dark:text-text md:pt-16">
-    <div class="sf-app-background pointer-events-none fixed inset-x-0 bottom-0 top-[calc(4rem+env(safe-area-inset-top))] z-0 md:top-16"></div>
+  <div v-else class="relative min-h-screen overflow-x-hidden bg-app pb-[env(safe-area-inset-bottom)] pt-[calc(4rem+env(safe-area-inset-top))] text-slate-950 dark:text-text">
+    <div class="sf-app-background pointer-events-none fixed inset-x-0 bottom-0 top-[calc(4rem+env(safe-area-inset-top))] z-0"></div>
 
     <nav class="sf-app-navbar fixed inset-x-0 top-0 z-50 shadow-sm backdrop-blur">
-      <div class="mx-auto max-w-7xl pb-0 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] md:px-6 md:pt-0 lg:px-8">
+      <div class="mx-auto max-w-7xl pb-0 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] md:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
           <div class="flex items-center">
             <button

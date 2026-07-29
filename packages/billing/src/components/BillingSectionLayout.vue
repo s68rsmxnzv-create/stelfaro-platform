@@ -158,7 +158,7 @@ const hierarchicalEntries = computed<UiSidebarNavEntry[]>(() => {
 </script>
 
 <template>
-  <div class="sf-app-background min-h-screen text-slate-950 dark:text-text">
+  <div class="sf-app-background sf-safe-screen text-slate-950 dark:text-text">
     <aside
       class="fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-slate-200 bg-white transition-[width] duration-200 dark:border-line dark:bg-surface lg:flex"
       :class="sidebarWidthClass"

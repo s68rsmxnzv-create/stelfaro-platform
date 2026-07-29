@@ -32,13 +32,13 @@ function closeFromBackdrop(closeOnBackdrop: boolean): void {
   <Teleport to="body">
     <div
       v-if="open"
-      class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 backdrop-blur-sm"
-      :class="mobileFullscreen ? 'p-0 md:px-4 md:py-6' : 'px-4 py-6'"
+      class="sf-safe-overlay fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 backdrop-blur-sm"
+      :class="mobileFullscreen ? 'sf-safe-overlay-full' : ''"
       @click.self="closeFromBackdrop(closeOnBackdrop)"
     >
       <section
         class="w-full border border-blue-100 bg-white text-slate-950 shadow-2xl shadow-slate-950/25 dark:border-line dark:bg-surface dark:text-text dark:shadow-black/30"
-        :class="[maxWidth, mobileFullscreen ? 'flex h-[100dvh] flex-col rounded-none md:h-auto md:max-h-[calc(100dvh-3rem)] md:rounded-md' : 'rounded-md']"
+        :class="[maxWidth, mobileFullscreen ? 'flex h-full max-h-full flex-col rounded-none md:h-auto md:max-h-[calc(100dvh-3rem)] md:rounded-md' : 'rounded-md']"
         role="dialog"
         aria-modal="true"
         :aria-label="title"
