@@ -95,6 +95,8 @@ const helpModalOpen = ref(false);
 const helpTooltip = ref(null);
 const userMenuOpen = ref(false);
 const mobileMenuOpen = ref(false);
+const mobileQuickInvoiceOpen = ref(false);
+const mobileQuickMoreOpen = ref(false);
 const userMenuRef = ref(null);
 const darkMode = ref(false);
 const contextLoading = ref(false);
@@ -268,11 +270,15 @@ const billingOptions = computed(() => {
   return source
     .filter((type) => ['01', '03', '05', '06', '14'].includes(type.code))
     .map((type) => ({
+      code: type.code,
       label: type.label,
       slug: billingSlugByType[type.code] ?? 'fe',
+      href: `${props.appBaseUrl.replace(/\/$/, '')}${props.app.id === 'taller' ? '/facturacion' : ''}/${billingSlugByType[type.code] ?? 'fe'}`,
       enabled: Boolean(type.implemented)
     }));
 });
+const mobilePrimaryBillingOptions = computed(() => billingOptions.value.filter((option) => ['01', '03'].includes(option.code)));
+const mobileSecondaryBillingOptions = computed(() => billingOptions.value.filter((option) => !['01', '03'].includes(option.code)));
 const selectedComponentProps = computed(() => {
   const baseProps = {
     authToken: props.authToken,
@@ -388,7 +394,6 @@ const selectedComponentProps = computed(() => {
 });
 const dashboardHref = computed(() => props.dashboardUrl || props.appBaseUrl || '/');
 const billingBasePath = computed(() => props.app.id === 'taller' ? '/facturacion' : '');
-const mobileInvoiceHref = computed(() => `${props.appBaseUrl.replace(/\/$/, '')}${billingBasePath.value}/fe`);
 const pageTitle = computed(() => {
   if (props.module === 'dashboard') return 'Dashboard';
   if (props.module === 'operational-placeholder') return props.operationalPage?.title ?? props.app.name;
@@ -512,6 +517,8 @@ function closeHelpOnEscape(event) {
     helpModalOpen.value = false;
     userMenuOpen.value = false;
     mobileMenuOpen.value = false;
+    mobileQuickInvoiceOpen.value = false;
+    mobileQuickMoreOpen.value = false;
   }
 }
 
@@ -577,8 +584,17 @@ function toggleTheme() {
 
 function navigate(event, href) {
   mobileMenuOpen.value = false;
+  mobileQuickInvoiceOpen.value = false;
+  mobileQuickMoreOpen.value = false;
   emit('navigate', { event, href });
 }
+
+watch(mobileMenuOpen, (open) => {
+  if (!open) {
+    mobileQuickInvoiceOpen.value = false;
+    mobileQuickMoreOpen.value = false;
+  }
+});
 
 function navigateFromMenu(event, href) {
   userMenuOpen.value = false;
@@ -814,16 +830,83 @@ function navigateFromMenu(event, href) {
               <ClipboardList class="h-6 w-6 text-sky-400" />
               {{ item.label }}
             </a>
-            <a
-              :href="mobileInvoiceHref"
+            <button
+              type="button"
               class="flex min-h-24 flex-col justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-bold text-white transition active:scale-[0.98] active:bg-white/10"
-              :class="module === 'billing' && documentSlug === 'fe' ? 'border-sky-400/60 bg-sky-500/20 text-sky-100' : ''"
-              @click="navigate($event, mobileInvoiceHref)"
+              :class="mobileQuickInvoiceOpen || module === 'billing' ? 'border-sky-400/60 bg-sky-500/20 text-sky-100' : ''"
+              :aria-expanded="mobileQuickInvoiceOpen"
+              aria-controls="mobile-quick-invoice-options"
+              @click="mobileQuickInvoiceOpen = !mobileQuickInvoiceOpen; mobileQuickMoreOpen = false"
             >
               <FileText class="h-6 w-6 text-sky-400" />
               Emitir factura
-            </a>
+            </button>
           </div>
+
+          <section
+            v-if="mobileQuickInvoiceOpen"
+            id="mobile-quick-invoice-options"
+            class="mb-7 rounded-2xl border border-white/10 bg-black/15 p-3"
+          >
+            <div class="mb-3 flex items-center justify-between gap-3 px-1">
+              <div>
+                <h2 class="text-base font-black text-white">¿Qué deseas emitir?</h2>
+                <p class="mt-0.5 text-xs text-slate-400">Selecciona el tipo de documento.</p>
+              </div>
+              <button type="button" class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-slate-300 active:bg-white/20" aria-label="Cerrar selector" @click="mobileQuickInvoiceOpen = false">
+                <X class="h-4 w-4" />
+              </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <template v-for="option in mobilePrimaryBillingOptions" :key="option.code">
+                <a
+                  v-if="option.enabled"
+                  :href="option.href"
+                  class="flex min-h-28 flex-col rounded-xl border border-white/10 bg-white/5 p-3 text-left transition active:scale-[0.98] active:bg-sky-500/20"
+                  @click="navigate($event, option.href)"
+                >
+                  <FileText class="h-5 w-5 text-sky-400" />
+                  <strong class="mt-auto block text-sm text-white">{{ option.code === '01' ? 'Factura' : 'Crédito fiscal' }}</strong>
+                  <span class="mt-1 text-[11px] leading-4 text-slate-400">{{ option.code === '01' ? 'Consumidor final' : 'Contribuyente' }}</span>
+                </a>
+                <span v-else class="flex min-h-28 cursor-not-allowed flex-col rounded-xl border border-white/5 bg-white/[0.03] p-3 text-slate-500">
+                  <FileText class="h-5 w-5" />
+                  <strong class="mt-auto block text-sm">{{ option.code === '01' ? 'Factura' : 'Crédito fiscal' }}</strong>
+                  <span class="mt-1 text-[11px]">No habilitado</span>
+                </span>
+              </template>
+            </div>
+
+            <button
+              v-if="mobileSecondaryBillingOptions.length"
+              type="button"
+              class="mt-2 flex min-h-11 w-full items-center justify-between rounded-xl border border-white/10 px-3 text-left text-sm font-semibold text-slate-300 active:bg-white/10"
+              :aria-expanded="mobileQuickMoreOpen"
+              @click="mobileQuickMoreOpen = !mobileQuickMoreOpen"
+            >
+              {{ mobileQuickMoreOpen ? 'Ocultar otras opciones' : 'Ver más opciones' }}
+              <span class="text-lg leading-none" aria-hidden="true">{{ mobileQuickMoreOpen ? '−' : '+' }}</span>
+            </button>
+
+            <div v-if="mobileQuickMoreOpen" class="mt-2 overflow-hidden rounded-xl border border-white/10">
+              <template v-for="option in mobileSecondaryBillingOptions" :key="option.code">
+                <a
+                  v-if="option.enabled"
+                  :href="option.href"
+                  class="flex min-h-12 items-center gap-3 border-b border-white/10 px-3 py-2.5 text-sm font-semibold text-slate-300 last:border-b-0 active:bg-white/10"
+                  @click="navigate($event, option.href)"
+                >
+                  <FileText class="h-4 w-4 shrink-0 text-sky-400" />
+                  {{ option.label }}
+                </a>
+                <span v-else class="flex min-h-12 cursor-not-allowed items-center gap-3 border-b border-white/10 px-3 py-2.5 text-sm font-semibold text-slate-500 last:border-b-0">
+                  <FileText class="h-4 w-4 shrink-0" />
+                  {{ option.label }}
+                </span>
+              </template>
+            </div>
+          </section>
 
           <p class="mb-2 px-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Más opciones</p>
           <BillingAppNav
