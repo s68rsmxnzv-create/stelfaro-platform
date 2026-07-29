@@ -91,7 +91,9 @@ const title = computed(() => {
 });
 const description = computed(() => props.intent === 'fiscal'
   ? 'Completa la información necesaria para emitir Crédito Fiscal.'
-  : null);
+  : props.mode === 'quick'
+    ? 'Usaremos únicamente este nombre durante la emisión actual.'
+    : null);
 const documentRequired = computed(() => props.mode === 'new' || props.intent === 'fiscal');
 const documentIsValid = computed(() => {
   if (!form.document.trim()) return !documentRequired.value;
@@ -188,6 +190,17 @@ function updateCommercialName(value: string): void {
 function submit(): void {
   if (!canSave.value) return;
 
+  if (props.mode === 'quick') {
+    emit('save', {
+      name: form.name.trim(),
+      document_type: null,
+      document_number: null,
+      email: null,
+      phone: null,
+    });
+    return;
+  }
+
   const documentDigits = form.document.replace(/\D+/g, '');
   const activity = selectedActividad.value;
   const allowedDteCodes = new Set(props.initialValue?.allowed_dte_codes ?? []);
@@ -244,7 +257,7 @@ function submit(): void {
       </div>
     </div>
 
-    <div class="grid gap-4 md:grid-cols-2">
+    <div v-if="mode !== 'quick'" class="grid gap-4 md:grid-cols-2">
       <UiFiscalDocumentInput
         v-model="form.document"
         :label="documentRequired ? 'DUI/NIT del cliente' : 'DUI/NIT del cliente (opcional)'"
@@ -254,27 +267,27 @@ function submit(): void {
     </div>
 
     <UiSearchSelect
-      v-if="isFiscalMode"
+      v-if="mode !== 'quick' && isFiscalMode"
       v-model="form.actividad"
       label="Actividad economica"
       :options="actividadOptions"
       placeholder="Buscar por codigo o descripcion"
     />
 
-    <div class="grid gap-4 sm:grid-cols-2">
+    <div v-if="mode !== 'quick'" class="grid gap-4 sm:grid-cols-2">
       <UiEmailInput v-model="form.email" label="Correo" />
       <UiPhoneInput v-model="form.phone" label="Telefono" />
     </div>
 
     <button
-      v-if="!isFiscalMode && allowOptionalAddress"
+      v-if="mode !== 'quick' && !isFiscalMode && allowOptionalAddress"
       type="button"
       class="text-left text-sm font-semibold text-sky-700 transition hover:text-sky-600 dark:text-primary"
       @click="showAddress = !showAddress"
     >
       {{ showAddress ? 'Ocultar direccion opcional' : 'Agregar direccion opcional' }}
     </button>
-    <div v-if="showAddress" class="grid gap-4 rounded-md border border-blue-100 bg-blue-50/40 p-4 dark:border-line dark:bg-surface-muted">
+    <div v-if="mode !== 'quick' && showAddress" class="grid gap-4 rounded-md border border-blue-100 bg-blue-50/40 p-4 dark:border-line dark:bg-surface-muted">
       <p v-if="isFiscalMode" class="text-sm font-semibold text-slate-700 dark:text-muted">Dirección</p>
       <div class="grid gap-4 md:grid-cols-2">
         <UiSearchSelect

@@ -642,6 +642,7 @@ const documentLabel = computed(() => `${form.documentType} · ${selectedDocument
 const customerResults = computed(() => !customerSearchLocked.value && customerSearch.value.trim().length >= 2 ? customers.value : []);
 const customerSummary = computed(() => {
   if (customerMode.value === 'generic') return 'Sin documento, telefono ni correo.';
+  if (customerMode.value === 'quick') return 'Solo para esta emisión.';
   const details = [
     form.customerDocument ? `${form.customerDocumentType || 'Doc'} ${form.customerDocument}` : null,
     form.customerEmail || null,
@@ -1466,6 +1467,9 @@ async function issueDocument(): Promise<void> {
       }
       issueResult.value = result;
       draft.value = result.document;
+      if (!rejected && customerMode.value === 'quick') {
+        clearQuickCustomerCache();
+      }
       correlativoPreview.value = null;
       preview.value = null;
       history.value = [];
@@ -1817,6 +1821,7 @@ function closeIssueModal(): void {
 }
 
 function resetInvoiceForm(): void {
+  clearQuickCustomerCache();
   preview.value = null;
   draft.value = null;
   history.value = [];
@@ -2211,7 +2216,13 @@ function quickCustomerCacheKey(): string {
 }
 
 function cacheQuickCustomer(payload: BillingCustomerModalPayload): void {
-  window.sessionStorage.setItem(quickCustomerCacheKey(), JSON.stringify(payload));
+  window.sessionStorage.setItem(quickCustomerCacheKey(), JSON.stringify({
+    name: payload.name.trim(),
+    document_type: null,
+    document_number: null,
+    email: null,
+    phone: null,
+  }));
 }
 
 function clearQuickCustomerCache(): void {
@@ -2232,17 +2243,15 @@ function restoreQuickCustomer(): void {
 function applyQuickCustomer(payload: BillingCustomerModalPayload): void {
   selectedCustomerId.value = null;
   customerMode.value = 'quick';
-  form.customerName = payload.name;
-  form.customerDocumentType = payload.document_type ?? '';
-  form.customerDocument = payload.document_number ?? '';
-  form.customerEmail = payload.email ?? '';
-  form.customerPhone = payload.phone ?? '';
-  form.customerDepartment = payload.departamento ?? '';
-  form.customerMunicipality = payload.municipio ?? '';
-  form.customerDistrict = payload.distrito ?? '';
-  form.customerAddress = payload.direccion_complemento ?? '';
+  clearCustomerFields(payload.name.trim());
   mobileCustomerExpanded.value = false;
-  cacheQuickCustomer(payload);
+  cacheQuickCustomer({
+    name: payload.name.trim(),
+    document_type: null,
+    document_number: null,
+    email: null,
+    phone: null,
+  });
 }
 
 async function handleCustomerModalSave(payload: BillingCustomerModalPayload): Promise<void> {
@@ -3525,30 +3534,32 @@ function updatePaymentCondition(value: string): void {
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
-                  <span class="rounded bg-white px-2 py-1 dark:bg-primary-soft dark:text-primary">{{ isAdjustmentNote ? 'Receptor del CCF origen' : isSujetoExcluido ? 'Receptor - Sujeto excluido' : isCreditoFiscal ? 'Receptor - Cliente fiscal' : 'Receptor - Cliente base' }}</span>
+                  <span class="rounded bg-white px-2 py-1 dark:bg-primary-soft dark:text-primary">{{ customerMode === 'quick' ? 'Cliente temporal' : isAdjustmentNote ? 'Receptor del CCF origen' : isSujetoExcluido ? 'Receptor - Sujeto excluido' : isCreditoFiscal ? 'Receptor - Cliente fiscal' : 'Receptor - Cliente base' }}</span>
                 </div>
                 <div class="mt-3 grid gap-x-4 gap-y-3 text-[13px] sm:grid-cols-2">
                   <p class="min-w-0 sm:col-span-2">
                     <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Nombre</span>
                     <span class="block truncate font-semibold text-slate-950 dark:text-text">{{ form.customerName }}</span>
                   </p>
-                  <p>
-                    <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Tipo de documento</span>
-                    <span class="block font-semibold text-slate-950 dark:text-text">{{ customerDocumentTypeLabel }}</span>
-                  </p>
-                  <p class="min-w-0">
-                    <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Numero</span>
-                    <span class="block truncate font-semibold text-slate-950 dark:text-text">{{ customerDocumentNumberLabel }}</span>
-                  </p>
-                  <p>
-                    <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Telefono</span>
-                    <span class="block font-semibold text-slate-950 dark:text-text">{{ form.customerPhone || 'Sin telefono' }}</span>
-                  </p>
-                  <p class="min-w-0">
-                    <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Correo</span>
-                    <span class="block truncate font-semibold text-slate-950 dark:text-text">{{ form.customerEmail || 'Sin correo' }}</span>
-                  </p>
-                  <template v-if="requiresStructuredCustomer">
+                  <template v-if="customerMode !== 'quick'">
+                    <p>
+                      <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Tipo de documento</span>
+                      <span class="block font-semibold text-slate-950 dark:text-text">{{ customerDocumentTypeLabel }}</span>
+                    </p>
+                    <p class="min-w-0">
+                      <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Numero</span>
+                      <span class="block truncate font-semibold text-slate-950 dark:text-text">{{ customerDocumentNumberLabel }}</span>
+                    </p>
+                    <p>
+                      <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Telefono</span>
+                      <span class="block font-semibold text-slate-950 dark:text-text">{{ form.customerPhone || 'Sin telefono' }}</span>
+                    </p>
+                    <p class="min-w-0">
+                      <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">Correo</span>
+                      <span class="block truncate font-semibold text-slate-950 dark:text-text">{{ form.customerEmail || 'Sin correo' }}</span>
+                    </p>
+                  </template>
+                  <template v-if="customerMode !== 'quick' && requiresStructuredCustomer">
                     <p v-if="!isSujetoExcluido">
                       <span class="block text-[11px] font-semibold text-slate-500 dark:text-soft">NRC</span>
                       <span class="block font-semibold text-slate-950 dark:text-text">{{ form.customerNrc || 'Pendiente' }}</span>
