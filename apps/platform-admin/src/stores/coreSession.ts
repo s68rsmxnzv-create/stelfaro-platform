@@ -2,8 +2,7 @@ import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { CoreDteClient } from '@stelfaro/api-client';
 
-const platformApiBaseUrl = import.meta.env.VITE_PLATFORM_API_BASE_URL || '/platform-api/v1';
-const defaultBaseUrl = import.meta.env.VITE_CORE_API_BASE_URL || `${platformApiBaseUrl}/admin/core`;
+const defaultBaseUrl = import.meta.env.VITE_CORE_API_BASE_URL || '/api/v1/admin/core';
 
 export const useCoreSessionStore = defineStore('core-session', () => {
   const baseUrl = ref(defaultBaseUrl);
