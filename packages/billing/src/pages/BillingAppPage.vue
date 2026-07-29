@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { CoreDteClient } from '@stelfaro/api-client';
-import { CircleQuestionMark, ClipboardList, Download, FileText, Home, Menu, X } from 'lucide-vue-next';
+import { CircleQuestionMark, ClipboardList, FileText, Home, Menu, X } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingAppNav from '../components/BillingAppNav.vue';
 import BillingHelpModal from '../components/BillingHelpModal.vue';
@@ -102,8 +102,6 @@ const darkMode = ref(false);
 const contextLoading = ref(false);
 const documentTypes = ref([]);
 const billingCompanies = ref([]);
-const pwaCanInstall = ref(false);
-const pwaDisplayMode = ref('browser');
 const emit = defineEmits(['logout', 'navigate']);
 const themeStorageKey = 'stelfaro:theme';
 
@@ -488,29 +486,14 @@ watch(() => props.user?.email, () => {
 
 onMounted(() => {
   initializeTheme();
-  syncPwaState();
   window.addEventListener('keydown', closeHelpOnEscape);
-  window.addEventListener('stelfaro:pwa-state', syncPwaState);
   document.addEventListener('click', closeUserMenuOnOutsideClick);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', closeHelpOnEscape);
-  window.removeEventListener('stelfaro:pwa-state', syncPwaState);
   document.removeEventListener('click', closeUserMenuOnOutsideClick);
 });
-
-function syncPwaState(event = null) {
-  const state = event?.detail || window.stelfaroPwa?.state?.() || {};
-  pwaCanInstall.value = Boolean(state.canInstall);
-  pwaDisplayMode.value = state.displayMode || 'browser';
-}
-
-async function installPwa() {
-  const result = await window.stelfaroPwa?.install?.();
-  if (result?.outcome === 'accepted') userMenuOpen.value = false;
-  syncPwaState();
-}
 
 function closeHelpOnEscape(event) {
   if (event.key === 'Escape') {
@@ -701,16 +684,6 @@ function navigateFromMenu(event, href) {
                   <p class="mt-1 truncate text-sm text-slate-500 dark:text-muted">{{ user?.email ?? 'Sesion activa' }}</p>
                 </div>
                 <div class="space-y-1 py-2 text-sm font-semibold">
-                  <button
-                    v-if="pwaCanInstall && pwaDisplayMode !== 'standalone'"
-                    class="flex w-full items-center gap-4 rounded-lg bg-sky-50 px-3 py-3 text-left text-sky-800 hover:bg-sky-100 dark:bg-primary-soft dark:text-primary dark:hover:bg-surface-muted"
-                    type="button"
-                    role="menuitem"
-                    @click="installPwa"
-                  >
-                    <Download class="h-5 w-5" aria-hidden="true" />
-                    Instalar aplicación
-                  </button>
                   <a
                     :href="dashboardHref"
                     class="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text"
