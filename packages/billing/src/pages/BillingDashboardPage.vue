@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { ArrowRight, CalendarDays, CircleDollarSign, ClipboardCheck, Clock3, FileCheck2, PackageCheck, RefreshCw, Smartphone, TriangleAlert, Wrench } from 'lucide-vue-next';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { ArrowRight, CalendarDays, ChevronDown, CircleDollarSign, ClipboardCheck, Clock3, FileCheck2, FileText, PackageCheck, RefreshCw, Smartphone, TriangleAlert, Wrench, X } from 'lucide-vue-next';
 import { CoreDteClient, PlatformClient, type DteDashboardSummary, type PlatformCommercialDashboard, type WorkshopDashboard, type WorkshopOrder } from '@stelfaro/api-client';
 import { UiButton, UiCard, UiStatusBadge } from '@stelfaro/ui';
 
@@ -10,6 +10,32 @@ const platform = computed(() => new PlatformClient(props.platformBaseUrl, { auth
 const workshop = ref<WorkshopDashboard | null>(null); const commercial = ref<PlatformCommercialDashboard['commercial'] | null>(null); const fiscal = ref<DteDashboardSummary | null>(null); const loading = ref(false); const error = ref('');
 const base = computed(() => props.appBaseUrl.replace(/\/$/, ''));
 const invoiceHref = computed(() => `${base.value}${props.workshopEnabled ? '/facturacion' : ''}/fe`);
+const billingBase = computed(() => `${base.value}${props.workshopEnabled ? '/facturacion' : ''}`);
+const invoiceMenuOpen = ref(false);
+const showMoreInvoiceOptions = ref(false);
+const primaryInvoiceOptions = computed(() => [
+  { code: '01', label: 'Factura', description: 'Venta a consumidor final', href: `${billingBase.value}/fe` },
+  { code: '03', label: 'Crédito fiscal', description: 'Venta a contribuyente', href: `${billingBase.value}/ccf` },
+]);
+const secondaryInvoiceOptions = computed(() => [
+  { code: '14', label: 'Sujeto excluido', description: 'Compra a persona no contribuyente', href: `${billingBase.value}/se` },
+  { code: '05', label: 'Nota de crédito', description: 'Disminuir o corregir una venta', href: `${billingBase.value}/nc` },
+  { code: '06', label: 'Nota de débito', description: 'Aumentar el valor de una venta', href: `${billingBase.value}/nd` },
+]);
+function openInvoiceMenu() {
+  showMoreInvoiceOptions.value = false;
+  invoiceMenuOpen.value = true;
+}
+function closeInvoiceMenu() {
+  invoiceMenuOpen.value = false;
+  showMoreInvoiceOptions.value = false;
+}
+watch(invoiceMenuOpen, (open) => {
+  document.body.style.overflow = open ? 'hidden' : '';
+});
+onBeforeUnmount(() => {
+  document.body.style.overflow = '';
+});
 const money = (value: number) => new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(value || 0);
 const hasEstimatedTaxCredit = computed(() => (commercial.value?.estimated_tax_credit_balance_month ?? 0) > 0);
 const estimatedTaxAmount = computed(() => hasEstimatedTaxCredit.value
@@ -71,14 +97,86 @@ onMounted(load);
           <Smartphone class="h-7 w-7" />
           Recibir equipo
         </a>
-        <a
-          :href="invoiceHref"
+        <button
+          type="button"
           class="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl bg-primary px-3 py-4 text-center text-sm font-bold text-primary-contrast shadow-lg shadow-primary/20 active:scale-[0.98]"
+          aria-haspopup="dialog"
+          @click="openInvoiceMenu"
         >
           <FileCheck2 class="h-7 w-7" />
           Emitir factura
-        </a>
+        </button>
       </section>
+
+      <Teleport to="body">
+        <div
+          v-if="invoiceMenuOpen"
+          class="fixed inset-0 z-[1000] flex items-end bg-black/55 backdrop-blur-[2px] md:hidden"
+          role="presentation"
+          @click.self="closeInvoiceMenu"
+        >
+          <section
+            class="max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-t-[1.75rem] border border-line bg-surface px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invoice-menu-title"
+          >
+            <div class="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong"></div>
+            <div class="flex items-start justify-between gap-4 px-1">
+              <div>
+                <h2 id="invoice-menu-title" class="text-xl font-black text-text">¿Qué deseas emitir?</h2>
+                <p class="mt-1 text-sm text-muted">Elige el tipo de documento para comenzar.</p>
+              </div>
+              <button type="button" class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface-muted text-muted active:bg-surface-strong" aria-label="Cerrar" @click="closeInvoiceMenu">
+                <X class="h-5 w-5" />
+              </button>
+            </div>
+
+            <div class="mt-5 grid grid-cols-2 gap-3">
+              <a
+                v-for="option in primaryInvoiceOptions"
+                :key="option.code"
+                :href="option.href"
+                class="flex min-h-32 flex-col rounded-2xl border border-line bg-surface-raised p-4 text-left shadow-sm active:scale-[0.98] active:bg-primary-soft"
+              >
+                <span class="grid h-11 w-11 place-items-center rounded-xl bg-primary-soft text-primary">
+                  <FileText class="h-6 w-6" />
+                </span>
+                <strong class="mt-4 block text-sm text-text">{{ option.label }}</strong>
+                <span class="mt-1 block text-xs leading-5 text-muted">{{ option.description }}</span>
+              </a>
+            </div>
+
+            <button
+              type="button"
+              class="mt-3 flex min-h-12 w-full items-center justify-between rounded-xl border border-line bg-surface-muted px-4 text-left text-sm font-bold text-text active:bg-surface-strong"
+              :aria-expanded="showMoreInvoiceOptions"
+              @click="showMoreInvoiceOptions = !showMoreInvoiceOptions"
+            >
+              {{ showMoreInvoiceOptions ? 'Ocultar otras opciones' : 'Ver más opciones' }}
+              <ChevronDown class="h-5 w-5 text-muted transition-transform" :class="showMoreInvoiceOptions ? 'rotate-180' : ''" />
+            </button>
+
+            <div v-if="showMoreInvoiceOptions" class="mt-2 overflow-hidden rounded-xl border border-line">
+              <a
+                v-for="option in secondaryInvoiceOptions"
+                :key="option.code"
+                :href="option.href"
+                class="flex min-h-16 items-center gap-3 border-b border-line px-4 py-3 last:border-b-0 active:bg-surface-muted"
+              >
+                <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-surface-muted text-primary">
+                  <FileText class="h-5 w-5" />
+                </span>
+                <span class="min-w-0">
+                  <strong class="block text-sm text-text">{{ option.label }}</strong>
+                  <span class="mt-0.5 block text-xs text-muted">{{ option.description }}</span>
+                </span>
+                <ArrowRight class="ml-auto h-4 w-4 shrink-0 text-soft" />
+              </a>
+            </div>
+          </section>
+        </div>
+      </Teleport>
 
       <section>
         <div class="mb-3 flex items-center justify-between">
