@@ -1930,6 +1930,17 @@ function buildServiceHttp(
             }
           }
 
+          const isHtmlResponse = contentType.includes('text/html')
+            || /^<!doctype\s+html/i.test(trimmedBody)
+            || /<html(?:\s|>)/i.test(trimmedBody);
+
+          if (isHtmlResponse) {
+            error.message = error.response.status === 404
+              ? 'La acción solicitada no está disponible. Actualiza la página e inténtalo nuevamente.'
+              : `No fue posible completar la solicitud (HTTP ${error.response.status}).`;
+            return error;
+          }
+
           error.message = trimmedBody || error.message;
           return error;
         }
