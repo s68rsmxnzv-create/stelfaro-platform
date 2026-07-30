@@ -740,6 +740,7 @@ export type PlatformFiscalSyncOperation = {
 export type PlatformDteSyncPayload = {
   idempotency_key: string;
   workshop_order_id?: number | null;
+  sales_order_id?: number | null;
   reservation?: Omit<PlatformInventoryReservationPayload, 'idempotency_key'> | null;
   sale: Omit<PlatformInventorySalePayload, 'source_id'> & { source_id?: string };
 };
@@ -882,6 +883,26 @@ export type PlatformInternalNotification = {
 export type PlatformInternalNotificationsResponse = {
   data: PlatformInternalNotification[];
   unread_count: number;
+};
+
+export type PlatformWorkLine = { id?: number; description: string; quantity: number; unit_price: number; discount_amount?: number; total?: number };
+export type PlatformSalesOrder = {
+  id: number; number: string; title: string; work_type: string; status: string; financial_status: string;
+  billing: { status: string; dte_type?: string | null; core_document_id?: number | null; number?: string | null };
+  customer: { id?: number | null; name: string; phone?: string | null; email?: string | null };
+  subtotal: number; discount_total: number; total: number; paid_total: number; balance: number; notes?: string | null;
+  cancellation_reason?: string | null; lines: PlatformWorkLine[]; created_at?: string | null;
+};
+export type PlatformQuotation = {
+  id: number; number: string; title: string; status: string;
+  customer: PlatformSalesOrder['customer']; subtotal: number; discount_total: number; total: number;
+  requested_deposit: number; valid_until?: string | null; terms?: string | null; notes?: string | null;
+  order_id?: number | null; lines: PlatformWorkLine[]; created_at?: string | null;
+};
+export type PlatformReceivable = {
+  id: number; source_type: string; source_id: number; source_number: string;
+  customer: { id?: number | null; name: string }; original_amount: number; paid_amount: number;
+  refunded_amount: number; balance: number; status: string; recognized_at?: string | null;
 };
 
 export type PlatformInventoryCountPayload = {
@@ -2166,6 +2187,46 @@ export class PlatformClient {
 
   commercialDashboard(tenantId: number): Promise<PlatformCommercialDashboard> {
     return this.http.get(`platform/tenants/${tenantId}/commercial/dashboard`).json();
+  }
+
+  salesOrders(tenantId: number, params: { q?: string; status?: string; page?: number; per_page?: number } = {}): Promise<{ data: PlatformSalesOrder[]; meta: PaginationMeta }> {
+    return this.http.get(`platform/tenants/${tenantId}/sales-orders`, { searchParams: compactParams(params) }).json();
+  }
+
+  createSalesOrder(tenantId: number, payload: Record<string, unknown>): Promise<{ data: PlatformSalesOrder }> {
+    return this.http.post(`platform/tenants/${tenantId}/sales-orders`, { json: payload }).json();
+  }
+
+  updateSalesOrder(tenantId: number, orderId: number, payload: Record<string, unknown>): Promise<{ data: PlatformSalesOrder }> {
+    return this.http.patch(`platform/tenants/${tenantId}/sales-orders/${orderId}`, { json: payload }).json();
+  }
+
+  paySalesOrder(tenantId: number, orderId: number, payload: Record<string, unknown>): Promise<{ data: PlatformSalesOrder }> {
+    return this.http.post(`platform/tenants/${tenantId}/sales-orders/${orderId}/payments`, { json: payload }).json();
+  }
+
+  cancelSalesOrder(tenantId: number, orderId: number, payload: Record<string, unknown>): Promise<{ data: PlatformSalesOrder }> {
+    return this.http.post(`platform/tenants/${tenantId}/sales-orders/${orderId}/cancel`, { json: payload }).json();
+  }
+
+  quotations(tenantId: number, params: { q?: string; status?: string } = {}): Promise<{ data: PlatformQuotation[] }> {
+    return this.http.get(`platform/tenants/${tenantId}/quotations`, { searchParams: compactParams(params) }).json();
+  }
+
+  createQuotation(tenantId: number, payload: Record<string, unknown>): Promise<{ data: PlatformQuotation }> {
+    return this.http.post(`platform/tenants/${tenantId}/quotations`, { json: payload }).json();
+  }
+
+  updateQuotationStatus(tenantId: number, quotationId: number, status: string): Promise<{ data: PlatformQuotation }> {
+    return this.http.patch(`platform/tenants/${tenantId}/quotations/${quotationId}/status`, { json: { status } }).json();
+  }
+
+  convertQuotation(tenantId: number, quotationId: number, payload: Record<string, unknown>): Promise<{ data: { order_id: number; order_number: string } }> {
+    return this.http.post(`platform/tenants/${tenantId}/quotations/${quotationId}/convert`, { json: payload }).json();
+  }
+
+  receivables(tenantId: number, params: { q?: string; status?: string } = {}): Promise<{ data: PlatformReceivable[]; summary: { open: number; accounts: number } }> {
+    return this.http.get(`platform/tenants/${tenantId}/receivables`, { searchParams: compactParams(params) }).json();
   }
 
   cashOverview(tenantId: number, params: { date_from?: string; date_to?: string; method?: string; direction?: string; cash_register_id?: number; page?: number; per_page?: number } = {}): Promise<PlatformCashOverview> {

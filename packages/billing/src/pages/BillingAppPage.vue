@@ -13,6 +13,7 @@ import BillingCustomersPage from './BillingCustomersPage.vue';
 import CatalogPage from './CatalogPage.vue';
 import BillingDashboardPage from './BillingDashboardPage.vue';
 import CashPage from './CashPage.vue';
+import CommercialOrdersPage from './CommercialOrdersPage.vue';
 import FollowUpNotesPage from './FollowUpNotesPage.vue';
 import BillingOperationalPlaceholderPage from './BillingOperationalPlaceholderPage.vue';
 import BillingWorkspace from './BillingWorkspace.vue';
@@ -234,6 +235,7 @@ const fallbackBillingTypes = [
 const moduleComponents = {
   dashboard: BillingDashboardPage,
   cash: CashPage,
+  'commercial-orders': CommercialOrdersPage,
   'follow-ups': FollowUpNotesPage,
   'operational-placeholder': BillingOperationalPlaceholderPage,
   'workshop-reception': WorkshopAppPage,
@@ -258,7 +260,7 @@ const eventOptions = [
 ];
 
 const selectedComponent = computed(() => moduleComponents[props.module] || BillingWorkspace);
-const requiresFiscalSession = computed(() => !['audit', 'catalog', 'inventory', 'cash', 'operational-placeholder'].includes(props.module));
+const requiresFiscalSession = computed(() => !['audit', 'catalog', 'inventory', 'cash', 'commercial-orders', 'operational-placeholder'].includes(props.module));
 const selectedDocumentType = computed(() => documentTypeBySlug[props.documentSlug] || '01');
 const selectedEventType = computed(() => eventTypeBySlug[props.eventSlug] || 'invalidacion');
 const selectedArtifactType = computed(() => artifactTypeBySlug[props.artifactSlug] || 'dte');
@@ -306,6 +308,10 @@ const selectedComponentProps = computed(() => {
 
   if (props.module === 'cash') {
     return { platformBaseUrl: props.platformBaseUrl, authToken: props.authToken, tenantId: Number(props.platformSession?.tenant?.id || 0), workshopEnabled: props.app.id === 'taller', company: activeCompany.value };
+  }
+
+  if (props.module === 'commercial-orders') {
+    return { platformBaseUrl: props.platformBaseUrl, authToken: props.authToken, tenantId: Number(props.platformSession?.tenant?.id || 0), appBaseUrl: props.appBaseUrl };
   }
 
   if (props.module === 'follow-ups') {
@@ -406,6 +412,7 @@ const pageTitle = computed(() => {
   if (props.module === 'customers') return 'Clientes';
   if (props.module === 'inventory') return 'Inventario';
   if (props.module === 'cash') return 'Caja';
+  if (props.module === 'commercial-orders') return 'Órdenes y cotizaciones';
   if (props.module === 'follow-ups') return 'Pendientes';
 
   if (props.module === 'mh-events') {

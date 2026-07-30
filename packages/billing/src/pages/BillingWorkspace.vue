@@ -74,6 +74,7 @@ const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: 
 const platformClient = computed(() => new PlatformClient(props.platformBaseUrl, { credentials: 'same-origin' }));
 const platformTenantId = computed(() => Number((props.platformSession as PlatformSessionProp)?.tenant?.id || 0));
 const workshopOrderId = Number(new URLSearchParams(window.location.search).get('workshop_order') || 0);
+const salesOrderId = Number(new URLSearchParams(window.location.search).get('sales_order') || 0);
 const workshopPrintDrawer = new URLSearchParams(window.location.search).get('open_drawer') === '1';
 const replacementOfDteId = Number(new URLSearchParams(window.location.search).get('replacement_of') || 0);
 const loading = ref(false);
@@ -874,6 +875,7 @@ onMounted(async () => {
   restoreQuickCustomer();
   await loadReplacementPrefill();
   await loadWorkshopOrderPrefill();
+  await loadSalesOrderPrefill();
 });
 
 let inventoryAvailabilityToken = 0;
@@ -936,6 +938,45 @@ async function loadWorkshopOrderPrefill(): Promise<void> {
     }
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar la orden de trabajo para facturación.';
+  }
+}
+
+async function loadSalesOrderPrefill(): Promise<void> {
+  if (!salesOrderId || !platformTenantId.value) return;
+  try {
+    const order = (await platformClient.value.salesOrders(platformTenantId.value, { per_page: 100 })).data.find(item => item.id === salesOrderId);
+    if (!order) throw new Error('No encontramos la orden de trabajo.');
+    if (order.billing.status === 'invoiced') {
+      error.value = `La orden ${order.number} ya está facturada.`;
+      return;
+    }
+    if (order.status === 'cancelled') {
+      error.value = 'Una orden cancelada no puede facturarse.';
+      return;
+    }
+    if (order.customer.id) {
+      const customer = (await client.value.customer(order.customer.id)).customer;
+      customerMode.value = 'base';
+      applyCustomer(customer);
+    } else {
+      applyQuickCustomer({ name: order.customer.name, document_type: null, document_number: null, email: null, phone: null });
+    }
+    lines.value = order.lines.map((item) => {
+      const line = newInvoiceLine();
+      line.description = item.description;
+      line.quantity = item.quantity;
+      line.unitPrice = item.unit_price;
+      line.discount = item.discount_amount ?? 0;
+      return line;
+    });
+    form.observations = `Orden ${order.number} · ${order.title}`;
+    resetPayments();
+    if (order.balance > 0) {
+      paymentCondition.value = 2;
+      paymentLines.value = supportsAdvancedPayments.value ? [newPaymentLine(roundMoney(order.balance))] : [];
+    }
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible cargar la orden para facturación.';
   }
 }
 
@@ -1627,6 +1668,7 @@ async function prepareDteFiscalSync(idempotencyKey: string): Promise<PlatformFis
   const response = await platformClient.value.prepareDteFiscalSync(platformTenantId.value, {
     idempotency_key: idempotencyKey,
     workshop_order_id: workshopOrderId || null,
+    sales_order_id: salesOrderId || null,
     reservation: inventoryIssueLines.value.length > 0 ? {
       ...branch,
       source_type: 'dte',
@@ -1640,7 +1682,7 @@ async function prepareDteFiscalSync(idempotencyKey: string): Promise<PlatformFis
     } : null,
     sale: {
       ...branch,
-      source_type: workshopOrderId ? 'workshop_order' : 'dte',
+      source_type: workshopOrderId ? 'workshop_order' : salesOrderId ? 'sales_order' : 'dte',
       sale_date: new Date().toISOString().slice(0, 10),
       fiscal_document_type: form.documentType,
       net_amount: saleNetAmount(),

@@ -102,9 +102,10 @@ const baseUrl = computed(() => props.appBaseUrl.replace(/\/$/, ''));
 const responsesMenuActive = computed(() => ['mh-responses', 'mh-event-responses'].includes(props.module));
 const artifactsMenuActive = computed(() => props.module === 'artifacts');
 const operationalMenuActive = computed(() => props.extraNavItems.some((item) => item.active));
-const managementMenuActive = computed(() => ['customers', 'catalog', 'inventory', 'cash', 'follow-ups'].includes(props.module));
+const managementMenuActive = computed(() => ['customers', 'catalog', 'inventory', 'cash', 'commercial-orders', 'follow-ups'].includes(props.module));
 const hrefFor = (path) => `${baseUrl.value}${path}`;
 const managementOptions = computed(() => [
+  { label: 'Órdenes y cotizaciones', href: hrefFor('/ordenes-trabajo'), module: 'commercial-orders' },
   { label: 'Caja', href: hrefFor('/caja'), module: 'cash' },
   { label: 'Pendientes', href: hrefFor('/pendientes'), module: 'follow-ups' },
   { label: 'Clientes', href: hrefFor('/clientes'), module: 'customers' },
