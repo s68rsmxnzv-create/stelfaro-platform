@@ -900,7 +900,7 @@ export type PlatformQuotation = {
   order_id?: number | null; lines: PlatformWorkLine[]; created_at?: string | null;
 };
 export type PlatformReceivable = {
-  id: number; source_type: string; source_id: number; source_number: string;
+  id: number|string; collection_id: number; source_type: 'workshop_order'|'sales_order'|'dte'|string; source_id: number; source_number: string;
   customer: { id?: number | null; name: string }; original_amount: number; paid_amount: number;
   refunded_amount: number; balance: number; status: string; recognized_at?: string | null;
 };

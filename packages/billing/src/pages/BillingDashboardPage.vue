@@ -212,7 +212,7 @@ onMounted(load);
           </a>
           <a
             v-if="workshopEnabled"
-            :href="`${base}/caja?tab=sales&payment_status=receivable`"
+            :href="`${base}/ordenes-trabajo?tab=receivables`"
             class="min-h-28 rounded-2xl border border-line bg-surface p-4 shadow-sm active:bg-surface-muted"
           >
             <Clock3 class="h-5 w-5 text-warning" />
@@ -317,7 +317,7 @@ onMounted(load);
       <template v-if="workshopEnabled">
         <UiCard><div class="flex items-start justify-between"><div><p class="text-sm text-muted">Órdenes activas</p><p class="mt-2 text-2xl font-bold text-text">{{ workshop?.orders.active ?? '—' }}</p><p class="mt-1 text-xs text-muted">{{ workshop?.orders.received_today ?? 0 }} recibidas hoy</p></div><span class="rounded-lg bg-primary-soft p-2 text-primary"><Wrench class="h-5 w-5" /></span></div></UiCard>
         <a :href="`${base}/ordenes?status=ready`" class="block rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"><UiCard class="h-full transition hover:-translate-y-0.5 hover:border-success/50 hover:shadow"><div class="flex items-start justify-between"><div><p class="text-sm text-muted">Listas para entregar</p><p class="mt-2 text-2xl font-bold text-text">{{ workshop?.orders.ready ?? '—' }}</p><p class="mt-1 text-xs text-muted">Ver órdenes listas</p></div><span class="rounded-lg bg-success-soft p-2 text-success"><PackageCheck class="h-5 w-5" /></span></div></UiCard></a>
-        <a :href="`${base}/caja?tab=sales&payment_status=receivable`" class="block rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"><UiCard class="h-full transition hover:-translate-y-0.5 hover:border-warning/50 hover:shadow"><div class="flex items-start justify-between"><div><p class="text-sm text-muted">Por cobrar</p><p class="mt-2 text-2xl font-bold" :class="workshop?.commercial.receivables ? 'text-warning' : 'text-text'">{{ workshop ? money(workshop.commercial.receivables) : '—' }}</p><p class="mt-1 text-xs text-muted">Ver cuentas pendientes</p></div><span class="rounded-lg bg-warning-soft p-2 text-warning"><Clock3 class="h-5 w-5" /></span></div></UiCard></a>
+        <a :href="`${base}/ordenes-trabajo?tab=receivables`" class="block rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"><UiCard class="h-full transition hover:-translate-y-0.5 hover:border-warning/50 hover:shadow"><div class="flex items-start justify-between"><div><p class="text-sm text-muted">Por cobrar</p><p class="mt-2 text-2xl font-bold" :class="workshop?.commercial.receivables ? 'text-warning' : 'text-text'">{{ workshop ? money(workshop.commercial.receivables) : '—' }}</p><p class="mt-1 text-xs text-muted">Ver cuentas pendientes</p></div><span class="rounded-lg bg-warning-soft p-2 text-warning"><Clock3 class="h-5 w-5" /></span></div></UiCard></a>
       </template>
       <template v-else>
         <UiCard><div class="flex items-start justify-between"><div><p class="text-sm text-muted">Ventas del mes</p><p class="mt-2 text-2xl font-bold text-text">{{ commercial ? money(commercial.sales_month) : '—' }}</p><p class="mt-1 text-xs text-muted">Neto {{ commercial ? money(commercial.sales_net_month) : '—' }} · IVA {{ commercial ? money(commercial.sales_tax_month) : '—' }}</p></div><span class="rounded-lg bg-primary-soft p-2 text-primary"><CalendarDays class="h-5 w-5" /></span></div></UiCard>
