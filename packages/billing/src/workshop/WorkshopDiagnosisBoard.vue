@@ -3,8 +3,9 @@ import { reactive, ref } from 'vue';
 import { CheckCircle2, ChevronRight, ClipboardCheck, HandCoins, Microscope, Play, Wrench, XCircle } from 'lucide-vue-next';
 import { UiButton, UiCard, UiInput, UiSelect, UiStatusBadge, UiTextarea } from '@stelfaro/ui';
 import type { WorkshopOrder } from '@stelfaro/api-client';
+import WorkshopMaterialsPanel from './WorkshopMaterialsPanel.vue';
 
-withDefaults(defineProps<{ orders: WorkshopOrder[]; embedded?: boolean }>(), { embedded: false });
+withDefaults(defineProps<{ orders: WorkshopOrder[]; tenantId: number; platformBaseUrl: string; embedded?: boolean }>(), { embedded: false });
 const emit = defineEmits<{ update: [id: number, payload: Record<string, unknown>] }>();
 const drafts = reactive<Record<number, { diagnosis: string; estimatedTotal: string; approvalMethod: string; approvalNotes: string; paymentAmount: string; paymentMethod: 'cash'|'card'|'transfer'|'other'; paymentReference: string }>>({});
 const saving = ref<number | null>(null);
@@ -82,6 +83,13 @@ function decide(order: WorkshopOrder, decision: 'approved' | 'rejected') {
 
       <div v-else-if="order.status === 'approved'" class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-success bg-success-soft p-4"><div><p class="font-semibold text-success">Trabajo autorizado</p><p class="text-sm text-text">Ya puedes iniciar la reparación.</p></div><UiButton class="w-full justify-center md:w-auto" :disabled="saving === order.id" @click="submit(order, { status: 'repairing' })"><Wrench class="h-4 w-4" />Iniciar reparación</UiButton></div>
       <div v-else-if="order.status === 'repairing'" class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface-muted p-4"><div><p class="font-semibold text-text">Reparación en proceso</p><p class="text-sm text-muted">Finaliza las pruebas antes de marcarla como lista.</p></div><UiButton class="w-full justify-center md:w-auto" :disabled="saving === order.id" @click="submit(order, { status: 'ready' })"><CheckCircle2 class="h-4 w-4" />Marcar como listo</UiButton></div>
+
+      <WorkshopMaterialsPanel
+        v-if="['diagnosing','awaiting_approval','approved','repairing','ready'].includes(order.status)"
+        :tenant-id="tenantId"
+        :platform-base-url="platformBaseUrl"
+        :order="order"
+      />
     </UiCard>
     <UiCard v-if="orders.length === 0" class="p-10 text-center text-muted">No hay equipos pendientes de diagnóstico.</UiCard>
   </div>

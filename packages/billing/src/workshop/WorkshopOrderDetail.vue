@@ -6,7 +6,7 @@ import type { WorkshopOrder, WorkshopOrderPhoto } from '@stelfaro/api-client';
 import WorkshopDiagnosisBoard from './WorkshopDiagnosisBoard.vue';
 import WorkshopPhotoGallery from './WorkshopPhotoGallery.vue';
 
-const props = defineProps<{ order: WorkshopOrder | null; photos: WorkshopOrderPhoto[]; photoLoading?: boolean }>();
+const props = defineProps<{ order: WorkshopOrder | null; photos: WorkshopOrderPhoto[]; tenantId: number; platformBaseUrl: string; photoLoading?: boolean }>();
 defineEmits<{ close: []; refreshPhotos: []; addPhotos: []; update: [id: number, payload: Record<string, unknown>] }>();
 const activeSection = ref<'summary'|'work'|'condition'|'photos'>('summary');
 watch(() => props.order?.id, () => { activeSection.value = 'summary'; });
@@ -67,7 +67,7 @@ const money = (value: number) => new Intl.NumberFormat('es-SV', { style: 'curren
       </div>
 
       <section
-        v-if="['received','diagnosing','awaiting_approval','approved','repairing'].includes(order.status)"
+        v-if="['received','diagnosing','awaiting_approval','approved','repairing','ready'].includes(order.status)"
         class="mt-4 rounded-xl border border-line bg-surface p-4 md:p-5"
         :class="activeSection !== 'work' ? 'hidden md:block' : ''"
       >
@@ -75,7 +75,7 @@ const money = (value: number) => new Intl.NumberFormat('es-SV', { style: 'curren
           <Wrench class="h-5 w-5 text-primary" />
           <h3 class="font-semibold text-text">Operaciones de taller</h3>
         </div>
-        <WorkshopDiagnosisBoard embedded :orders="[order]" @update="(id, payload) => $emit('update', id, payload)" />
+        <WorkshopDiagnosisBoard embedded :orders="[order]" :tenant-id="tenantId" :platform-base-url="platformBaseUrl" @update="(id, payload) => $emit('update', id, payload)" />
       </section>
 
       <WorkshopPhotoGallery :class="activeSection !== 'photos' ? 'hidden md:block' : ''" :photos="photos" :loading="photoLoading" allow-add @add-photos="$emit('addPhotos')" @refresh="$emit('refreshPhotos')" />
