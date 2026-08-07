@@ -258,22 +258,22 @@ const paymentConditionOptions: Array<{
   value: PaymentCondition;
   label: string;
 }> = [
-  { value: 1, label: "1 - Contado" },
-  { value: 2, label: "2 - A credito" },
-  { value: 3, label: "3 - Otro" },
+  { value: 1, label: "Contado" },
+  { value: 2, label: "A crédito" },
+  { value: 3, label: "Otro" },
 ];
 const paymentMethodOptions = [
-  { value: "01", label: "01 Billetes y monedas" },
-  { value: "02", label: "02 Tarjeta" },
-  { value: "03", label: "03 Cheque" },
-  { value: "04", label: "04 Transferencia" },
-  { value: "99", label: "99 Otro" },
+  { value: "01", label: "Billetes y monedas" },
+  { value: "02", label: "Tarjeta" },
+  { value: "03", label: "Cheque" },
+  { value: "04", label: "Transferencia" },
+  { value: "99", label: "Otro" },
 ];
 const paymentTermOptions = [
   { value: "", label: "Sin plazo" },
-  { value: "01", label: "01 Dias" },
-  { value: "02", label: "02 Meses" },
-  { value: "03", label: "03 Anos" },
+  { value: "01", label: "Días" },
+  { value: "02", label: "Meses" },
+  { value: "03", label: "Años" },
 ];
 
 const form = reactive({
@@ -551,7 +551,7 @@ const paymentConditionLabel = computed(
   () =>
     paymentConditionOptions.find(
       (option) => option.value === paymentCondition.value,
-    )?.label ?? "1 - Contado",
+    )?.label ?? "Contado",
 );
 const primaryPaymentLabel = computed(() => {
   const payment = paymentLines.value[0];
