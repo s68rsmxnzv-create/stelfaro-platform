@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { UiLoadingMark, UiModalShell } from "@stelfaro/ui";
 import {
   CoreDteClient,
@@ -134,7 +134,35 @@ async function create(payload: WorkshopOrderPayload) {
     completed.value = { order, orders, url: "", expires_at: "" };
   }
   continuation.value = null;
+  setCompletedOrderInUrl(order.id);
   await workshop.loadPhotos(order.id);
+}
+function setCompletedOrderInUrl(orderId: number | null) {
+  const url = new URL(window.location.href);
+  if (orderId) url.searchParams.set("confirmacion", String(orderId));
+  else url.searchParams.delete("confirmacion");
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+}
+async function restoreCompletedReception() {
+  if (props.view !== "reception") return;
+  const orderId = Number(new URLSearchParams(window.location.search).get("confirmacion") || 0);
+  if (!orderId) return;
+  try {
+    const [{ data: order }, session] = await Promise.all([
+      platform.workshopOrder(props.tenantId, orderId),
+      workshop.createPhotoSession(orderId),
+    ]);
+    const [{ data: reception }, { data: deviceAccess }] = await Promise.all([
+      platform.workshopReception(props.tenantId, order.reception.id),
+      platform.workshopDeviceAccess(props.tenantId, orderId),
+    ]);
+    order.device_access = deviceAccess;
+    completed.value = { order, orders: reception.orders, ...session };
+    await workshop.loadPhotos(orderId);
+  } catch (reason) {
+    setCompletedOrderInUrl(null);
+    workshop.error.value = reason instanceof Error ? reason.message : "No fue posible recuperar la confirmación de recepción.";
+  }
 }
 function addAnotherEquipment() {
   if (!completed.value) return;
@@ -144,10 +172,12 @@ function addAnotherEquipment() {
     branchId: completed.value.order.branch?.id ?? null,
   };
   completed.value = null;
+  setCompletedOrderInUrl(null);
 }
 function finishReception() {
   completed.value = null;
   continuation.value = null;
+  setCompletedOrderInUrl(null);
 }
 async function openOrder(order: WorkshopOrder) {
   selectedOrder.value = order;
@@ -395,6 +425,7 @@ async function recordPayment(
 onUnmounted(() =>
   floatingToastTimers.forEach((timer) => window.clearTimeout(timer)),
 );
+onMounted(restoreCompletedReception);
 </script>
 
 <template>
