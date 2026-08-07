@@ -17,18 +17,23 @@ watch(() => props.photoUrl, async (value) => { qr.value = value ? await QRCode.t
 
 <template>
   <UiCard class="w-full overflow-hidden p-4 sm:p-6 lg:p-7">
-    <div class="flex items-center gap-3 border-b border-line pb-5">
-      <div class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-success-soft">
-        <CheckCircle2 class="h-6 w-6 text-success" />
+    <div class="flex flex-col gap-4 border-b border-line pb-5 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex min-w-0 items-center gap-3">
+        <div class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-success-soft">
+          <CheckCircle2 class="h-6 w-6 text-success" />
+        </div>
+        <div class="min-w-0">
+          <p class="text-xs font-bold uppercase tracking-wide text-success">Equipo registrado</p>
+          <h2 class="mt-0.5 truncate text-xl font-bold text-text sm:text-2xl">{{ order.ticket }} · {{ order.reception.equipment_label }}</h2>
+          <p class="mt-1 text-sm font-semibold text-text">{{ order.customer.name }}</p>
+          <p class="mt-0.5 text-xs text-muted"><template v-for="(item, index) in orders" :key="item.id"><span v-if="index"> · </span>{{ item.reception.equipment_label }}: {{ item.device.brand }} {{ item.device.model }}</template></p>
+        </div>
       </div>
-      <div class="min-w-0">
-        <p class="text-xs font-bold uppercase tracking-wide text-success">Equipo registrado</p>
-        <h2 class="mt-0.5 truncate text-xl font-bold text-text sm:text-2xl">{{ order.ticket }} · {{ order.reception.equipment_label }}</h2>
-      </div>
+      <UiButton class="w-full shrink-0 justify-center sm:w-auto" @click="$emit('finish')"><CheckCircle2 class="mr-2 h-5 w-5" />Finalizar recepción</UiButton>
     </div>
 
     <section class="mt-5 rounded-xl border border-primary/20 bg-primary-soft/30 p-4 sm:p-5">
-      <div class="mb-4"><p class="font-bold text-text">Completa la evidencia fotográfica</p><p class="mt-1 text-sm text-muted">Toma las fotos aquí o abre el enlace desde otro teléfono.</p></div>
+      <div class="mb-4"><p class="font-bold text-text">Fotos del equipo</p><p class="mt-1 text-sm text-muted">Escanea el QR con el teléfono para tomar las fotos.</p></div>
       <div class="grid gap-4 lg:grid-cols-[280px_1fr] lg:items-start lg:gap-5">
       <div class="order-2 lg:order-1">
         <button
@@ -67,28 +72,17 @@ watch(() => props.photoUrl, async (value) => { qr.value = value ? await QRCode.t
 
           <UiButton v-if="order.estimated_total !== null && order.balance > 0" class="min-h-28 w-full flex-col justify-center gap-2 text-center" variant="secondary" @click="$emit('advance', order)"><HandCoins class="h-6 w-6 text-primary" /><span>Registrar anticipo</span></UiButton>
 
-          <a v-if="photoUrl" :href="photoUrl" target="_blank" rel="noopener" class="block">
-            <UiButton class="min-h-28 w-full flex-col justify-center gap-2 text-center" variant="ghost"><Camera class="h-6 w-6 text-muted" /><span>Subir desde esta computadora</span></UiButton>
-          </a>
-          <div v-else class="flex min-h-28 flex-col items-center justify-center gap-2 rounded-md border border-line bg-surface-muted p-3 text-center text-sm text-muted"><Camera class="h-6 w-6" /><span>Carga no disponible</span></div>
+          <UiButton class="min-h-28 w-full flex-col justify-center gap-2 text-center" variant="secondary" @click="$emit('addAnother')"><Plus class="h-6 w-6 text-primary" /><span>Agregar otro equipo</span></UiButton>
         </div>
 
         <div v-if="order.device_access" class="flex items-center gap-3 rounded-md border border-line bg-surface p-3.5">
           <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-warning-soft"><KeyRound class="h-4 w-4 text-warning" /></span>
           <div><p class="text-xs font-semibold text-muted">PIN para carga móvil</p><p class="mt-0.5 font-mono text-lg font-black tracking-[0.2em] text-text">{{ order.device_access.pin }}</p></div>
         </div>
+        <a v-if="photoUrl" :href="photoUrl" target="_blank" rel="noopener" class="inline-flex w-fit items-center gap-2 px-1 py-1 text-sm font-semibold text-muted transition hover:text-primary"><Camera class="h-4 w-4" />Subir fotos guardadas en esta computadora</a>
       </div>
     </div>
     </section>
-
-    <section class="mt-4 rounded-xl border border-line bg-surface-muted p-4">
-      <div class="min-w-0 text-sm"><p class="font-bold text-text">{{ order.customer.name }}</p><div class="mt-1 flex flex-wrap gap-x-4 gap-y-1"><p v-for="item in orders" :key="item.id" class="text-muted"><strong class="text-text">{{ item.reception.equipment_label }}:</strong> {{ item.device.brand }} {{ item.device.model }}</p></div></div>
-    </section>
-
-    <div class="mt-4 grid gap-2 sm:grid-cols-2">
-      <UiButton class="w-full justify-center" variant="secondary" @click="$emit('addAnother')"><Plus class="mr-2 h-5 w-5" />Agregar otro equipo</UiButton>
-      <UiButton class="w-full justify-center" @click="$emit('finish')"><CheckCircle2 class="mr-2 h-5 w-5" />Finalizar recepción</UiButton>
-    </div>
 
     <WorkshopPhotoGallery :photos="photos" :loading="photoLoading" @refresh="$emit('refreshPhotos')" />
   </UiCard>
