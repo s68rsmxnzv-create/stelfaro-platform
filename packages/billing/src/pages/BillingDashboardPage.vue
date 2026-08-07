@@ -4,7 +4,7 @@ import { ArrowRight, CalendarDays, ChevronDown, CircleDollarSign, ClipboardCheck
 import { CoreDteClient, PlatformClient, type DteDashboardSummary, type PlatformCommercialDashboard, type WorkshopDashboard, type WorkshopOrder } from '@stelfaro/api-client';
 import { UiButton, UiCard, UiStatusBadge } from '@stelfaro/ui';
 
-const props = withDefaults(defineProps<{ coreBaseUrl?: string; platformBaseUrl?: string; authToken?: string | null; tenantId?: number; appBaseUrl?: string; workshopEnabled?: boolean }>(), { coreBaseUrl: '/api/v1', platformBaseUrl: '/api/v1', authToken: null, tenantId: 0, appBaseUrl: '', workshopEnabled: false });
+const props = withDefaults(defineProps<{ coreBaseUrl?: string; platformBaseUrl?: string; authToken?: string | null; tenantId?: number; empresaId?: number; appBaseUrl?: string; workshopEnabled?: boolean }>(), { coreBaseUrl: '/api/v1', platformBaseUrl: '/api/v1', authToken: null, tenantId: 0, empresaId: 0, appBaseUrl: '', workshopEnabled: false });
 const core = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const platform = computed(() => new PlatformClient(props.platformBaseUrl, { authToken: props.authToken }));
 const workshop = ref<WorkshopDashboard | null>(null); const commercial = ref<PlatformCommercialDashboard['commercial'] | null>(null); const fiscal = ref<DteDashboardSummary | null>(null); const loading = ref(false); const error = ref('');
@@ -48,11 +48,11 @@ function orderUrl(order: WorkshopOrder) { return `${base.value}/ordenes?q=${enco
 async function load() {
   loading.value = true; error.value = '';
   const [fiscalResult, commercialResult, workshopResult] = await Promise.allSettled([
-    core.value.dashboardSummary(),
+    props.empresaId ? core.value.dashboardSummary({ empresa_id: props.empresaId }) : Promise.resolve(null),
     props.tenantId ? platform.value.commercialDashboard(props.tenantId) : Promise.resolve(null),
     props.workshopEnabled && props.tenantId ? platform.value.workshopDashboard(props.tenantId) : Promise.resolve(null),
   ]);
-  if (fiscalResult.status === 'fulfilled') fiscal.value = fiscalResult.value;
+  if (fiscalResult.status === 'fulfilled' && fiscalResult.value) fiscal.value = fiscalResult.value;
   if (commercialResult.status === 'fulfilled' && commercialResult.value) commercial.value = commercialResult.value.commercial;
   if (workshopResult.status === 'fulfilled' && workshopResult.value) {
     workshop.value = workshopResult.value;
@@ -63,6 +63,9 @@ async function load() {
   loading.value = false;
 }
 onMounted(load);
+watch(() => props.empresaId, (empresaId, previousEmpresaId) => {
+  if (empresaId && empresaId !== previousEmpresaId) void load();
+});
 </script>
 
 <template>
