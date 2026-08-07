@@ -159,19 +159,25 @@ function skuSegment(value: string): string {
 
     <UiInput v-model="form.description" label="Descripción" placeholder="Detalle opcional para búsquedas y ventas" />
 
-    <div class="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-line dark:bg-surface-muted md:grid-cols-3">
-      <label class="flex items-center justify-between gap-3">
-        <span class="text-sm font-semibold text-slate-700 dark:text-muted">Afecto a IVA</span>
+    <div class="grid gap-3 md:grid-cols-3">
+      <label class="flex min-h-28 cursor-pointer items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 transition hover:border-sky-300 dark:border-line dark:bg-surface-muted dark:hover:border-primary">
+        <span>
+          <span class="block text-sm font-bold text-slate-900 dark:text-text">Afecto a IVA</span>
+          <span class="mt-1 block text-xs leading-5 text-slate-500 dark:text-soft">Este artículo genera IVA al venderse.</span>
+        </span>
         <UiToggle v-model="form.taxable" variant="success" />
       </label>
-      <label class="flex items-center justify-between gap-3">
-        <span class="text-sm font-semibold text-slate-700 dark:text-muted">Precio con IVA</span>
+      <label class="flex min-h-28 cursor-pointer items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 transition hover:border-sky-300 dark:border-line dark:bg-surface-muted dark:hover:border-primary">
+        <span>
+          <span class="block text-sm font-bold text-slate-900 dark:text-text">Precio con IVA</span>
+          <span class="mt-1 block text-xs leading-5 text-slate-500 dark:text-soft">El precio base ingresado ya contiene el IVA.</span>
+        </span>
         <UiToggle v-model="form.base_price_includes_tax" />
       </label>
-      <label class="flex items-center justify-between gap-3">
+      <label class="flex min-h-28 items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 transition dark:border-line dark:bg-surface-muted" :class="stockControlDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:border-sky-300 dark:hover:border-primary'">
         <span>
-          <span class="block text-sm font-semibold text-slate-700 dark:text-muted">Controla inventario</span>
-          <span v-if="stockControlDisabled" class="text-xs text-slate-500 dark:text-soft">No aplica para servicios o mano de obra.</span>
+          <span class="block text-sm font-bold text-slate-900 dark:text-text">Controla inventario</span>
+          <span class="mt-1 block text-xs leading-5 text-slate-500 dark:text-soft">{{ stockControlDisabled ? 'No aplica para servicios o mano de obra.' : 'Registra existencias, lotes y movimientos.' }}</span>
         </span>
         <UiToggle v-model="form.controls_inventory" :disabled="stockControlDisabled" variant="success" />
       </label>
