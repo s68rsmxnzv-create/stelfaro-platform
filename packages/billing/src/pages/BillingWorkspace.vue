@@ -74,6 +74,10 @@ import {
   peekBillingContext,
 } from "../support/billingDataCache";
 import { buildBillingReplacementDraft } from "../support/billingReplacement";
+import {
+  canApplyIvaRetention,
+  IVA_RETENTION_REQUIREMENT_MESSAGE,
+} from "../support/fiscalRetention";
 
 const props = withDefaults(
   defineProps<{
@@ -536,6 +540,12 @@ const ivaRetention = computed(() =>
     ? roundMoney(taxableBase.value * 0.01)
     : 0,
 );
+const ivaRetentionThresholdInvalid = computed(
+  () =>
+    isCreditoFiscal.value &&
+    ccfRetainIva10.value &&
+    !canApplyIvaRetention(taxableBase.value),
+);
 const paymentTotal = computed(() =>
   roundMoney(
     paymentLines.value.reduce(
@@ -767,6 +777,7 @@ const canBuild = computed(() =>
     form.customerName.trim() &&
     items.value.length > 0 &&
     canIssuePositiveTotal.value &&
+    !ivaRetentionThresholdInvalid.value &&
     !genericCustomerBlockedByAmount.value &&
     (!requiresCustomerIdentificationByAmount.value ||
       hasRequiredCustomerIdentification.value) &&
@@ -1026,6 +1037,10 @@ const customerIdentificationByAmountMessage = computed(
 const issueDisabledReason = computed(() => {
   if (selectedEmpresa.value && !fiscalEmissionReady.value) {
     return "Completa la firma y conexión con Hacienda en Configuración.";
+  }
+
+  if (ivaRetentionThresholdInvalid.value) {
+    return IVA_RETENTION_REQUIREMENT_MESSAGE;
   }
 
   if (
@@ -1996,6 +2011,11 @@ async function previewNextCorrelativo(): Promise<void> {
 }
 
 async function issueDocument(): Promise<void> {
+  if (ivaRetentionThresholdInvalid.value) {
+    error.value = IVA_RETENTION_REQUIREMENT_MESSAGE;
+    return;
+  }
+
   if (
     genericCustomerBlockedByAmount.value ||
     (requiresCustomerIdentificationByAmount.value &&
@@ -5433,6 +5453,8 @@ function updatePaymentCondition(value: string): void {
               v-if="isCreditoFiscal"
               v-model:price-includes-iva="ccfPriceIncludesIva"
               v-model:retain-iva="ccfRetainIva10"
+              :retention-invalid="ivaRetentionThresholdInvalid"
+              :retention-message="IVA_RETENTION_REQUIREMENT_MESSAGE"
             />
           </div>
           <div v-if="!isAdjustmentNote" class="mt-4 grid gap-3 md:hidden">
