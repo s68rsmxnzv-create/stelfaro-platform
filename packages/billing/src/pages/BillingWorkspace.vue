@@ -3946,14 +3946,13 @@ function updatePaymentCondition(value: string): void {
 
     <BillingModalShell
       :open="ivaRetentionModalOpen"
-      title="La retención de IVA no aplica"
-      eyebrow="Validación fiscal"
-      :description="IVA_RETENTION_REQUIREMENT_MESSAGE"
+      title="Revisa la retención de IVA"
+      description="Esta opción está disponible cuando el comprador es Gran Contribuyente y la compra alcanza el monto mínimo requerido."
       max-width="max-w-lg"
       @close="closeIvaRetentionModal"
     >
-      <div class="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-warning/40 dark:bg-warning-soft dark:text-text">
-        La base gravada actual es <strong>{{ currency(taxableBase) }}</strong>. El umbral se calcula sumando todas las líneas gravadas del comprobante, sin incluir IVA.
+      <div class="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950 dark:border-amber-300/20 dark:bg-amber-200/[0.07] dark:text-slate-200">
+        Por ahora, la compra suma <strong>{{ currency(taxableBase) }}</strong> sin IVA. Para aplicar la retención debe alcanzar al menos <strong>$100.00</strong>; se toman en cuenta todas las líneas gravadas del comprobante.
       </div>
       <template #footer>
         <UiButton type="button" @click="closeIvaRetentionModal">Aceptar</UiButton>
