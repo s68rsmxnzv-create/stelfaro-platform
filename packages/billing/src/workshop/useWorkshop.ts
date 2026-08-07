@@ -94,7 +94,7 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
       throw reason;
     }
   }
-  async function updateOrder(id: number, payload: { status?: string; diagnosis?: string | null; estimated_total?: number | null; approval_decision?: 'approved' | 'rejected'; approval_method?: 'whatsapp' | 'call' | 'in_person'; approval_notes?: string | null; payment?: { amount: number; method: 'cash'|'card'|'transfer'|'other'; reference?: string|null; notes?: string|null } }) {
+  async function updateOrder(id: number, payload: { status?: string; diagnosis?: string | null; estimated_total?: number | null; approval_decision?: 'approved' | 'rejected'; approval_method?: 'whatsapp' | 'call' | 'in_person'; approval_notes?: string | null; direct_service?: boolean; payment?: { amount: number; method: 'cash'|'card'|'transfer'|'other'; reference?: string|null; notes?: string|null } }) {
     error.value = null;
     try {
       const result = await platform.updateWorkshopOrder(tenantId, id, payload);

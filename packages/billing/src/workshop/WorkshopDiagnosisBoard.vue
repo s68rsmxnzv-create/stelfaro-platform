@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
-import { CheckCircle2, ChevronRight, ClipboardCheck, HandCoins, Microscope, Play, Wrench, XCircle } from 'lucide-vue-next';
+import { CheckCircle2, ChevronRight, ClipboardCheck, HandCoins, Microscope, Wrench, XCircle, Zap } from 'lucide-vue-next';
 import { UiButton, UiCard, UiInput, UiSelect, UiStatusBadge, UiTextarea } from '@stelfaro/ui';
 import type { WorkshopOrder } from '@stelfaro/api-client';
 import WorkshopMaterialsPanel from './WorkshopMaterialsPanel.vue';
@@ -9,6 +9,7 @@ withDefaults(defineProps<{ orders: WorkshopOrder[]; tenantId: number; platformBa
 const emit = defineEmits<{ update: [id: number, payload: Record<string, unknown>] }>();
 const drafts = reactive<Record<number, { diagnosis: string; estimatedTotal: string; approvalMethod: string; approvalNotes: string; paymentAmount: string; paymentMethod: 'cash'|'card'|'transfer'|'other'; paymentReference: string }>>({});
 const saving = ref<number | null>(null);
+const directServiceOpen = ref<Record<number, boolean>>({});
 const approvalMethods = [{ value: 'whatsapp', label: 'WhatsApp' }, { value: 'call', label: 'Llamada' }, { value: 'in_person', label: 'Presencial' }];
 const paymentMethods = [{ value: 'cash', label: 'Efectivo' }, { value: 'card', label: 'Tarjeta' }, { value: 'transfer', label: 'Transferencia' }, { value: 'other', label: 'Otro' }];
 const statusLabels: Record<string, string> = { received: 'Recibido', diagnosing: 'En diagnóstico', awaiting_approval: 'Esperando aprobación', approved: 'Aprobado', repairing: 'En reparación', ready: 'Listo' };
@@ -27,6 +28,20 @@ function submit(order: WorkshopOrder, payload: Record<string, unknown>) {
 function saveDiagnosis(order: WorkshopOrder, requestApproval = false) {
   const value = draft(order);
   submit(order, { status: requestApproval ? 'awaiting_approval' : 'diagnosing', diagnosis: value.diagnosis.trim(), estimated_total: value.estimatedTotal === '' ? null : Number(value.estimatedTotal) });
+}
+function openDirectService(order: WorkshopOrder) {
+  const value = draft(order);
+  if (!value.diagnosis.trim()) value.diagnosis = order.reported_fault;
+  directServiceOpen.value[order.id] = true;
+}
+function startDirectService(order: WorkshopOrder) {
+  const value = draft(order);
+  submit(order, {
+    status: 'repairing',
+    direct_service: true,
+    diagnosis: value.diagnosis.trim(),
+    estimated_total: value.estimatedTotal === '' ? null : Number(value.estimatedTotal),
+  });
 }
 function decide(order: WorkshopOrder, decision: 'approved' | 'rejected') {
   const value = draft(order);
@@ -63,9 +78,18 @@ function decide(order: WorkshopOrder, decision: 'approved' | 'rejected') {
         <div class="mt-2 flex flex-wrap gap-2"><UiStatusBadge v-for="(result, test) in order.device.functional_tests" :key="test" :tone="result === 'passed' ? 'success' : result === 'failed' ? 'danger' : 'neutral'">{{ testLabels[test] || test }}: {{ resultLabels[result] || result }}</UiStatusBadge></div>
       </details>
 
-      <div v-if="order.status === 'received'" class="mt-5 flex flex-wrap items-center justify-between gap-3 md:rounded-lg md:border md:border-line md:bg-surface-muted md:p-4">
-        <div><p class="font-semibold text-text">Listo para revisar</p><p class="text-sm text-muted">Al iniciar podrás registrar el diagnóstico y presupuesto.</p></div>
-        <UiButton class="min-h-12 w-full justify-center md:min-h-0 md:w-auto" :disabled="saving === order.id" @click="submit(order, { status: 'diagnosing' })"><Play class="h-4 w-4" />Iniciar diagnóstico</UiButton>
+      <div v-if="order.status === 'received'" class="mt-5 grid gap-3 md:rounded-lg md:border md:border-line md:bg-surface-muted md:p-4">
+        <div><p class="font-semibold text-text">¿Cómo se atenderá esta orden?</p><p class="text-sm text-muted">Elige reparación directa si el trabajo y el precio ya fueron acordados.</p></div>
+        <div v-if="!directServiceOpen[order.id]" class="grid gap-2 sm:grid-cols-2">
+          <button type="button" class="rounded-xl border border-primary/40 bg-primary-soft p-4 text-left transition hover:border-primary" @click="openDirectService(order)"><span class="flex items-center gap-2 font-bold text-primary"><Zap class="h-4 w-4" />Reparación directa</span><span class="mt-1 block text-sm text-text">Cambio de pantalla, batería, conector u otro trabajo ya definido.</span></button>
+          <button type="button" class="rounded-xl border border-line bg-surface p-4 text-left transition hover:border-primary" :disabled="saving === order.id" @click="submit(order, { status: 'diagnosing' })"><span class="flex items-center gap-2 font-bold text-text"><Microscope class="h-4 w-4 text-primary" />Requiere diagnóstico</span><span class="mt-1 block text-sm text-muted">La causa o la reparación todavía no están claras.</span></button>
+        </div>
+        <div v-else class="grid gap-3 rounded-xl border border-primary/40 bg-surface p-4">
+          <div><p class="font-bold text-text">Trabajo acordado</p><p class="text-xs text-muted">Quedará registrado como autorizado presencialmente.</p></div>
+          <UiTextarea v-model="draft(order).diagnosis" label="Reparación a realizar" :rows="2" placeholder="Ej. Cambio de pantalla completa" />
+          <UiInput v-model="draft(order).estimatedTotal" label="Precio acordado" type="number" min="0" step="0.01" />
+          <div class="grid grid-cols-2 gap-2 sm:flex sm:justify-end"><UiButton variant="secondary" :disabled="saving === order.id" @click="directServiceOpen[order.id] = false">Volver</UiButton><UiButton :disabled="saving === order.id || !draft(order).diagnosis.trim() || draft(order).estimatedTotal === ''" @click="startDirectService(order)"><Wrench class="h-4 w-4" />Iniciar reparación</UiButton></div>
+        </div>
       </div>
 
       <div v-else-if="order.status === 'diagnosing'" class="mt-5 grid gap-4 md:border-t md:border-line md:pt-5">

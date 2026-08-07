@@ -3366,6 +3366,7 @@ export class PlatformClient {
       approval_decision?: "approved" | "rejected";
       approval_method?: "whatsapp" | "call" | "in_person";
       approval_notes?: string | null;
+      direct_service?: boolean;
       payment?: {
         amount: number;
         method: "cash" | "card" | "transfer" | "other";
