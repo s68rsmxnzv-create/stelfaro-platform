@@ -653,6 +653,9 @@ watch(() => visibleItems.value.length, () => {
 });
 watch(activeTab, (tab) => {
   persistActiveInventoryView(tab);
+  if (tab === 'kardex' && tenantId.value) {
+    void loadInventory({ silent: true });
+  }
 });
 onMounted(() => {
   activeTab.value = initialInventoryView();

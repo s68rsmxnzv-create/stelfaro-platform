@@ -4,6 +4,8 @@ import { ArchiveRestore, Check, PackagePlus, Search, Undo2, X } from 'lucide-vue
 import { PlatformClient, type PlatformCatalogItem, type WorkshopMaterial, type WorkshopOrder } from '@stelfaro/api-client';
 import { UiButton, UiInput, UiStatusBadge } from '@stelfaro/ui';
 
+const INVENTORY_CHANGED_EVENT = 'stelfaro:inventory-changed';
+
 const props = defineProps<{
   tenantId: number;
   platformBaseUrl: string;
@@ -90,10 +92,11 @@ async function reserve(item: PlatformCatalogItem) {
   actionId.value = item.id;
   error.value = '';
   try {
-    await client.reserveWorkshopMaterial(props.tenantId, props.order.id, {
+    const response = await client.reserveWorkshopMaterial(props.tenantId, props.order.id, {
       catalog_item_id: item.id,
       quantity: requested,
     });
+    broadcastInventoryChange('workshop_material_reserved', response.data.id);
     query.value = '';
     results.value = [];
     quantity.value = 1;
@@ -111,6 +114,7 @@ async function runAction(material: WorkshopMaterial, action: 'consume' | 'releas
   try {
     if (action === 'consume') await client.consumeWorkshopMaterial(props.tenantId, props.order.id, material.id);
     else await client.releaseWorkshopMaterial(props.tenantId, props.order.id, material.id);
+    broadcastInventoryChange(action === 'consume' ? 'workshop_material_consumed' : 'workshop_material_released', material.id);
     await loadMaterials();
   } catch (exception) {
     error.value = message(exception, 'No fue posible actualizar el repuesto.');
@@ -128,6 +132,7 @@ async function returnToStock(material: WorkshopMaterial) {
   error.value = '';
   try {
     await client.returnWorkshopMaterial(props.tenantId, props.order.id, material.id, returnNotes.value.trim());
+    broadcastInventoryChange('workshop_material_returned', material.id);
     returnId.value = null;
     returnNotes.value = '';
     await loadMaterials();
@@ -135,6 +140,27 @@ async function returnToStock(material: WorkshopMaterial) {
     error.value = message(exception, 'No fue posible devolver el repuesto.');
   } finally {
     actionId.value = null;
+  }
+}
+
+function broadcastInventoryChange(action: string, reservationId: number): void {
+  if (typeof window === 'undefined') return;
+
+  const detail = {
+    action,
+    tenant_id: props.tenantId,
+    core_sucursal_id: props.order.branch?.id ?? null,
+    order_id: props.order.id,
+    reservation_id: reservationId,
+    at: Date.now(),
+  };
+
+  window.dispatchEvent(new CustomEvent(INVENTORY_CHANGED_EVENT, { detail }));
+
+  try {
+    window.localStorage.setItem(INVENTORY_CHANGED_EVENT, JSON.stringify(detail));
+  } catch {
+    // El evento local ya fue emitido; localStorage solo sincroniza otras pestañas.
   }
 }
 
