@@ -6,6 +6,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 import BillingSectionLayout from '../components/BillingSectionLayout.vue';
+import { inventoryMovementReasonLabel } from '../support/inventoryMovementLabels';
 
 const props = withDefaults(defineProps<{
   platformSession?: Record<string, unknown> | null;
@@ -1064,6 +1065,7 @@ function definicionReporteInventario(tipo: string) {
       ],
       filas: visibleMovements.value.map((movement) => ({
         ...movement,
+        reason: inventoryMovementReasonLabel(movement.reason),
         producto: movement.catalog_item?.name || 'Producto',
         sku: movement.catalog_item?.sku || '',
         lote: movement.lot?.lot_code || '',
@@ -2462,7 +2464,7 @@ function messageFromError(error): string {
                 <tr v-for="movement in visibleMovements" :key="movement.id" class="text-sm">
                   <td class="px-4 py-3 font-semibold text-slate-950 dark:text-text">{{ movement.catalog_item?.name ?? 'Producto' }}</td>
                   <td class="px-4 py-3"><UiStatusBadge :tone="movementTone(movement.movement_type)">{{ movement.movement_type === 'entry' ? 'Entrada' : 'Salida' }}</UiStatusBadge></td>
-                  <td class="px-4 py-3">{{ movement.reason }}</td>
+                  <td class="px-4 py-3">{{ inventoryMovementReasonLabel(movement.reason) }}</td>
                   <td class="px-4 py-3">{{ movement.core_sucursal_code || movement.core_sucursal_name || 'Sin asignar' }}</td>
                   <td class="px-4 py-3">{{ formatQuantity(movement.quantity) }}</td>
                   <td class="px-4 py-3">{{ movement.unit_cost === null ? 'N/D' : formatMoney(movement.unit_cost) }}</td>
@@ -2803,7 +2805,7 @@ function messageFromError(error): string {
               <tbody class="divide-y divide-slate-100 dark:divide-line">
                 <tr v-for="movement in productDetailMovements" :key="movement.id" class="text-sm">
                   <td class="px-4 py-3"><UiStatusBadge :tone="movementTone(movement.movement_type)">{{ movement.movement_type === 'entry' ? 'Entrada' : 'Salida' }}</UiStatusBadge></td>
-                  <td class="px-4 py-3">{{ movement.reason }}</td>
+                  <td class="px-4 py-3">{{ inventoryMovementReasonLabel(movement.reason) }}</td>
                   <td class="px-4 py-3">{{ movement.core_sucursal_code || movement.core_sucursal_name || 'Sin asignar' }}</td>
                   <td class="px-4 py-3 text-right font-semibold">{{ formatQuantity(movement.quantity) }}</td>
                   <td class="px-4 py-3">{{ movement.reference_number || movement.reference_id || movement.created_at }}</td>
@@ -3134,7 +3136,7 @@ function messageFromError(error): string {
               <tr v-for="movement in selectedLotMovements" :key="movement.id" class="text-sm">
                 <td class="px-4 py-3">{{ String(movement.created_at || '').slice(0, 10) || 'Sin fecha' }}</td>
                 <td class="px-4 py-3"><UiStatusBadge :tone="movementTone(movement.movement_type)">{{ movement.movement_type === 'entry' ? 'Entrada' : 'Salida' }}</UiStatusBadge></td>
-                <td class="px-4 py-3">{{ movement.reason }}</td>
+                <td class="px-4 py-3">{{ inventoryMovementReasonLabel(movement.reason) }}</td>
                 <td class="px-4 py-3 text-right font-semibold">{{ formatQuantity(movement.quantity) }}</td>
                 <td class="px-4 py-3">{{ movement.reference_number || movement.reference_id || 'Sin referencia' }}</td>
               </tr>
