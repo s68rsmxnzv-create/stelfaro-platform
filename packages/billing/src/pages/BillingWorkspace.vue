@@ -191,6 +191,7 @@ const sujetoExcluidoModalOpen = ref(false);
 const customerSearchModalOpen = ref(false);
 const paymentModalOpen = ref(false);
 const observationsModalOpen = ref(false);
+const ivaRetentionModalOpen = ref(false);
 const zeroValueLineWarningOpen = ref(false);
 const zeroValueLineWarningConfirmed = ref(false);
 const fiscalModalDepartamento = ref("");
@@ -546,6 +547,16 @@ const ivaRetentionThresholdInvalid = computed(
     ccfRetainIva10.value &&
     !canApplyIvaRetention(taxableBase.value),
 );
+watch(ivaRetentionThresholdInvalid, (invalid) => {
+  if (invalid) ivaRetentionModalOpen.value = true;
+});
+function updateIvaRetention(value: boolean): void {
+  ccfRetainIva10.value = value;
+}
+function closeIvaRetentionModal(): void {
+  ccfRetainIva10.value = false;
+  ivaRetentionModalOpen.value = false;
+}
 const paymentTotal = computed(() =>
   roundMoney(
     paymentLines.value.reduce(
@@ -3934,6 +3945,22 @@ function updatePaymentCondition(value: string): void {
     />
 
     <BillingModalShell
+      :open="ivaRetentionModalOpen"
+      title="La retención de IVA no aplica"
+      eyebrow="Validación fiscal"
+      :description="IVA_RETENTION_REQUIREMENT_MESSAGE"
+      max-width="max-w-lg"
+      @close="closeIvaRetentionModal"
+    >
+      <div class="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-warning/40 dark:bg-warning-soft dark:text-text">
+        La base gravada actual es <strong>{{ currency(taxableBase) }}</strong>. El umbral se calcula sumando todas las líneas gravadas del comprobante, sin incluir IVA.
+      </div>
+      <template #footer>
+        <UiButton type="button" @click="closeIvaRetentionModal">Aceptar</UiButton>
+      </template>
+    </BillingModalShell>
+
+    <BillingModalShell
       :open="paymentModalOpen"
       title="Pago"
       eyebrow="Resumen DTE"
@@ -5452,9 +5479,8 @@ function updatePaymentCondition(value: string): void {
             <BillingFiscalOptions
               v-if="isCreditoFiscal"
               v-model:price-includes-iva="ccfPriceIncludesIva"
-              v-model:retain-iva="ccfRetainIva10"
-              :retention-invalid="ivaRetentionThresholdInvalid"
-              :retention-message="IVA_RETENTION_REQUIREMENT_MESSAGE"
+              :retain-iva="ccfRetainIva10"
+              @update:retain-iva="updateIvaRetention"
             />
           </div>
           <div v-if="!isAdjustmentNote" class="mt-4 grid gap-3 md:hidden">

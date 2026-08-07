@@ -2,8 +2,6 @@
 defineProps<{
   priceIncludesIva: boolean;
   retainIva: boolean;
-  retentionInvalid?: boolean;
-  retentionMessage?: string;
 }>();
 
 const emit = defineEmits<{
@@ -33,8 +31,5 @@ const emit = defineEmits<{
       >
       <span class="font-semibold">Retener IVA 1%</span>
     </label>
-    <p v-if="retainIva && retentionInvalid" class="basis-full text-xs font-semibold text-red-700 dark:text-danger">
-      {{ retentionMessage }}
-    </p>
   </div>
 </template>
