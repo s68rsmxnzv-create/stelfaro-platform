@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile);
 const port = Number(process.env.PRINT_AGENT_PORT || 8711);
 const dryRun = process.env.PRINT_AGENT_DRY_RUN === '1';
 const maxBodyBytes = Number(process.env.PRINT_AGENT_MAX_BODY_BYTES || 5 * 1024 * 1024);
-const allowedOrigins = new Set(String(process.env.PRINT_AGENT_ALLOWED_ORIGINS || 'https://taller.stelfaro.com,https://facturacion.stelfaro.com,http://localhost:5173,http://localhost:8000').split(',').map((value) => value.trim()).filter(Boolean));
+const allowedOrigins = new Set(String(process.env.PRINT_AGENT_ALLOWED_ORIGINS || 'https://platform.stelfaro.com,https://stelfaro.com,https://app.stelfaro.com,https://taller.stelfaro.com,https://facturacion.stelfaro.com,http://localhost:5173,http://localhost:8000').split(',').map((value) => value.trim()).filter(Boolean));
 const rawPrinterSource = `
 using System;
 using System.Runtime.InteropServices;
@@ -54,6 +54,8 @@ function json(req, res, status, payload) {
     ...(origin && allowedOrigins.has(origin) ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}),
     'Access-Control-Allow-Headers': 'Content-Type, X-Stelfaro-Agent-Token',
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
+    Pragma: 'no-cache',
     'X-Content-Type-Options': 'nosniff',
   });
   res.end(body);
@@ -426,7 +428,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/health') {
       assertAllowedOrigin(req);
-      return json(req, res, 200, { ok: true, name: 'Stelfaro Print Agent', version: '0.2.8-dev', platform: os.platform(), dryRun });
+      return json(req, res, 200, { ok: true, name: 'Stelfaro Print Agent', version: '0.2.10', platform: os.platform(), dryRun });
     }
 
     if (req.method === 'GET' && (url.pathname === '/printers' || url.pathname === '/impresoras')) {

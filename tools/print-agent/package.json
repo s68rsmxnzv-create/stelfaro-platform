@@ -1,6 +1,6 @@
 {
   "name": "stelfaro-print-agent",
-  "version": "0.2.8-dev",
+  "version": "0.2.10",
   "private": true,
   "description": "Local ESC/POS print agent for Stelfaro, Alefactura, and Fiscal Import labs.",
   "type": "module",
