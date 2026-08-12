@@ -6,7 +6,7 @@ import type { WorkshopOrder } from '@stelfaro/api-client';
 import WorkshopMaterialsPanel from './WorkshopMaterialsPanel.vue';
 
 withDefaults(defineProps<{ orders: WorkshopOrder[]; tenantId: number; platformBaseUrl: string; embedded?: boolean }>(), { embedded: false });
-const emit = defineEmits<{ update: [id: number, payload: Record<string, unknown>] }>();
+const emit = defineEmits<{ update: [id: number, payload: Record<string, unknown>]; expandedChange: [expanded: boolean] }>();
 const drafts = reactive<Record<number, { diagnosis: string; estimatedTotal: string; approvalMethod: string; approvalNotes: string; paymentAmount: string; paymentMethod: 'cash'|'card'|'transfer'|'other'; paymentReference: string }>>({});
 const saving = ref<number | null>(null);
 const directServiceOpen = ref<Record<number, boolean>>({});
@@ -33,6 +33,11 @@ function openDirectService(order: WorkshopOrder) {
   const value = draft(order);
   if (!value.diagnosis.trim()) value.diagnosis = order.reported_fault;
   directServiceOpen.value[order.id] = true;
+  emit('expandedChange', true);
+}
+function closeDirectService(order: WorkshopOrder) {
+  directServiceOpen.value[order.id] = false;
+  emit('expandedChange', false);
 }
 function startDirectService(order: WorkshopOrder) {
   const value = draft(order);
@@ -88,7 +93,7 @@ function decide(order: WorkshopOrder, decision: 'approved' | 'rejected') {
           <div><p class="font-bold text-text">Trabajo acordado</p><p class="text-xs text-muted">Quedará registrado como autorizado presencialmente.</p></div>
           <UiTextarea v-model="draft(order).diagnosis" label="Reparación a realizar" :rows="2" placeholder="Ej. Cambio de pantalla completa" />
           <UiInput v-model="draft(order).estimatedTotal" label="Precio acordado" type="number" min="0" step="0.01" />
-          <div class="grid grid-cols-2 gap-2 sm:flex sm:justify-end"><UiButton variant="secondary" :disabled="saving === order.id" @click="directServiceOpen[order.id] = false">Volver</UiButton><UiButton :disabled="saving === order.id || !draft(order).diagnosis.trim() || draft(order).estimatedTotal === ''" @click="startDirectService(order)"><Wrench class="h-4 w-4" />Iniciar reparación</UiButton></div>
+          <div class="grid grid-cols-2 gap-2 sm:flex sm:justify-end"><UiButton variant="secondary" :disabled="saving === order.id" @click="closeDirectService(order)">Volver</UiButton><UiButton :disabled="saving === order.id || !draft(order).diagnosis.trim() || draft(order).estimatedTotal === ''" @click="startDirectService(order)"><Wrench class="h-4 w-4" />Iniciar reparación</UiButton></div>
         </div>
       </div>
 

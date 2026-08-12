@@ -48,7 +48,10 @@ function closeFromBackdrop(closeOnBackdrop: boolean): void {
             <p class="text-lg font-bold text-slate-950 dark:text-text">{{ title }}</p>
             <p v-if="description" class="mt-1 text-sm text-slate-500 dark:text-muted">{{ description }}</p>
           </div>
-          <UiCloseButton :label="closeLabel" @click="emit('close')" />
+          <div class="flex shrink-0 items-center gap-3">
+            <slot name="header-actions" />
+            <UiCloseButton :label="closeLabel" @click="emit('close')" />
+          </div>
         </header>
 
         <div :class="mobileFullscreen ? 'min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5' : 'px-5 py-5'">

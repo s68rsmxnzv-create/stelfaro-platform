@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { UiLoadingMark, UiModalShell } from "@stelfaro/ui";
+import { UiLoadingMark } from "@stelfaro/ui";
 import {
   CoreDteClient,
   PlatformClient,
@@ -23,9 +23,9 @@ import {
 import { useWorkshop } from "./useWorkshop";
 import { workshopClosedTicket } from "./workshopClosedTicket";
 import { workshopReceptionTicket } from "./workshopReceptionTicket";
+import { workshopWhatsAppUrl } from "./workshopWhatsApp";
 import WorkshopReceptionForm from "./WorkshopReceptionForm.vue";
 import WorkshopOrdersList from "./WorkshopOrdersList.vue";
-import WorkshopDiagnosisBoard from "./WorkshopDiagnosisBoard.vue";
 import WorkshopReceptionComplete from "./WorkshopReceptionComplete.vue";
 import WorkshopOrderDetail from "./WorkshopOrderDetail.vue";
 import WorkshopPhotoSessionModal from "./WorkshopPhotoSessionModal.vue";
@@ -56,6 +56,7 @@ const floatingToasts = ref<BillingFloatingToast[]>([]);
 let floatingToastId = 0;
 const floatingToastTimers: number[] = [];
 const receptionPrinting = ref(false);
+const whatsappSending = ref(false);
 const completed = ref<{
   order: WorkshopOrder;
   orders: WorkshopOrder[];
@@ -68,7 +69,7 @@ const continuation = ref<{
   branchId?: number | null;
 } | null>(null);
 const selectedOrder = ref<WorkshopOrder | null>(null);
-const workOrderId = ref<number | null>(null);
+const selectedOrderSection = ref<"summary" | "work" | "condition" | "photos">("summary");
 const settlementOrderId = ref<number | null>(null);
 const invoiceOrderId = ref<number | null>(null);
 const paymentOrderId = ref<number | null>(null);
@@ -89,11 +90,6 @@ const core = new CoreDteClient(props.coreBaseUrl, {
 const platform = new PlatformClient(props.platformBaseUrl, {
   credentials: "same-origin",
 });
-const workOrder = computed(
-  () =>
-    workshop.orders.value.find((order) => order.id === workOrderId.value) ||
-    null,
-);
 const settlementOrder = computed(
   () =>
     workshop.orders.value.find(
@@ -179,8 +175,12 @@ function finishReception() {
   continuation.value = null;
   setCompletedOrderInUrl(null);
 }
-async function openOrder(order: WorkshopOrder) {
+async function openOrder(
+  order: WorkshopOrder,
+  section: "summary" | "work" | "condition" | "photos" = "summary",
+) {
   selectedOrder.value = order;
+  selectedOrderSection.value = section;
   await workshop.loadPhotos(order.id);
 }
 async function openPhotoSession(order: WorkshopOrder) {
@@ -207,13 +207,12 @@ function closePhotoSession() {
 async function updateWorkOrder(id: number, payload: Record<string, unknown>) {
   const updated = await workshop.updateOrder(id, payload as any);
   if (updated && selectedOrder.value?.id === id) selectedOrder.value = updated;
-  if (updated && ["ready", "cancelled"].includes(updated.status))
-    workOrderId.value = null;
   if (updated?.status === "cancelled" && !updated.financial.closed_at)
     settlementOrderId.value = updated.id;
 }
 async function cancelOrder(order: WorkshopOrder) {
   const updated = await workshop.updateOrder(order.id, { status: "cancelled" });
+  if (updated && selectedOrder.value?.id === updated.id) selectedOrder.value = updated;
   settlementOrderId.value = updated.id;
 }
 function invoiceOrder(
@@ -349,6 +348,31 @@ async function printReception(order: WorkshopOrder) {
     receptionPrinting.value = false;
   }
 }
+async function sendWhatsApp(order: WorkshopOrder) {
+  if (whatsappSending.value) return;
+  whatsappSending.value = true;
+  try {
+    const orders =
+      order.reception.equipment_count > 1
+        ? (await platform.workshopReception(props.tenantId, order.reception.id))
+            .data.orders
+        : [order];
+    const url = workshopWhatsAppUrl(orders);
+    if (!url) throw new Error("El cliente no tiene un teléfono registrado.");
+    window.open(url, "_blank", "noopener");
+  } catch (reason) {
+    pushFloatingToast({
+      title: "No se pudo abrir WhatsApp",
+      message:
+        reason instanceof Error
+          ? reason.message
+          : "Intenta de nuevo en unos segundos.",
+      variant: "error",
+    });
+  } finally {
+    whatsappSending.value = false;
+  }
+}
 async function printOrderDocument(order: WorkshopOrder) {
   if (order.billing.status !== "invoiced" || !order.billing.core_document_id) {
     await printClosedOrder(order);
@@ -387,6 +411,7 @@ async function settleOrder(
   payload: Parameters<typeof workshop.settleOrder>[1],
 ) {
   const updated = await workshop.settleOrder(id, payload);
+  if (updated && selectedOrder.value?.id === id) selectedOrder.value = updated;
   settlementOrderId.value = null;
   if (payload.document_choice === "dte") {
     invoiceOrder(
@@ -475,37 +500,13 @@ onMounted(restoreCompletedReception);
         :loading="workshop.loading.value"
         @search="workshop.loadOrders"
         @select="openOrder"
-        @diagnose="workOrderId = $event.id"
-        @cancel="cancelOrder"
-        @settle="settlementOrderId = $event.id"
-        @invoice="invoiceOrderId = $event.id"
+        @diagnose="openOrder($event, 'work')"
         @pay="paymentOrderId = $event.id"
         @print="printOrderDocument"
         @print-reception="printReception"
         @add-photos="openPhotoSession"
+        @whatsapp="sendWhatsApp"
       />
-      <UiModalShell
-        mobile-fullscreen
-        :open="Boolean(workOrder)"
-        :title="
-          workOrder
-            ? `Trabajo técnico · ${workOrder.ticket}`
-            : 'Trabajo técnico'
-        "
-        :description="
-          workOrder
-            ? `${workOrder.device.brand} ${workOrder.device.model} · ${workOrder.customer.name}`
-            : null
-        "
-        max-width="max-w-4xl"
-        @close="workOrderId = null"
-        ><WorkshopDiagnosisBoard
-          v-if="workOrder"
-          :orders="[workOrder]"
-          :tenant-id="tenantId"
-          :platform-base-url="platformBaseUrl"
-          @update="updateWorkOrder"
-      /></UiModalShell>
       <WorkshopSettlementModal
         :order="settlementOrder"
         @settle="settleOrder"
@@ -522,7 +523,11 @@ onMounted(restoreCompletedReception);
         :tenant-id="tenantId"
         :platform-base-url="platformBaseUrl"
         :photo-loading="workshop.photoLoading.value"
+        :default-section="selectedOrderSection"
         @update="updateWorkOrder"
+        @cancel="cancelOrder"
+        @settle="settlementOrderId = $event.id"
+        @invoice="invoiceOrderId = $event.id"
         @add-photos="selectedOrder && openPhotoSession(selectedOrder)"
         @refresh-photos="selectedOrder && workshop.loadPhotos(selectedOrder.id)"
         @close="selectedOrder = null"
