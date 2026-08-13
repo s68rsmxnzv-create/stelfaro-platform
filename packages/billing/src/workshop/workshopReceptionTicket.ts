@@ -7,7 +7,7 @@ const money = (value: number | null | undefined) => `$${Number(value || 0).toFix
 export async function workshopReceptionTicket(
   orders: WorkshopOrder[],
   company?: BillingEmpresa | null,
-  ticketSettings: WorkshopTicketSettings = { receipt_copies: 2, print_equipment_label: true, terms: '' },
+  ticketSettings: WorkshopTicketSettings = { receipt_copies: 2, terms: '' },
   deviceAccesses: Record<number, { url: string; pin: string } | null> = {},
   preparedLogo?: ThermalLogoRaster | null,
 ): Promise<PrintOperation[]> {
@@ -24,32 +24,41 @@ export async function workshopReceptionTicket(
   const operations: PrintOperation[] = [];
 
   for (const copyLabel of copies) {
-    operations.push(...receptionCopy({ orders, company, branch, copyLabel, separator, terms: ticketSettings.terms, deviceAccesses: copyLabel === 'COPIA TALLER' ? deviceAccesses : {}, logo, showIssuerDetails: settings.showIssuerDetails, ticketNumberSize: receptionTicketNumberSize }));
+    operations.push(...receptionCopy({ orders, company, branch, copyLabel, separator, terms: ticketSettings.terms, deviceAccesses: copyLabel === 'COPIA TALLER' ? deviceAccesses : {}, logo, showIssuerDetails: settings.showIssuerDetails, showBusinessName: settings.showBusinessName, ticketNumberSize: receptionTicketNumberSize }));
     operations.push({ name: 'cut', args: [settings.cutLines] });
   }
 
-  if (ticketSettings.print_equipment_label) {
-    for (const order of orders) {
-      const access = deviceAccesses[order.id];
-      if (!access?.url) continue;
-      const identifiers = identifiersFor(order);
-      operations.push(
-        { name: 'init', args: [] },
-        { name: 'align', args: ['center'] },
-        { name: 'bold', args: [true] },
-        { name: 'text', args: ['ETIQUETA DEL EQUIPO\n'] },
-        { name: 'size', args: [2, 2] },
-        { name: 'text', args: [`${order.ticket}\n`] },
-        { name: 'size', args: [1, 1] },
-        { name: 'bold', args: [true] },
-        { name: 'text', args: [`${order.reception.equipment_label.toUpperCase()}\n`] },
-        { name: 'bold', args: [false] },
-        { name: 'text', args: [`${order.device.brand} ${order.device.model}\n${identifiers[0] || 'Sin identificador visible'}\n`] },
-        { name: 'qr', args: [access.url, fixedQrWidth(settings.paperWidth), 1, 0] },
-        { name: 'text', args: [`\nAcceso móvil seguro del taller\n${ticketSettings.receipt_copies === 2 ? 'El PIN se encuentra en la copia del taller.' : 'El PIN está disponible en la recepción.'}\n`] },
-        { name: 'cut', args: [settings.cutLines] },
-      );
-    }
+  return operations;
+}
+
+export async function workshopEquipmentLabelTicket(
+  orders: WorkshopOrder[],
+  deviceAccesses: Record<number, { url: string; pin: string } | null> = {},
+): Promise<PrintOperation[]> {
+  if (!orders.length) return [];
+  const settings = loadPrinterSettings();
+  const operations: PrintOperation[] = [];
+
+  for (const order of orders) {
+    const access = deviceAccesses[order.id];
+    if (!access?.url) continue;
+    const identifiers = identifiersFor(order);
+    operations.push(
+      { name: 'init', args: [] },
+      { name: 'align', args: ['center'] },
+      { name: 'bold', args: [true] },
+      { name: 'text', args: ['ETIQUETA DEL EQUIPO\n'] },
+      { name: 'size', args: [2, 2] },
+      { name: 'text', args: [`${order.ticket}\n`] },
+      { name: 'size', args: [1, 1] },
+      { name: 'bold', args: [true] },
+      { name: 'text', args: [`${order.reception.equipment_label.toUpperCase()}\n`] },
+      { name: 'bold', args: [false] },
+      { name: 'text', args: [`${order.device.brand} ${order.device.model}\n${identifiers[0] || 'Sin identificador visible'}\n`] },
+      { name: 'qr', args: [access.url, fixedQrWidth(settings.paperWidth), 1, 0] },
+      { name: 'text', args: ['\nAcceso móvil seguro del taller\nEl PIN se encuentra en la copia del taller.\n'] },
+      { name: 'cut', args: [settings.cutLines] },
+    );
   }
 
   return operations;
@@ -65,11 +74,12 @@ type CopyContext = {
   deviceAccesses: Record<number, { url: string; pin: string } | null>;
   logo: PrintOperation | null;
   showIssuerDetails: boolean;
+  showBusinessName: boolean;
   ticketNumberSize: [number, number];
 };
 
 function receptionCopy(context: CopyContext): PrintOperation[] {
-  const { orders, company, branch, copyLabel, separator, terms, deviceAccesses, logo, showIssuerDetails, ticketNumberSize } = context;
+  const { orders, company, branch, copyLabel, separator, terms, deviceAccesses, logo, showIssuerDetails, showBusinessName, ticketNumberSize } = context;
   const primary = orders[0];
   const estimate = orders.reduce((total, order) => total + Number(order.estimated_total || 0), 0);
   const advance = orders.reduce((total, order) => total + Math.max(0, Number(order.paid_total || 0) - Number(order.refunded_total || 0)), 0);
@@ -77,10 +87,20 @@ function receptionCopy(context: CopyContext): PrintOperation[] {
   if (logo) operations.push({ name: logo.name, args: [...logo.args] }, { name: 'text', args: ['\n'] });
   if (showIssuerDetails && company) {
     operations.push(
-      { name: 'bold', args: [true] },
-      { name: 'text', args: [`${company.nombre_comercial || company.razon_social}\n`] },
-      { name: 'bold', args: [false] },
-      { name: 'text', args: [`${company.desc_actividad || ''}\nNIT: ${formatIdentity(company.nit)}\n${company.nrc ? `NRC: ${formatNrc(company.nrc)}\n` : ''}${branch?.direccion ? `${branch.direccion}\n` : ''}${branch?.telefono ? `Tel: ${branch.telefono}\n` : ''}${branch?.email ? `${branch.email}\n` : ''}`] },
+      ...(showBusinessName ? [
+        { name: 'bold', args: [true] } satisfies PrintOperation,
+        { name: 'text', args: [`${company.nombre_comercial || company.razon_social}\n`] } satisfies PrintOperation,
+        { name: 'bold', args: [false] } satisfies PrintOperation,
+      ] : []),
+      { name: 'text', args: [branch?.direccion ? `${branch.direccion}\n` : ''] },
+      ...(branch?.telefono ? [
+        { name: 'bold', args: [true] } satisfies PrintOperation,
+        { name: 'size', args: [1, 2] } satisfies PrintOperation,
+        { name: 'text', args: [`Tel: ${branch.telefono}\n`] } satisfies PrintOperation,
+        { name: 'size', args: [1, 1] } satisfies PrintOperation,
+        { name: 'bold', args: [false] } satisfies PrintOperation,
+      ] : []),
+      { name: 'text', args: [branch?.email ? `${branch.email}\n` : ''] },
     );
   }
   operations.push(
@@ -102,18 +122,18 @@ function receptionCopy(context: CopyContext): PrintOperation[] {
 
   for (const order of orders) {
     const identifiers = identifiersFor(order);
-    const condition = [order.physical_condition, ...(order.physical_conditions || []), ...(order.accessories || [])].filter(Boolean).join(' · ');
+    const condition = [order.physical_condition, ...(order.physical_conditions || []), ...(order.accessories || [])].filter(Boolean).join(', ');
     const functionalTests = Object.entries(order.device.functional_tests || {}).map(([test, result]) => `${testLabel(test)}: ${resultLabel(result)}`);
     operations.push(
       { name: 'bold', args: [true] },
       { name: 'text', args: [`${order.reception.equipment_label.toUpperCase()}\n`] },
       { name: 'bold', args: [false] },
-      { name: 'text', args: [`${deviceTypeLabel(order.device.type)} · ${order.device.brand} ${order.device.model}\n${order.device.color ? `Color: ${order.device.color}\n` : ''}${identifiers.length ? `${identifiers.join('\n')}\n` : 'Identificador: No visible\n'}Encendido: ${powerLabel(order.device.power_status)}\n${functionalTests.length ? `${functionalTests.join('\n')}\n` : ''}`] },
+      { name: 'text', args: [`${deviceTypeLabel(order.device.type)} - ${order.device.brand} ${order.device.model}\n${order.device.color ? `Color: ${order.device.color}\n` : ''}${identifiers.length ? `${identifiers.join('\n')}\n` : 'Identificador: No visible\n'}Encendido: ${powerLabel(order.device.power_status)}\n${functionalTests.length ? `${functionalTests.join('\n')}\n` : ''}`] },
       { name: 'bold', args: [true] },
       { name: 'text', args: ['Falla reportada: '] },
       { name: 'bold', args: [false] },
       { name: 'text', args: [`${order.reported_fault}\n`] },
-      { name: 'text', args: [`${condition ? `Condición: ${condition}\n` : ''}Acceso registrado: ${order.device.has_access_secret ? 'Sí' : 'No'}\nEstimado: ${money(order.estimated_total)} · Anticipo: ${money(Math.max(0, Number(order.paid_total || 0) - Number(order.refunded_total || 0)))}\n${separator}\n`] },
+      { name: 'text', args: [`${condition ? `Condición: ${condition}\n` : ''}Acceso registrado: ${order.device.has_access_secret ? 'Sí' : 'No'}\nEstimado: ${money(order.estimated_total)} - Anticipo: ${money(Math.max(0, Number(order.paid_total || 0) - Number(order.refunded_total || 0)))}\n${separator}\n`] },
     );
   }
 
@@ -138,7 +158,7 @@ function receptionCopy(context: CopyContext): PrintOperation[] {
     );
   }
 
-  operations.push({ name: 'align', args: ['center'] }, { name: 'text', args: ['\nFIRMA: ___________________________\n'] });
+  operations.push({ name: 'align', args: ['center'] }, { name: 'text', args: ['\n\nFIRMA: ___________________________\n\n'] });
 
   const pins = orders.map(order => deviceAccesses[order.id]?.pin ? `${order.reception.equipment_label}: ${deviceAccesses[order.id]?.pin}` : '').filter(Boolean);
   if (pins.length) {
@@ -176,19 +196,9 @@ function deviceTypeLabel(value: string): string {
 }
 
 function testLabel(value: string): string {
-  return ({ display: 'Imagen', touch: 'Touch / controles', charging: 'Carga', cameras: 'Cámaras', audio: 'Audio', microphone: 'Micrófono' } as Record<string, string>)[value] || value;
+  return ({ display: 'Imagen', touch_controls: 'Touch / controles', charging: 'Carga', cameras: 'Cámaras', audio: 'Audio', microphone: 'Micrófono', buttons: 'Botones', connectivity: 'Conectividad' } as Record<string, string>)[value] || value;
 }
 
 function resultLabel(value: string): string {
   return ({ passed: 'Funciona', failed: 'Falla', not_tested: 'No probado' } as Record<string, string>)[value] || value;
-}
-
-function formatIdentity(value: string): string {
-  const digits = String(value || '').replace(/\D+/g, '');
-  return digits.length === 14 ? `${digits.slice(0, 4)}-${digits.slice(4, 10)}-${digits.slice(10, 13)}-${digits.slice(13)}` : value;
-}
-
-function formatNrc(value: string): string {
-  const digits = String(value || '').replace(/\D+/g, '');
-  return digits.length >= 2 ? `${digits.slice(0, -1)}-${digits.slice(-1)}` : value;
 }

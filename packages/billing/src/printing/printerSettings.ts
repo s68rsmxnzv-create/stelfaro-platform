@@ -11,6 +11,7 @@ export type PrinterSettings = {
   openDrawer: boolean;
   showLogo: boolean;
   showIssuerDetails: boolean;
+  showBusinessName: boolean;
 };
 
 export const defaultPrinterSettings = (): PrinterSettings => ({
@@ -24,6 +25,7 @@ export const defaultPrinterSettings = (): PrinterSettings => ({
   openDrawer: false,
   showLogo: false,
   showIssuerDetails: true,
+  showBusinessName: true,
 });
 
 export function loadPrinterSettings(): PrinterSettings {
@@ -59,6 +61,12 @@ export function fixedQrWidth(
   paperWidth: PrinterSettings["paperWidth"],
 ): number {
   return paperWidth === "58" ? 200 : 280;
+}
+
+export function receptionLogoWidth(
+  paperWidth: PrinterSettings["paperWidth"],
+): number {
+  return paperWidth === "58" ? 128 : 184;
 }
 
 export function normalizeAgentUrl(value: unknown): string {

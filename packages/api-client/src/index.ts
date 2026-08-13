@@ -509,7 +509,6 @@ export type FollowUpNotesResponse = {
 
 export type WorkshopTicketSettings = {
   receipt_copies: 1 | 2;
-  print_equipment_label: boolean;
   terms: string;
 };
 

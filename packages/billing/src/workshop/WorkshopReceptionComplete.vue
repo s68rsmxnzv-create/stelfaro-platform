@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import QRCode from 'qrcode';
-import { Camera, CheckCircle2, ChevronDown, ChevronUp, HandCoins, KeyRound, MessageCircle, Plus, Printer, Smartphone } from 'lucide-vue-next';
+import { Camera, CheckCircle2, ChevronDown, ChevronUp, HandCoins, KeyRound, MessageCircle, Plus, Printer, QrCode, Smartphone } from 'lucide-vue-next';
 import { UiButton, UiCard } from '@stelfaro/ui';
 import type { WorkshopOrder, WorkshopOrderPhoto } from '@stelfaro/api-client';
 import WorkshopPhotoGallery from './WorkshopPhotoGallery.vue';
 import { workshopWhatsAppUrl } from './workshopWhatsApp';
 
-const props = defineProps<{ order: WorkshopOrder; orders: WorkshopOrder[]; photos: WorkshopOrderPhoto[]; photoLoading?: boolean; photoUrl?: string; expiresAt?: string; printing?: boolean }>();
-defineEmits<{ addAnother: []; finish: []; refreshPhotos: []; print: []; advance: [order: WorkshopOrder] }>();
+const props = defineProps<{ order: WorkshopOrder; orders: WorkshopOrder[]; photos: WorkshopOrderPhoto[]; photoLoading?: boolean; photoUrl?: string; expiresAt?: string; printing?: boolean; labelPrinting?: boolean }>();
+defineEmits<{ addAnother: []; finish: []; refreshPhotos: []; print: []; printLabel: []; advance: [order: WorkshopOrder] }>();
 const qr = ref('');
 const mobileQrOpen = ref(false);
 const whatsappUrl = computed(() => workshopWhatsAppUrl(props.orders));
@@ -69,6 +69,8 @@ watch(() => props.photoUrl, async (value) => { qr.value = value ? await QRCode.t
           <div v-else class="flex min-h-28 flex-col items-center justify-center gap-2 rounded-md border border-line bg-surface-muted p-3 text-center text-sm text-muted"><MessageCircle class="h-6 w-6" /><span>WhatsApp no disponible</span></div>
 
           <UiButton class="min-h-28 w-full flex-col justify-center gap-2 text-center" variant="secondary" :disabled="printing" @click="$emit('print')"><Printer class="h-6 w-6 text-primary" /><span>{{ printing ? 'Preparando…' : 'Imprimir recepción' }}</span></UiButton>
+
+          <UiButton class="min-h-28 w-full flex-col justify-center gap-2 text-center" variant="secondary" :disabled="labelPrinting" @click="$emit('printLabel')"><QrCode class="h-6 w-6 text-primary" /><span>{{ labelPrinting ? 'Preparando…' : 'Imprimir etiqueta' }}</span></UiButton>
 
           <UiButton v-if="order.estimated_total !== null && order.balance > 0" class="min-h-28 w-full flex-col justify-center gap-2 text-center" variant="secondary" @click="$emit('advance', order)"><HandCoins class="h-6 w-6 text-primary" /><span>Registrar anticipo</span></UiButton>
 

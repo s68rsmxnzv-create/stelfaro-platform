@@ -11,7 +11,10 @@ import {
   type WorkshopTicketSettings,
 } from "@stelfaro/api-client";
 import { sendSilentPrint } from "../printing/printJob";
-import { loadPrinterSettings } from "../printing/printerSettings";
+import {
+  loadPrinterSettings,
+  receptionLogoWidth,
+} from "../printing/printerSettings";
 import { dteFiscalTicketFromArtifact } from "../printing/dteFiscalTicket";
 import BillingFloatingToastStack, {
   type BillingFloatingToast,
@@ -22,7 +25,10 @@ import {
 } from "../support/billingDataCache";
 import { useWorkshop } from "./useWorkshop";
 import { workshopClosedTicket } from "./workshopClosedTicket";
-import { workshopReceptionTicket } from "./workshopReceptionTicket";
+import {
+  workshopEquipmentLabelTicket,
+  workshopReceptionTicket,
+} from "./workshopReceptionTicket";
 import { workshopWhatsAppUrl } from "./workshopWhatsApp";
 import WorkshopReceptionForm from "./WorkshopReceptionForm.vue";
 import WorkshopOrdersList from "./WorkshopOrdersList.vue";
@@ -56,6 +62,7 @@ const floatingToasts = ref<BillingFloatingToast[]>([]);
 let floatingToastId = 0;
 const floatingToastTimers: number[] = [];
 const receptionPrinting = ref(false);
+const labelPrinting = ref(false);
 const whatsappSending = ref(false);
 const completed = ref<{
   order: WorkshopOrder;
@@ -293,7 +300,7 @@ async function printReception(order: WorkshopOrder) {
       printerSettings.showLogo && props.company?.logo_url
         ? core.companyThermalLogo(
             props.company.id,
-            printerSettings.paperWidth === "58" ? 240 : 320,
+            receptionLogoWidth(printerSettings.paperWidth),
           )
         : Promise.resolve({ logo: null });
     const [receptionResult, ticketSettingsResult, logoResult] =
@@ -348,6 +355,43 @@ async function printReception(order: WorkshopOrder) {
     });
   } finally {
     receptionPrinting.value = false;
+  }
+}
+async function printLabel(order: WorkshopOrder) {
+  if (labelPrinting.value) return;
+  labelPrinting.value = true;
+  try {
+    const access =
+      order.device_access ||
+      (await platform.workshopDeviceAccess(props.tenantId, order.id)).data;
+    const result = await sendSilentPrint(
+      await workshopEquipmentLabelTicket([order], { [order.id]: access }),
+    );
+    pushFloatingToast(
+      result === "printed"
+        ? {
+            title: "Etiqueta impresa",
+            message: `La etiqueta de ${order.ticket} fue enviada a la impresora.`,
+            variant: "success",
+          }
+        : {
+            title: "Etiqueta lista",
+            message:
+              "Activa la impresión silenciosa y selecciona una impresora para imprimirla.",
+            variant: "info",
+          },
+    );
+  } catch (reason) {
+    pushFloatingToast({
+      title: "No se pudo imprimir",
+      message:
+        reason instanceof Error
+          ? reason.message
+          : "Revisa la conexión con la impresora.",
+      variant: "error",
+    });
+  } finally {
+    labelPrinting.value = false;
   }
 }
 async function sendWhatsApp(order: WorkshopOrder) {
@@ -477,8 +521,10 @@ onMounted(restoreCompletedReception);
       :photo-url="completed.url"
       :expires-at="completed.expires_at"
       :printing="receptionPrinting"
+      :label-printing="labelPrinting"
       @refresh-photos="workshop.loadPhotos(completed.order.id)"
       @print="printReception(completed.order)"
+      @print-label="printLabel(completed.order)"
       @advance="paymentOrderId = $event.id"
       @add-another="addAnotherEquipment"
       @finish="finishReception"
@@ -506,6 +552,7 @@ onMounted(restoreCompletedReception);
         @pay="paymentOrderId = $event.id"
         @print="printOrderDocument"
         @print-reception="printReception"
+        @print-label="printLabel"
         @add-photos="openPhotoSession"
         @whatsapp="sendWhatsApp"
       />

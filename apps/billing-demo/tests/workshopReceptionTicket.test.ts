@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { WorkshopOrder } from '@stelfaro/api-client';
-import { workshopReceptionTicket } from '../../../packages/billing/src/workshop/workshopReceptionTicket';
+import { workshopEquipmentLabelTicket, workshopReceptionTicket } from '../../../packages/billing/src/workshop/workshopReceptionTicket';
 
 describe('workshopReceptionTicket', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -39,7 +39,7 @@ describe('workshopReceptionTicket', () => {
     const operations = await workshopReceptionTicket(
       [order],
       null,
-      { receipt_copies: 2, print_equipment_label: true, terms: 'El diagnóstico debe aprobarse.\n\nConserve su comprobante.' },
+      { receipt_copies: 2, terms: 'El diagnóstico debe aprobarse.\n\nConserve su comprobante.' },
       { 12: { url: 'https://example.test/device', pin: '654321' } },
       { width: 240, height: 80, data: 'AA==' },
     );
@@ -53,10 +53,10 @@ describe('workshopReceptionTicket', () => {
     expect(text).toContain('COPIA TALLER');
     expect(text).toContain('654321');
     expect(text).toContain('TÉRMINOS Y CONDICIONES');
-    expect(text).toContain('ETIQUETA DEL EQUIPO');
+    expect(text).not.toContain('ETIQUETA DEL EQUIPO');
     expect(text).not.toContain('pattern');
     expect(text).not.toContain('Agregar fotografías del equipo');
-    expect(operations.filter(({ name }) => name === 'qr')).toEqual([{ name: 'qr', args: ['https://example.test/device', 200, 1, 0] }]);
+    expect(operations.filter(({ name }) => name === 'qr')).toEqual([]);
     expect(operations.filter(({ name }) => name === 'imageRaster')).toHaveLength(2);
     expect(operations.filter(({ name }) => name === 'cut').every(({ args }) => args[0] === 6)).toBe(true);
     const ticketIndex58 = operations.findIndex(({ name, args }) => name === 'text' && args[0] === 'T-000012\n');
@@ -66,7 +66,7 @@ describe('workshopReceptionTicket', () => {
     const operations80 = await workshopReceptionTicket(
       [order],
       null,
-      { receipt_copies: 1, print_equipment_label: false, terms: '' },
+      { receipt_copies: 1, terms: '' },
     );
     const ticketIndex80 = operations80.findIndex(({ name, args }) => name === 'text' && args[0] === 'T-000012\n');
     expect(operations80[ticketIndex80 - 1]).toEqual({ name: 'size', args: [2, 2] });
@@ -78,5 +78,47 @@ describe('workshopReceptionTicket', () => {
       expect(operations[index + 1]).toEqual({ name: 'bold', args: [false] });
       expect(operations.slice(index + 1).find(({ name }) => name === 'cut')).toBeTruthy();
     });
+  });
+
+  it('builds a standalone equipment label with QR when device access is available', async () => {
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: () => JSON.stringify({ paperWidth: '80', cutLines: 6 }),
+      },
+    });
+    const order = {
+      id: 12,
+      ticket: 'T-000012',
+      status: 'received',
+      priority: 'normal',
+      reported_fault: 'No carga',
+      physical_condition: null,
+      physical_conditions: [],
+      accessories: [],
+      diagnosis: null,
+      estimated_total: 35,
+      paid_total: 10,
+      refunded_total: 0,
+      balance: 25,
+      received_at: '2026-07-20T10:30:00-06:00',
+      photo_count: 0,
+      reception: { id: 7, equipment_label: 'Equipo 1' },
+      financial: { status: 'pending', final_total: null, closed_at: null },
+      billing: { status: 'unbilled', dte_type: null, core_document_id: null, number: null, generation_code: null, invoiced_at: null },
+      approval: { decision: null, method: null, notes: null, decided_at: null },
+      customer: { id: 1, name: 'Andrea Hernández', phone: '7000-0000' },
+      device: { id: 2, type: 'Celular', brand: 'Demo', model: '2026', color: null, imei: '123456789012347', serial_number: null, identifier_not_visible: false, power_status: 'on', functional_tests: {}, is_locked: true, access_type: 'pattern', has_access_secret: true },
+    } satisfies WorkshopOrder;
+
+    const operations = await workshopEquipmentLabelTicket([order], { 12: { url: 'https://example.test/device', pin: '654321' } });
+    const text = operations.filter(({ name }) => name === 'text').flatMap(({ args }) => args).join('');
+
+    expect(text).toContain('ETIQUETA DEL EQUIPO');
+    expect(text).toContain('T-000012');
+    expect(text).not.toContain('654321');
+    expect(operations.filter(({ name }) => name === 'qr')).toEqual([{ name: 'qr', args: ['https://example.test/device', 280, 1, 0] }]);
+
+    const emptyOperations = await workshopEquipmentLabelTicket([order], {});
+    expect(emptyOperations).toEqual([]);
   });
 });
