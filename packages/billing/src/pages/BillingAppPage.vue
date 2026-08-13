@@ -21,6 +21,7 @@ import CatalogPage from "./CatalogPage.vue";
 import BillingDashboardPage from "./BillingDashboardPage.vue";
 import CashPage from "./CashPage.vue";
 import CommercialOrdersPage from "./CommercialOrdersPage.vue";
+import QuoteBuilderPage from "./QuoteBuilderPage.vue";
 import FollowUpNotesPage from "./FollowUpNotesPage.vue";
 import BillingOperationalPlaceholderPage from "./BillingOperationalPlaceholderPage.vue";
 import BillingWorkspace from "./BillingWorkspace.vue";
@@ -75,6 +76,10 @@ const props = defineProps({
   documentSlug: {
     type: String,
     default: "fe",
+  },
+  quotationId: {
+    type: [Number, String],
+    default: null,
   },
   eventSlug: {
     type: String,
@@ -246,6 +251,7 @@ const moduleComponents = {
   dashboard: BillingDashboardPage,
   cash: CashPage,
   "commercial-orders": CommercialOrdersPage,
+  "quote-builder": QuoteBuilderPage,
   "follow-ups": FollowUpNotesPage,
   "operational-placeholder": BillingOperationalPlaceholderPage,
   "workshop-reception": WorkshopAppPage,
@@ -280,6 +286,7 @@ const requiresFiscalSession = computed(
       "inventory",
       "cash",
       "commercial-orders",
+      "quote-builder",
       "operational-placeholder",
     ].includes(props.module),
 );
@@ -360,6 +367,18 @@ const selectedComponentProps = computed(() => {
       tenantId: Number(props.platformSession?.tenant?.id || 0),
       appBaseUrl: props.appBaseUrl,
       company: activeCompany.value,
+    };
+  }
+
+  if (props.module === "quote-builder") {
+    return {
+      platformBaseUrl: props.platformBaseUrl,
+      coreBaseUrl: props.coreBaseUrl,
+      authToken: props.authToken,
+      tenantId: Number(props.platformSession?.tenant?.id || 0),
+      appBaseUrl: props.appBaseUrl,
+      company: activeCompany.value,
+      quotationId: props.quotationId ? Number(props.quotationId) : null,
     };
   }
 
@@ -470,6 +489,8 @@ const pageTitle = computed(() => {
   if (props.module === "inventory") return "Inventario";
   if (props.module === "cash") return "Caja";
   if (props.module === "commercial-orders") return "Órdenes y cotizaciones";
+  if (props.module === "quote-builder")
+    return props.quotationId ? "Editar cotización" : "Nueva cotización";
   if (props.module === "follow-ups") return "Pendientes";
 
   if (props.module === "mh-events") {
