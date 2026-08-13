@@ -33,7 +33,7 @@ const draft = reactive({
   catalog_item_id: null as number | null,
   catalog_name: "",
   description: "",
-  quantity: 1,
+  quantity: 0,
   unit_price: 0,
   discount_percent: 0,
 });
@@ -170,7 +170,7 @@ function addLine(): void {
     catalog_item_id: null,
     catalog_name: "",
     description: "",
-    quantity: 1,
+    quantity: 0,
     unit_price: 0,
     discount_percent: 0,
   });
@@ -234,6 +234,7 @@ onBeforeUnmount(() => {
         <UiInput
           v-model.number="draft.quantity"
           label="Cantidad"
+          placeholder="Cant. 1"
           min="0.01"
           step="0.01"
           type="number"
