@@ -1218,7 +1218,9 @@ export type PlatformWorkLine = {
   description: string;
   quantity: number;
   unit_price: number;
+  price_includes_tax?: boolean;
   discount_amount?: number;
+  tax_amount?: number;
   total?: number;
 };
 export type PlatformSalesOrder = {
@@ -1275,6 +1277,7 @@ export type PlatformQuotation = {
   customer: PlatformSalesOrder["customer"];
   subtotal: number;
   discount_total: number;
+  tax_total: number;
   total: number;
   requested_deposit: number;
   valid_until?: string | null;

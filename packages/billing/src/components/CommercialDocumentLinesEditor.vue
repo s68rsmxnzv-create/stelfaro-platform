@@ -4,7 +4,7 @@ import {
   type PlatformCatalogItem,
   type PlatformWorkLine,
 } from "@stelfaro/api-client";
-import { UiAutocompleteInput, UiButton, UiInput } from "@stelfaro/ui";
+import { UiAutocompleteInput, UiButton, UiInput, UiToggle } from "@stelfaro/ui";
 import { computed, onBeforeUnmount, reactive, ref } from "vue";
 
 const props = withDefaults(
@@ -13,11 +13,15 @@ const props = withDefaults(
     platformBaseUrl?: string;
     authToken?: string | null;
     totalLabel?: string;
+    showTotal?: boolean;
+    showTax?: boolean;
   }>(),
   {
     platformBaseUrl: "/api/v1",
     authToken: null,
     totalLabel: "Total",
+    showTotal: true,
+    showTax: false,
   },
 );
 
@@ -36,6 +40,7 @@ const draft = reactive({
   quantity: 0,
   unit_price: 0,
   discount_percent: 0,
+  price_includes_tax: true,
 });
 const suggestions = ref<PlatformCatalogItem[]>([]);
 const suggestionsOpen = ref(false);
@@ -56,17 +61,18 @@ const draftDiscount = computed(() =>
   ),
 );
 const draftNet = computed(() => draftGross.value - draftDiscount.value);
+const draftTaxAmount = computed(() =>
+  draft.price_includes_tax
+    ? draftNet.value - draftNet.value / 1.13
+    : draftNet.value * 0.13,
+);
+const draftLineTotal = computed(() =>
+  draft.price_includes_tax
+    ? draftNet.value
+    : draftNet.value + draftTaxAmount.value,
+);
 const documentTotal = computed(() =>
-  lines.value.reduce(
-    (sum, item) =>
-      sum +
-      Math.max(
-        0,
-        Number(item.quantity || 0) * Number(item.unit_price || 0) -
-          Number(item.discount_amount || 0),
-      ),
-    0,
-  ),
+  lines.value.reduce((sum, item) => sum + lineTotal(item), 0),
 );
 const canAdd = computed(
   () =>
@@ -163,6 +169,7 @@ function addLine(): void {
       description: draft.description.trim(),
       quantity: Number(draft.quantity),
       unit_price: Number(draft.unit_price),
+      price_includes_tax: draft.price_includes_tax,
       discount_amount: Math.round(draftDiscount.value * 100) / 100,
     },
   ];
@@ -173,6 +180,7 @@ function addLine(): void {
     quantity: 0,
     unit_price: 0,
     discount_percent: 0,
+    price_includes_tax: true,
   });
   suggestions.value = [];
   suggestionsOpen.value = false;
@@ -182,12 +190,24 @@ function removeLine(index: number): void {
   lines.value = lines.value.filter((_, lineIndex) => lineIndex !== index);
 }
 
-function lineTotal(item: PlatformWorkLine): number {
+function lineNet(item: PlatformWorkLine): number {
   return Math.max(
     0,
     Number(item.quantity || 0) * Number(item.unit_price || 0) -
       Number(item.discount_amount || 0),
   );
+}
+
+function lineTaxAmount(item: PlatformWorkLine): number {
+  const net = lineNet(item);
+
+  return item.price_includes_tax === false ? net * 0.13 : net - net / 1.13;
+}
+
+function lineTotal(item: PlatformWorkLine): number {
+  const net = lineNet(item);
+
+  return item.price_includes_tax === false ? net + lineTaxAmount(item) : net;
 }
 
 onBeforeUnmount(() => {
@@ -205,68 +225,74 @@ onBeforeUnmount(() => {
     </div>
 
     <div
-      class="grid gap-3 rounded-lg border border-line bg-surface-muted/40 p-3"
+      class="flex flex-wrap items-end gap-3 rounded-lg border border-line bg-surface-muted/40 p-3"
     >
-      <UiAutocompleteInput
-        :model-value="draft.description"
-        :options="suggestions"
-        :open="suggestionsOpen"
-        :loading="searching"
-        inline-empty
-        :show-suffix="false"
-        label="Descripción"
-        placeholder="Buscar catálogo o escribir descripción libre"
-        empty-text="Sin resultados. Se agregará como descripción libre."
-        @blur="closeSuggestions"
-        @focus="scheduleSearch(draft.description)"
-        @select="selectCatalogItem"
-        @update:model-value="updateDescription"
-      >
-        <template #option="{ option: item }">
-          <span class="block font-semibold text-text">{{ item.name }}</span>
-          <span class="mt-0.5 block text-xs text-muted">
-            {{ item.sku || "Sin código" }} · {{ money(item.base_price) }}
-          </span>
-        </template>
-      </UiAutocompleteInput>
-
-      <div class="grid grid-cols-3 gap-2">
-        <UiInput
-          v-model.number="draft.quantity"
-          label="Cantidad"
-          placeholder="Cant. 1"
-          min="0.01"
-          step="0.01"
-          type="number"
-        />
-        <UiInput
-          v-model.number="draft.unit_price"
-          label="Precio"
-          min="0"
-          step="0.01"
-          type="number"
-        />
-        <UiInput
-          v-model.number="draft.discount_percent"
-          label="Desc. %"
-          min="0"
-          max="100"
-          step="0.01"
-          type="number"
+      <div class="min-w-[220px] flex-1">
+        <UiAutocompleteInput
+          :model-value="draft.description"
+          :options="suggestions"
+          :open="suggestionsOpen"
+          :loading="searching"
+          inline-empty
+          :show-suffix="false"
+          label="Descripción"
+          placeholder="Buscar catálogo o escribir descripción libre"
+          empty-text="Sin resultados. Se agregará como descripción libre."
+          @blur="closeSuggestions"
+          @focus="scheduleSearch(draft.description)"
+          @select="selectCatalogItem"
+          @update:model-value="updateDescription"
+        >
+          <template #option="{ option: item }">
+            <span class="block font-semibold text-text">{{ item.name }}</span>
+            <span class="mt-0.5 block text-xs text-muted">
+              {{ item.sku || "Sin código" }} · {{ money(item.base_price) }}
+            </span>
+          </template>
+        </UiAutocompleteInput>
+      </div>
+      <UiInput
+        class="w-24"
+        v-model.number="draft.quantity"
+        label="Cantidad"
+        placeholder="Cant. 1"
+        min="0.01"
+        step="0.01"
+        type="number"
+      />
+      <UiInput
+        class="w-28"
+        v-model.number="draft.unit_price"
+        label="Precio"
+        min="0"
+        step="0.01"
+        type="number"
+      />
+      <UiInput
+        class="w-24"
+        v-model.number="draft.discount_percent"
+        label="Desc. %"
+        min="0"
+        max="100"
+        step="0.01"
+        type="number"
+      />
+      <div v-if="showTax" class="flex shrink-0 flex-col gap-1">
+        <span class="text-xs font-semibold uppercase text-muted"
+          >Incluye IVA</span
+        >
+        <UiToggle
+          v-model="draft.price_includes_tax"
+          aria-label="El precio digitado incluye IVA"
         />
       </div>
-
-      <div
-        class="flex items-center justify-between gap-3 rounded-lg bg-surface p-3"
-      >
-        <div>
-          <p class="text-xs font-semibold uppercase text-muted">Neto</p>
-          <p class="mt-1 font-bold text-text">{{ money(draftNet) }}</p>
-        </div>
-        <UiButton class="shrink-0" :disabled="!canAdd" @click="addLine">
-          Agregar
-        </UiButton>
+      <div class="w-28 shrink-0">
+        <p class="text-xs font-semibold uppercase text-muted">Neto</p>
+        <p class="mt-1 font-bold text-text">{{ money(draftLineTotal) }}</p>
       </div>
+      <UiButton class="shrink-0" :disabled="!canAdd" @click="addLine">
+        Agregar
+      </UiButton>
     </div>
 
     <div
@@ -288,6 +314,14 @@ onBeforeUnmount(() => {
               <template v-if="Number(item.discount_amount || 0) > 0">
                 · Descuento {{ money(Number(item.discount_amount)) }}
               </template>
+              <template v-if="showTax">
+                ·
+                {{
+                  item.price_includes_tax === false
+                    ? `+ IVA ${money(lineTaxAmount(item))}`
+                    : "IVA incluido"
+                }}
+              </template>
             </p>
           </div>
           <div class="flex shrink-0 items-center gap-3">
@@ -307,6 +341,7 @@ onBeforeUnmount(() => {
     </p>
 
     <div
+      v-if="showTotal"
       class="flex items-center justify-between rounded-lg bg-surface-muted p-3"
     >
       <span class="text-sm text-muted">{{ totalLabel }}</span>
