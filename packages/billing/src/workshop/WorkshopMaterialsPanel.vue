@@ -10,13 +10,14 @@ const props = defineProps<{
   tenantId: number;
   platformBaseUrl: string;
   order: WorkshopOrder;
+  boxed?: boolean;
 }>();
 
 const client = new PlatformClient(props.platformBaseUrl, { credentials: 'same-origin' });
 const materials = ref<WorkshopMaterial[]>([]);
 const results = ref<PlatformCatalogItem[]>([]);
 const query = ref('');
-const quantity = ref<number | string>(1);
+const quantity = ref<number | string>(0);
 const loading = ref(false);
 const searching = ref(false);
 const actionId = ref<number | null>(null);
@@ -99,7 +100,7 @@ async function reserve(item: PlatformCatalogItem) {
     broadcastInventoryChange('workshop_material_reserved', response.data.id);
     query.value = '';
     results.value = [];
-    quantity.value = 1;
+    quantity.value = 0;
     await loadMaterials();
   } catch (exception) {
     error.value = message(exception, 'No fue posible reservar el repuesto.');
@@ -168,14 +169,14 @@ onMounted(loadMaterials);
 </script>
 
 <template>
-  <section class="mt-5 border-t border-line pt-5">
+  <section :class="boxed ? 'rounded-xl border border-line bg-surface p-4 md:p-5' : 'mt-5 border-t border-line pt-5'">
     <div class="flex items-start justify-between gap-3">
       <div>
         <div class="flex items-center gap-2">
           <PackagePlus class="h-5 w-5 text-primary" />
           <h3 class="font-semibold text-text">Repuestos del inventario</h3>
         </div>
-        <p class="mt-1 text-sm text-muted">Uso interno de la orden. El cliente seguirá viendo un solo trabajo.</p>
+        <p class="mt-1 text-sm text-muted">Uso interno de la orden.</p>
       </div>
       <div v-if="activeMaterials.length" class="shrink-0 text-right">
         <p class="text-xs text-muted">Costo interno</p>
@@ -189,7 +190,7 @@ onMounted(loadMaterials);
           <Search class="pointer-events-none absolute left-3 top-4 h-4 w-4 text-muted" />
           <UiInput v-model="query" class="[&_input]:pl-10" hide-label label="Buscar repuesto" placeholder="Buscar por nombre o código" autocomplete="off" />
         </div>
-        <UiInput v-model="quantity" label="Cantidad" hide-label type="number" min="0.001" step="0.001" />
+        <UiInput v-model="quantity" label="Cantidad" hide-label type="number" placeholder="Cant. 1" min="0.001" step="0.001" />
       </div>
       <p v-if="searching" class="mt-2 text-sm text-muted">Buscando existencias…</p>
       <div v-else-if="results.length" class="mt-2 divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">

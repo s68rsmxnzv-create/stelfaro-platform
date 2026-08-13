@@ -24,9 +24,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown));
   <section class="mt-5 border-t border-line pt-5 sm:mt-7 sm:pt-7">
     <div class="grid gap-3 sm:flex sm:items-end sm:justify-between sm:gap-4">
       <div>
-        <p class="text-sm font-semibold uppercase tracking-wide text-primary">Vista previa</p>
-        <h3 class="mt-1 text-xl font-bold text-text sm:text-2xl">Fotografías del equipo</h3>
-        <p class="mt-1 text-sm text-muted sm:mt-2">Toca una fotografía para ampliarla.</p>
+        <h3 class="text-xl font-bold text-text sm:text-2xl">Fotografías del equipo</h3>
       </div>
       <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap"><UiButton v-if="allowAdd" class="justify-center" @click="$emit('addPhotos')"><Camera class="mr-2 h-4 w-4" />{{ photos.length ? 'Agregar' : 'Primera foto' }}</UiButton><UiButton class="justify-center" variant="secondary" :disabled="loading" @click="$emit('refresh')"><RefreshCw class="mr-2 h-4 w-4" :class="{ 'animate-spin': loading }" />Actualizar</UiButton></div>
     </div>

@@ -45,8 +45,8 @@ function closeFromBackdrop(closeOnBackdrop: boolean): void {
       >
         <header class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-4 py-3 dark:border-line sm:px-5 sm:py-4">
           <div class="min-w-0">
-            <p class="text-lg font-bold text-slate-950 dark:text-text">{{ title }}</p>
-            <p v-if="description" class="mt-1 text-sm text-slate-500 dark:text-muted">{{ description }}</p>
+            <p class="text-lg font-bold text-slate-950 dark:text-text"><slot name="title">{{ title }}</slot></p>
+            <p v-if="description || $slots.description" class="mt-1 text-sm text-slate-500 dark:text-muted"><slot name="description">{{ description }}</slot></p>
           </div>
           <div class="flex shrink-0 items-center gap-3">
             <slot name="header-actions" />

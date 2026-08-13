@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { ChevronLeft, CircleDollarSign, Clock3, FileText, HandCoins, Images, KeyRound, Package, PackageCheck, Smartphone, UserRound, Wrench } from 'lucide-vue-next';
+import { ChevronLeft, CircleDollarSign, FileText, HandCoins, Images, KeyRound, Package, PackageCheck, Smartphone, UserRound, Wrench } from 'lucide-vue-next';
 import { UiButton, UiModalShell, UiStatusBadge } from '@stelfaro/ui';
 import type { WorkshopOrder, WorkshopOrderPhoto } from '@stelfaro/api-client';
 import WorkshopDiagnosisBoard from './WorkshopDiagnosisBoard.vue';
@@ -19,7 +19,7 @@ watch(() => props.order?.id, () => {
   workFormExpanded.value = false;
   focusDismissed.value = false;
   const expanded = Boolean(props.order) && props.order?.status !== 'received';
-  activeSection.value = expanded ? 'work' : (props.defaultSection || 'summary');
+  activeSection.value = expanded ? 'work' : (props.defaultSection || 'work');
 });
 const isWorkExpanded = computed(() => !props.order || props.order.status !== 'received' || workFormExpanded.value);
 watch(isWorkExpanded, (expanded, wasExpanded) => {
@@ -38,7 +38,7 @@ const progressActions = computed(() => {
 const canCancel = computed(() => {
   const order = props.order;
   if (!order) return false;
-  return !order.financial.closed_at && ['received','diagnosing','awaiting_approval','approved','repairing','ready'].includes(order.status);
+  return !order.financial.closed_at && ['received','diagnosing','awaiting_approval','approved','repairing'].includes(order.status);
 });
 const hasWorkBoard = computed(() => {
   const order = props.order;
@@ -64,58 +64,71 @@ const money = (value: number) => new Intl.NumberFormat('es-SV', { style: 'curren
 
 <template>
   <UiModalShell mobile-fullscreen :open="Boolean(order)" :title="order?.ticket || 'Orden'" :description="order ? `${order.customer.name} · ${order.device.brand} ${order.device.model}` : null" max-width="max-w-6xl" @close="$emit('close')">
-    <template v-if="order && canCancel" #header-actions>
-      <UiButton variant="danger" size="sm" @click="emit('cancel', order)">Cancelar orden</UiButton>
+    <template v-if="order" #title>
+      <div class="flex items-center gap-2">
+        <button v-if="isFocusMode" type="button" class="-ml-1 shrink-0 rounded-full p-1 text-muted transition hover:bg-surface-muted hover:text-text" aria-label="Volver" @click="exitFocus">
+          <ChevronLeft class="h-5 w-5" />
+        </button>
+        <span>{{ order.ticket }}</span>
+      </div>
     </template>
-    <div v-if="order" class="-mx-1 px-1 md:max-h-[75vh] md:overflow-y-auto">
-      <template v-if="!isFocusMode">
-        <div class="flex min-h-10 items-center justify-between gap-3 px-1 md:rounded-xl md:border md:border-line md:bg-surface-muted md:p-4">
-          <div>
-            <p class="hidden text-sm text-muted md:block">Estado actual</p>
-            <UiStatusBadge class="md:mt-1" :tone="statusTone(order.status)">{{ statusLabels[order.status] || order.status }}</UiStatusBadge>
-          </div>
-          <div class="flex items-center gap-1.5 text-right text-sm text-muted md:block">
-            <Clock3 class="h-4 w-4 md:hidden" />
-            <p class="hidden text-sm text-muted md:block">Ingreso</p>
-            <p class="font-medium text-text md:font-semibold">{{ new Date(order.received_at).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' }) }}</p>
-          </div>
-        </div>
-
-        <div v-if="progressActions.length" class="mt-3 flex flex-wrap gap-2 px-1 md:px-0">
-          <UiButton v-for="action in progressActions" :key="action.key" size="sm" variant="secondary" @click="triggerProgressAction(action.key, order)">
-            <component :is="action.icon" class="h-4 w-4" />{{ action.label }}
-          </UiButton>
-        </div>
-
-        <nav class="sticky top-0 z-10 -mx-1 mt-3 grid grid-cols-4 gap-1 border-y border-line bg-surface/95 px-1 py-2 backdrop-blur md:static md:mx-0 md:max-w-md md:border md:bg-surface md:px-1" aria-label="Secciones de la orden">
-          <button
-            v-for="section in sections"
-            :key="section.value"
-            type="button"
-            class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-bold transition md:min-h-11 md:flex-row md:gap-1.5 md:text-xs"
-            :class="activeSection === section.value ? 'bg-primary text-primary-contrast shadow-sm' : 'text-muted active:bg-surface-muted md:hover:bg-surface-muted'"
-            @click="activeSection = section.value"
-          >
-            <component :is="section.icon" class="h-4 w-4" />
-            {{ section.label }}
-          </button>
-        </nav>
-      </template>
-      <div v-else class="sticky top-0 z-10 -mx-1 mt-0 flex items-center justify-between gap-3 border-b border-line bg-surface/95 px-1 py-2 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0">
-        <UiButton variant="secondary" size="sm" @click="exitFocus">
-          <ChevronLeft class="h-4 w-4" />Volver
-        </UiButton>
+    <template v-if="order" #description>
+      <div class="flex flex-wrap items-center gap-2">
+        <span>{{ order.customer.name }} · {{ order.device.brand }} {{ order.device.model }}</span>
         <UiStatusBadge :tone="statusTone(order.status)">{{ statusLabels[order.status] || order.status }}</UiStatusBadge>
       </div>
+    </template>
+    <template v-if="order" #header-actions>
+      <UiButton v-if="canCancel" variant="danger" size="sm" @click="emit('cancel', order)">Cancelar orden</UiButton>
+      <UiButton v-for="action in progressActions" :key="action.key" size="sm" variant="primary" @click="triggerProgressAction(action.key, order)">
+        <component :is="action.icon" class="h-4 w-4" />{{ action.label }}
+      </UiButton>
+    </template>
+    <div v-if="order" class="-mx-1 px-1 md:max-h-[75vh] md:overflow-y-auto">
+      <p class="px-1 text-xs text-muted md:px-0">Ingreso: {{ new Date(order.received_at).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' }) }}</p>
+
+      <div v-if="isFocusMode" class="mt-3 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border border-line bg-surface px-4 py-3 text-sm">
+        <div><span class="text-xs font-semibold uppercase tracking-wide text-muted">{{ order.financial.final_total === null ? 'Total estimado' : 'Total final' }}</span> <strong class="ml-1 text-text">{{ (order.financial.final_total ?? order.estimated_total) === null ? 'Pendiente' : money(order.financial.final_total ?? order.estimated_total ?? 0) }}</strong></div>
+        <div><span class="text-xs font-semibold uppercase tracking-wide text-muted">Pagado</span> <strong class="ml-1 text-success">{{ money(order.paid_total) }}</strong></div>
+        <div><span class="text-xs font-semibold uppercase tracking-wide text-muted">Saldo</span> <strong class="ml-1 text-text">{{ money(order.balance) }}</strong></div>
+      </div>
+
+      <nav v-if="!isFocusMode" class="sticky top-0 z-10 -mx-1 mt-3 grid grid-cols-4 gap-1 border-y border-line bg-surface/95 px-1 py-2 backdrop-blur md:static md:mx-0 md:max-w-md md:rounded-xl md:border md:bg-surface md:px-1" aria-label="Secciones de la orden">
+        <button
+          v-for="section in sections"
+          :key="section.value"
+          type="button"
+          class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-bold transition md:min-h-11 md:flex-row md:gap-1.5 md:text-xs"
+          :class="activeSection === section.value ? 'bg-primary text-primary-contrast shadow-sm' : 'text-muted active:bg-surface-muted md:hover:bg-surface-muted'"
+          @click="activeSection = section.value"
+        >
+          <component :is="section.icon" class="h-4 w-4" />
+          {{ section.label }}
+        </button>
+      </nav>
 
       <div class="mt-3 grid gap-3 md:mt-5 md:grid-cols-2 md:gap-4 xl:grid-cols-3" :class="activeSection !== 'summary' ? 'hidden' : ''">
         <section class="rounded-lg border border-line bg-surface p-4"><div class="flex items-center gap-2 text-primary"><UserRound class="h-5 w-5" /><h3 class="font-semibold">Cliente</h3></div><p class="mt-3 font-semibold text-text">{{ order.customer.name }}</p><p class="mt-1 text-sm text-muted">{{ order.customer.phone || 'Sin teléfono registrado' }}</p></section>
         <section class="rounded-lg border border-line bg-surface p-4"><div class="flex items-center gap-2 text-primary"><Smartphone class="h-5 w-5" /><h3 class="font-semibold">Equipo</h3></div><p class="mt-3 font-semibold text-text">{{ order.device.brand }} {{ order.device.model }}</p><p class="mt-1 text-sm text-muted">{{ order.device.imei ? `IMEI ${order.device.imei}` : order.device.serial_number ? `Serie ${order.device.serial_number}` : 'Sin identificador visible' }}</p><p v-if="order.device.color" class="mt-1 text-sm text-muted">Color: {{ order.device.color }}</p></section>
-        <section class="rounded-lg border border-line bg-surface p-4"><div class="flex items-center gap-2 text-primary"><CircleDollarSign class="h-5 w-5" /><h3 class="font-semibold">Balance</h3></div><div class="mt-3 grid grid-cols-3 gap-2 text-sm"><div><p class="text-muted">{{ order.financial.final_total === null ? 'Estimado' : 'Total final' }}</p><p class="font-semibold text-text">{{ (order.financial.final_total ?? order.estimated_total) === null ? 'Pendiente' : money(order.financial.final_total ?? order.estimated_total ?? 0) }}</p></div><div><p class="text-muted">Pagado neto</p><p class="font-semibold text-success">{{ money(order.paid_total) }}</p><p v-if="order.refunded_total" class="text-xs text-muted">Devuelto {{ money(order.refunded_total) }}</p></div><div><p class="text-muted">Saldo</p><p class="font-semibold text-text">{{ money(order.balance) }}</p></div></div><p class="mt-3 border-t border-line pt-2 text-xs font-semibold" :class="order.financial.status === 'settled' ? 'text-success' : 'text-warning'">{{ order.financial.status === 'settled' ? 'Orden cerrada financieramente' : 'Liquidación pendiente' }}</p></section>
+        <section class="rounded-lg border border-line bg-surface p-4"><div class="flex items-center gap-2 text-primary"><CircleDollarSign class="h-5 w-5" /><h3 class="font-semibold">Balance</h3></div><div class="mt-3 grid grid-cols-3 gap-2 text-sm"><div><p class="text-muted">{{ order.financial.final_total === null ? 'Estimado' : 'Total final' }}</p><p class="font-semibold text-text">{{ (order.financial.final_total ?? order.estimated_total) === null ? 'Pendiente' : money(order.financial.final_total ?? order.estimated_total ?? 0) }}</p></div><div><p class="text-muted">Pagado neto</p><p class="font-semibold text-success">{{ money(order.paid_total) }}</p><p v-if="order.refunded_total" class="text-xs text-muted">Devuelto {{ money(order.refunded_total) }}</p></div><div><p class="text-muted">Saldo</p><p class="font-semibold text-text">{{ money(order.balance) }}</p></div></div><p v-if="order.financial.status !== 'settled'" class="mt-3 border-t border-line pt-2 text-xs font-semibold text-warning">Liquidación pendiente</p></section>
       </div>
 
       <div class="mt-3 grid gap-3 md:mt-4 md:gap-4 lg:grid-cols-2" :class="activeSection !== 'work' ? 'hidden' : ''">
-        <section v-if="!isFocusMode" class="rounded-lg border border-line bg-surface p-4" :class="(!hasWorkBoard || isWorkExpanded) ? 'lg:col-span-2' : ''"><div class="flex items-center gap-2 text-primary"><Wrench class="h-5 w-5" /><h3 class="font-semibold">Recepción y diagnóstico</h3></div><p class="mt-3 text-xs font-semibold uppercase tracking-wide text-muted">Falla reportada</p><p class="mt-1 whitespace-pre-wrap text-sm text-text">{{ order.reported_fault }}</p><template v-if="order.diagnosis"><p class="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">Diagnóstico técnico</p><p class="mt-1 whitespace-pre-wrap text-sm text-text">{{ order.diagnosis }}</p></template><p class="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">Encendido</p><p class="mt-1 text-sm text-text">{{ powerLabels[order.device.power_status] || order.device.power_status }}</p><div v-if="Object.keys(order.device.functional_tests).length" class="mt-4 flex flex-wrap gap-2"><UiStatusBadge v-for="(result, test) in order.device.functional_tests" :key="test" :tone="result === 'passed' ? 'success' : result === 'failed' ? 'danger' : 'neutral'">{{ testLabels[test] || test }}: {{ resultLabels[result] || result }}</UiStatusBadge></div><div v-if="order.approval.decision" class="mt-4 rounded-md border border-line bg-surface-muted p-3 text-sm"><p class="font-semibold text-text">Presupuesto {{ order.approval.decision === 'approved' ? 'aprobado' : 'rechazado' }}</p><p class="mt-1 text-muted">Confirmado por {{ approvalMethodLabels[order.approval.method || ''] || order.approval.method }}<span v-if="order.approval.notes"> · {{ order.approval.notes }}</span></p></div></section>
+        <section v-if="!isFocusMode" class="rounded-xl border border-line bg-surface p-4 md:p-5" :class="(!hasWorkBoard || isWorkExpanded) ? 'lg:col-span-2' : ''">
+          <div class="mb-4 flex items-center gap-2 border-b border-line pb-3">
+            <Wrench class="h-5 w-5 text-primary" />
+            <h3 class="font-semibold text-text">Recepción y diagnóstico</h3>
+          </div>
+          <div class="rounded-xl border border-line bg-surface p-4 md:p-5">
+            <p class="text-xs font-semibold uppercase tracking-wide text-muted">Falla reportada</p>
+            <p class="mt-1 whitespace-pre-wrap text-sm text-text">{{ order.reported_fault }}</p>
+            <template v-if="order.diagnosis"><p class="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">Diagnóstico técnico</p><p class="mt-1 whitespace-pre-wrap text-sm text-text">{{ order.diagnosis }}</p></template>
+            <p class="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">Encendido</p>
+            <p class="mt-1 text-sm text-text">{{ powerLabels[order.device.power_status] || order.device.power_status }}</p>
+            <div v-if="Object.keys(order.device.functional_tests).length" class="mt-4 flex flex-wrap gap-2"><UiStatusBadge v-for="(result, test) in order.device.functional_tests" :key="test" :tone="result === 'passed' ? 'success' : result === 'failed' ? 'danger' : 'neutral'">{{ testLabels[test] || test }}: {{ resultLabels[result] || result }}</UiStatusBadge></div>
+            <div v-if="order.approval.decision" class="mt-4 rounded-md border border-line bg-surface p-3 text-sm"><p class="font-semibold text-text">Presupuesto {{ order.approval.decision === 'approved' ? 'aprobado' : 'rechazado' }}</p><p class="mt-1 text-muted">Confirmado por {{ approvalMethodLabels[order.approval.method || ''] || order.approval.method }}<span v-if="order.approval.notes"> · {{ order.approval.notes }}</span></p></div>
+          </div>
+        </section>
         <section v-if="hasWorkBoard" class="rounded-xl border border-line bg-surface p-4 md:p-5" :class="isWorkExpanded ? 'lg:col-span-2' : ''">
           <div class="mb-4 flex items-center gap-2 border-b border-line pb-3">
             <Wrench class="h-5 w-5 text-primary" />

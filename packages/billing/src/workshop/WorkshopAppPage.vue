@@ -177,10 +177,10 @@ function finishReception() {
 }
 async function openOrder(
   order: WorkshopOrder,
-  section: "summary" | "work" | "condition" | "photos" = "summary",
+  section?: "summary" | "work" | "condition" | "photos",
 ) {
   selectedOrder.value = order;
-  selectedOrderSection.value = section;
+  selectedOrderSection.value = section ?? (order.status === "received" ? "work" : "summary");
   await workshop.loadPhotos(order.id);
 }
 async function openPhotoSession(order: WorkshopOrder) {
@@ -207,13 +207,15 @@ function closePhotoSession() {
 async function updateWorkOrder(id: number, payload: Record<string, unknown>) {
   const updated = await workshop.updateOrder(id, payload as any);
   if (updated && selectedOrder.value?.id === id) selectedOrder.value = updated;
-  if (updated?.status === "cancelled" && !updated.financial.closed_at)
+  if (updated?.status === "cancelled" && !updated.financial.closed_at) {
     settlementOrderId.value = updated.id;
+    selectedOrder.value = null;
+  }
 }
 async function cancelOrder(order: WorkshopOrder) {
   const updated = await workshop.updateOrder(order.id, { status: "cancelled" });
-  if (updated && selectedOrder.value?.id === updated.id) selectedOrder.value = updated;
   settlementOrderId.value = updated.id;
+  selectedOrder.value = null;
 }
 function invoiceOrder(
   order: WorkshopOrder,
@@ -526,8 +528,14 @@ onMounted(restoreCompletedReception);
         :default-section="selectedOrderSection"
         @update="updateWorkOrder"
         @cancel="cancelOrder"
-        @settle="settlementOrderId = $event.id"
-        @invoice="invoiceOrderId = $event.id"
+        @settle="
+          settlementOrderId = $event.id;
+          selectedOrder = null;
+        "
+        @invoice="
+          invoiceOrderId = $event.id;
+          selectedOrder = null;
+        "
         @add-photos="selectedOrder && openPhotoSession(selectedOrder)"
         @refresh-photos="selectedOrder && workshop.loadPhotos(selectedOrder.id)"
         @close="selectedOrder = null"
