@@ -11,6 +11,8 @@ import {
   type PlatformWorkLine,
 } from "@stelfaro/api-client";
 import {
+  UiActionDropdown,
+  UiActionMenuItem,
   UiButton,
   UiCard,
   UiInput,
@@ -20,13 +22,24 @@ import {
   UiTextarea,
 } from "@stelfaro/ui";
 import {
+  ArrowRightCircle,
   Banknote,
+  CheckCircle2,
   ClipboardList,
+  Copy,
+  Eye,
   FileCheck2,
   FileText,
+  MessageCircle,
+  PackageCheck,
+  Pencil,
+  Play,
   Plus,
   ReceiptText,
   RefreshCw,
+  Send,
+  Truck,
+  XCircle,
 } from "lucide-vue-next";
 import {
   computed,
@@ -81,7 +94,6 @@ const receivableAging = ref<"" | "current" | "overdue" | "30" | "60" | "90">(
 const loading = ref(false);
 const modal = ref<
   | "order"
-  | "quote"
   | "payment"
   | "receivable-payment"
   | "cancel"
@@ -94,7 +106,6 @@ const selectedOrder = ref<PlatformSalesOrder | null>(null);
 const selectedReceivable = ref<PlatformReceivable | null>(null);
 const selectedQuotation = ref<PlatformQuotation | null>(null);
 const editingOrderId = ref<number | null>(null);
-const editingQuotationId = ref<number | null>(null);
 const customerResults = ref<BillingCustomer[]>([]);
 const customerSearch = ref("");
 const customerSearchLoading = ref(false);
@@ -106,14 +117,6 @@ const customerDepartamento = ref("");
 const customerMunicipio = ref("");
 let customerSearchTimer: ReturnType<typeof window.setTimeout> | null = null;
 let customerSearchVersion = 0;
-const quoteCustomerResults = ref<BillingCustomer[]>([]);
-const quoteCustomerSearch = ref("");
-const quoteCustomerSearchLoading = ref(false);
-const quoteCustomerSearchError = ref("");
-let quoteCustomerSearchTimer: ReturnType<typeof window.setTimeout> | null =
-  null;
-let quoteCustomerSearchVersion = 0;
-const customerCreateTarget = ref<"order" | "quote">("order");
 const approvalForm = reactive({ method: "whatsapp", note: "" });
 const toasts = ref<any[]>([]);
 const branchOptions = computed(() =>
@@ -174,18 +177,6 @@ const orderForm = reactive({
   deposit_method: "cash",
   lines: [] as PlatformWorkLine[],
 });
-const quoteForm = reactive({
-  title: "",
-  customer_id: null as number | null,
-  customer_name: "",
-  customer_phone: "",
-  branch_id: 0,
-  valid_until: "",
-  requested_deposit: 0,
-  terms: "",
-  notes: "",
-  lines: [] as PlatformWorkLine[],
-});
 const paymentForm = reactive({ amount: 0, method: "cash", reference: "" });
 const cancelForm = reactive({
   reason: "",
@@ -214,25 +205,11 @@ const orderTotal = computed(() =>
     0,
   ),
 );
-const quoteTotal = computed(() =>
-  quoteForm.lines.reduce(
-    (sum, item) =>
-      sum +
-      Math.max(
-        0,
-        item.quantity * item.unit_price - Number(item.discount_amount || 0),
-      ),
-    0,
-  ),
-);
 const orderBalancePreview = computed(() =>
   Math.max(0, orderTotal.value - Number(orderForm.deposit_amount || 0)),
 );
 const orderDepositInvalid = computed(
   () => Number(orderForm.deposit_amount || 0) > orderTotal.value,
-);
-const quoteDepositInvalid = computed(
-  () => Number(quoteForm.requested_deposit || 0) > quoteTotal.value,
 );
 
 function notify(title: string, message = "", variant = "success") {
@@ -318,48 +295,6 @@ function editOrder(order: PlatformSalesOrder) {
   });
   modal.value = "order";
 }
-function resetQuote() {
-  editingQuotationId.value = null;
-  quoteCustomerSearch.value = "";
-  quoteCustomerResults.value = [];
-  Object.assign(quoteForm, {
-    title: "",
-    customer_id: null,
-    customer_name: "",
-    customer_phone: "",
-    branch_id: defaultBranchId.value,
-    valid_until: "",
-    requested_deposit: 0,
-    terms: "",
-    notes: "",
-    lines: [],
-  });
-  modal.value = "quote";
-}
-function editQuote(quote: PlatformQuotation) {
-  editingQuotationId.value = quote.id;
-  quoteCustomerSearch.value = quote.customer.name;
-  quoteCustomerResults.value = [];
-  Object.assign(quoteForm, {
-    title: quote.title,
-    customer_id: quote.customer.id || null,
-    customer_name: quote.customer.name,
-    customer_phone: quote.customer.phone || "",
-    branch_id: Number(quote.branch?.id || defaultBranchId.value),
-    valid_until: quote.valid_until || "",
-    requested_deposit: quote.requested_deposit,
-    terms: quote.terms || "",
-    notes: quote.notes || "",
-    lines: quote.lines.map((item) => ({
-      catalog_item_id: item.catalog_item_id || null,
-      description: item.description,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      discount_amount: item.discount_amount || 0,
-    })),
-  });
-  modal.value = "quote";
-}
 async function createOrder() {
   loading.value = true;
   try {
@@ -394,45 +329,6 @@ async function createOrder() {
     notify(
       editingOrderId.value ? "Orden actualizada" : "Orden creada",
       "La operación y su cuenta por cobrar quedaron sincronizadas.",
-    );
-    await load();
-  } catch (error) {
-    notify("No se pudo guardar", errorMessage(error), "error");
-  } finally {
-    loading.value = false;
-  }
-}
-async function createQuote() {
-  loading.value = true;
-  try {
-    const payload = {
-      idempotency_key: editingQuotationId.value
-        ? undefined
-        : crypto.randomUUID(),
-      title: quoteForm.title,
-      customer: {
-        id: quoteForm.customer_id,
-        name: quoteForm.customer_name,
-        phone: quoteForm.customer_phone || null,
-      },
-      ...branchPayload(quoteForm.branch_id),
-      ...branchPayload(defaultBranchId.value),
-      valid_until: quoteForm.valid_until || null,
-      requested_deposit: quoteForm.requested_deposit,
-      terms: quoteForm.terms || null,
-      notes: quoteForm.notes || null,
-      lines: quoteForm.lines,
-    };
-    if (editingQuotationId.value)
-      await client.value.updateQuotation(
-        props.tenantId,
-        editingQuotationId.value,
-        payload,
-      );
-    else await client.value.createQuotation(props.tenantId, payload);
-    modal.value = null;
-    notify(
-      editingQuotationId.value ? "Cotización actualizada" : "Cotización creada",
     );
     await load();
   } catch (error) {
@@ -659,51 +555,8 @@ function selectCustomer(customer: BillingCustomer) {
   customerSearch.value = customer.name;
   customerResults.value = [];
 }
-function selectQuoteCustomer(customer: BillingCustomer) {
-  quoteForm.customer_id = customer.id;
-  quoteForm.customer_name = customer.name;
-  quoteForm.customer_phone = customer.phone || "";
-  quoteCustomerSearch.value = customer.name;
-  quoteCustomerResults.value = [];
-}
-function openCustomerCreate(target: "order" | "quote") {
-  customerCreateTarget.value = target;
+function openCustomerCreate() {
   customerCreateOpen.value = true;
-}
-async function searchQuoteCustomers() {
-  const query = quoteCustomerSearch.value.trim();
-  const version = ++quoteCustomerSearchVersion;
-  if (
-    !props.company?.id ||
-    query.length < 2 ||
-    (quoteForm.customer_id && query === quoteForm.customer_name)
-  ) {
-    quoteCustomerResults.value = [];
-    quoteCustomerSearchLoading.value = false;
-    quoteCustomerSearchError.value = "";
-    return;
-  }
-  quoteCustomerSearchLoading.value = true;
-  quoteCustomerSearchError.value = "";
-  try {
-    const results = (
-      await core.value.customers({
-        empresa_id: Number(props.company.id),
-        q: query,
-        per_page: 10,
-      })
-    ).data;
-    if (version === quoteCustomerSearchVersion)
-      quoteCustomerResults.value = results;
-  } catch (error) {
-    if (version === quoteCustomerSearchVersion) {
-      quoteCustomerResults.value = [];
-      quoteCustomerSearchError.value = errorMessage(error);
-    }
-  } finally {
-    if (version === quoteCustomerSearchVersion)
-      quoteCustomerSearchLoading.value = false;
-  }
 }
 async function createCustomer(payload: BillingCustomerModalPayload) {
   if (!props.company?.id) return;
@@ -716,9 +569,7 @@ async function createCustomer(payload: BillingCustomerModalPayload) {
         ? payload.allowed_dte_codes
         : ["01"],
     });
-    if (customerCreateTarget.value === "quote")
-      selectQuoteCustomer(response.customer);
-    else selectCustomer(response.customer);
+    selectCustomer(response.customer);
     customerCreateOpen.value = false;
     notify("Cliente creado", "Quedó seleccionado para esta orden.");
   } catch (error) {
@@ -732,12 +583,6 @@ watch(customerSearch, (value) => {
     orderForm.customer_id = null;
   if (customerSearchTimer) window.clearTimeout(customerSearchTimer);
   customerSearchTimer = window.setTimeout(searchCustomers, 250);
-});
-watch(quoteCustomerSearch, (value) => {
-  if (quoteForm.customer_id && value.trim() !== quoteForm.customer_name)
-    quoteForm.customer_id = null;
-  if (quoteCustomerSearchTimer) window.clearTimeout(quoteCustomerSearchTimer);
-  quoteCustomerSearchTimer = window.setTimeout(searchQuoteCustomers, 250);
 });
 function openConvert(quote: PlatformQuotation) {
   selectedQuotation.value = quote;
@@ -776,6 +621,11 @@ async function convertQuote() {
     loading.value = false;
   }
 }
+function navigateTo(url: string, newTab = false) {
+  if (!url) return;
+  if (newTab) window.open(url, "_blank", "noopener");
+  else window.location.href = url;
+}
 function invoiceHref(order: PlatformSalesOrder) {
   const base = props.appBaseUrl.replace(/\/$/, "");
   const billingBase = base.endsWith("/taller") ? `${base}/facturacion` : base;
@@ -787,6 +637,26 @@ function tone(status: string) {
   if (["cancelled", "rejected"].includes(status)) return "danger";
   if (["partial", "sent", "ready"].includes(status)) return "warning";
   return "info";
+}
+const statusLabels: Record<string, string> = {
+  open: "Abierta",
+  approved: "Aprobada",
+  in_progress: "En proceso",
+  ready: "Lista",
+  delivered: "Entregada",
+  cancelled: "Cancelada",
+  draft: "Borrador",
+  sent: "Enviada",
+  accepted: "Aceptada",
+  rejected: "Rechazada",
+  expired: "Vencida",
+  converted: "Convertida",
+  partial: "Parcial",
+  settled: "Saldada",
+  pending: "Pendiente",
+};
+function statusLabel(status: string): string {
+  return statusLabels[status] || status;
 }
 onMounted(() => {
   if (new URLSearchParams(window.location.search).get("tab") === "receivables")
@@ -803,7 +673,6 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   if (customerSearchTimer) window.clearTimeout(customerSearchTimer);
-  if (quoteCustomerSearchTimer) window.clearTimeout(quoteCustomerSearchTimer);
 });
 </script>
 
@@ -884,9 +753,78 @@ onBeforeUnmount(() => {
             <h3 class="truncate font-bold text-text">{{ order.title }}</h3>
             <p class="truncate text-sm text-muted">{{ order.customer.name }}</p>
           </div>
-          <UiStatusBadge :tone="tone(order.status)">{{
-            order.status
-          }}</UiStatusBadge>
+          <div class="flex shrink-0 items-center gap-2">
+            <UiStatusBadge :tone="tone(order.status)">{{
+              statusLabel(order.status)
+            }}</UiStatusBadge>
+            <UiActionDropdown :label="`Acciones de ${order.number}`">
+              <UiActionMenuItem
+                @select="
+                  selectedOrder = order;
+                  modal = 'detail';
+                "
+                ><template #icon><Eye class="h-4 w-4" /></template>Ver
+                detalle</UiActionMenuItem
+              >
+              <UiActionMenuItem
+                v-if="
+                  ['open', 'approved'].includes(order.status) &&
+                  order.billing.status !== 'invoiced'
+                "
+                @select="editOrder(order)"
+                ><template #icon><Pencil class="h-4 w-4" /></template
+                >Editar</UiActionMenuItem
+              >
+              <UiActionMenuItem
+                v-if="order.balance > 0 && order.status !== 'cancelled'"
+                @select="openPayment(order)"
+                ><template #icon><Banknote class="h-4 w-4" /></template
+                >Cobrar</UiActionMenuItem
+              >
+              <UiActionMenuItem
+                v-if="order.status === 'open'"
+                @select="setOrderStatus(order, 'approved')"
+                ><template #icon><CheckCircle2 class="h-4 w-4" /></template
+                >Aprobar</UiActionMenuItem
+              >
+              <UiActionMenuItem
+                v-if="order.status === 'approved'"
+                @select="setOrderStatus(order, 'in_progress')"
+                ><template #icon><Play class="h-4 w-4" /></template
+                >Iniciar</UiActionMenuItem
+              >
+              <UiActionMenuItem
+                v-if="order.status === 'in_progress'"
+                @select="setOrderStatus(order, 'ready')"
+                ><template #icon><PackageCheck class="h-4 w-4" /></template
+                >Marcar lista</UiActionMenuItem
+              >
+              <UiActionMenuItem
+                v-if="order.status === 'ready'"
+                @select="setOrderStatus(order, 'delivered')"
+                ><template #icon><Truck class="h-4 w-4" /></template
+                >Entregar</UiActionMenuItem
+              >
+              <UiActionMenuItem
+                v-if="
+                  order.status !== 'cancelled' &&
+                  order.billing.status !== 'invoiced'
+                "
+                @select="navigateTo(invoiceHref(order))"
+                ><template #icon><FileCheck2 class="h-4 w-4" /></template
+                >Facturar</UiActionMenuItem
+              >
+              <UiActionMenuItem
+                v-if="
+                  !['cancelled', 'delivered'].includes(order.status) &&
+                  order.billing.status !== 'invoiced'
+                "
+                @select="openCancel(order)"
+                ><template #icon><XCircle class="h-4 w-4" /></template
+                >Cancelar</UiActionMenuItem
+              >
+            </UiActionDropdown>
+          </div>
         </div>
         <div
           class="grid grid-cols-3 divide-x divide-line rounded-lg bg-surface-muted py-3 text-center"
@@ -910,73 +848,6 @@ onBeforeUnmount(() => {
             >
           </div>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <UiButton
-            size="sm"
-            variant="ghost"
-            @click="
-              selectedOrder = order;
-              modal = 'detail';
-            "
-            >Ver detalle</UiButton
-          ><UiButton
-            v-if="
-              ['open', 'approved'].includes(order.status) &&
-              order.billing.status !== 'invoiced'
-            "
-            size="sm"
-            variant="secondary"
-            @click="editOrder(order)"
-            >Editar</UiButton
-          ><UiButton
-            v-if="order.balance > 0 && order.status !== 'cancelled'"
-            size="sm"
-            @click="openPayment(order)"
-            ><Banknote class="h-4 w-4" />Cobrar</UiButton
-          ><UiButton
-            v-if="order.status === 'open'"
-            size="sm"
-            variant="secondary"
-            @click="setOrderStatus(order, 'approved')"
-            >Aprobar</UiButton
-          ><UiButton
-            v-if="order.status === 'approved'"
-            size="sm"
-            variant="secondary"
-            @click="setOrderStatus(order, 'in_progress')"
-            >Iniciar</UiButton
-          ><UiButton
-            v-if="order.status === 'in_progress'"
-            size="sm"
-            variant="secondary"
-            @click="setOrderStatus(order, 'ready')"
-            >Marcar lista</UiButton
-          ><UiButton
-            v-if="order.status === 'ready'"
-            size="sm"
-            variant="secondary"
-            @click="setOrderStatus(order, 'delivered')"
-            >Entregar</UiButton
-          ><a
-            v-if="
-              order.status !== 'cancelled' &&
-              order.billing.status !== 'invoiced'
-            "
-            :href="invoiceHref(order)"
-            class="inline-flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-sm font-semibold text-text"
-            ><FileCheck2 class="h-4 w-4" />Facturar</a
-          ><UiButton
-            v-if="
-              !['cancelled', 'delivered'].includes(order.status) &&
-              order.billing.status !== 'invoiced'
-            "
-            size="sm"
-            variant="ghost"
-            class="text-danger"
-            @click="openCancel(order)"
-            >Cancelar</UiButton
-          >
-        </div>
       </UiCard>
       <p
         v-if="!orders.length"
@@ -989,8 +860,10 @@ onBeforeUnmount(() => {
     <template v-else-if="tab === 'quotes'">
       <div class="flex items-center justify-between">
         <strong class="text-text">{{ quotations.length }} cotizaciones</strong
-        ><UiButton @click="resetQuote"
-          ><Plus class="h-4 w-4" />Nueva cotización</UiButton
+        ><a
+          :href="`${appBaseUrl.replace(/\/$/, '')}/ordenes-trabajo/cotizaciones/nueva`"
+          class="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-bold text-primary-contrast"
+          ><Plus class="h-4 w-4" />Nueva cotización</a
         >
       </div>
       <UiCard v-for="quote in quotations" :key="quote.id" class="space-y-3"
@@ -1002,9 +875,57 @@ onBeforeUnmount(() => {
             <h3 class="font-bold text-text">{{ quote.title }}</h3>
             <p class="text-sm text-muted">{{ quote.customer.name }}</p>
           </div>
-          <UiStatusBadge :tone="tone(quote.status)">{{
-            quote.status
-          }}</UiStatusBadge>
+          <div class="flex shrink-0 items-center gap-2">
+            <UiStatusBadge :tone="tone(quote.status)">{{
+              statusLabel(quote.status)
+            }}</UiStatusBadge>
+            <UiActionDropdown :label="`Acciones de ${quote.number}`">
+            <UiActionMenuItem
+              v-if="['draft', 'sent'].includes(quote.status)"
+              @select="
+                navigateTo(
+                  `${appBaseUrl.replace(/\/$/, '')}/ordenes-trabajo/cotizaciones/${quote.id}/editar`,
+                )
+              "
+              ><template #icon><Pencil class="h-4 w-4" /></template
+              >Editar</UiActionMenuItem
+            >
+            <UiActionMenuItem
+              v-if="quote.public_url"
+              @select="navigateTo(quote.public_url, true)"
+              ><template #icon><FileText class="h-4 w-4" /></template>Ver /
+              PDF</UiActionMenuItem
+            >
+            <UiActionMenuItem
+              v-if="quote.public_url"
+              @select="shareQuote(quote)"
+              ><template #icon><MessageCircle class="h-4 w-4" /></template
+              >WhatsApp</UiActionMenuItem
+            >
+            <UiActionMenuItem @select="duplicateQuote(quote)"
+              ><template #icon><Copy class="h-4 w-4" /></template
+              >Duplicar</UiActionMenuItem
+            >
+            <UiActionMenuItem
+              v-if="quote.status === 'draft'"
+              @select="setQuoteStatus(quote, 'sent')"
+              ><template #icon><Send class="h-4 w-4" /></template>Marcar
+              enviada</UiActionMenuItem
+            >
+            <UiActionMenuItem
+              v-if="['draft', 'sent'].includes(quote.status)"
+              @select="openApproval(quote)"
+              ><template #icon><CheckCircle2 class="h-4 w-4" /></template
+              >Registrar aprobación</UiActionMenuItem
+            >
+            <UiActionMenuItem
+              v-if="['sent', 'accepted'].includes(quote.status)"
+              @select="openConvert(quote)"
+              ><template #icon><ArrowRightCircle class="h-4 w-4" /></template
+              >Convertir en orden</UiActionMenuItem
+            >
+            </UiActionDropdown>
+          </div>
         </div>
         <div
           class="flex items-end justify-between rounded-lg bg-surface-muted p-3"
@@ -1021,46 +942,6 @@ onBeforeUnmount(() => {
               money(quote.requested_deposit)
             }}</strong>
           </div>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <UiButton
-            v-if="['draft', 'sent'].includes(quote.status)"
-            size="sm"
-            variant="ghost"
-            @click="editQuote(quote)"
-            >Editar</UiButton
-          ><a
-            v-if="quote.public_url"
-            :href="quote.public_url"
-            target="_blank"
-            class="inline-flex h-9 items-center rounded-lg border border-line px-3 text-sm font-semibold text-text"
-            >Ver / PDF</a
-          ><UiButton
-            v-if="quote.public_url"
-            size="sm"
-            variant="ghost"
-            @click="shareQuote(quote)"
-            >WhatsApp</UiButton
-          ><UiButton size="sm" variant="ghost" @click="duplicateQuote(quote)"
-            >Duplicar</UiButton
-          ><UiButton
-            v-if="quote.status === 'draft'"
-            size="sm"
-            variant="secondary"
-            @click="setQuoteStatus(quote, 'sent')"
-            >Marcar enviada</UiButton
-          ><UiButton
-            v-if="['draft', 'sent'].includes(quote.status)"
-            size="sm"
-            variant="secondary"
-            @click="openApproval(quote)"
-            >Registrar aprobación</UiButton
-          ><UiButton
-            v-if="['sent', 'accepted'].includes(quote.status)"
-            size="sm"
-            @click="openConvert(quote)"
-            >Convertir en orden</UiButton
-          >
         </div></UiCard
       >
     </template>
@@ -1139,7 +1020,7 @@ onBeforeUnmount(() => {
           </div>
           <div class="text-right">
             <UiStatusBadge :tone="tone(account.status)">{{
-              account.status
+              statusLabel(account.status)
             }}</UiStatusBadge
             ><strong
               class="mt-2 block text-lg"
@@ -1201,7 +1082,7 @@ onBeforeUnmount(() => {
               <button
                 type="button"
                 class="text-sm font-bold text-primary hover:text-primary-hover"
-                @click="openCustomerCreate('order')"
+                @click="openCustomerCreate()"
               >
                 <Plus class="inline h-4 w-4" /> Nuevo cliente
               </button>
@@ -1343,138 +1224,6 @@ onBeforeUnmount(() => {
       @update:departamento="customerDepartamento = $event"
       @update:municipio="customerMunicipio = $event"
     />
-    <UiModalShell
-      :open="modal === 'quote'"
-      :title="editingQuotationId ? 'Editar cotización' : 'Nueva cotización'"
-      description="Es una propuesta comercial: no mueve caja, no registra venta y no crea cuenta por cobrar."
-      max-width="max-w-5xl"
-      mobile-fullscreen
-      @close="modal = null"
-      ><div
-        class="grid gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-6"
-      >
-        <section class="space-y-4 lg:border-r lg:border-line lg:pr-6">
-          <UiInput
-            v-model="quoteForm.title"
-            label="Proyecto o trabajo"
-            placeholder="Ej. Fabricación de ventana francesa"
-          />
-          <div>
-            <div class="mb-1 flex items-center justify-between gap-3">
-              <span class="text-sm font-semibold text-text">Cliente</span
-              ><button
-                type="button"
-                class="text-sm font-bold text-primary hover:text-primary-hover"
-                @click="openCustomerCreate('quote')"
-              >
-                <Plus class="inline h-4 w-4" /> Nuevo cliente
-              </button>
-            </div>
-            <div class="relative">
-              <UiInput
-                v-model="quoteCustomerSearch"
-                placeholder="Buscar por nombre, documento o teléfono"
-              />
-              <div
-                v-if="
-                  quoteCustomerSearchLoading ||
-                  quoteCustomerResults.length ||
-                  quoteCustomerSearchError
-                "
-                class="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-line bg-surface p-1 shadow-xl"
-              >
-                <p
-                  v-if="quoteCustomerSearchLoading"
-                  class="px-3 py-2 text-sm text-muted"
-                >
-                  Buscando clientes…
-                </p>
-                <button
-                  v-for="customer in quoteCustomerResults"
-                  :key="customer.id"
-                  type="button"
-                  class="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-surface-muted"
-                  @click="selectQuoteCustomer(customer)"
-                >
-                  <strong class="block">{{ customer.name }}</strong
-                  ><span class="text-xs text-muted">{{
-                    customer.document_number ||
-                    customer.phone ||
-                    "Cliente registrado"
-                  }}</span>
-                </button>
-                <p
-                  v-if="quoteCustomerSearchError"
-                  class="px-3 py-2 text-sm text-danger"
-                >
-                  {{ quoteCustomerSearchError }}
-                </p>
-              </div>
-            </div>
-          </div>
-          <UiInput
-            v-model="quoteForm.customer_name"
-            label="Nombre en la cotización"
-            :disabled="Boolean(quoteForm.customer_id)"
-          />
-          <UiInput
-            v-model="quoteForm.customer_phone"
-            label="Teléfono opcional"
-          />
-          <UiSelect
-            v-if="branchOptions.length"
-            v-model.number="quoteForm.branch_id"
-            label="Sucursal"
-            :options="branchOptions"
-          />
-          <div class="grid grid-cols-2 gap-3">
-            <UiInput
-              v-model="quoteForm.valid_until"
-              type="date"
-              label="Válida hasta"
-            /><UiInput
-              v-model.number="quoteForm.requested_deposit"
-              type="number"
-              label="Anticipo sugerido"
-            />
-          </div>
-          <p class="rounded-lg bg-primary-soft px-3 py-2 text-xs text-muted">
-            El anticipo sugerido es únicamente informativo. Solo se registra
-            dinero si la cotización se convierte en orden y se confirma un pago.
-          </p>
-          <p v-if="quoteDepositInvalid" class="text-sm text-danger">
-            El anticipo sugerido no puede superar el total cotizado.
-          </p>
-          <UiTextarea v-model="quoteForm.terms" label="Condiciones" />
-        </section>
-        <section class="space-y-4">
-          <CommercialDocumentLinesEditor
-            v-model="quoteForm.lines"
-            :tenant-id="tenantId"
-            :platform-base-url="platformBaseUrl"
-            :auth-token="authToken"
-            total-label="Total cotizado"
-          />
-          <UiTextarea v-model="quoteForm.notes" label="Notas internas" />
-        </section>
-      </div>
-      <template #footer
-        ><UiButton variant="ghost" @click="modal = null">Cancelar</UiButton
-        ><UiButton
-          :disabled="
-            loading ||
-            !quoteForm.title ||
-            !quoteForm.customer_name ||
-            quoteTotal <= 0 ||
-            quoteDepositInvalid
-          "
-          @click="createQuote"
-          >{{
-            editingQuotationId ? "Guardar cambios" : "Guardar cotización"
-          }}</UiButton
-        ></template
-      ></UiModalShell
-    >
     <UiModalShell
       :open="modal === 'payment'"
       title="Registrar pago"
@@ -1670,7 +1419,7 @@ onBeforeUnmount(() => {
             <span
               class="absolute -left-1 top-4 h-2 w-2 rounded-full bg-primary"
             ></span
-            ><strong class="text-sm">{{ event.to }}</strong>
+            ><strong class="text-sm">{{ statusLabel(event.to) }}</strong>
             <p class="text-xs text-muted">
               {{ event.note || "Estado actualizado" }} ·
               {{ new Date(event.occurred_at).toLocaleString("es-SV") }}
