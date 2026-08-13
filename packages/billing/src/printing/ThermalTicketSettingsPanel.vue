@@ -2,7 +2,7 @@
 import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { FileCheck2, ReceiptText, Smartphone } from 'lucide-vue-next';
 import { PlatformClient, type WorkshopTicketSettings } from '@stelfaro/api-client';
-import { UiSelect, UiTextarea } from '@stelfaro/ui';
+import { UiSelect, UiTextarea, UiToggle } from '@stelfaro/ui';
 import { defaultPrinterSettings, loadPrinterSettings, savePrinterSettings, type PrinterSettings } from './printerSettings';
 import ThermalTicketPreview from './ThermalTicketPreview.vue';
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
@@ -10,7 +10,7 @@ import BillingFloatingToastStack, { type BillingFloatingToast } from '../compone
 type PreviewCompany = { name: string; tradeName: string; logoUrl: string | null; nit: string; nrc: string | null; activity: string };
 const props = withDefaults(defineProps<{ company?: PreviewCompany | null; workshopEnabled?: boolean; tenantId?: number; platformBaseUrl?: string }>(), { workshopEnabled: false, tenantId: 0, platformBaseUrl: '/api/v1' });
 const settings = reactive<PrinterSettings>(defaultPrinterSettings());
-const workshopSettings = reactive<WorkshopTicketSettings>({ receipt_copies: 2, print_equipment_label: true, terms: '' });
+const workshopSettings = reactive<WorkshopTicketSettings>({ receipt_copies: 2, terms: '' });
 const previewVariant = ref<'dte' | 'workshop'>('dte');
 let ready = false;
 let saveTimer: number | null = null;
@@ -57,7 +57,7 @@ function notify(toast: Omit<BillingFloatingToast, 'id'>): void {
 async function persistWorkshopSettings(): Promise<void> {
   try {
     await new PlatformClient(props.platformBaseUrl, { credentials: 'same-origin' }).updateWorkshopTicketSettings(props.tenantId, { ...workshopSettings, receipt_copies: Number(workshopSettings.receipt_copies) === 1 ? 1 : 2 });
-    notify({ title: 'Recepción actualizada', message: 'Copias, etiqueta y condiciones quedaron guardadas para el Taller.', variant: 'success' });
+    notify({ title: 'Recepción actualizada', message: 'Copias y condiciones quedaron guardadas para el Taller.', variant: 'success' });
   } catch (reason) {
     notify({ title: 'No se guardó el formato', message: reason instanceof Error ? reason.message : 'Intenta nuevamente.', variant: 'error' });
   }
@@ -83,12 +83,15 @@ async function persistWorkshopSettings(): Promise<void> {
         </div>
         <template v-if="workshopEnabled && previewVariant === 'workshop'">
           <UiSelect v-model="workshopSettings.receipt_copies" label="Copias de recepción" :options="[{ value: 1, label: '1 copia · Cliente' }, { value: 2, label: '2 copias · Cliente y taller' }]" />
-          <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-surface p-3 text-sm text-text"><input v-model="workshopSettings.print_equipment_label" type="checkbox" class="mt-1 h-4 w-4 accent-primary"><span><strong class="block">Imprimir etiqueta del equipo</strong><small class="text-muted">Agrega una hoja corta con el QR seguro para pegar en el equipo.</small></span></label>
+          <p class="-mt-1 text-xs text-muted">La etiqueta con QR del equipo se imprime aparte, desde las acciones de cada orden.</p>
           <UiTextarea v-model="workshopSettings.terms" label="Términos y condiciones" :rows="7" :maxlength="4000" placeholder="Una condición por párrafo. Se imprimirán en las copias de recepción." />
         </template>
-        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-surface p-3 text-sm text-text"><input v-model="settings.showLogo" type="checkbox" class="mt-1 h-4 w-4 accent-primary"><span><strong class="block">Imprimir logo</strong><small class="text-muted">Usa el logo preparado para la impresora térmica.</small></span></label>
-        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-surface p-3 text-sm text-text"><input v-model="settings.showIssuerDetails" type="checkbox" class="mt-1 h-4 w-4 accent-primary"><span><strong class="block">Imprimir información de la empresa</strong><small class="text-muted">Nombre comercial, actividad, NIT, NRC y contacto disponible.</small></span></label>
-        <label v-if="previewVariant === 'dte'" class="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-surface p-3 text-sm text-text"><input v-model="settings.qrEnabled" type="checkbox" class="mt-1 h-4 w-4 accent-primary"><span><strong class="block">Imprimir códigos QR</strong><small class="text-muted">Incluye la consulta en Hacienda y la descarga pública del PDF y JSON conservados.</small></span></label>
+        <div class="divide-y divide-line rounded-lg border border-line bg-surface">
+          <label class="flex cursor-pointer items-center gap-3 p-3 text-sm text-text"><UiToggle v-model="settings.showLogo" aria-label="Imprimir logo" class="shrink-0" /><span class="border-l border-line pl-3"><strong class="block">Imprimir logo</strong><small class="text-muted">Usa el logo preparado para la impresora térmica.</small></span></label>
+          <label class="flex cursor-pointer items-center gap-3 p-3 text-sm text-text"><UiToggle v-model="settings.showIssuerDetails" aria-label="Imprimir información de la empresa" class="shrink-0" /><span class="border-l border-line pl-3"><strong class="block">Imprimir información de la empresa</strong><small class="text-muted">Nombre comercial, actividad, NIT, NRC y contacto disponible.</small></span></label>
+          <label v-if="settings.showIssuerDetails" class="flex cursor-pointer items-center gap-3 p-3 text-sm text-text"><UiToggle v-model="settings.showBusinessName" aria-label="Imprimir nombre comercial" class="shrink-0" /><span class="border-l border-line pl-3"><strong class="block">Imprimir nombre comercial</strong><small class="text-muted">Desactívalo si tu logo ya incluye el nombre del negocio.</small></span></label>
+          <label v-if="previewVariant === 'dte'" class="flex cursor-pointer items-center gap-3 p-3 text-sm text-text"><UiToggle v-model="settings.qrEnabled" aria-label="Imprimir códigos QR" class="shrink-0" /><span class="border-l border-line pl-3"><strong class="block">Imprimir códigos QR</strong><small class="text-muted">Incluye la consulta en Hacienda y la descarga pública del PDF y JSON conservados.</small></span></label>
+        </div>
       </div>
 
       <ThermalTicketPreview :settings="settings" :company="props.company" :variant="previewVariant" :workshop-settings="workshopSettings" />

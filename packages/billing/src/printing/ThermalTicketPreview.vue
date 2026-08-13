@@ -13,7 +13,7 @@ type PreviewCompany = {
   activity: string;
 };
 
-const props = withDefaults(defineProps<{ settings: PrinterSettings; company?: PreviewCompany | null; variant?: 'dte' | 'workshop'; workshopSettings?: WorkshopTicketSettings }>(), { variant: 'dte', workshopSettings: () => ({ receipt_copies: 2, print_equipment_label: true, terms: '' }) });
+const props = withDefaults(defineProps<{ settings: PrinterSettings; company?: PreviewCompany | null; variant?: 'dte' | 'workshop'; workshopSettings?: WorkshopTicketSettings }>(), { variant: 'dte', workshopSettings: () => ({ receipt_copies: 2, terms: '' }) });
 const paperClass = computed(() => props.settings.paperWidth === '58' ? 'w-[280px]' : 'w-[370px]');
 const qrSize = computed(() => props.settings.paperWidth === '58' ? 104 : 132);
 const previewCopies = computed(() => props.variant === 'workshop' && props.workshopSettings.receipt_copies === 2
@@ -42,23 +42,29 @@ function formatNrc(value?: string | null): string {
     <div class="mb-4">
       <h4 class="font-semibold text-text">Vista previa del ticket</h4>
       <p class="mt-1 text-sm text-muted">Referencia visual del contenido y ancho seleccionados.</p>
-      <p v-if="variant === 'workshop'" class="mt-2 inline-flex rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">{{ workshopSettings.receipt_copies }} {{ workshopSettings.receipt_copies === 1 ? 'copia' : 'copias' }}<template v-if="workshopSettings.print_equipment_label"> + etiqueta QR</template></p>
+      <p v-if="variant === 'workshop'" class="mt-2 inline-flex rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">{{ workshopSettings.receipt_copies }} {{ workshopSettings.receipt_copies === 1 ? 'copia' : 'copias' }}</p>
+      <p v-if="settings.showLogo && !company?.logoUrl" class="mt-2 rounded-md border border-dashed border-line bg-surface px-3 py-2 text-xs text-muted">Aún no has cargado un logo para tu empresa. Súbelo desde el perfil de la empresa para que se imprima en el ticket.</p>
     </div>
 
     <div class="thermal-ticket-stage overflow-x-auto rounded-lg p-4">
       <article v-for="copyLabel in previewCopies" :key="copyLabel" :class="paperClass" class="thermal-ticket-paper mx-auto mb-4 min-h-[620px] px-5 py-6 font-mono text-[11px] leading-[1.45] shadow-xl transition-[width] duration-300 last:mb-0">
-        <div v-if="settings.showLogo" class="mb-3 text-center">
-          <img v-if="company?.logoUrl" :src="company.logoUrl" alt="Logo de la empresa" class="thermal-ticket-logo mx-auto max-h-20 max-w-[75%] object-contain grayscale contrast-125">
-          <div v-else class="mx-auto grid h-14 w-32 place-items-center border border-dashed border-black/40 text-[9px]">SIN LOGO CARGADO</div>
+        <div v-if="settings.showLogo && company?.logoUrl" class="mb-3 text-center">
+          <img :src="company.logoUrl" alt="Logo de la empresa" class="thermal-ticket-logo mx-auto max-h-20 max-w-[75%] object-contain grayscale contrast-125">
         </div>
 
-        <div v-if="settings.showIssuerDetails" class="text-center">
-          <p class="font-bold">{{ issuerName }}</p>
+        <div v-if="settings.showIssuerDetails && variant === 'dte'" class="text-center">
+          <p v-if="settings.showBusinessName" class="font-bold">{{ issuerName }}</p>
           <p>Servicios electrónicos n.c.p.</p>
           <p>NIT: {{ issuerNit }}</p>
           <p v-if="issuerNrc">NRC: {{ issuerNrc }}</p>
           <p>Av. Central, edificio de ejemplo, local 12</p>
           <p>Tel: 7000-0000</p>
+          <p>facturacion@empresa-ejemplo.com</p>
+        </div>
+        <div v-else-if="settings.showIssuerDetails && variant === 'workshop'" class="text-center">
+          <p v-if="settings.showBusinessName" class="font-bold">{{ issuerName }}</p>
+          <p>Av. Central, edificio de ejemplo, local 12</p>
+          <p class="text-sm font-bold">Tel: 7000-0000</p>
           <p>facturacion@empresa-ejemplo.com</p>
         </div>
 
@@ -147,16 +153,6 @@ function formatNrc(value?: string | null): string {
         <div class="mt-4 border-t border-dashed border-black pt-2 text-center">
           <p :class="variant === 'workshop' ? 'font-bold' : ''">{{ variant === 'dte' ? 'Gracias por su compra' : 'Conserve este comprobante de recepción.' }}</p>
         </div>
-      </article>
-
-      <article v-if="variant === 'workshop' && workshopSettings.print_equipment_label" :class="paperClass" class="thermal-ticket-paper mx-auto mt-4 px-5 py-6 text-center font-mono text-[11px] leading-[1.45] shadow-xl transition-[width] duration-300">
-        <p class="font-bold">ETIQUETA DEL EQUIPO</p>
-        <p class="mt-1 text-lg font-black">T-000123</p>
-        <p class="mt-1">DEMO Modelo 2026</p>
-        <p>IMEI: 123456789012347</p>
-        <QrCode :style="{ width: `${qrSize}px`, height: `${qrSize}px` }" class="mx-auto mt-3" :stroke-width="1.5" />
-        <p class="mt-2 font-semibold">Acceso móvil seguro del taller</p>
-        <p class="mt-1">{{ workshopSettings.receipt_copies === 2 ? 'El PIN se encuentra en la copia del taller.' : 'El PIN está disponible en la recepción.' }}</p>
       </article>
     </div>
   </section>
