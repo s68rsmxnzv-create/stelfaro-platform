@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { ArrowRight, CalendarDays, ChevronDown, CircleDollarSign, ClipboardCheck, Clock3, FileCheck2, FileText, PackageCheck, RefreshCw, Smartphone, TriangleAlert, Wrench, X } from 'lucide-vue-next';
+import { ArrowRight, CalendarDays, ChevronDown, CircleDollarSign, ClipboardCheck, Clock3, FileCheck2, FileText, PackageCheck, RefreshCw, Send, Smartphone, TriangleAlert, Wrench, X } from 'lucide-vue-next';
 import { CoreDteClient, PlatformClient, type DteDashboardSummary, type PlatformCommercialDashboard, type WorkshopDashboard, type WorkshopOrder } from '@stelfaro/api-client';
 import { UiButton, UiCard, UiStatusBadge } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{ coreBaseUrl?: string; platformBaseUrl?: string; authToken?: string | null; tenantId?: number; empresaId?: number; appBaseUrl?: string; workshopEnabled?: boolean }>(), { coreBaseUrl: '/api/v1', platformBaseUrl: '/api/v1', authToken: null, tenantId: 0, empresaId: 0, appBaseUrl: '', workshopEnabled: false });
 const core = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const platform = computed(() => new PlatformClient(props.platformBaseUrl, { authToken: props.authToken }));
-const workshop = ref<WorkshopDashboard | null>(null); const commercial = ref<PlatformCommercialDashboard['commercial'] | null>(null); const fiscal = ref<DteDashboardSummary | null>(null); const loading = ref(false); const error = ref('');
+const workshop = ref<WorkshopDashboard | null>(null); const commercial = ref<PlatformCommercialDashboard['commercial'] | null>(null); const fiscal = ref<DteDashboardSummary | null>(null); const quotesPending = ref(0); const loading = ref(false); const error = ref('');
 const base = computed(() => props.appBaseUrl.replace(/\/$/, ''));
 const invoiceHref = computed(() => `${base.value}${props.workshopEnabled ? '/facturacion' : ''}/fe`);
 const billingBase = computed(() => `${base.value}${props.workshopEnabled ? '/facturacion' : ''}`);
@@ -53,10 +53,14 @@ async function load() {
     props.workshopEnabled && props.tenantId ? platform.value.workshopDashboard(props.tenantId) : Promise.resolve(null),
   ]);
   if (fiscalResult.status === 'fulfilled' && fiscalResult.value) fiscal.value = fiscalResult.value;
-  if (commercialResult.status === 'fulfilled' && commercialResult.value) commercial.value = commercialResult.value.commercial;
+  if (commercialResult.status === 'fulfilled' && commercialResult.value) {
+    commercial.value = commercialResult.value.commercial;
+    quotesPending.value = commercialResult.value.quotes_pending;
+  }
   if (workshopResult.status === 'fulfilled' && workshopResult.value) {
     workshop.value = workshopResult.value;
     commercial.value ??= workshop.value.commercial;
+    quotesPending.value = workshop.value.quotes_pending;
   }
   const requiredResults = [fiscalResult, ...(props.tenantId ? [commercialResult] : []), ...(props.workshopEnabled && props.tenantId ? [workshopResult] : [])];
   if (requiredResults.every(result => result.status === 'rejected')) error.value = 'No pudimos actualizar el dashboard. Intenta nuevamente.';
@@ -251,24 +255,29 @@ watch(() => props.empresaId, (empresaId, previousEmpresaId) => {
         </div>
       </section>
 
-      <section v-if="workshopEnabled" class="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
+      <section v-if="workshopEnabled || quotesPending" class="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
         <div class="border-b border-line px-4 py-3">
           <h2 class="text-sm font-bold uppercase tracking-wide text-muted">Requieren atención</h2>
         </div>
-        <div v-if="workshop && (workshop.orders.urgent || workshop.orders.awaiting_approval || workshop.orders.ready)" class="divide-y divide-line">
-          <a v-if="workshop.orders.urgent" :href="`${base}/ordenes?priority=urgent`" class="flex min-h-16 items-center gap-3 px-4 py-3 active:bg-danger-soft">
+        <div v-if="quotesPending || (workshop && (workshop.orders.urgent || workshop.orders.awaiting_approval || workshop.orders.ready))" class="divide-y divide-line">
+          <a v-if="workshop?.orders.urgent" :href="`${base}/ordenes?priority=urgent`" class="flex min-h-16 items-center gap-3 px-4 py-3 active:bg-danger-soft">
             <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-danger-soft text-danger"><TriangleAlert class="h-5 w-5" /></span>
             <div class="min-w-0 flex-1"><strong class="block text-sm text-text">{{ workshop.orders.urgent }} urgente{{ workshop.orders.urgent === 1 ? '' : 's' }}</strong><span class="text-xs text-muted">Necesitan atención prioritaria</span></div>
             <ArrowRight class="h-5 w-5 shrink-0 text-muted" />
           </a>
-          <a v-if="workshop.orders.awaiting_approval" :href="`${base}/ordenes?status=awaiting_approval`" class="flex min-h-16 items-center gap-3 px-4 py-3 active:bg-warning-soft">
+          <a v-if="workshop?.orders.awaiting_approval" :href="`${base}/ordenes?status=awaiting_approval`" class="flex min-h-16 items-center gap-3 px-4 py-3 active:bg-warning-soft">
             <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-warning-soft text-warning"><ClipboardCheck class="h-5 w-5" /></span>
             <div class="min-w-0 flex-1"><strong class="block text-sm text-text">{{ workshop.orders.awaiting_approval }} por aprobar</strong><span class="text-xs text-muted">Esperando respuesta del cliente</span></div>
             <ArrowRight class="h-5 w-5 shrink-0 text-muted" />
           </a>
-          <a v-if="workshop.orders.ready" :href="`${base}/ordenes?status=ready`" class="flex min-h-16 items-center gap-3 px-4 py-3 active:bg-success-soft">
+          <a v-if="workshop?.orders.ready" :href="`${base}/ordenes?status=ready`" class="flex min-h-16 items-center gap-3 px-4 py-3 active:bg-success-soft">
             <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-success-soft text-success"><PackageCheck class="h-5 w-5" /></span>
             <div class="min-w-0 flex-1"><strong class="block text-sm text-text">{{ workshop.orders.ready }} lista{{ workshop.orders.ready === 1 ? '' : 's' }}</strong><span class="text-xs text-muted">Preparadas para entregar</span></div>
+            <ArrowRight class="h-5 w-5 shrink-0 text-muted" />
+          </a>
+          <a v-if="quotesPending" :href="`${base}/ordenes-trabajo?tab=quotes`" class="flex min-h-16 items-center gap-3 px-4 py-3 active:bg-primary-soft">
+            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-soft text-primary"><Send class="h-5 w-5" /></span>
+            <div class="min-w-0 flex-1"><strong class="block text-sm text-text">{{ quotesPending }} cotizaci{{ quotesPending === 1 ? 'ón' : 'ones' }} sin enviar</strong><span class="text-xs text-muted">Pendientes de enviar al cliente</span></div>
             <ArrowRight class="h-5 w-5 shrink-0 text-muted" />
           </a>
         </div>
@@ -329,18 +338,19 @@ watch(() => props.empresaId, (empresaId, previousEmpresaId) => {
       </template>
     </section>
 
-    <section v-if="workshop && (workshop.orders.urgent || workshop.orders.awaiting_approval || workshop.orders.ready)" class="grid gap-3 md:grid-cols-3">
-      <a v-if="workshop.orders.urgent" :href="`${base}/ordenes?priority=urgent`" class="flex items-center gap-3 rounded-lg border border-danger bg-danger-soft p-4 text-danger transition hover:brightness-95"><TriangleAlert class="h-6 w-6 shrink-0" /><div><strong>{{ workshop.orders.urgent }} urgente{{ workshop.orders.urgent === 1 ? '' : 's' }}</strong><p class="text-xs opacity-80">Necesitan atención prioritaria</p></div><ArrowRight class="ml-auto h-4 w-4" /></a>
-      <a v-if="workshop.orders.awaiting_approval" :href="`${base}/ordenes?status=awaiting_approval`" class="flex items-center gap-3 rounded-lg border border-warning bg-warning-soft p-4 text-warning transition hover:brightness-95"><ClipboardCheck class="h-6 w-6 shrink-0" /><div><strong>{{ workshop.orders.awaiting_approval }} por aprobar</strong><p class="text-xs opacity-80">Esperando respuesta del cliente</p></div><ArrowRight class="ml-auto h-4 w-4" /></a>
-      <a v-if="workshop.orders.ready" :href="`${base}/ordenes?status=ready`" class="flex items-center gap-3 rounded-lg border border-success bg-success-soft p-4 text-success transition hover:brightness-95"><PackageCheck class="h-6 w-6 shrink-0" /><div><strong>{{ workshop.orders.ready }} lista{{ workshop.orders.ready === 1 ? '' : 's' }}</strong><p class="text-xs opacity-80">Preparadas para entregar</p></div><ArrowRight class="ml-auto h-4 w-4" /></a>
+    <section v-if="quotesPending || (workshop && (workshop.orders.urgent || workshop.orders.awaiting_approval || workshop.orders.ready))" class="grid gap-3 md:grid-cols-3">
+      <a v-if="workshop?.orders.urgent" :href="`${base}/ordenes?priority=urgent`" class="flex items-center gap-3 rounded-lg border border-danger bg-danger-soft p-4 text-danger transition hover:brightness-95"><TriangleAlert class="h-6 w-6 shrink-0" /><div><strong>{{ workshop.orders.urgent }} urgente{{ workshop.orders.urgent === 1 ? '' : 's' }}</strong><p class="text-xs opacity-80">Necesitan atención prioritaria</p></div><ArrowRight class="ml-auto h-4 w-4" /></a>
+      <a v-if="workshop?.orders.awaiting_approval" :href="`${base}/ordenes?status=awaiting_approval`" class="flex items-center gap-3 rounded-lg border border-warning bg-warning-soft p-4 text-warning transition hover:brightness-95"><ClipboardCheck class="h-6 w-6 shrink-0" /><div><strong>{{ workshop.orders.awaiting_approval }} por aprobar</strong><p class="text-xs opacity-80">Esperando respuesta del cliente</p></div><ArrowRight class="ml-auto h-4 w-4" /></a>
+      <a v-if="workshop?.orders.ready" :href="`${base}/ordenes?status=ready`" class="flex items-center gap-3 rounded-lg border border-success bg-success-soft p-4 text-success transition hover:brightness-95"><PackageCheck class="h-6 w-6 shrink-0" /><div><strong>{{ workshop.orders.ready }} lista{{ workshop.orders.ready === 1 ? '' : 's' }}</strong><p class="text-xs opacity-80">Preparadas para entregar</p></div><ArrowRight class="ml-auto h-4 w-4" /></a>
+      <a v-if="quotesPending" :href="`${base}/ordenes-trabajo?tab=quotes`" class="flex items-center gap-3 rounded-lg border border-primary bg-primary-soft p-4 text-primary transition hover:brightness-95"><Send class="h-6 w-6 shrink-0" /><div><strong>{{ quotesPending }} cotizaci{{ quotesPending === 1 ? 'ón' : 'ones' }} sin enviar</strong><p class="text-xs opacity-80">Pendientes de enviar al cliente</p></div><ArrowRight class="ml-auto h-4 w-4" /></a>
     </section>
 
     <section v-if="workshopEnabled" class="grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.8fr)]">
       <UiCard class="overflow-hidden p-0"><div class="flex items-center justify-between border-b border-line px-5 py-4"><div><h3 class="font-semibold text-text">Trabajo en curso</h3><p class="mt-1 text-xs text-muted">Últimas órdenes que siguen activas</p></div><a :href="`${base}/ordenes`" class="text-sm font-semibold text-primary hover:underline">Ver todas</a></div><div v-if="workshop?.recent_orders.length" class="divide-y divide-line"><a v-for="order in workshop.recent_orders" :key="order.id" :href="orderUrl(order)" class="flex items-center gap-3 px-5 py-3.5 transition hover:bg-surface-muted"><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><strong class="text-primary">{{ order.ticket }}</strong><UiStatusBadge :tone="tone(order.status)">{{ labels[order.status] || order.status }}</UiStatusBadge><UiStatusBadge v-if="order.priority === 'urgent'" tone="danger">Urgente</UiStatusBadge></div><p class="mt-1 truncate text-sm font-medium text-text">{{ order.customer.name }} · {{ order.device.brand }} {{ order.device.model }}</p><p class="mt-0.5 truncate text-xs text-muted">{{ order.reported_fault }}</p></div><span class="shrink-0 text-xs text-muted">{{ orderAge(order.received_at) }}</span><ArrowRight class="h-4 w-4 shrink-0 text-muted" /></a></div><p v-else class="px-5 py-10 text-center text-sm text-muted">No hay órdenes activas. Buen momento para recibir el siguiente equipo.</p></UiCard>
 
       <div class="space-y-5">
-        <UiCard><div class="flex items-center gap-2"><CalendarDays class="h-5 w-5 text-primary" /><h3 class="font-semibold text-text">{{ hasEstimatedTaxCredit ? 'Crédito fiscal a favor' : 'IVA estimado por pagar' }}</h3></div><p class="mt-4 text-3xl font-bold" :class="hasEstimatedTaxCredit ? 'text-success' : 'text-text'">{{ commercial ? money(estimatedTaxAmount) : '—' }}</p><p class="mt-1 text-xs text-muted">Estimación del mes en curso</p><div class="mt-5 divide-y divide-line text-sm"><div class="flex items-center justify-between py-2.5"><span class="text-muted">IVA generado en ventas</span><strong class="text-text">{{ commercial ? money(commercial.sales_tax_month) : '—' }}</strong></div><div class="flex items-center justify-between py-2.5"><span class="text-muted">IVA deducible en compras</span><strong class="text-success">− {{ commercial ? money(commercial.purchase_tax_credit_month) : '—' }}</strong></div></div></UiCard>
         <UiCard><div class="flex items-center justify-between"><div><p class="text-sm font-semibold text-text">Estado fiscal</p><p class="mt-1 text-xs text-muted">Documentos procesados por MH</p></div><UiStatusBadge :tone="!fiscal ? 'neutral' : fiscal.totals.rejected ? 'warning' : 'success'">{{ !fiscal ? 'Sin datos' : fiscal.totals.rejected ? 'Revisar' : 'Operativo' }}</UiStatusBadge></div><div class="mt-4 grid grid-cols-2 gap-3 text-sm"><div class="rounded-lg bg-success-soft p-3"><p class="text-xs text-success">Aceptados</p><strong class="mt-1 block text-lg text-text">{{ fiscal?.totals.accepted ?? '—' }}</strong></div><div class="rounded-lg bg-danger-soft p-3"><p class="text-xs text-danger">Rechazados</p><strong class="mt-1 block text-lg text-text">{{ fiscal?.totals.rejected ?? '—' }}</strong></div></div></UiCard>
+        <UiCard class="bg-surface-muted/40 shadow-none"><div class="flex items-center gap-2"><CalendarDays class="h-4 w-4 text-muted" /><h3 class="text-sm font-medium text-muted">{{ hasEstimatedTaxCredit ? 'Crédito fiscal a favor' : 'IVA estimado por pagar' }}</h3></div><p class="mt-2 text-lg font-semibold" :class="hasEstimatedTaxCredit ? 'text-success' : 'text-muted'">{{ commercial ? money(estimatedTaxAmount) : '—' }}</p><p class="mt-1 text-xs text-muted">Estimación del mes en curso · IVA en ventas {{ commercial ? money(commercial.sales_tax_month) : '—' }} · deducible {{ commercial ? money(commercial.purchase_tax_credit_month) : '—' }}</p></UiCard>
       </div>
     </section>
 

@@ -574,6 +574,7 @@ export type WorkshopDashboard = {
     estimated_tax_credit_balance_month: number;
     receivables: number;
   };
+  quotes_pending: number;
   recent_orders: WorkshopOrder[];
 };
 
@@ -590,6 +591,7 @@ export type PlatformCommercialDashboard = {
     estimated_tax_payable_month: number;
     estimated_tax_credit_balance_month: number;
   };
+  quotes_pending: number;
 };
 
 export type PlatformCashSession = {
