@@ -38,6 +38,10 @@ function clearInitialZero(event: FocusEvent) {
     emit('update:modelValue', '');
   }
 }
+
+function preventWheelChange(event: WheelEvent) {
+  if (inputType.value === 'number') event.preventDefault();
+}
 </script>
 
 <template>
@@ -62,6 +66,7 @@ function clearInitialZero(event: FocusEvent) {
         ]"
         @focus="clearInitialZero"
         @input="updateValue"
+        @wheel="preventWheelChange"
       >
       <button
         v-if="canReveal"
