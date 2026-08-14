@@ -1617,6 +1617,7 @@ export type DteDraftSummary = {
   numeroControl: string;
   codigoGeneracion: string;
   selloRecibido?: string | null;
+  consultaPublicaUrl?: string | null;
   totalPagar: number | null;
   errorCode?: string | null;
   errorMessage?: string | null;

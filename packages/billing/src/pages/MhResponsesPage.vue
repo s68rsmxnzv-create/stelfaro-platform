@@ -20,7 +20,6 @@ const props = withDefaults(defineProps<{
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const loading = ref(false);
 const detailLoading = ref(false);
-const querying = ref(false);
 const error = ref<string | null>(null);
 const query = ref('');
 const estado = ref('');
@@ -117,24 +116,6 @@ async function openDetail(document: DteDraftSummary): Promise<void> {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar el detalle del DTE.';
   } finally {
     detailLoading.value = false;
-  }
-}
-
-async function queryMh(): Promise<void> {
-  if (!selected.value) return;
-
-  querying.value = true;
-  error.value = null;
-
-  try {
-    const response = await client.value.queryMh(selected.value.id);
-    selected.value = response.document;
-    await loadDocuments();
-    history.value = await client.value.history(response.document.id);
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'No fue posible consultar MH.';
-  } finally {
-    querying.value = false;
   }
 }
 
@@ -359,9 +340,15 @@ function copyText(value: string): void {
       @close="showDetailModal = false"
     >
       <template #header-actions>
-        <UiButton v-if="selected" type="button" :disabled="querying || detailLoading" @click="queryMh">
-          {{ querying ? 'Consultando...' : 'Consultar MH' }}
-        </UiButton>
+        <a
+          v-if="selected?.consultaPublicaUrl"
+          :href="selected.consultaPublicaUrl"
+          target="_blank"
+          rel="noopener"
+          class="inline-flex h-12 items-center justify-center rounded-lg bg-primary px-6 text-sm font-semibold tracking-wide text-primary-contrast transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus:ring focus:ring-primary"
+        >
+          Consultar en Hacienda
+        </a>
       </template>
 
       <div v-if="detailLoading && !selected" class="py-10">
