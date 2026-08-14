@@ -393,7 +393,6 @@ function daysUntil(value: string | null | undefined): number | null {
           <div>
             <h1 class="mt-1 text-2xl font-bold text-text">{{ activeItem.label }}</h1>
           </div>
-          <span v-if="activeView === 'support'" class="rounded-md bg-surface-muted px-3 py-1 text-xs font-bold uppercase text-muted">Próximamente</span>
         </div>
 
         <TenantRequestsPanel v-if="activeView === 'requests'" class="mt-6" :platform-base-url="platformBaseUrl" :platform-session="platformSession" />
@@ -519,15 +518,15 @@ function daysUntil(value: string | null | undefined): number | null {
         <div v-else class="mt-6 grid gap-4 md:grid-cols-3">
           <div class="rounded-md border border-slate-200 p-4">
             <p class="text-sm font-bold text-slate-950">Correo</p>
-            <p class="mt-2 text-sm text-slate-600">soporte@stelfaro.com</p>
+            <a href="mailto:soporte@stelfaro.com" class="mt-2 block text-sm text-primary hover:underline">soporte@stelfaro.com</a>
           </div>
           <div class="rounded-md border border-slate-200 p-4">
             <p class="text-sm font-bold text-slate-950">WhatsApp</p>
-            <p class="mt-2 text-sm text-slate-600">Pendiente</p>
+            <a href="https://wa.me/50375640652" target="_blank" rel="noopener" class="mt-2 block text-sm text-primary hover:underline">+503 7564-0652</a>
           </div>
           <div class="rounded-md border border-slate-200 p-4">
             <p class="text-sm font-bold text-slate-950">Horario</p>
-            <p class="mt-2 text-sm text-slate-600">Pendiente</p>
+            <p class="mt-2 text-sm text-slate-600">Lunes a domingo, 6:00 a. m. – 8:00 p. m.</p>
           </div>
         </div>
       </section>
