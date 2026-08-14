@@ -2777,6 +2777,23 @@ function pushFloatingToast(toast: Omit<BillingFloatingToast, "id">): void {
   floatingToastTimers.push(timer);
 }
 
+const DRAFT_STATUS_LABELS: Record<string, string> = {
+  draft: "Borrador",
+  ready_to_sign: "Listo para firmar",
+  signed: "Firmado",
+  ready_to_send: "Listo para transmitir",
+  sent: "Transmitido",
+  received_by_mh: "Recibido por Hacienda",
+  accepted: "Aceptado",
+  rejected: "Rechazado",
+  invalidated: "Invalidado",
+  contingency: "Contingencia",
+};
+
+function draftStatusLabel(estado: string): string {
+  return DRAFT_STATUS_LABELS[estado.toLowerCase()] ?? estado;
+}
+
 async function transition(
   action: "ready" | "sign" | "send" | "receive",
 ): Promise<void> {
@@ -6238,14 +6255,14 @@ function updatePaymentCondition(value: string): void {
       >
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p class="text-sm text-slate-500">Draft #{{ draft.id }}</p>
+            <p class="text-sm text-slate-500">Borrador #{{ draft.id }}</p>
             <p class="font-semibold text-slate-950">
               {{ draft.numeroControl }}
             </p>
           </div>
           <span
             class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800"
-            >{{ draft.estado }}</span
+            >{{ draftStatusLabel(draft.estado) }}</span
           >
         </div>
         <div class="mt-4 flex flex-wrap gap-3">

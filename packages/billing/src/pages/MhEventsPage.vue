@@ -2837,8 +2837,28 @@ function formatDate(value?: string | null): string {
   return fiscalDateTime(value);
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  draft: "Borrador",
+  ready_to_sign: "Listo para firmar",
+  signed: "Firmado",
+  ready_to_send: "Listo para enviar",
+  sent: "Transmitido",
+  received_by_mh: "Recibido por Hacienda",
+  accepted: "Aceptado",
+  rejected: "Rechazado",
+  invalidated: "Invalidado",
+  contingency: "Contingencia",
+  recibido: "Recibido",
+  procesado: "Procesado",
+  rechazado: "Rechazado",
+};
+
 function statusLabel(document: DteDraftSummary): string {
-  return String(document.transmission?.status ?? document.estado).toUpperCase();
+  const raw = String(
+    document.transmission?.status ?? document.estado,
+  ).toLowerCase();
+
+  return STATUS_LABELS[raw] ?? raw;
 }
 
 function invalidacionLabel(document: DteDraftSummary | null): string {

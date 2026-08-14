@@ -63,7 +63,7 @@ const selectedObservations = computed(() => normalizeStringList(
   mhValue(['observaciones']) ?? selected.value?.transmission?.observaciones ?? []
 ));
 const selectedMhSummary = computed(() => ({
-  estado: String(mhValue(['estado', 'status']) ?? selected.value?.transmission?.mh_estado ?? selected.value?.estado ?? 'Sin estado'),
+  estado: translateStatus(String(mhValue(['estado', 'status']) ?? selected.value?.transmission?.mh_estado ?? selected.value?.estado ?? 'Sin estado')),
   sello: String(mhValue(['selloRecibido', 'receipt_stamp']) ?? selected.value?.selloRecibido ?? selected.value?.transmission?.receipt_stamp ?? 'Sin sello'),
   codigoMsg: String(mhValue(['codigoMsg', 'codigo_msg']) ?? selected.value?.transmission?.codigo_msg ?? 'Sin codigo'),
   clasificaMsg: String(mhValue(['clasificaMsg', 'clasifica_msg']) ?? 'Sin clasificacion'),
@@ -138,16 +138,41 @@ async function queryMh(): Promise<void> {
   }
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  draft: 'Borrador',
+  ready_to_sign: 'Listo para firmar',
+  signed: 'Firmado',
+  ready_to_send: 'Listo para enviar',
+  sent: 'Transmitido',
+  received_by_mh: 'Recibido por Hacienda',
+  accepted: 'Aceptado',
+  rejected: 'Rechazado',
+  invalidated: 'Invalidado',
+  contingency: 'Contingencia',
+  recibido: 'Recibido',
+  procesado: 'Procesado',
+  rechazado: 'Rechazado',
+};
+
+function translateStatus(raw: string): string {
+  return STATUS_LABELS[raw.trim().toLowerCase()] ?? raw;
+}
+
+function rawStatus(document: DteDraftSummary | null): string {
+  if (!document) return '';
+  const mhStatus = document.transmission?.status ?? document.mh_response?.status;
+  return String(mhStatus || document.estado).toLowerCase();
+}
+
 function statusLabel(document: DteDraftSummary | null): string {
   if (!document) return 'Sin DTE';
-  const mhStatus = document.transmission?.status ?? document.mh_response?.status;
-  return String(mhStatus || document.estado).toUpperCase();
+  return translateStatus(rawStatus(document));
 }
 
 function statusClass(document: DteDraftSummary | null): string {
-  const status = statusLabel(document);
-  if (status.includes('ACCEPTED') || status.includes('ACEPT') || document?.estado === 'accepted') return 'bg-emerald-50 text-emerald-700';
-  if (status.includes('REJECTED') || status.includes('RECH') || document?.estado === 'rejected') return 'bg-rose-50 text-rose-700';
+  const status = rawStatus(document);
+  if (status.includes('accept') || status.includes('acept') || document?.estado === 'accepted') return 'bg-emerald-50 text-emerald-700';
+  if (status.includes('reject') || status.includes('rech') || document?.estado === 'rejected') return 'bg-rose-50 text-rose-700';
   return 'bg-slate-100 text-slate-700';
 }
 
