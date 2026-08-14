@@ -659,8 +659,13 @@ function statusLabel(status: string): string {
   return statusLabels[status] || status;
 }
 onMounted(() => {
-  if (new URLSearchParams(window.location.search).get("tab") === "receivables")
-    tab.value = "receivables";
+  const requestedTab = new URLSearchParams(window.location.search).get("tab");
+  if (
+    requestedTab === "receivables" ||
+    requestedTab === "quotes" ||
+    requestedTab === "orders"
+  )
+    tab.value = requestedTab;
   void load();
   core.value
     .billingCatalogs()
