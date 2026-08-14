@@ -138,7 +138,7 @@ watch(() => props.open, (open) => {
   if (!open) return;
   hydrating.value = true;
   commercialNameTouched.value = false;
-  form.name = props.initialValue?.name ?? '';
+  form.name = props.mode === 'quick' ? '' : props.initialValue?.name ?? '';
   form.document = props.initialValue?.document_number ?? '';
   form.email = props.initialValue?.email ?? '';
   form.phone = props.initialValue?.phone ?? '';
