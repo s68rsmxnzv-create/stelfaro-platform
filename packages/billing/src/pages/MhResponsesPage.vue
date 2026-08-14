@@ -178,6 +178,26 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
   return formatDate(document.invalidacion.deadline);
 }
 
+const HISTORY_EVENT_LABELS: Record<string, string> = {
+  draft_created: 'Borrador creado',
+  ready_to_sign: 'Listo para firmar',
+  signed: 'Documento firmado',
+  DocumentSigned: 'Documento firmado',
+  ready_to_send: 'Listo para transmitir',
+  sent: 'Transmitido a Hacienda',
+  received_by_mh: 'Recibido por Hacienda',
+  accepted: 'Aceptado por Hacienda',
+  rejected: 'Rechazado por Hacienda',
+  mh_rejected: 'Rechazado por Hacienda',
+  invalidated: 'Invalidado',
+  contingency: 'Marcado en contingencia',
+  correlativo_conflict: 'Conflicto de correlativo',
+};
+
+function historyEventLabel(event: string): string {
+  return HISTORY_EVENT_LABELS[event] ?? event.replace(/_/g, ' ').replace(/^./, (char) => char.toUpperCase());
+}
+
 function formatDate(value?: string | null): string {
   return fiscalDateTime(value);
 }
@@ -408,7 +428,7 @@ function copyText(value: string): void {
               </div>
               <div class="divide-y divide-slate-100">
                 <div v-for="entry in history" :key="`${entry.event}-${entry.created_at}`" class="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                  <p class="font-semibold text-slate-900">{{ entry.event }}</p>
+                  <p class="font-semibold text-slate-900">{{ historyEventLabel(entry.event) }}</p>
                   <p class="text-slate-500">{{ formatDate(entry.created_at) }}</p>
                 </div>
                 <p v-if="history.length === 0" class="px-4 py-4 text-sm text-slate-500">Sin eventos internos registrados.</p>
