@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
   CoreDteClient,
   type DteDraftSummary,
   type DteHistoryEntry
 } from '@stelfaro/api-client';
 import { currency, fiscalDateTime } from '@stelfaro/shared';
-import { UiButton, UiCard, UiLoadingMark, UiSearchInput, UiSelect } from '@stelfaro/ui';
+import { ChevronDown } from 'lucide-vue-next';
+import { UiButton, UiCard, UiLoadingMark, UiModalShell, UiSearchInput, UiSelect } from '@stelfaro/ui';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -26,6 +27,8 @@ const estado = ref('');
 const documents = ref<DteDraftSummary[]>([]);
 const selected = ref<DteDraftSummary | null>(null);
 const history = ref<DteHistoryEntry[]>([]);
+const showDetailModal = ref(false);
+const showTechnical = ref(false);
 let searchTimer: ReturnType<typeof window.setTimeout> | null = null;
 const statusOptions = [
   { value: '', label: 'Todos' },
@@ -69,9 +72,7 @@ const selectedMhSummary = computed(() => ({
 }));
 const emptyState = computed(() => !loading.value && documents.value.length === 0);
 
-onMounted(() => {
-  void loadDocuments();
-});
+void loadDocuments();
 
 watch(query, () => {
   if (searchTimer) window.clearTimeout(searchTimer);
@@ -80,6 +81,10 @@ watch(query, () => {
 
 watch(estado, () => {
   void loadDocuments();
+});
+
+watch(showDetailModal, (open) => {
+  if (!open) showTechnical.value = false;
 });
 
 async function loadDocuments(): Promise<void> {
@@ -93,10 +98,6 @@ async function loadDocuments(): Promise<void> {
       limit: 40
     });
     documents.value = response.data;
-
-    if (!selected.value && documents.value[0]) {
-      await selectDocument(documents.value[0]);
-    }
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar respuestas MH.';
   } finally {
@@ -104,7 +105,8 @@ async function loadDocuments(): Promise<void> {
   }
 }
 
-async function selectDocument(document: DteDraftSummary): Promise<void> {
+async function openDetail(document: DteDraftSummary): Promise<void> {
+  showDetailModal.value = true;
   detailLoading.value = true;
   error.value = null;
 
@@ -216,13 +218,11 @@ function copyText(value: string): void {
 <template>
   <section class="space-y-6">
     <div>
-      <div>
-        <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Respuestas MH</p>
-        <h2 class="mt-1 text-2xl font-bold text-slate-950">Documentos transmitidos</h2>
-        <p class="mt-2 text-sm text-slate-600">
-          Consulta sello, estado, intentos de transmision y respuesta de Hacienda.
-        </p>
-      </div>
+      <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Respuestas MH</p>
+      <h2 class="mt-1 text-2xl font-bold text-slate-950">Documentos transmitidos</h2>
+      <p class="mt-2 text-sm text-slate-600">
+        Consulta sello, estado y respuesta de Hacienda para cada documento transmitido.
+      </p>
     </div>
 
     <p v-if="error" class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ error }}</p>
@@ -256,184 +256,44 @@ function copyText(value: string): void {
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Documento</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Estado MH</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Invalidacion</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Sello</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Mensaje</th>
-                <th class="px-4 py-3 text-center text-xs font-semibold uppercase text-slate-500">Intentos</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold uppercase text-slate-500">Total</th>
                 <th class="px-4 py-3 text-right text-xs font-semibold uppercase text-slate-500">Accion</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 bg-white">
-              <template v-for="document in documents" :key="document.id">
-                <tr
-                  class="sf-interactive-row"
-                  :class="selected?.id === document.id ? 'bg-sky-50' : ''"
-                >
-                  <td class="whitespace-nowrap px-4 py-4 text-slate-600">
-                    <p>{{ formatDate(document.processed_at ?? document.created_at) }}</p>
-                    <p class="mt-1 text-xs text-slate-400">ID #{{ document.id }}</p>
-                  </td>
-                  <td class="px-4 py-4">
-                    <p class="font-semibold text-slate-950">{{ document.empresa?.nombre_comercial ?? 'Empresa' }}</p>
-                    <p class="mt-1 text-xs text-slate-500">{{ document.empresa?.nit ?? 'Sin NIT' }}</p>
-                  </td>
-                  <td class="px-4 py-4">
-                    <p class="font-semibold text-slate-950">{{ document.tipoDte }} · {{ document.numeroControl }}</p>
-                    <p class="mt-1 max-w-xs truncate text-xs text-slate-500">{{ document.codigoGeneracion }}</p>
-                  </td>
-                  <td class="px-4 py-4">
-                    <span class="inline-flex rounded px-2 py-1 text-xs font-semibold" :class="statusClass(document)">
-                      {{ statusLabel(document) }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-4">
-                    <span class="inline-flex rounded px-2 py-1 text-xs font-semibold" :class="invalidacionClass(document)">
-                      {{ invalidacionLabel(document) }}
-                    </span>
-                    <p class="mt-1 text-xs text-slate-500">{{ invalidacionDeadline(document) }}</p>
-                  </td>
-                  <td class="px-4 py-4">
-                    <p class="max-w-[220px] truncate text-xs font-medium text-slate-700">{{ document.selloRecibido ?? 'Sin sello' }}</p>
-                  </td>
-                  <td class="px-4 py-4">
-                    <p class="max-w-[260px] truncate text-xs text-slate-600">
-                      {{ document.transmission?.descripcion_msg ?? document.errorMessage ?? 'Sin mensaje MH' }}
-                    </p>
-                    <p class="mt-1 text-xs font-semibold text-slate-900">{{ currency(document.totalPagar ?? 0) }}</p>
-                  </td>
-                  <td class="px-4 py-4 text-center text-slate-700">
-                    {{ attemptsCount(document) }}
-                  </td>
-                  <td class="whitespace-nowrap px-4 py-4 text-right">
-                    <UiButton type="button" variant="secondary" :disabled="detailLoading && selected?.id === document.id" @click="selectDocument(document)">
-                      {{ selected?.id === document.id ? 'Auditoria abierta' : 'Ver auditoria' }}
-                    </UiButton>
-                  </td>
-                </tr>
-
-                <tr v-if="selected?.id === document.id">
-                  <td colspan="9" class="bg-slate-50 px-4 py-5">
-                    <div class="space-y-5">
-                      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <div class="min-w-0">
-                          <div class="flex flex-wrap items-center gap-2">
-                            <h3 class="truncate text-lg font-bold text-slate-950">{{ selected.empresa?.nombre_comercial ?? 'DTE' }}</h3>
-                            <span class="rounded px-2 py-1 text-xs font-semibold" :class="statusClass(selected)">{{ selectedMhSummary.estado }}</span>
-                          </div>
-                          <p class="mt-1 text-sm text-slate-600">{{ selected.empresa?.razon_social }}</p>
-                          <p class="mt-2 break-all font-mono text-xs font-semibold text-slate-900">{{ selected.numeroControl }}</p>
-                          <p class="mt-1 break-all font-mono text-xs text-slate-500">{{ selected.codigoGeneracion }}</p>
-                        </div>
-
-                        <UiButton type="button" :disabled="querying || detailLoading" @click="queryMh">
-                          {{ querying ? 'Consultando...' : 'Consultar MH' }}
-                        </UiButton>
-                      </div>
-
-                      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-                        <div class="rounded-md border border-slate-200 bg-white p-3">
-                          <p class="text-[11px] font-semibold uppercase text-slate-500">Estado MH</p>
-                          <p class="mt-2 break-all text-sm font-bold text-slate-950">{{ selectedMhSummary.estado }}</p>
-                        </div>
-                        <div class="rounded-md border border-slate-200 bg-white p-3">
-                          <p class="text-[11px] font-semibold uppercase text-slate-500">Codigo mensaje</p>
-                          <p class="mt-2 break-all text-sm font-bold text-slate-950">{{ selectedMhSummary.codigoMsg }}</p>
-                        </div>
-                        <div class="rounded-md border border-slate-200 bg-white p-3">
-                          <p class="text-[11px] font-semibold uppercase text-slate-500">Clasificacion</p>
-                          <p class="mt-2 break-all text-sm font-bold text-slate-950">{{ selectedMhSummary.clasificaMsg }}</p>
-                        </div>
-                        <div class="rounded-md border border-slate-200 bg-white p-3">
-                          <p class="text-[11px] font-semibold uppercase text-slate-500">Procesado</p>
-                          <p class="mt-2 text-sm font-bold text-slate-950">{{ formatDate(selectedMhSummary.fecProcesamiento) }}</p>
-                        </div>
-                        <div class="rounded-md border border-slate-200 bg-white p-3">
-                          <p class="text-[11px] font-semibold uppercase text-slate-500">Total</p>
-                          <p class="mt-2 text-sm font-bold text-slate-950">{{ currency(selected.totalPagar ?? 0) }}</p>
-                        </div>
-                        <div class="rounded-md border border-slate-200 bg-white p-3">
-                          <p class="text-[11px] font-semibold uppercase text-slate-500">Invalidacion</p>
-                          <p class="mt-2 text-sm font-bold text-slate-950">{{ invalidacionLabel(selected) }}</p>
-                          <p class="mt-1 text-xs text-slate-500">{{ invalidacionDeadline(selected) }}</p>
-                        </div>
-                      </div>
-
-                      <div class="rounded-md border border-slate-200 bg-white p-4">
-                        <div class="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <p class="text-sm font-semibold text-slate-950">Respuesta resumida de Hacienda</p>
-                            <p class="mt-1 text-sm text-slate-600">{{ selectedMhSummary.descripcionMsg }}</p>
-                          </div>
-                          <button
-                            class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
-                            type="button"
-                            @click="copyText(selectedMhSummary.sello)"
-                          >
-                            Copiar sello
-                          </button>
-                        </div>
-                        <p class="mt-3 break-all font-mono text-xs text-slate-600">{{ selectedMhSummary.sello }}</p>
-                        <ul v-if="selectedObservations.length" class="mt-3 list-disc space-y-1 pl-5 text-sm text-rose-700">
-                          <li v-for="observation in selectedObservations" :key="observation">{{ observation }}</li>
-                        </ul>
-                      </div>
-
-                      <div class="rounded-md border border-slate-200 bg-white">
-                        <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                          <h4 class="text-sm font-semibold text-slate-950">Intentos de transmision</h4>
-                          <span class="text-xs text-slate-500">{{ selectedAttempts.length }} intento{{ selectedAttempts.length === 1 ? '' : 's' }}</span>
-                        </div>
-                        <div class="divide-y divide-slate-100">
-                          <div v-for="attempt in selectedAttempts" :key="attempt.id" class="grid gap-3 px-4 py-3 text-sm lg:grid-cols-[80px_1fr_90px_120px_100px]">
-                            <p class="font-semibold text-slate-950">#{{ attempt.attempt_number }}</p>
-                            <p class="min-w-0 break-all text-slate-600">{{ attempt.endpoint ?? 'Sin endpoint' }}</p>
-                            <p class="text-slate-700">HTTP {{ attempt.http_status ?? '-' }}</p>
-                            <p class="font-semibold text-slate-900">{{ attempt.result_status ?? '-' }}</p>
-                            <p class="text-slate-500">{{ attempt.duration_ms ?? 0 }} ms</p>
-                          </div>
-                          <p v-if="selectedAttempts.length === 0" class="px-4 py-4 text-sm text-slate-500">Sin intentos registrados.</p>
-                        </div>
-                      </div>
-
-                      <div class="grid gap-4 xl:grid-cols-3">
-                        <div>
-                          <div class="mb-2 flex items-center justify-between gap-2">
-                            <h4 class="text-sm font-semibold text-slate-950">Documento enviado</h4>
-                            <button class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200" type="button" @click="copyText(selectedPayloadJson)">Copiar</button>
-                          </div>
-                          <pre class="max-h-96 overflow-auto rounded-md bg-slate-950 p-4 text-xs text-slate-50">{{ selectedPayloadJson }}</pre>
-                        </div>
-                        <div>
-                          <div class="mb-2 flex items-center justify-between gap-2">
-                            <h4 class="text-sm font-semibold text-slate-950">Documento procesado</h4>
-                            <button class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200" type="button" @click="copyText(selectedSignedBundleJson)">Copiar</button>
-                          </div>
-                          <pre class="max-h-96 overflow-auto rounded-md bg-slate-950 p-4 text-xs text-slate-50">{{ selectedSignedBundleJson }}</pre>
-                        </div>
-                        <div>
-                          <div class="mb-2 flex items-center justify-between gap-2">
-                            <h4 class="text-sm font-semibold text-slate-950">Respuesta MH</h4>
-                            <button class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200" type="button" @click="copyText(selectedMhJson)">Copiar</button>
-                          </div>
-                          <pre class="max-h-96 overflow-auto rounded-md bg-slate-950 p-4 text-xs text-slate-50">{{ selectedMhJson }}</pre>
-                        </div>
-                      </div>
-
-                      <div class="rounded-md border border-slate-200 bg-white">
-                        <div class="border-b border-slate-100 px-4 py-3">
-                          <h4 class="text-sm font-semibold text-slate-950">Historial interno</h4>
-                        </div>
-                        <div class="divide-y divide-slate-100">
-                          <div v-for="entry in history" :key="`${entry.event}-${entry.created_at}`" class="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                            <p class="font-semibold text-slate-900">{{ entry.event }}</p>
-                            <p class="text-slate-500">{{ formatDate(entry.created_at) }}</p>
-                          </div>
-                          <p v-if="history.length === 0" class="px-4 py-4 text-sm text-slate-500">Sin eventos internos registrados.</p>
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              </template>
+              <tr
+                v-for="document in documents"
+                :key="document.id"
+                class="sf-interactive-row"
+                @click="openDetail(document)"
+              >
+                <td class="whitespace-nowrap px-4 py-4 text-slate-600">
+                  <p>{{ formatDate(document.processed_at ?? document.created_at) }}</p>
+                  <p class="mt-1 text-xs text-slate-400">ID #{{ document.id }}</p>
+                </td>
+                <td class="px-4 py-4">
+                  <p class="font-semibold text-slate-950">{{ document.empresa?.nombre_comercial ?? 'Empresa' }}</p>
+                  <p class="mt-1 text-xs text-slate-500">{{ document.empresa?.nit ?? 'Sin NIT' }}</p>
+                </td>
+                <td class="px-4 py-4">
+                  <p class="font-semibold text-slate-950">{{ document.tipoDte }} · {{ document.numeroControl }}</p>
+                  <p class="mt-1 text-xs text-slate-500">{{ attemptsCount(document) }} intento{{ attemptsCount(document) === 1 ? '' : 's' }} de transmision</p>
+                </td>
+                <td class="px-4 py-4">
+                  <span class="inline-flex rounded px-2 py-1 text-xs font-semibold" :class="statusClass(document)">
+                    {{ statusLabel(document) }}
+                  </span>
+                </td>
+                <td class="px-4 py-4">
+                  <span class="inline-flex rounded px-2 py-1 text-xs font-semibold" :class="invalidacionClass(document)">
+                    {{ invalidacionLabel(document) }}
+                  </span>
+                </td>
+                <td class="whitespace-nowrap px-4 py-4 text-right font-semibold text-slate-900">{{ currency(document.totalPagar ?? 0) }}</td>
+                <td class="whitespace-nowrap px-4 py-4 text-right">
+                  <UiButton type="button" variant="secondary" @click.stop="openDetail(document)">Ver detalle</UiButton>
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -444,5 +304,143 @@ function copyText(value: string): void {
         <p v-if="emptyState" class="border-t border-slate-100 bg-slate-50 px-4 py-5 text-sm text-slate-500">No hay DTE para los filtros actuales.</p>
       </div>
     </UiCard>
+
+    <UiModalShell
+      :open="showDetailModal"
+      :title="selected?.empresa?.nombre_comercial ?? 'Detalle del DTE'"
+      :description="selected ? `${selected.tipoDte} · ${selected.numeroControl}` : null"
+      max-width="max-w-4xl"
+      mobile-fullscreen
+      @close="showDetailModal = false"
+    >
+      <template #header-actions>
+        <UiButton v-if="selected" type="button" :disabled="querying || detailLoading" @click="queryMh">
+          {{ querying ? 'Consultando...' : 'Consultar MH' }}
+        </UiButton>
+      </template>
+
+      <div v-if="detailLoading && !selected" class="py-10">
+        <UiLoadingMark label="Cargando detalle del DTE" />
+      </div>
+
+      <div v-else-if="selected" class="space-y-5">
+        <p class="break-all font-mono text-xs text-slate-500">{{ selected.codigoGeneracion }}</p>
+
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div class="rounded-md border border-slate-200 bg-white p-3">
+            <p class="text-[11px] font-semibold uppercase text-slate-500">Estado MH</p>
+            <span class="mt-2 inline-flex rounded px-2 py-1 text-sm font-bold" :class="statusClass(selected)">{{ selectedMhSummary.estado }}</span>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white p-3">
+            <p class="text-[11px] font-semibold uppercase text-slate-500">Invalidacion</p>
+            <p class="mt-2 text-sm font-bold text-slate-950">{{ invalidacionLabel(selected) }}</p>
+            <p class="mt-1 text-xs text-slate-500">{{ invalidacionDeadline(selected) }}</p>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white p-3">
+            <p class="text-[11px] font-semibold uppercase text-slate-500">Total</p>
+            <p class="mt-2 text-sm font-bold text-slate-950">{{ currency(selected.totalPagar ?? 0) }}</p>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white p-3">
+            <p class="text-[11px] font-semibold uppercase text-slate-500">Procesado</p>
+            <p class="mt-2 text-sm font-bold text-slate-950">{{ formatDate(selectedMhSummary.fecProcesamiento) }}</p>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white p-3">
+            <p class="text-[11px] font-semibold uppercase text-slate-500">Codigo mensaje</p>
+            <p class="mt-2 text-sm font-bold text-slate-950">{{ selectedMhSummary.codigoMsg }}</p>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white p-3">
+            <p class="text-[11px] font-semibold uppercase text-slate-500">Clasificacion</p>
+            <p class="mt-2 text-sm font-bold text-slate-950">{{ selectedMhSummary.clasificaMsg }}</p>
+          </div>
+        </div>
+
+        <div class="rounded-md border border-slate-200 bg-white p-4">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-semibold text-slate-950">Respuesta resumida de Hacienda</p>
+              <p class="mt-1 text-sm text-slate-600">{{ selectedMhSummary.descripcionMsg }}</p>
+            </div>
+            <button
+              class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+              type="button"
+              @click="copyText(selectedMhSummary.sello)"
+            >
+              Copiar sello
+            </button>
+          </div>
+          <p class="mt-3 break-all font-mono text-xs text-slate-600">{{ selectedMhSummary.sello }}</p>
+          <ul v-if="selectedObservations.length" class="mt-3 list-disc space-y-1 pl-5 text-sm text-rose-700">
+            <li v-for="observation in selectedObservations" :key="observation">{{ observation }}</li>
+          </ul>
+        </div>
+
+        <div class="border-t border-slate-100 pt-3">
+          <button
+            type="button"
+            class="flex w-full items-center justify-between text-xs font-bold uppercase tracking-wide text-slate-400 hover:text-slate-600"
+            @click="showTechnical = !showTechnical"
+          >
+            Detalles técnicos
+            <ChevronDown class="h-4 w-4 transition-transform" :class="showTechnical ? 'rotate-180' : ''" />
+          </button>
+
+          <div v-if="showTechnical" class="mt-4 space-y-5">
+            <div class="rounded-md border border-slate-200 bg-white">
+              <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                <h4 class="text-sm font-semibold text-slate-950">Intentos de transmision</h4>
+                <span class="text-xs text-slate-500">{{ selectedAttempts.length }} intento{{ selectedAttempts.length === 1 ? '' : 's' }}</span>
+              </div>
+              <div class="divide-y divide-slate-100">
+                <div v-for="attempt in selectedAttempts" :key="attempt.id" class="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[70px_1fr_80px_100px_80px]">
+                  <p class="font-semibold text-slate-950">#{{ attempt.attempt_number }}</p>
+                  <p class="min-w-0 break-all text-slate-600">{{ attempt.endpoint ?? 'Sin endpoint' }}</p>
+                  <p class="text-slate-700">HTTP {{ attempt.http_status ?? '-' }}</p>
+                  <p class="font-semibold text-slate-900">{{ attempt.result_status ?? '-' }}</p>
+                  <p class="text-slate-500">{{ attempt.duration_ms ?? 0 }} ms</p>
+                </div>
+                <p v-if="selectedAttempts.length === 0" class="px-4 py-4 text-sm text-slate-500">Sin intentos registrados.</p>
+              </div>
+            </div>
+
+            <div class="rounded-md border border-slate-200 bg-white">
+              <div class="border-b border-slate-100 px-4 py-3">
+                <h4 class="text-sm font-semibold text-slate-950">Historial interno</h4>
+              </div>
+              <div class="divide-y divide-slate-100">
+                <div v-for="entry in history" :key="`${entry.event}-${entry.created_at}`" class="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <p class="font-semibold text-slate-900">{{ entry.event }}</p>
+                  <p class="text-slate-500">{{ formatDate(entry.created_at) }}</p>
+                </div>
+                <p v-if="history.length === 0" class="px-4 py-4 text-sm text-slate-500">Sin eventos internos registrados.</p>
+              </div>
+            </div>
+
+            <div class="space-y-4">
+              <div>
+                <div class="mb-2 flex items-center justify-between gap-2">
+                  <h4 class="text-sm font-semibold text-slate-950">Documento enviado</h4>
+                  <button class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200" type="button" @click="copyText(selectedPayloadJson)">Copiar</button>
+                </div>
+                <pre class="max-h-64 overflow-auto rounded-md bg-slate-950 p-4 text-xs text-slate-50">{{ selectedPayloadJson }}</pre>
+              </div>
+              <div>
+                <div class="mb-2 flex items-center justify-between gap-2">
+                  <h4 class="text-sm font-semibold text-slate-950">Documento procesado</h4>
+                  <button class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200" type="button" @click="copyText(selectedSignedBundleJson)">Copiar</button>
+                </div>
+                <pre class="max-h-64 overflow-auto rounded-md bg-slate-950 p-4 text-xs text-slate-50">{{ selectedSignedBundleJson }}</pre>
+              </div>
+              <div>
+                <div class="mb-2 flex items-center justify-between gap-2">
+                  <h4 class="text-sm font-semibold text-slate-950">Respuesta MH</h4>
+                  <button class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200" type="button" @click="copyText(selectedMhJson)">Copiar</button>
+                </div>
+                <pre class="max-h-64 overflow-auto rounded-md bg-slate-950 p-4 text-xs text-slate-50">{{ selectedMhJson }}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </UiModalShell>
   </section>
 </template>
