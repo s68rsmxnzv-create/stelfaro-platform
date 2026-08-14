@@ -48,7 +48,7 @@ function preventWheelChange(event: WheelEvent) {
   <label class="block">
     <span
       v-if="label"
-      class="block text-sm font-medium text-slate-700 dark:text-muted"
+      class="block text-sm font-medium text-muted"
       :class="{ 'sr-only': hideLabel }"
     >
       {{ label }}
@@ -59,7 +59,7 @@ function preventWheelChange(event: WheelEvent) {
         :type="inputType"
         :value="modelValue ?? ''"
         :placeholder="placeholder"
-        class="h-12 w-full rounded-xl border border-blue-100 bg-white/90 py-0 pl-3 text-left text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised"
+        class="h-12 w-full rounded-xl border border-line bg-surface-raised py-0 pl-3 text-left text-sm text-text shadow-surface outline-none transition placeholder:text-soft focus:border-primary focus:ring-2 focus:ring-primary-soft"
         :class="[
           canReveal ? 'pr-20' : suffix ? 'pr-16' : 'pr-3',
           suffix && inputType === 'number' ? 'ui-input-number-with-suffix' : ''
@@ -71,14 +71,14 @@ function preventWheelChange(event: WheelEvent) {
       <button
         v-if="canReveal"
         type="button"
-        class="absolute inset-y-1.5 right-1 rounded-lg px-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text"
+        class="absolute inset-y-1.5 right-1 rounded-lg px-2 text-xs font-semibold text-muted hover:bg-surface-muted hover:text-text"
         @click="visible = !visible"
       >
         {{ visible ? 'Ocultar' : 'Ver' }}
       </button>
       <span
         v-if="suffix && !canReveal"
-        class="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[11px] font-semibold text-slate-500 dark:text-muted"
+        class="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[11px] font-semibold text-muted"
       >
         {{ suffix }}
       </span>

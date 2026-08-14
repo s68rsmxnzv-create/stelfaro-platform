@@ -29,9 +29,9 @@ defineExpose({
 
 <template>
   <label class="block">
-    <span class="block text-sm font-medium text-slate-700 dark:text-muted">{{ label }}</span>
+    <span class="block text-sm font-medium text-muted">{{ label }}</span>
     <span class="relative mt-1 block">
-      <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 dark:text-soft">
+      <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-soft">
         <svg class="h-4 w-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
           <path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="m21 21-3.5-3.5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
         </svg>
@@ -42,7 +42,7 @@ defineExpose({
         :autofocus="autofocus"
         :value="modelValue ?? ''"
         :placeholder="placeholder"
-        class="block h-12 w-full rounded-full border border-blue-100 bg-white/90 py-0 pl-9 text-base text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 md:text-sm dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised"
+        class="block h-12 w-full rounded-full border border-line bg-surface-raised py-0 pl-9 text-base text-text shadow-surface outline-none transition placeholder:text-soft focus:border-primary focus:ring-2 focus:ring-primary-soft md:text-sm"
         :class="showButton ? 'pr-28' : 'pr-12'"
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
         @keydown.enter.prevent="$emit('search')"
@@ -50,7 +50,7 @@ defineExpose({
       <button
         v-if="showButton"
         type="button"
-        class="absolute inset-y-0 right-0 inline-flex min-w-24 items-center justify-center rounded-r-full border border-sky-600 bg-sky-600 px-4 text-sm font-semibold leading-none text-white shadow-sm transition hover:border-sky-500 hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+        class="absolute inset-y-0 right-0 inline-flex min-w-24 items-center justify-center rounded-r-full border border-primary bg-primary px-4 text-sm font-semibold leading-none text-primary-contrast shadow-surface transition hover:border-primary-hover hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary-soft"
         @click="$emit('search')"
       >
         {{ buttonLabel }}

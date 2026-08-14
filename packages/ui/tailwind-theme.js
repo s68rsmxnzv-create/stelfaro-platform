@@ -19,7 +19,8 @@ export const stelfaroTheme = {
     warning: 'var(--sf-color-warning)',
     'warning-soft': 'var(--sf-color-warning-soft)',
     danger: 'var(--sf-color-danger)',
-    'danger-soft': 'var(--sf-color-danger-soft)'
+    'danger-soft': 'var(--sf-color-danger-soft)',
+    overlay: 'var(--sf-color-overlay)'
   },
   boxShadow: {
     surface: 'var(--sf-shadow-surface)'

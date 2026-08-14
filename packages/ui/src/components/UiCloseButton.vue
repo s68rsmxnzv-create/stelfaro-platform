@@ -13,7 +13,7 @@ withDefaults(defineProps<{
 <template>
   <button
     type="button"
-    class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-soft dark:hover:bg-surface-muted dark:hover:text-text"
+    class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-soft transition hover:bg-surface-muted hover:text-text focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
     :aria-label="label"
     :title="label"
     :disabled="disabled"

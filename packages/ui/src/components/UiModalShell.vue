@@ -32,21 +32,21 @@ function closeFromBackdrop(closeOnBackdrop: boolean): void {
   <Teleport to="body">
     <div
       v-if="open"
-      class="sf-safe-overlay fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 backdrop-blur-sm"
+      class="sf-safe-overlay fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-overlay backdrop-blur-sm"
       :class="mobileFullscreen ? 'sf-safe-overlay-full' : ''"
       @click.self="closeFromBackdrop(closeOnBackdrop)"
     >
       <section
-        class="w-full border border-blue-100 bg-white text-slate-950 shadow-2xl shadow-slate-950/25 dark:border-line dark:bg-surface dark:text-text dark:shadow-black/30"
+        class="w-full border border-line bg-surface text-text shadow-surface"
         :class="[maxWidth, mobileFullscreen ? 'flex h-full max-h-full flex-col rounded-none md:h-auto md:max-h-[calc(100dvh-3rem)] md:rounded-md' : 'rounded-md']"
         role="dialog"
         aria-modal="true"
         :aria-label="title"
       >
-        <header class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-4 py-3 dark:border-line sm:px-5 sm:py-4">
+        <header class="flex shrink-0 items-start justify-between gap-4 border-b border-line px-4 py-3 sm:px-5 sm:py-4">
           <div class="min-w-0">
-            <p class="text-lg font-bold text-slate-950 dark:text-text"><slot name="title">{{ title }}</slot></p>
-            <p v-if="description || $slots.description" class="mt-1 text-sm text-slate-500 dark:text-muted"><slot name="description">{{ description }}</slot></p>
+            <p class="text-lg font-bold text-text"><slot name="title">{{ title }}</slot></p>
+            <p v-if="description || $slots.description" class="mt-1 text-sm text-muted"><slot name="description">{{ description }}</slot></p>
           </div>
           <div class="flex shrink-0 items-center gap-3">
             <slot name="header-actions" />
@@ -58,7 +58,7 @@ function closeFromBackdrop(closeOnBackdrop: boolean): void {
           <slot />
         </div>
 
-        <footer v-if="$slots.footer" class="flex justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-line">
+        <footer v-if="$slots.footer" class="flex justify-end gap-2 border-t border-line px-5 py-4">
           <slot name="footer" />
         </footer>
       </section>

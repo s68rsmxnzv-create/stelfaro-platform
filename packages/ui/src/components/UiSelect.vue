@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check, ChevronDown } from 'lucide-vue-next';
+import { Check, ChevronDown, Search } from 'lucide-vue-next';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useAttrs, useId, watch } from 'vue';
 
 defineOptions({ inheritAttrs: false });
@@ -19,10 +19,14 @@ const props = withDefaults(defineProps<{
   placeholder?: string;
   hideLabel?: boolean;
   disabled?: boolean;
+  searchable?: boolean;
+  searchPlaceholder?: string;
   modelModifiers?: { number?: boolean };
 }>(), {
   placeholder: '',
-  disabled: false
+  disabled: false,
+  searchable: false,
+  searchPlaceholder: 'Buscar'
 });
 
 const emit = defineEmits<{
@@ -36,10 +40,18 @@ const labelId = `${controlId}-label`;
 const root = ref<HTMLElement | null>(null);
 const trigger = ref<HTMLButtonElement | null>(null);
 const menu = ref<HTMLElement | null>(null);
+const searchInput = ref<HTMLInputElement | null>(null);
 const open = ref(false);
+const query = ref('');
 const activeIndex = ref(-1);
 const menuPosition = ref({ left: 0, top: 0, bottom: 0, width: 0, maxHeight: 288, above: false });
 const selected = computed(() => props.options.find((option) => String(option.value) === String(props.modelValue ?? '')) ?? null);
+const filteredOptions = computed(() => {
+  const needle = normalize(query.value);
+  if (!props.searchable || needle === '') return props.options;
+
+  return props.options.filter((option) => normalize(`${option.label} ${option.hint ?? ''}`).includes(needle));
+});
 const displayLabel = computed(() => selected.value?.label || props.placeholder || 'Seleccionar');
 const isDisabled = computed(() => props.disabled || attrs.disabled === true || attrs.disabled === '');
 const rootClass = computed(() => attrs.class);
@@ -58,6 +70,9 @@ const menuStyle = computed(() => ({
 watch(() => props.options, () => {
   if (open.value) setActiveFromSelection();
 });
+watch(query, () => {
+  if (open.value && props.searchable) setActiveFromSelection();
+});
 
 onMounted(() => {
   document.addEventListener('pointerdown', closeOnOutside, true);
@@ -73,11 +88,25 @@ onBeforeUnmount(() => {
 
 function toggle(): void {
   if (isDisabled.value) return;
-  open.value = !open.value;
-  if (open.value) {
-    setActiveFromSelection();
-    nextTick(updateMenuPosition);
-  }
+  if (open.value) return closeMenu();
+
+  openMenu();
+}
+
+function openMenu(): void {
+  open.value = true;
+  query.value = '';
+  setActiveFromSelection();
+  nextTick(() => {
+    updateMenuPosition();
+    if (props.searchable) searchInput.value?.focus();
+  });
+}
+
+function closeMenu(restoreFocus = false): void {
+  open.value = false;
+  query.value = '';
+  if (restoreFocus) nextTick(() => trigger.value?.focus());
 }
 
 function updateMenuPosition(): void {
@@ -100,24 +129,23 @@ function updateMenuPosition(): void {
 }
 
 function setActiveFromSelection(): void {
-  const selectedIndex = props.options.findIndex((option) => String(option.value) === String(props.modelValue ?? ''));
-  activeIndex.value = selectedIndex >= 0 ? selectedIndex : props.options.findIndex((option) => !option.disabled);
+  const selectedIndex = filteredOptions.value.findIndex((option) => String(option.value) === String(props.modelValue ?? ''));
+  activeIndex.value = selectedIndex >= 0 ? selectedIndex : filteredOptions.value.findIndex((option) => !option.disabled);
 }
 
 function move(direction: 1 | -1): void {
   if (!open.value) {
-    open.value = true;
-    setActiveFromSelection();
+    openMenu();
     return;
   }
 
-  if (!props.options.length) return;
+  if (!filteredOptions.value.length) return;
   let index = activeIndex.value;
-  for (let attempts = 0; attempts < props.options.length; attempts += 1) {
-    index = (index + direction + props.options.length) % props.options.length;
-    if (!props.options[index]?.disabled) {
+  for (let attempts = 0; attempts < filteredOptions.value.length; attempts += 1) {
+    index = (index + direction + filteredOptions.value.length) % filteredOptions.value.length;
+    if (!filteredOptions.value[index]?.disabled) {
       activeIndex.value = index;
-      nextTick(() => root.value?.querySelector<HTMLElement>(`[data-option-index="${index}"]`)?.scrollIntoView({ block: 'nearest' }));
+      nextTick(() => menu.value?.querySelector<HTMLElement>(`[data-option-index="${index}"]`)?.scrollIntoView({ block: 'nearest' }));
       return;
     }
   }
@@ -128,36 +156,39 @@ function choose(option: SelectOption): void {
   const value = props.modelModifiers?.number ? Number(option.value) : option.value;
   emit('update:modelValue', value);
   emit('change', value);
-  open.value = false;
-  nextTick(() => trigger.value?.focus());
+  closeMenu(true);
 }
 
 function chooseActive(): void {
-  const option = props.options[activeIndex.value];
+  const option = filteredOptions.value[activeIndex.value];
   if (option) choose(option);
 }
 
 function moveToBoundary(position: 'first' | 'last'): void {
-  const indexes = props.options.map((_, index) => index).filter((index) => !props.options[index]?.disabled);
+  const indexes = filteredOptions.value.map((_, index) => index).filter((index) => !filteredOptions.value[index]?.disabled);
   activeIndex.value = position === 'first' ? (indexes[0] ?? -1) : (indexes[indexes.length - 1] ?? -1);
 }
 
 function closeOnOutside(event: PointerEvent): void {
   const target = event.target as Node;
-  if (open.value && !root.value?.contains(target) && !menu.value?.contains(target)) open.value = false;
+  if (open.value && !root.value?.contains(target) && !menu.value?.contains(target)) closeMenu();
+}
+
+function normalize(value: string): string {
+  return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
 }
 </script>
 
 <template>
   <div ref="root" class="relative block" :class="rootClass" :style="rootStyle">
-    <span v-if="label" :id="labelId" class="block text-sm font-medium text-slate-700 dark:text-muted" :class="{ 'sr-only': hideLabel }">
+    <span v-if="label" :id="labelId" class="block text-sm font-medium text-muted" :class="{ 'sr-only': hideLabel }">
       {{ label }}
     </span>
     <button
       ref="trigger"
       v-bind="triggerAttrs"
       type="button"
-      class="mt-1 flex h-12 w-full items-center gap-3 rounded-xl border border-blue-100 bg-white/90 px-3 text-left text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition hover:border-sky-300 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:hover:border-line-strong dark:focus:bg-surface-raised dark:focus:ring-primary-soft dark:disabled:bg-surface-muted"
+      class="mt-1 flex h-12 w-full items-center gap-3 rounded-xl border border-line bg-surface-raised px-3 text-left text-sm text-text shadow-surface outline-none transition hover:border-line-strong focus:border-primary focus:ring-2 focus:ring-primary-soft disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-muted"
       :disabled="isDisabled"
       aria-haspopup="listbox"
       :aria-expanded="open"
@@ -168,15 +199,15 @@ function closeOnOutside(event: PointerEvent): void {
       @keydown.arrow-up.prevent="move(-1)"
       @keydown.enter.prevent="open ? chooseActive() : toggle()"
       @keydown.space.prevent="open ? chooseActive() : toggle()"
-      @keydown.escape.prevent="open = false"
-      @keydown.tab="open = false"
+      @keydown.escape.prevent="closeMenu()"
+      @keydown.tab="closeMenu()"
       @keydown.home.prevent="moveToBoundary('first')"
       @keydown.end.prevent="moveToBoundary('last')"
     >
-      <span class="min-w-0 flex-1 truncate" :class="selected ? 'text-slate-950 dark:text-text' : 'text-slate-400 dark:text-soft'">
+      <span class="min-w-0 flex-1 truncate" :class="selected ? 'text-text' : 'text-soft'">
         {{ displayLabel }}
       </span>
-      <ChevronDown class="h-4 w-4 shrink-0 text-slate-400 transition dark:text-soft" :class="open ? 'rotate-180' : ''" />
+      <ChevronDown class="h-4 w-4 shrink-0 text-soft transition" :class="open ? 'rotate-180' : ''" />
     </button>
 
     <Teleport to="body">
@@ -191,35 +222,56 @@ function closeOnOutside(event: PointerEvent): void {
         <div
           v-if="open"
           ref="menu"
-          class="fixed z-[9999] overflow-y-auto rounded-xl border border-blue-100 bg-white p-1.5 text-sm shadow-xl shadow-blue-950/15 dark:border-line dark:bg-surface-raised dark:shadow-black/35"
+          class="fixed z-[9999] flex flex-col overflow-hidden rounded-xl border border-line bg-surface-raised p-1.5 text-sm text-text shadow-surface"
           :class="menuPosition.above ? 'origin-bottom' : 'origin-top'"
           :style="menuStyle"
-          role="listbox"
         >
-        <button
-          v-for="(option, index) in options"
-          :key="String(option.value)"
-          type="button"
-          class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition"
-          :class="[
-            String(option.value) === String(modelValue ?? '') ? 'bg-primary-soft text-primary' : 'text-slate-700 hover:bg-sky-50 dark:text-muted dark:hover:bg-surface-muted',
-            option.disabled ? 'cursor-not-allowed opacity-45' : '',
-            activeIndex === index && !option.disabled ? 'ring-1 ring-inset ring-primary/40' : ''
-          ]"
-          :disabled="option.disabled"
-          :data-option-index="index"
-          role="option"
-          :aria-selected="String(option.value) === String(modelValue ?? '')"
-          @mouseenter="activeIndex = index"
-          @click="choose(option)"
-        >
-          <span class="min-w-0 flex-1">
-            <span class="block truncate font-medium">{{ option.label }}</span>
-            <span v-if="option.hint" class="mt-0.5 block truncate text-xs text-slate-500 dark:text-soft">{{ option.hint }}</span>
-          </span>
-          <Check v-if="String(option.value) === String(modelValue ?? '')" class="h-4 w-4 shrink-0" />
-        </button>
-          <p v-if="options.length === 0" class="px-3 py-3 text-center text-sm text-slate-500 dark:text-muted">Sin opciones disponibles</p>
+          <label v-if="searchable" class="relative mb-1.5 block shrink-0 border-b border-line pb-1.5">
+            <span class="sr-only">{{ searchPlaceholder }}</span>
+            <Search class="pointer-events-none absolute left-3 top-5 h-4 w-4 -translate-y-1/2 text-soft" aria-hidden="true" />
+            <input
+              ref="searchInput"
+              v-model="query"
+              type="search"
+              class="h-10 w-full rounded-lg border border-line bg-surface pl-9 pr-3 text-sm text-text outline-none placeholder:text-soft focus:border-primary focus:ring-2 focus:ring-primary-soft"
+              :placeholder="searchPlaceholder"
+              autocomplete="off"
+              @keydown.arrow-down.prevent="move(1)"
+              @keydown.arrow-up.prevent="move(-1)"
+              @keydown.enter.prevent="chooseActive"
+              @keydown.escape.prevent="closeMenu(true)"
+              @keydown.home.prevent="moveToBoundary('first')"
+              @keydown.end.prevent="moveToBoundary('last')"
+            >
+          </label>
+          <div class="min-h-0 overflow-y-auto" role="listbox" :aria-labelledby="label ? labelId : undefined">
+            <button
+              v-for="(option, index) in filteredOptions"
+              :key="String(option.value)"
+              type="button"
+              class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition"
+              :class="[
+                String(option.value) === String(modelValue ?? '') ? 'bg-primary-soft text-primary' : 'text-muted hover:bg-surface-muted',
+                option.disabled ? 'cursor-not-allowed opacity-45' : '',
+                activeIndex === index && !option.disabled ? 'ring-1 ring-inset ring-primary/40' : ''
+              ]"
+              :disabled="option.disabled"
+              :data-option-index="index"
+              role="option"
+              :aria-selected="String(option.value) === String(modelValue ?? '')"
+              @mouseenter="activeIndex = index"
+              @click="choose(option)"
+            >
+              <span class="min-w-0 flex-1">
+                <span class="block truncate font-medium">{{ option.label }}</span>
+                <span v-if="option.hint" class="mt-0.5 block truncate text-xs text-soft">{{ option.hint }}</span>
+              </span>
+              <Check v-if="String(option.value) === String(modelValue ?? '')" class="h-4 w-4 shrink-0" />
+            </button>
+            <p v-if="filteredOptions.length === 0" class="px-3 py-3 text-center text-sm text-muted">
+              {{ query ? 'Sin resultados para esta búsqueda' : 'Sin opciones disponibles' }}
+            </p>
+          </div>
         </div>
       </Transition>
     </Teleport>

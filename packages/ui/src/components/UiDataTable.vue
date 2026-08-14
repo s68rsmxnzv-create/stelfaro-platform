@@ -10,14 +10,14 @@ withDefaults(defineProps<{
 
 <template>
   <div
-    class="rounded-md border border-slate-200 dark:border-line"
+    class="rounded-md border border-line"
     :class="{
       'overflow-hidden': overflow === 'hidden',
       'overflow-visible': overflow === 'visible',
       'overflow-x-auto': overflow === 'auto'
     }"
   >
-    <table class="sf-interactive-list w-full text-left text-sm text-slate-900 dark:text-text" :class="minWidth">
+    <table class="sf-interactive-list w-full text-left text-sm text-text" :class="minWidth">
       <slot />
     </table>
   </div>

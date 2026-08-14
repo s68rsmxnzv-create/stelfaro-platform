@@ -24,6 +24,7 @@
   --sf-color-warning-soft: #fef3c7;
   --sf-color-danger: #b91c1c;
   --sf-color-danger-soft: #fee2e2;
+  --sf-color-overlay: rgb(15 23 42 / 0.45);
   --sf-color-row-hover: #f0f9ff;
   --sf-color-row-accent: #38bdf8;
   --sf-radius-control: 0.75rem;
@@ -58,6 +59,7 @@
   --sf-color-warning-soft: #713f12;
   --sf-color-danger: rgb(255 180 171);
   --sf-color-danger-soft: rgb(147 0 10);
+  --sf-color-overlay: rgb(0 0 0 / 0.72);
   --sf-color-row-hover: rgb(37 42 50);
   --sf-color-row-accent: rgb(164 211 255);
   --sf-shadow-surface: 0 1px 2px rgb(0 0 0 / 0.36);

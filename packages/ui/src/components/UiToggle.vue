@@ -22,13 +22,13 @@ defineEmits<{
     <span
       class="relative block h-8 w-14 rounded-full transition-colors [-webkit-tap-highlight-color:transparent]"
       :class="[
-        Boolean(modelValue) && variant === 'success' ? 'bg-emerald-500' : '',
-        Boolean(modelValue) && variant === 'warning' ? 'bg-amber-500' : '',
-        Boolean(modelValue) && variant === 'default' ? 'bg-sky-500' : '',
-        !Boolean(modelValue) && offVariant === 'success' ? 'bg-emerald-500' : '',
-        !Boolean(modelValue) && offVariant === 'warning' ? 'bg-amber-500' : '',
-        !Boolean(modelValue) && offVariant === 'default' ? 'bg-sky-500' : '',
-        !Boolean(modelValue) && offVariant === 'neutral' ? 'bg-slate-300' : '',
+        Boolean(modelValue) && variant === 'success' ? 'bg-success' : '',
+        Boolean(modelValue) && variant === 'warning' ? 'bg-warning' : '',
+        Boolean(modelValue) && variant === 'default' ? 'bg-primary' : '',
+        !Boolean(modelValue) && offVariant === 'success' ? 'bg-success' : '',
+        !Boolean(modelValue) && offVariant === 'warning' ? 'bg-warning' : '',
+        !Boolean(modelValue) && offVariant === 'default' ? 'bg-primary' : '',
+        !Boolean(modelValue) && offVariant === 'neutral' ? 'bg-surface-strong' : '',
         disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
       ]"
     >
@@ -40,7 +40,7 @@ defineEmits<{
         :aria-label="ariaLabel"
         @change="$emit('update:modelValue', ($event.target as HTMLInputElement).checked)"
       >
-      <span class="absolute inset-y-0 start-0 m-1 size-6 rounded-full bg-white shadow-sm transition-[inset-inline-start] peer-checked:start-6"></span>
+      <span class="absolute inset-y-0 start-0 m-1 size-6 rounded-full bg-surface shadow-surface transition-[inset-inline-start] peer-checked:start-6"></span>
     </span>
   </label>
 </template>

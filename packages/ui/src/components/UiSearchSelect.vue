@@ -76,6 +76,11 @@ function closeOnBlur(): void {
   }, 120);
 }
 
+function closeAndRestore(): void {
+  open.value = false;
+  query.value = selected.value ? selected.value.label : '';
+}
+
 function chooseFirstFiltered(): void {
   if (filtered.value.length > 0) {
     choose(filtered.value[0]);
@@ -89,23 +94,23 @@ function normalize(value: string): string {
 
 <template>
   <label ref="rootRef" class="relative block">
-    <span class="text-sm font-medium text-slate-700 dark:text-muted">{{ label }}</span>
+    <span class="text-sm font-medium text-muted">{{ label }}</span>
     <input
       v-model="query"
       :disabled="disabled"
       :placeholder="placeholder"
-      class="mt-1 h-12 w-full rounded-xl border border-blue-100 bg-white/90 py-0 pl-3 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50 disabled:text-slate-500 dark:border-line dark:bg-surface-raised dark:text-text dark:placeholder:text-soft dark:shadow-none dark:focus:bg-surface-raised dark:focus:ring-primary-soft dark:disabled:bg-surface-muted"
+      class="mt-1 h-12 w-full rounded-xl border border-line bg-surface-raised py-0 pl-3 text-sm text-text shadow-surface outline-none transition placeholder:text-soft focus:border-primary focus:ring-2 focus:ring-primary-soft disabled:bg-surface-muted disabled:text-muted"
       :class="clearable && modelValue ? 'pr-10' : 'pr-3'"
       @focus="open = true"
       @input="open = true"
-      @keydown.escape="open = false"
+      @keydown.escape.prevent="closeAndRestore"
       @keydown.enter.prevent="chooseFirstFiltered"
       @blur="closeOnBlur"
     >
     <button
       v-if="clearable && modelValue && !disabled"
       type="button"
-      class="absolute right-1 top-8 grid h-8 w-8 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-soft dark:hover:bg-surface-muted dark:hover:text-text"
+      class="absolute right-1 top-8 grid h-8 w-8 place-items-center rounded-lg text-soft transition hover:bg-surface-muted hover:text-text"
       :aria-label="clearLabel ?? 'Limpiar seleccion'"
       @click="clearSelection"
     >
@@ -115,12 +120,12 @@ function normalize(value: string): string {
     </button>
     <div
       v-if="open && !disabled"
-      class="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-xl border border-blue-100 bg-white py-1 text-sm shadow-xl shadow-blue-950/10 dark:border-line dark:bg-surface-raised dark:shadow-black/30"
+      class="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-xl border border-line bg-surface-raised py-1 text-sm text-text shadow-surface"
     >
       <button
         v-if="clearable"
         type="button"
-        class="block w-full border-b border-slate-100 px-3 py-2 text-left font-medium text-slate-500 hover:bg-slate-50 dark:border-line dark:text-muted dark:hover:bg-surface-muted"
+        class="block w-full border-b border-line px-3 py-2 text-left font-medium text-muted hover:bg-surface-muted"
         @mousedown.prevent="clearSelection"
       >
         {{ clearLabel ?? 'Sin seleccionar' }}
@@ -129,13 +134,13 @@ function normalize(value: string): string {
         v-for="option in filtered"
         :key="option.value + option.label"
         type="button"
-        class="block w-full px-3 py-2 text-left hover:bg-sky-50 dark:hover:bg-primary-soft"
+        class="block w-full px-3 py-2 text-left hover:bg-surface-muted"
         @mousedown.prevent="choose(option)"
       >
-        <span class="font-medium text-slate-900 dark:text-text">{{ option.label }}</span>
-        <span v-if="option.hint" class="ml-2 text-xs text-slate-500 dark:text-soft">{{ option.hint }}</span>
+        <span class="font-medium text-text">{{ option.label }}</span>
+        <span v-if="option.hint" class="ml-2 text-xs text-soft">{{ option.hint }}</span>
       </button>
-      <p v-if="filtered.length === 0" class="px-3 py-2 text-slate-500 dark:text-muted">Sin resultados</p>
+      <p v-if="filtered.length === 0" class="px-3 py-2 text-muted">Sin resultados</p>
     </div>
   </label>
 </template>
