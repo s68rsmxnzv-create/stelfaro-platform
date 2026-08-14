@@ -2,9 +2,11 @@
 // @ts-nocheck
 import { CoreDteClient, PlatformClient, type DteDraftSummary, type MhFiscalEventSummary, type PlatformAuditLog } from '@stelfaro/api-client';
 import { UiDataTable, UiInput, UiPanel, UiRefreshButton, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
-import { Activity, FileText, ScrollText, ShieldCheck } from 'lucide-vue-next';
+import { Activity, ChevronDown, FileText, ScrollText, ShieldCheck } from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
 import { getBillingContext, peekBillingContext } from '../support/billingDataCache';
+
+type DetailItem = { label: string; value: string };
 
 type AuditRow = {
   id: string;
@@ -16,7 +18,8 @@ type AuditRow = {
   context: string;
   result: string;
   tone: 'neutral' | 'success' | 'warning' | 'danger' | 'info';
-  detail: Record<string, unknown> | null;
+  summary: DetailItem[];
+  technical: DetailItem[];
 };
 
 const props = withDefaults(defineProps<{
@@ -42,6 +45,7 @@ const platformLogs = ref<PlatformAuditLog[]>([]);
 const documents = ref<DteDraftSummary[]>([]);
 const events = ref<MhFiscalEventSummary[]>([]);
 const selected = ref<AuditRow | null>(null);
+const showTechnical = ref(false);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
@@ -103,6 +107,10 @@ watch(selectedEmpresaId, () => {
   void load();
 });
 
+watch(selected, () => {
+  showTechnical.value = false;
+});
+
 async function initialize(): Promise<void> {
   if (!props.authToken) return;
 
@@ -158,67 +166,299 @@ async function load(): Promise<void> {
   }
 }
 
+// Acciones que ya llegan con un nombre de negocio claro (ver PlatformAuditLogger::record
+// llamado explicitamente desde los controladores), en vez del nombre tecnico de ruta.
+const EXPLICIT_ACTION_LABELS: Record<string, string> = {
+  'auth.login': 'Inició sesión',
+  'auth.logout': 'Cerró sesión',
+  'auth.login_failed': 'Intentó iniciar sesión sin éxito',
+  'auth.login_lockout': 'Se bloqueó su acceso por intentos fallidos',
+  'catalog.prices.bulk_updated': 'Actualizó precios en lote del catálogo',
+  'follow_up_note.created': 'Creó una nota de seguimiento',
+  'follow_up_note.updated': 'Actualizó una nota de seguimiento',
+  'follow_up_note.resolved': 'Resolvió una nota de seguimiento',
+  'follow_up_note.discarded': 'Descartó una nota de seguimiento',
+  'cash.session.opened': 'Abrió una sesión de caja',
+  'cash.session.closed': 'Cerró una sesión de caja',
+  'cash.movement.created': 'Registró un movimiento de caja',
+  'cash.movement.reversed': 'Revirtió un movimiento de caja',
+  'cash.expense.reconciled': 'Concilió un gasto de caja',
+  'cash.settings.updated': 'Actualizó la configuración de caja',
+  'commercial_sale.payment_recorded': 'Registró un pago de venta'
+};
+
+// Traduce las rutas de la API (sin nombre de ruta asignado) a una frase legible.
+// La llave es "METODO patron/con/:id/en/vez/de/numeros" tras quitar el prefijo
+// api/v1/platform/tenants/{tenant}. Debe reflejar routes/api.php.
+const PATH_ACTION_TABLE: Record<string, string> = {
+  'post:notifications/read-all': 'Marcó todas las notificaciones como leídas',
+  'post:notifications/:id/read': 'Marcó una notificación como leída',
+  'delete:notifications/:id': 'Eliminó una notificación',
+  'patch:me/profile': 'Actualizó su perfil',
+  'put:me/password': 'Cambió su contraseña',
+  'delete:me/security/sessions/:id': 'Cerró una sesión activa',
+  'post:me/security/sessions/revoke-others': 'Cerró sus demás sesiones activas',
+  'patch:me/active-membership/:id': 'Cambió de sucursal activa',
+  'post:tenants/:id/requests': 'Creó una solicitud',
+  'post:tenants/:id/requests/:id/credentials': 'Reveló credenciales de una solicitud',
+  'post:tenants/:id/android-print/pairing-codes': 'Generó un código para emparejar una impresora Android',
+  'delete:tenants/:id/android-print/agents/:id': 'Revocó una impresora Android',
+  'post:tenants/:id/android-print/jobs': 'Envió un trabajo de impresión',
+  'post:tenants/:id/catalog/categories': 'Creó una categoría de catálogo',
+  'patch:tenants/:id/catalog/categories/:id': 'Actualizó una categoría de catálogo',
+  'delete:tenants/:id/catalog/categories/:id': 'Eliminó una categoría de catálogo',
+  'post:tenants/:id/catalog/items': 'Creó un artículo de catálogo',
+  'patch:tenants/:id/catalog/items/prices/bulk': 'Actualizó precios en lote del catálogo',
+  'patch:tenants/:id/catalog/items/:id': 'Actualizó un artículo de catálogo',
+  'delete:tenants/:id/catalog/items/:id': 'Eliminó un artículo de catálogo',
+  'post:tenants/:id/fiscal-sync/dte-issues': 'Preparó la emisión de un documento fiscal',
+  'post:tenants/:id/fiscal-sync/invalidations': 'Preparó la invalidación de un documento fiscal',
+  'post:tenants/:id/fiscal-sync/operations/:id/attach': 'Adjuntó un archivo a una operación fiscal',
+  'post:tenants/:id/fiscal-sync/operations/:id/complete': 'Completó una operación fiscal',
+  'post:tenants/:id/sales-orders': 'Creó una orden de venta',
+  'patch:tenants/:id/sales-orders/:id': 'Actualizó una orden de venta',
+  'post:tenants/:id/sales-orders/:id/payments': 'Registró un pago en una orden de venta',
+  'post:tenants/:id/sales-orders/:id/cancel': 'Canceló una orden de venta',
+  'post:tenants/:id/sales-orders/:id/invoice-link': 'Vinculó una factura a una orden de venta',
+  'post:tenants/:id/quotations': 'Creó una cotización',
+  'put:tenants/:id/quotations/:id': 'Actualizó una cotización',
+  'patch:tenants/:id/quotations/:id/status': 'Cambió el estado de una cotización',
+  'post:tenants/:id/quotations/:id/duplicate': 'Duplicó una cotización',
+  'post:tenants/:id/quotations/:id/convert': 'Convirtió una cotización en orden',
+  'post:tenants/:id/follow-up-notes': 'Creó una nota de seguimiento',
+  'put:tenants/:id/follow-up-notes/:id': 'Actualizó una nota de seguimiento',
+  'post:tenants/:id/follow-up-notes/:id/resolve': 'Resolvió una nota de seguimiento',
+  'post:tenants/:id/follow-up-notes/:id/discard': 'Descartó una nota de seguimiento',
+  'post:tenants/:id/cash/settings': 'Configuró la caja',
+  'put:tenants/:id/cash/settings/:id': 'Actualizó la configuración de caja',
+  'post:tenants/:id/cash/sessions': 'Abrió una sesión de caja',
+  'post:tenants/:id/cash/sessions/:id/close': 'Cerró una sesión de caja',
+  'post:tenants/:id/cash/movements': 'Registró un movimiento de caja',
+  'post:tenants/:id/cash/movements/:id/reverse': 'Revirtió un movimiento de caja',
+  'post:tenants/:id/cash/expenses/:id/reconcile': 'Concilió un gasto de caja',
+  'post:tenants/:id/cash/sales/:id/payments': 'Registró un pago de venta en caja',
+  'patch:tenants/:id/workshop/ticket-settings': 'Actualizó la configuración de tickets del taller',
+  'post:tenants/:id/workshop/orders': 'Creó una orden de taller',
+  'patch:tenants/:id/workshop/orders/:id': 'Actualizó una orden de taller',
+  'post:tenants/:id/workshop/orders/:id/materials': 'Agregó un material a una orden de taller',
+  'post:tenants/:id/workshop/orders/:id/materials/:id/consume': 'Consumió un material de una orden de taller',
+  'post:tenants/:id/workshop/orders/:id/materials/:id/release': 'Liberó un material reservado de una orden de taller',
+  'post:tenants/:id/workshop/orders/:id/materials/:id/return': 'Devolvió un material al inventario de una orden de taller',
+  'post:tenants/:id/workshop/orders/:id/settlement': 'Liquidó una orden de taller',
+  'post:tenants/:id/workshop/orders/:id/payments': 'Registró un pago en una orden de taller',
+  'post:tenants/:id/workshop/orders/:id/invoice-link': 'Vinculó una factura a una orden de taller',
+  'post:tenants/:id/workshop/orders/:id/photo-session': 'Abrió una sesión de fotos para una orden de taller',
+  'post:tenants/:id/workshop/orders/:id/device-access': 'Generó acceso desde dispositivo para una orden de taller',
+  'post:tenants/:id/inventory/suppliers': 'Creó un proveedor',
+  'patch:tenants/:id/inventory/suppliers/:id': 'Actualizó un proveedor',
+  'post:tenants/:id/inventory/purchases': 'Registró una compra de inventario',
+  'post:tenants/:id/inventory/purchases/import-dte-json': 'Importó una compra desde un DTE',
+  'post:tenants/:id/inventory/adjustments': 'Ajustó el inventario',
+  'post:tenants/:id/inventory/sales': 'Registró una venta de inventario',
+  'post:tenants/:id/inventory/sales/supersede-by-source': 'Reemplazó una venta de inventario',
+  'post:tenants/:id/inventory/sales/reverse-by-source': 'Revirtió una venta de inventario',
+  'post:tenants/:id/inventory/counts': 'Registró un conteo de inventario',
+  'post:tenants/:id/inventory/transfers': 'Registró un traslado de inventario',
+  'post:tenants/:id/inventory/reservations': 'Reservó inventario',
+  'post:tenants/:id/inventory/reservations/:id/confirm': 'Confirmó una reserva de inventario',
+  'post:tenants/:id/inventory/reservations/:id/release': 'Liberó una reserva de inventario',
+  'post:tenants/:id/inventory/reservations/:id/reverse': 'Revirtió una reserva de inventario',
+  'post:tenants/:id/users': 'Agregó un usuario',
+  'post:tenants/:id/invitations': 'Envió una invitación',
+  'post:invitations/:id/accept': 'Aceptó una invitación',
+  'post:invitations/:id/resend': 'Reenvió una invitación',
+  'patch:memberships/:id/role': 'Cambió el rol de un usuario',
+  'post:memberships/:id/temporary-password': 'Restableció la contraseña temporal de un usuario',
+  'put:memberships/:id/fiscal-assignments': 'Actualizó la asignación fiscal de un usuario',
+  'patch:memberships/:id/suspend': 'Suspendió a un usuario',
+  'patch:memberships/:id/reactivate': 'Reactivó a un usuario',
+  'delete:memberships/:id': 'Eliminó a un usuario de la empresa'
+};
+
+const RESOURCE_NOUNS: Record<string, string> = {
+  WorkshopOrder: 'la orden de taller',
+  SalesOrder: 'la orden de venta',
+  Quotation: 'la cotización',
+  FollowUpNote: 'la nota de seguimiento',
+  CashSession: 'la sesión de caja',
+  CashMovement: 'el movimiento de caja',
+  CashExpense: 'el gasto de caja',
+  CashRegister: 'la caja',
+  CatalogItem: 'el artículo de catálogo',
+  CatalogCategory: 'la categoría de catálogo',
+  InventorySupplier: 'el proveedor',
+  InventoryPurchase: 'la compra de inventario',
+  InventorySale: 'la venta de inventario',
+  InventoryReservation: 'la reserva de inventario',
+  UserTenantMembership: 'el usuario',
+  UserInvitation: 'la invitación',
+  FiscalSyncOperation: 'la operación fiscal',
+  TenantRequest: 'la solicitud',
+  Receivable: 'la cuenta por cobrar'
+};
+
+const TIPO_DTE_LABELS: Record<string, string> = {
+  '01': 'Factura',
+  '03': 'Crédito fiscal',
+  '05': 'Nota de crédito',
+  '06': 'Nota de débito',
+  '07': 'Comprobante de retención',
+  '11': 'Factura de exportación',
+  '14': 'Sujeto excluido'
+};
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  invalidation: 'Invalidación',
+  contingency: 'Contingencia',
+  correction: 'Corrección',
+  batch: 'Envío por lote'
+};
+
 function platformRow(log: PlatformAuditLog): AuditRow {
+  const resourceLabel = friendlyResource(log.resource_type, log.resource_id);
+
   return {
     id: log.id,
     source: 'platform',
     created_at: log.created_at,
-    action: actionLabel(log.action),
+    action: humanizeAction(log),
     actor: log.user?.name ?? 'Sin usuario',
     actor_detail: log.user?.email ?? log.ip_address ?? '-',
-    context: log.tenant?.name ?? log.resource_type ?? '-',
+    context: log.tenant?.name ?? '-',
     result: log.result === 'success' ? 'Exitoso' : (log.result === 'failed' ? 'Fallido' : log.result ?? '-'),
     tone: log.result === 'success' ? 'success' : 'danger',
-    detail: log.metadata
+    summary: [
+      { label: 'Sobre', value: resourceLabel ?? 'Actividad general de la cuenta' },
+      { label: 'Resultado', value: log.status_code ? `${log.result === 'success' ? 'Exitoso' : 'Fallido'} (código ${log.status_code})` : (log.result ?? '-') }
+    ],
+    technical: [
+      { label: 'Método', value: log.method ?? '-' },
+      { label: 'Ruta', value: log.metadata?.path ?? log.url ?? '-' },
+      { label: 'Nombre interno de la acción', value: log.action },
+      { label: 'Referido desde', value: (log.metadata?.referer as string) ?? '-' },
+      { label: 'Campos enviados', value: Array.isArray(log.metadata?.input_keys) ? (log.metadata.input_keys as string[]).join(', ') || '-' : '-' },
+      { label: 'Dirección IP', value: log.ip_address ?? '-' },
+      { label: 'Dispositivo/navegador', value: log.user_agent ?? '-' }
+    ]
   };
 }
 
 function documentRow(document: DteDraftSummary): AuditRow {
   const actor = document.performed_by;
   const accepted = ['accepted', 'received', 'received_by_mh'].includes(String(document.estado));
+  const tipoLabel = TIPO_DTE_LABELS[document.tipoDte] ?? `DTE ${document.tipoDte}`;
 
   return {
     id: `dte-${document.id}`,
     source: 'dte',
     created_at: document.processed_at ?? document.created_at ?? null,
-    action: `DTE ${document.tipoDte} ${document.numeroControl}`,
+    action: `Emitió ${tipoLabel.charAt(0).toLowerCase()}${tipoLabel.slice(1)} ${document.numeroControl}`,
     actor: actor?.name ?? 'Sin usuario',
     actor_detail: actor?.email ?? (actor?.platform_user_id ? `Usuario plataforma ${actor.platform_user_id}` : '-'),
     context: document.empresa?.nombre_comercial ?? document.empresa?.razon_social ?? '-',
     result: statusLabel(document.estado),
     tone: document.estado === 'rejected' ? 'danger' : (accepted ? 'success' : 'info'),
-    detail: {
-      codigoGeneracion: document.codigoGeneracion,
-      selloRecibido: document.selloRecibido,
-      totalPagar: document.totalPagar,
-      performed_by: document.performed_by,
-      error: document.errorMessage
-    }
+    summary: [
+      { label: 'Tipo de comprobante', value: tipoLabel },
+      { label: 'Número de control', value: document.numeroControl ?? '-' },
+      { label: 'Total a pagar', value: document.totalPagar != null ? currency(document.totalPagar) : '-' },
+      { label: 'Sello recibido por Hacienda', value: document.selloRecibido ?? 'Aún no recibido' },
+      ...(document.errorMessage ? [{ label: 'Motivo del rechazo', value: document.errorMessage }] : [])
+    ],
+    technical: [
+      { label: 'Código de generación', value: document.codigoGeneracion ?? '-' }
+    ]
   };
 }
 
 function eventRow(event: MhFiscalEventSummary): AuditRow {
   const actor = event.transmitted_by ?? event.performed_by;
+  const typeLabel = EVENT_TYPE_LABELS[event.eventType] ?? capitalize(event.eventType.replace(/[_-]/g, ' '));
 
   return {
     id: `event-${event.id}`,
     source: 'event',
     created_at: event.processed_at ?? event.transmitted_at ?? event.created_at ?? null,
-    action: `Evento ${event.eventType}`,
+    action: `${typeLabel} ante Hacienda`,
     actor: actor?.name ?? 'Sin usuario',
     actor_detail: actor?.email ?? (actor?.platform_user_id ? `Usuario plataforma ${actor.platform_user_id}` : '-'),
     context: event.empresa?.nombre_comercial ?? event.empresa?.razon_social ?? '-',
     result: statusLabel(event.estado),
     tone: event.estado === 'rejected' ? 'danger' : (event.estado === 'accepted' ? 'success' : 'info'),
-    detail: {
-      numeroControl: event.numeroControl,
-      codigoGeneracion: event.codigoGeneracion,
-      selloRecibido: event.selloRecibido,
-      performed_by: event.performed_by,
-      transmitted_by: event.transmitted_by,
-      error: event.errorMessage
-    }
+    summary: [
+      { label: 'Tipo de evento', value: typeLabel },
+      { label: 'Número de control', value: event.numeroControl ?? '-' },
+      { label: 'Sello recibido por Hacienda', value: event.selloRecibido ?? 'Aún no recibido' },
+      ...(event.errorMessage ? [{ label: 'Motivo del rechazo', value: event.errorMessage }] : [])
+    ],
+    technical: [
+      { label: 'Código de generación', value: event.codigoGeneracion ?? '-' }
+    ]
   };
+}
+
+function humanizeAction(log: PlatformAuditLog): string {
+  const idSuffix = log.resource_id && /^\d+$/.test(String(log.resource_id)) ? ` #${log.resource_id}` : '';
+
+  const explicit = EXPLICIT_ACTION_LABELS[log.action];
+  if (explicit) return `${explicit}${idSuffix}`;
+
+  const rawPath = (log.metadata?.path as string) ?? log.url ?? '';
+  const { pattern } = normalizedPath(rawPath);
+  const key = `${(log.method ?? '').toLowerCase()}:${pattern}`;
+  const template = PATH_ACTION_TABLE[key];
+  if (template) return `${template}${idSuffix}`;
+
+  const resourceLabel = friendlyResource(log.resource_type, log.resource_id);
+  if (resourceLabel) return `${methodVerb(log.method)} ${resourceLabel}`;
+
+  const lastSegment = pattern.split('/').filter((segment) => segment && segment !== ':id').pop();
+  const noun = lastSegment ? lastSegment.replace(/-/g, ' ') : 'un registro';
+
+  return `${methodVerb(log.method)} ${noun}`;
+}
+
+function normalizedPath(path: string): { pattern: string; ids: string[] } {
+  const segments = path.split('?')[0].replace(/^\/+/, '').split('/').filter(Boolean);
+  while (segments[0] === 'api' || segments[0] === 'v1') segments.shift();
+  if (segments[0] === 'platform') segments.shift();
+
+  const ids: string[] = [];
+  const pattern = segments
+    .map((segment) => {
+      if (/^\d+$/.test(segment)) {
+        ids.push(segment);
+        return ':id';
+      }
+
+      return segment;
+    })
+    .join('/');
+
+  return { pattern, ids };
+}
+
+function friendlyResource(resourceType: string | null, resourceId: string | null): string | null {
+  if (!resourceType || !resourceId) return null;
+
+  const basename = resourceType.includes('\\') ? resourceType.split('\\').pop() ?? resourceType : resourceType;
+  const noun = RESOURCE_NOUNS[basename];
+
+  return noun ? `${noun} #${resourceId}` : null;
+}
+
+function methodVerb(method: string | null): string {
+  switch (method) {
+    case 'POST':
+      return 'Registró actividad en';
+    case 'PUT':
+    case 'PATCH':
+      return 'Actualizó';
+    case 'DELETE':
+      return 'Eliminó';
+    default:
+      return 'Realizó una acción en';
+  }
 }
 
 function resultMatches(row: AuditRow, result: string): boolean {
@@ -265,15 +505,12 @@ function statusLabel(status: string): string {
   return labels[status] ?? status;
 }
 
-function actionLabel(action: string): string {
-  const labels: Record<string, string> = {
-    'auth.login': 'Inicio de sesion',
-    'auth.logout': 'Cierre de sesion',
-    'auth.login_failed': 'Login fallido',
-    'auth.login_lockout': 'Bloqueo por intentos'
-  };
+function currency(value: number): string {
+  return new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(value);
+}
 
-  return labels[action] ?? action;
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function formatDate(value: string | null): string {
@@ -283,12 +520,6 @@ function formatDate(value: string | null): string {
     dateStyle: 'short',
     timeStyle: 'short'
   }).format(new Date(value));
-}
-
-function detailText(detail: Record<string, unknown> | null): string {
-  if (!detail || Object.keys(detail).length === 0) return 'Sin detalle adicional.';
-
-  return JSON.stringify(detail, null, 2);
 }
 
 function fold(value: string): string {
@@ -306,6 +537,7 @@ function messageFromError(caught: unknown): string {
       <div>
         <p class="text-sm font-bold uppercase tracking-wide text-sky-700 dark:text-primary">Empresa</p>
         <h2 class="mt-1 text-2xl font-bold text-slate-950 dark:text-text">Auditoría operativa</h2>
+        <p class="mt-1 text-sm text-slate-500 dark:text-muted">Quién hizo qué en tu cuenta, en lenguaje sencillo.</p>
       </div>
       <UiRefreshButton :loading="loading" @click="load" />
     </div>
@@ -351,7 +583,7 @@ function messageFromError(caught: unknown): string {
 
     <UiPanel variant="raised">
       <div class="grid gap-4 lg:grid-cols-[1.4fr_0.75fr_0.75fr_0.75fr_0.75fr] lg:items-end">
-        <UiSearchInput v-model="filters.q" label="Buscar" placeholder="Usuario, correo, documento, evento o ruta" @keyup.enter="load" />
+        <UiSearchInput v-model="filters.q" label="Buscar" placeholder="Usuario, correo o documento" @keyup.enter="load" />
         <UiSelect v-model="filters.source" label="Origen" :options="sourceOptions" />
         <UiSelect v-model="filters.result" label="Resultado" :options="resultOptions" />
         <UiInput v-model="filters.dateFrom" label="Desde" type="date" />
@@ -363,14 +595,14 @@ function messageFromError(caught: unknown): string {
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.75fr)]">
       <UiPanel variant="raised">
-        <UiDataTable overflow="auto" min-width="min-w-[1040px]">
+        <UiDataTable overflow="auto" min-width="min-w-[960px]">
           <thead class="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 dark:bg-surface-muted dark:text-soft">
             <tr>
               <th class="px-4 py-3">Fecha</th>
               <th class="px-4 py-3">Origen</th>
-              <th class="px-4 py-3">Acción</th>
+              <th class="px-4 py-3">Qué pasó</th>
               <th class="px-4 py-3">Usuario</th>
-              <th class="px-4 py-3">Contexto</th>
+              <th class="px-4 py-3">Empresa</th>
               <th class="px-4 py-3">Resultado</th>
             </tr>
           </thead>
@@ -417,11 +649,31 @@ function messageFromError(caught: unknown): string {
               <dd class="mt-1 text-slate-800 dark:text-text">{{ formatDate(selected.created_at) }}</dd>
             </div>
             <div>
-              <dt class="font-bold text-slate-500 dark:text-soft">Contexto</dt>
+              <dt class="font-bold text-slate-500 dark:text-soft">Empresa</dt>
               <dd class="mt-1 text-slate-800 dark:text-text">{{ selected.context }}</dd>
             </div>
+            <div v-for="item in selected.summary" :key="item.label">
+              <dt class="font-bold text-slate-500 dark:text-soft">{{ item.label }}</dt>
+              <dd class="mt-1 text-slate-800 dark:text-text">{{ item.value }}</dd>
+            </div>
           </dl>
-          <pre class="mt-4 max-h-[32rem] overflow-auto rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-line dark:bg-surface-muted dark:text-muted">{{ detailText(selected.detail) }}</pre>
+
+          <div v-if="selected.technical.length" class="mt-5 border-t border-slate-100 pt-3 dark:border-line">
+            <button
+              type="button"
+              class="flex w-full items-center justify-between text-xs font-bold uppercase tracking-wide text-slate-400 hover:text-slate-600 dark:text-soft dark:hover:text-text"
+              @click="showTechnical = !showTechnical"
+            >
+              Detalles técnicos
+              <ChevronDown class="h-4 w-4 transition-transform" :class="showTechnical ? 'rotate-180' : ''" />
+            </button>
+            <dl v-if="showTechnical" class="mt-3 space-y-2 text-xs">
+              <div v-for="item in selected.technical" :key="item.label" class="flex flex-col gap-0.5">
+                <dt class="font-semibold text-slate-500 dark:text-soft">{{ item.label }}</dt>
+                <dd class="break-words text-slate-600 dark:text-muted">{{ item.value }}</dd>
+              </div>
+            </dl>
+          </div>
         </div>
         <p v-else class="text-sm text-slate-500 dark:text-muted">Selecciona un registro para ver el detalle.</p>
       </UiPanel>
