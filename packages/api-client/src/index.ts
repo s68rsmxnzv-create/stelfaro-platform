@@ -3572,6 +3572,17 @@ export class PlatformClient {
       .json();
   }
 
+  bulkUpdateCatalogPrices(
+    tenantId: number,
+    items: Array<{ id: number; base_price: number }>,
+  ): Promise<{ data: PlatformCatalogItem[]; meta: { updated: number } }> {
+    return this.http
+      .patch(`platform/tenants/${tenantId}/catalog/items/prices/bulk`, {
+        json: { items },
+      })
+      .json();
+  }
+
   deactivateCatalogItem(
     tenantId: number,
     itemId: number,
