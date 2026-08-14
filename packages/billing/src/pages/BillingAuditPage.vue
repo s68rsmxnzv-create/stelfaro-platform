@@ -1,12 +1,13 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { CoreDteClient, PlatformClient, type DteDraftSummary, type MhFiscalEventSummary, type PlatformAuditLog } from '@stelfaro/api-client';
-import { UiDataTable, UiInput, UiPanel, UiRefreshButton, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
-import { Activity, ChevronDown, FileText, ScrollText, ShieldCheck } from 'lucide-vue-next';
+import { UiDataTable, UiInput, UiModalShell, UiPanel, UiRefreshButton, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
+import { Activity, ChevronDown, ChevronLeft, ChevronRight, FileText, ScrollText, ShieldCheck } from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
 import { getBillingContext, peekBillingContext } from '../support/billingDataCache';
 
 type DetailItem = { label: string; value: string };
+type PageItem = number | 'ellipsis';
 
 type AuditRow = {
   id: string;
@@ -45,17 +46,24 @@ const platformLogs = ref<PlatformAuditLog[]>([]);
 const documents = ref<DteDraftSummary[]>([]);
 const events = ref<MhFiscalEventSummary[]>([]);
 const selected = ref<AuditRow | null>(null);
+const showDetailModal = ref(false);
 const showTechnical = ref(false);
 const loading = ref(false);
 const error = ref<string | null>(null);
+const page = ref(1);
+const pageSize = 20;
+// Topes maximos aceptados por cada endpoint de origen (ver validacion en
+// PlatformAuditLogController::tenant, DteDraftController::index y MhFiscalEventController::index).
+const PLATFORM_LIMIT = 200;
+const DOCUMENT_LIMIT = 75;
+const EVENT_LIMIT = 100;
 
 const filters = reactive({
   source: 'all',
   q: '',
   result: '',
   dateFrom: '',
-  dateTo: '',
-  limit: 80
+  dateTo: ''
 });
 
 const sourceOptions = [
@@ -88,8 +96,7 @@ const rows = computed<AuditRow[]>(() => {
     .filter((row) => !result || resultMatches(row, result))
     .filter((row) => withinDates(row.created_at))
     .filter((row) => !query || fold([row.action, row.actor, row.actor_detail, row.context, row.result].join(' ')).includes(query))
-    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
-    .slice(0, filters.limit);
+    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 });
 
 const counts = computed(() => ({
@@ -99,6 +106,16 @@ const counts = computed(() => ({
   failed: rows.value.filter((row) => row.tone === 'danger' || row.tone === 'warning').length
 }));
 
+const totalPages = computed(() => Math.max(1, Math.ceil(rows.value.length / pageSize)));
+
+const pagedRows = computed(() => {
+  const start = (page.value - 1) * pageSize;
+
+  return rows.value.slice(start, start + pageSize);
+});
+
+const paginationItems = computed<PageItem[]>(() => pageItems(totalPages.value, page.value));
+
 watch(() => props.authToken, () => {
   void initialize();
 }, { immediate: true });
@@ -107,9 +124,48 @@ watch(selectedEmpresaId, () => {
   void load();
 });
 
+watch(() => [filters.source, filters.result, filters.q, filters.dateFrom, filters.dateTo], () => {
+  page.value = 1;
+});
+
+watch(totalPages, (value) => {
+  if (page.value > value) page.value = value;
+});
+
 watch(selected, () => {
   showTechnical.value = false;
 });
+
+function openDetail(row: AuditRow): void {
+  selected.value = row;
+  showDetailModal.value = true;
+}
+
+function goToPage(target: number): void {
+  page.value = Math.min(Math.max(target, 1), totalPages.value);
+}
+
+function pageItems(lastPage: number, current: number): PageItem[] {
+  if (lastPage <= 7) {
+    return Array.from({ length: lastPage }, (_, index) => index + 1);
+  }
+
+  const pages = new Set([1, 2, lastPage - 1, lastPage, current - 1, current, current + 1]);
+  const visible = [...pages]
+    .filter((item) => item >= 1 && item <= lastPage)
+    .sort((a, b) => a - b);
+  const items: PageItem[] = [];
+
+  for (const item of visible) {
+    const previous = items[items.length - 1];
+    if (typeof previous === 'number' && item - previous > 1) {
+      items.push('ellipsis');
+    }
+    items.push(item);
+  }
+
+  return items;
+}
 
 async function initialize(): Promise<void> {
   if (!props.authToken) return;
@@ -136,30 +192,29 @@ async function load(): Promise<void> {
         result: filters.result || undefined,
         date_from: filters.dateFrom || undefined,
         date_to: filters.dateTo || undefined,
-        limit: filters.limit
+        limit: PLATFORM_LIMIT
       }),
       core.value.documents({
         empresa_id: selectedEmpresa.value.id,
         q: filters.q.trim() || undefined,
-        limit: filters.limit,
+        limit: DOCUMENT_LIMIT,
         include_audit: false
       }),
       core.value.mhEvents({
         empresa_id: selectedEmpresa.value.id,
         q: filters.q.trim() || undefined,
-        limit: filters.limit
+        limit: EVENT_LIMIT
       })
     ]);
 
     platformLogs.value = platformResponse.data;
     documents.value = documentResponse.data;
     events.value = eventResponse.data;
-    selected.value = rows.value[0] ?? null;
+    page.value = 1;
   } catch (caught) {
     platformLogs.value = [];
     documents.value = [];
     events.value = [];
-    selected.value = null;
     error.value = messageFromError(caught);
   } finally {
     loading.value = false;
@@ -593,90 +648,163 @@ function messageFromError(caught: unknown): string {
 
     <p v-if="error" class="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-danger-soft dark:text-danger">{{ error }}</p>
 
-    <div class="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.75fr)]">
-      <UiPanel variant="raised">
-        <UiDataTable overflow="auto" min-width="min-w-[960px]">
-          <thead class="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 dark:bg-surface-muted dark:text-soft">
-            <tr>
-              <th class="px-4 py-3">Fecha</th>
-              <th class="px-4 py-3">Origen</th>
-              <th class="px-4 py-3">Qué pasó</th>
-              <th class="px-4 py-3">Usuario</th>
-              <th class="px-4 py-3">Empresa</th>
-              <th class="px-4 py-3">Resultado</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100 dark:divide-line">
-            <tr v-if="loading">
-              <td class="px-4 py-6 text-slate-500 dark:text-muted" colspan="6">Cargando auditoría...</td>
-            </tr>
-            <tr v-else-if="rows.length === 0">
-              <td class="px-4 py-6 text-slate-500 dark:text-muted" colspan="6">No hay registros para estos filtros.</td>
-            </tr>
-            <tr
-              v-for="row in rows"
+    <UiPanel variant="raised">
+      <div class="flex flex-col gap-3 border-b border-slate-100 pb-3 sm:flex-row sm:items-center sm:justify-between dark:border-line">
+        <p class="text-sm text-slate-500 dark:text-muted">{{ rows.length }} {{ rows.length === 1 ? 'registro' : 'registros' }}</p>
+        <nav v-if="totalPages > 1" class="flex items-center gap-1" aria-label="Paginación superior">
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-muted dark:hover:bg-surface-muted"
+            :disabled="page <= 1 || loading"
+            aria-label="Página anterior"
+            @click="goToPage(page - 1)"
+          >
+            <ChevronLeft class="h-4 w-4" />
+          </button>
+          <template v-for="(item, index) in paginationItems" :key="`top-${item}-${index}`">
+            <span v-if="item === 'ellipsis'" class="px-1 text-sm text-slate-400 dark:text-soft">…</span>
+            <button
               v-else
-              :key="row.id"
-              class="cursor-pointer hover:bg-slate-50 dark:hover:bg-surface-muted"
-              :class="selected?.id === row.id ? 'bg-sky-50 dark:bg-primary-soft' : ''"
-              @click="selected = row"
+              type="button"
+              class="flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-sm font-semibold"
+              :class="item === page ? 'bg-sky-600 text-white' : 'text-slate-600 hover:bg-slate-100 dark:text-muted dark:hover:bg-surface-muted'"
+              :disabled="loading"
+              @click="goToPage(item)"
             >
-              <td class="whitespace-nowrap px-4 py-4 text-sm text-slate-600 dark:text-muted">{{ formatDate(row.created_at) }}</td>
-              <td class="px-4 py-4"><UiStatusBadge :tone="sourceTone(row.source)">{{ sourceLabel(row.source) }}</UiStatusBadge></td>
-              <td class="px-4 py-4 font-bold text-slate-950 dark:text-text">{{ row.action }}</td>
-              <td class="px-4 py-4">
-                <p class="font-semibold text-slate-800 dark:text-text">{{ row.actor }}</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-muted">{{ row.actor_detail }}</p>
-              </td>
-              <td class="px-4 py-4 text-sm text-slate-600 dark:text-muted">{{ row.context }}</td>
-              <td class="px-4 py-4"><UiStatusBadge :tone="row.tone">{{ row.result }}</UiStatusBadge></td>
-            </tr>
-          </tbody>
-        </UiDataTable>
-      </UiPanel>
+              {{ item }}
+            </button>
+          </template>
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-muted dark:hover:bg-surface-muted"
+            :disabled="page >= totalPages || loading"
+            aria-label="Página siguiente"
+            @click="goToPage(page + 1)"
+          >
+            <ChevronRight class="h-4 w-4" />
+          </button>
+        </nav>
+      </div>
 
-      <UiPanel variant="raised">
-        <div v-if="selected">
-          <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Detalle</p>
-          <h3 class="mt-2 text-lg font-black text-slate-950 dark:text-text">{{ selected.action }}</h3>
-          <dl class="mt-4 space-y-3 text-sm">
-            <div>
-              <dt class="font-bold text-slate-500 dark:text-soft">Usuario</dt>
-              <dd class="mt-1 text-slate-800 dark:text-text">{{ selected.actor }} · {{ selected.actor_detail }}</dd>
-            </div>
-            <div>
-              <dt class="font-bold text-slate-500 dark:text-soft">Fecha</dt>
-              <dd class="mt-1 text-slate-800 dark:text-text">{{ formatDate(selected.created_at) }}</dd>
-            </div>
-            <div>
-              <dt class="font-bold text-slate-500 dark:text-soft">Empresa</dt>
-              <dd class="mt-1 text-slate-800 dark:text-text">{{ selected.context }}</dd>
-            </div>
-            <div v-for="item in selected.summary" :key="item.label">
-              <dt class="font-bold text-slate-500 dark:text-soft">{{ item.label }}</dt>
-              <dd class="mt-1 text-slate-800 dark:text-text">{{ item.value }}</dd>
+      <UiDataTable overflow="auto" min-width="min-w-[960px]">
+        <thead class="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 dark:bg-surface-muted dark:text-soft">
+          <tr>
+            <th class="px-4 py-3">Fecha</th>
+            <th class="px-4 py-3">Origen</th>
+            <th class="px-4 py-3">Qué pasó</th>
+            <th class="px-4 py-3">Usuario</th>
+            <th class="px-4 py-3">Empresa</th>
+            <th class="px-4 py-3">Resultado</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-line">
+          <tr v-if="loading">
+            <td class="px-4 py-6 text-slate-500 dark:text-muted" colspan="6">Cargando auditoría...</td>
+          </tr>
+          <tr v-else-if="rows.length === 0">
+            <td class="px-4 py-6 text-slate-500 dark:text-muted" colspan="6">No hay registros para estos filtros.</td>
+          </tr>
+          <tr
+            v-for="row in pagedRows"
+            v-else
+            :key="row.id"
+            class="cursor-pointer hover:bg-slate-50 dark:hover:bg-surface-muted"
+            @click="openDetail(row)"
+          >
+            <td class="whitespace-nowrap px-4 py-4 text-sm text-slate-600 dark:text-muted">{{ formatDate(row.created_at) }}</td>
+            <td class="px-4 py-4"><UiStatusBadge :tone="sourceTone(row.source)">{{ sourceLabel(row.source) }}</UiStatusBadge></td>
+            <td class="px-4 py-4 font-bold text-slate-950 dark:text-text">{{ row.action }}</td>
+            <td class="px-4 py-4">
+              <p class="font-semibold text-slate-800 dark:text-text">{{ row.actor }}</p>
+              <p class="mt-1 text-xs text-slate-500 dark:text-muted">{{ row.actor_detail }}</p>
+            </td>
+            <td class="px-4 py-4 text-sm text-slate-600 dark:text-muted">{{ row.context }}</td>
+            <td class="px-4 py-4"><UiStatusBadge :tone="row.tone">{{ row.result }}</UiStatusBadge></td>
+          </tr>
+        </tbody>
+      </UiDataTable>
+
+      <div v-if="totalPages > 1" class="flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between dark:border-line">
+        <p class="text-sm text-slate-500 dark:text-muted">Página {{ page }} de {{ totalPages }}</p>
+        <nav class="flex items-center gap-1" aria-label="Paginación inferior">
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-muted dark:hover:bg-surface-muted"
+            :disabled="page <= 1 || loading"
+            aria-label="Página anterior"
+            @click="goToPage(page - 1)"
+          >
+            <ChevronLeft class="h-4 w-4" />
+          </button>
+          <template v-for="(item, index) in paginationItems" :key="`bottom-${item}-${index}`">
+            <span v-if="item === 'ellipsis'" class="px-1 text-sm text-slate-400 dark:text-soft">…</span>
+            <button
+              v-else
+              type="button"
+              class="flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-sm font-semibold"
+              :class="item === page ? 'bg-sky-600 text-white' : 'text-slate-600 hover:bg-slate-100 dark:text-muted dark:hover:bg-surface-muted'"
+              :disabled="loading"
+              @click="goToPage(item)"
+            >
+              {{ item }}
+            </button>
+          </template>
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-muted dark:hover:bg-surface-muted"
+            :disabled="page >= totalPages || loading"
+            aria-label="Página siguiente"
+            @click="goToPage(page + 1)"
+          >
+            <ChevronRight class="h-4 w-4" />
+          </button>
+        </nav>
+      </div>
+    </UiPanel>
+
+    <UiModalShell
+      :open="showDetailModal && Boolean(selected)"
+      :title="selected?.action ?? 'Detalle'"
+      max-width="max-w-lg"
+      @close="showDetailModal = false"
+    >
+      <template v-if="selected">
+        <dl class="space-y-3 text-sm">
+          <div>
+            <dt class="font-bold text-slate-500 dark:text-soft">Usuario</dt>
+            <dd class="mt-1 text-slate-800 dark:text-text">{{ selected.actor }} · {{ selected.actor_detail }}</dd>
+          </div>
+          <div>
+            <dt class="font-bold text-slate-500 dark:text-soft">Fecha</dt>
+            <dd class="mt-1 text-slate-800 dark:text-text">{{ formatDate(selected.created_at) }}</dd>
+          </div>
+          <div>
+            <dt class="font-bold text-slate-500 dark:text-soft">Empresa</dt>
+            <dd class="mt-1 text-slate-800 dark:text-text">{{ selected.context }}</dd>
+          </div>
+          <div v-for="item in selected.summary" :key="item.label">
+            <dt class="font-bold text-slate-500 dark:text-soft">{{ item.label }}</dt>
+            <dd class="mt-1 text-slate-800 dark:text-text">{{ item.value }}</dd>
+          </div>
+        </dl>
+
+        <div v-if="selected.technical.length" class="mt-5 border-t border-slate-100 pt-3 dark:border-line">
+          <button
+            type="button"
+            class="flex w-full items-center justify-between text-xs font-bold uppercase tracking-wide text-slate-400 hover:text-slate-600 dark:text-soft dark:hover:text-text"
+            @click="showTechnical = !showTechnical"
+          >
+            Detalles técnicos
+            <ChevronDown class="h-4 w-4 transition-transform" :class="showTechnical ? 'rotate-180' : ''" />
+          </button>
+          <dl v-if="showTechnical" class="mt-3 space-y-2 text-xs">
+            <div v-for="item in selected.technical" :key="item.label" class="flex flex-col gap-0.5">
+              <dt class="font-semibold text-slate-500 dark:text-soft">{{ item.label }}</dt>
+              <dd class="break-words text-slate-600 dark:text-muted">{{ item.value }}</dd>
             </div>
           </dl>
-
-          <div v-if="selected.technical.length" class="mt-5 border-t border-slate-100 pt-3 dark:border-line">
-            <button
-              type="button"
-              class="flex w-full items-center justify-between text-xs font-bold uppercase tracking-wide text-slate-400 hover:text-slate-600 dark:text-soft dark:hover:text-text"
-              @click="showTechnical = !showTechnical"
-            >
-              Detalles técnicos
-              <ChevronDown class="h-4 w-4 transition-transform" :class="showTechnical ? 'rotate-180' : ''" />
-            </button>
-            <dl v-if="showTechnical" class="mt-3 space-y-2 text-xs">
-              <div v-for="item in selected.technical" :key="item.label" class="flex flex-col gap-0.5">
-                <dt class="font-semibold text-slate-500 dark:text-soft">{{ item.label }}</dt>
-                <dd class="break-words text-slate-600 dark:text-muted">{{ item.value }}</dd>
-              </div>
-            </dl>
-          </div>
         </div>
-        <p v-else class="text-sm text-slate-500 dark:text-muted">Selecciona un registro para ver el detalle.</p>
-      </UiPanel>
-    </div>
+      </template>
+    </UiModalShell>
   </section>
 </template>
