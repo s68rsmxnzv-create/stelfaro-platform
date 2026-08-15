@@ -20,7 +20,7 @@ export async function workshopReceptionTicket(
   const logo = settings.showLogo && preparedLogo
     ? { name: 'imageRaster', args: [preparedLogo.width, preparedLogo.height, preparedLogo.data, 0] } satisfies PrintOperation
     : null;
-  const copies = ticketSettings.receipt_copies === 1 ? ['COPIA CLIENTE'] : ['COPIA CLIENTE', 'COPIA TALLER'];
+  const copies = ticketSettings.receipt_copies === 1 ? ['COPIA CLIENTE'] : ticketSettings.receipt_copies === 3 ? ['COPIA TALLER'] : ['COPIA CLIENTE', 'COPIA TALLER'];
   const operations: PrintOperation[] = [];
 
   for (const copyLabel of copies) {
