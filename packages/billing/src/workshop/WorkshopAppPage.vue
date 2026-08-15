@@ -334,7 +334,7 @@ async function printReception(order: WorkshopOrder) {
       result === "printed"
         ? {
             title: "Recepción impresa",
-            message: `${order.ticket} fue enviada con ${orders.length} ${orders.length === 1 ? "equipo" : "equipos"} y ${ticketSettings.receipt_copies} ${ticketSettings.receipt_copies === 1 ? "copia" : "copias"}.`,
+            message: `${order.ticket} fue enviada con ${orders.length} ${orders.length === 1 ? "equipo" : "equipos"} y ${ticketSettings.receipt_copies === 2 ? "2 copias" : ticketSettings.receipt_copies === 3 ? "1 copia (taller)" : "1 copia (cliente)"}.`,
             variant: "success",
           }
         : {

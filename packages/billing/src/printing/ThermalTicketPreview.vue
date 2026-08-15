@@ -16,9 +16,12 @@ type PreviewCompany = {
 const props = withDefaults(defineProps<{ settings: PrinterSettings; company?: PreviewCompany | null; variant?: 'dte' | 'workshop'; workshopSettings?: WorkshopTicketSettings }>(), { variant: 'dte', workshopSettings: () => ({ receipt_copies: 2, terms: '' }) });
 const paperClass = computed(() => props.settings.paperWidth === '58' ? 'w-[280px]' : 'w-[370px]');
 const qrSize = computed(() => props.settings.paperWidth === '58' ? 104 : 132);
-const previewCopies = computed(() => props.variant === 'workshop' && props.workshopSettings.receipt_copies === 2
-  ? ['COPIA CLIENTE', 'COPIA TALLER']
-  : [props.variant === 'workshop' ? 'COPIA CLIENTE' : 'DTE']);
+const previewCopies = computed(() => {
+  if (props.variant !== 'workshop') return ['DTE'];
+  if (props.workshopSettings.receipt_copies === 2) return ['COPIA CLIENTE', 'COPIA TALLER'];
+  if (props.workshopSettings.receipt_copies === 3) return ['COPIA TALLER'];
+  return ['COPIA CLIENTE'];
+});
 const issuerName = 'ELECTRÓNICA DEMO';
 const issuerNit = formatIdentity('06141234561019');
 const issuerNrc = formatNrc('1234567');
@@ -42,7 +45,7 @@ function formatNrc(value?: string | null): string {
     <div class="mb-4">
       <h4 class="font-semibold text-text">Vista previa del ticket</h4>
       <p class="mt-1 text-sm text-muted">Referencia visual del contenido y ancho seleccionados.</p>
-      <p v-if="variant === 'workshop'" class="mt-2 inline-flex rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">{{ workshopSettings.receipt_copies }} {{ workshopSettings.receipt_copies === 1 ? 'copia' : 'copias' }}</p>
+      <p v-if="variant === 'workshop'" class="mt-2 inline-flex rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">{{ workshopSettings.receipt_copies === 2 ? '2 copias' : workshopSettings.receipt_copies === 3 ? '1 copia · Taller' : '1 copia · Cliente' }}</p>
       <p v-if="settings.showLogo && !company?.logoUrl" class="mt-2 rounded-md border border-dashed border-line bg-surface px-3 py-2 text-xs text-muted">Aún no has cargado un logo para tu empresa. Súbelo desde el perfil de la empresa para que se imprima en el ticket.</p>
     </div>
 

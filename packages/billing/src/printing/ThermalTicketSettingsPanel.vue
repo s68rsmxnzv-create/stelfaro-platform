@@ -56,7 +56,8 @@ function notify(toast: Omit<BillingFloatingToast, 'id'>): void {
 
 async function persistWorkshopSettings(): Promise<void> {
   try {
-    await new PlatformClient(props.platformBaseUrl, { credentials: 'same-origin' }).updateWorkshopTicketSettings(props.tenantId, { ...workshopSettings, receipt_copies: Number(workshopSettings.receipt_copies) === 1 ? 1 : 2 });
+    const receiptCopies = [1, 2, 3].includes(Number(workshopSettings.receipt_copies)) ? (Number(workshopSettings.receipt_copies) as 1 | 2 | 3) : 2;
+    await new PlatformClient(props.platformBaseUrl, { credentials: 'same-origin' }).updateWorkshopTicketSettings(props.tenantId, { ...workshopSettings, receipt_copies: receiptCopies });
     notify({ title: 'Recepción actualizada', message: 'Copias y condiciones quedaron guardadas para el Taller.', variant: 'success' });
   } catch (reason) {
     notify({ title: 'No se guardó el formato', message: reason instanceof Error ? reason.message : 'Intenta nuevamente.', variant: 'error' });
@@ -82,7 +83,7 @@ async function persistWorkshopSettings(): Promise<void> {
           <button type="button" class="flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition" :class="previewVariant === 'workshop' ? 'bg-primary text-primary-contrast shadow-sm' : 'text-muted hover:bg-surface-muted hover:text-text'" @click="previewVariant = 'workshop'"><Smartphone class="h-4 w-4" />Recepción</button>
         </div>
         <template v-if="workshopEnabled && previewVariant === 'workshop'">
-          <UiSelect v-model="workshopSettings.receipt_copies" label="Copias de recepción" :options="[{ value: 1, label: '1 copia · Cliente' }, { value: 2, label: '2 copias · Cliente y taller' }]" />
+          <UiSelect v-model="workshopSettings.receipt_copies" label="Copias de recepción" :options="[{ value: 1, label: '1 copia · Cliente' }, { value: 2, label: '2 copias · Cliente y taller' }, { value: 3, label: '1 copia · Taller' }]" />
           <p class="-mt-1 text-xs text-muted">La etiqueta con QR del equipo se imprime aparte, desde las acciones de cada orden.</p>
           <UiTextarea v-model="workshopSettings.terms" label="Términos y condiciones" :rows="7" :maxlength="4000" placeholder="Una condición por párrafo. Se imprimirán en las copias de recepción." />
         </template>
