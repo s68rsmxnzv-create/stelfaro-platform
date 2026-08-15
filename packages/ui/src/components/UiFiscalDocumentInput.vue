@@ -26,7 +26,7 @@ const emit = defineEmits<{
 }>();
 
 const detected = computed(() => detectFiscalDocument(props.modelValue ?? ''));
-const placeholder = computed(() => props.allowedTypes === 'nit' ? '0000-000000-000-0' : '00000000-0 o 0000-000000-000-0');
+const placeholder = computed(() => props.allowedTypes === 'nit' ? 'NIT de 14 dígitos' : 'DUI de 9 o NIT de 14 dígitos');
 
 watch(detected, (value) => {
   emit('detected', value);
@@ -41,6 +41,17 @@ function formatInput(event: Event): void {
 
 function detectFiscalDocument(value: string): FiscalDocumentDetection {
   const digits = value.replace(/\D+/g, '');
+  const isPlaceholder = /^(\d)\1+$/.test(digits);
+
+  if ((digits.length === 9 || digits.length === 14) && isPlaceholder) {
+    return {
+      valid: false,
+      type: '',
+      typeLabel: '',
+      number: value,
+      message: 'El documento no puede tener todos los dígitos iguales. Ingresa el DUI o NIT real.'
+    };
+  }
 
   if (props.allowedTypes !== 'nit' && digits.length === 9) {
     return {
