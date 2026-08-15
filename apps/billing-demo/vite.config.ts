@@ -12,7 +12,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
-    allowedHosts: ['billing.stelfaro.com'],
+    allowedHosts: ['new.stelfaro.com'],
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8181',

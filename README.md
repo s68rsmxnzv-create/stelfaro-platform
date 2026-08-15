@@ -26,17 +26,18 @@ Frontend modular para facturacion reutilizable y futuras apps verticales como se
 
 ## Producción
 
-`billing.stelfaro.com` debe servir el build estático de:
+La plataforma desplegada se sirve únicamente desde:
 
 ```text
-/var/www/stelfaro-platform/apps/billing-demo/dist
+https://new.stelfaro.com/
+/var/www/stelfaro-platform-api/public
 ```
 
-El panel administrativo se sirve en su propio subdominio:
+El panel administrativo se publica bajo el mismo origen:
 
 ```text
-https://admin.stelfaro.com/
-/var/www/stelfaro-platform/apps/platform-admin/dist
+https://new.stelfaro.com/administracion/
+/var/www/stelfaro-platform-api/public/administracion
 ```
 
 El frontend consume `/api/v1` en el mismo origen. Nginx enruta `/api/*` hacia Core DTE por el listener interno:
@@ -45,12 +46,12 @@ El frontend consume `/api/v1` en el mismo origen. Nginx enruta `/api/*` hacia Co
 http://127.0.0.1:8181/api/*
 ```
 
-Así el subdominio de billing no depende de Vite ni de servidores locales levantados a mano.
+`apps/billing-demo` queda únicamente como aplicación de desarrollo local; no tiene un subdominio de producción.
 
 La configuración versionada de Nginx queda en:
 
 ```text
-ops/nginx/billing.stelfaro.com.conf
+ops/nginx/new.stelfaro.com.conf
 ```
 
 ## Desarrollo local opcional

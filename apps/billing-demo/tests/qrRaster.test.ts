@@ -5,7 +5,7 @@ import type { PrintOperation } from '../../../packages/billing/src/printing/prin
 describe('prepare58MmQrOperations', () => {
   const operations: PrintOperation[] = [
     { name: 'align', args: ['center'] },
-    { name: 'qr', args: ['https://facturacion.stelfaro.com/equipo/ABC123', 200, 1, 0] },
+    { name: 'qr', args: ['https://new.stelfaro.com/equipo/ABC123', 200, 1, 0] },
     { name: 'text', args: ['Fin\n'] },
   ];
 

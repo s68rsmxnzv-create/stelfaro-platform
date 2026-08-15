@@ -20,7 +20,7 @@ const documentTypes = ref<BillingDocumentType[]>([]);
 const billingCompanies = ref<BillingEmpresa[]>([]);
 const companyLogoBroken = ref(false);
 const themeStorageKey = 'stelfaro:theme';
-const platformAdminUrl = import.meta.env.VITE_PLATFORM_ADMIN_URL || 'https://admin.stelfaro.com/';
+const platformAdminUrl = import.meta.env.VITE_PLATFORM_ADMIN_URL || 'https://new.stelfaro.com/administracion/';
 const platformAdminEmails = String(import.meta.env.VITE_PLATFORM_ADMIN_EMAILS ?? '')
   .split(',')
   .map((email) => email.trim().toLowerCase())

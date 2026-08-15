@@ -90,7 +90,7 @@ Variables:
 - `PRINT_AGENT_PORT=8711`
 - `PRINT_AGENT_PRINTERS=Termica,Otra` para fallback manual
 - `PRINT_AGENT_DRY_RUN=1` para no enviar a impresora
-- `PRINT_AGENT_ALLOWED_ORIGINS=https://platform.stelfaro.com,https://stelfaro.com,https://app.stelfaro.com`
+- `PRINT_AGENT_ALLOWED_ORIGINS=https://new.stelfaro.com`
 - `PRINT_AGENT_MAX_BODY_BYTES=5242880` para limitar cada trabajo
 
 Las solicitudes web se aceptan únicamente desde los orígenes configurados. Las herramientas locales sin cabecera `Origin`, como PowerShell o `curl`, continúan funcionando para diagnóstico.

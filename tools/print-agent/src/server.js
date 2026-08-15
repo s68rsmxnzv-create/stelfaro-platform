@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile);
 const port = Number(process.env.PRINT_AGENT_PORT || 8711);
 const dryRun = process.env.PRINT_AGENT_DRY_RUN === '1';
 const maxBodyBytes = Number(process.env.PRINT_AGENT_MAX_BODY_BYTES || 5 * 1024 * 1024);
-const allowedOrigins = new Set(String(process.env.PRINT_AGENT_ALLOWED_ORIGINS || 'https://platform.stelfaro.com,https://stelfaro.com,https://app.stelfaro.com,https://taller.stelfaro.com,https://facturacion.stelfaro.com,http://localhost:5173,http://localhost:8000').split(',').map((value) => value.trim()).filter(Boolean));
+const allowedOrigins = new Set(String(process.env.PRINT_AGENT_ALLOWED_ORIGINS || 'https://new.stelfaro.com,http://localhost:5173,http://localhost:8000').split(',').map((value) => value.trim()).filter(Boolean));
 const rawPrinterSource = `
 using System;
 using System.Runtime.InteropServices;

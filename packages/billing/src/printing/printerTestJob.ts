@@ -3,8 +3,8 @@ import type { PrintOperation } from './printJob';
 import type { PrinterSettings } from './printerSettings';
 import { splitRasterIntoBands } from './rasterBands';
 
-const TEST_HACIENDA_QR = 'https://facturacion.stelfaro.com/q/m/731/ABCDEFGHIJKL';
-const TEST_DOCUMENT_QR = 'https://facturacion.stelfaro.com/q/d/731/ABCDEFGHIJKL';
+const TEST_HACIENDA_QR = 'https://new.stelfaro.com/q/m/731/ABCDEFGHIJKL';
+const TEST_DOCUMENT_QR = 'https://new.stelfaro.com/q/d/731/ABCDEFGHIJKL';
 const QR_SIZE_58 = 180;
 const QR_GAP_58 = 16;
 
