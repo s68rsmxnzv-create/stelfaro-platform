@@ -10,7 +10,31 @@ const execFileAsync = promisify(execFile);
 const port = Number(process.env.PRINT_AGENT_PORT || 8711);
 const dryRun = process.env.PRINT_AGENT_DRY_RUN === '1';
 const maxBodyBytes = Number(process.env.PRINT_AGENT_MAX_BODY_BYTES || 5 * 1024 * 1024);
-const allowedOrigins = new Set(String(process.env.PRINT_AGENT_ALLOWED_ORIGINS || 'https://new.stelfaro.com,http://localhost:5173,http://localhost:8000').split(',').map((value) => value.trim()).filter(Boolean));
+// Origins are trusted by domain pattern (any https://*.stelfaro.com, plus the apex
+// domain) rather than by an exact-match list baked into the packaged executable, so
+// future domain migrations within stelfaro.com never require repackaging or
+// reinstalling the agent. PRINT_AGENT_ALLOWED_ORIGINS remains available as an
+// explicit override for origins outside that domain (e.g. local development).
+const explicitAllowedOrigins = process.env.PRINT_AGENT_ALLOWED_ORIGINS
+  ? new Set(process.env.PRINT_AGENT_ALLOWED_ORIGINS.split(',').map((value) => value.trim()).filter(Boolean))
+  : null;
+const trustedOriginSuffix = '.stelfaro.com';
+const trustedOriginApex = 'stelfaro.com';
+const devOrigins = new Set(['http://localhost:5173', 'http://localhost:8000']);
+
+export function isAllowedOrigin(origin) {
+  if (!origin) return false;
+  if (explicitAllowedOrigins) return explicitAllowedOrigins.has(origin);
+  if (devOrigins.has(origin)) return true;
+
+  try {
+    const url = new URL(origin);
+    if (url.protocol !== 'https:') return false;
+    return url.hostname === trustedOriginApex || url.hostname.endsWith(trustedOriginSuffix);
+  } catch {
+    return false;
+  }
+}
 const rawPrinterSource = `
 using System;
 using System.Runtime.InteropServices;
@@ -51,7 +75,7 @@ function json(req, res, status, payload) {
   const origin = String(req.headers.origin || '');
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
-    ...(origin && allowedOrigins.has(origin) ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}),
+    ...(origin && isAllowedOrigin(origin) ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}),
     'Access-Control-Allow-Headers': 'Content-Type, X-Stelfaro-Agent-Token',
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
     'Cache-Control': 'no-store, no-cache, must-revalidate',
@@ -63,7 +87,7 @@ function json(req, res, status, payload) {
 
 function assertAllowedOrigin(req) {
   const origin = String(req.headers.origin || '');
-  if (origin && !allowedOrigins.has(origin)) throw Object.assign(new Error('Origen no autorizado.'), { statusCode: 403 });
+  if (origin && !isAllowedOrigin(origin)) throw Object.assign(new Error('Origen no autorizado.'), { statusCode: 403 });
 }
 
 async function readBody(req) {
@@ -428,7 +452,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/health') {
       assertAllowedOrigin(req);
-      return json(req, res, 200, { ok: true, name: 'Stelfaro Print Agent', version: '0.2.10', platform: os.platform(), dryRun });
+      return json(req, res, 200, { ok: true, name: 'Stelfaro Print Agent', version: '0.2.11', platform: os.platform(), dryRun });
     }
 
     if (req.method === 'GET' && (url.pathname === '/printers' || url.pathname === '/impresoras')) {

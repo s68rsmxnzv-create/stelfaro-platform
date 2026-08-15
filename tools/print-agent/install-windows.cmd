@@ -10,7 +10,7 @@ if not "%ERRORLEVEL%"=="0" (
 )
 
 set TARGET=C:\print-agent
-set EXPECTED_VERSION=0.2.10
+set EXPECTED_VERSION=0.2.11
 
 echo Deteniendo cualquier version anterior...
 if exist "%TARGET%\stelfaro-print-agent-service.exe" (

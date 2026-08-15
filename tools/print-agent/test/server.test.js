@@ -1,6 +1,25 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildEscpos, createWindowsRawPrintInvocation, encodeText, shouldStartServer } from '../src/server.js';
+import { buildEscpos, createWindowsRawPrintInvocation, encodeText, isAllowedOrigin, shouldStartServer } from '../src/server.js';
+
+test('trusts any https subdomain of stelfaro.com without an explicit allow-list', () => {
+  assert.equal(isAllowedOrigin('https://new.stelfaro.com'), true);
+  assert.equal(isAllowedOrigin('https://stelfaro.com'), true);
+  assert.equal(isAllowedOrigin('https://taller.stelfaro.com'), true);
+  assert.equal(isAllowedOrigin('https://admin.stelfaro.com'), true);
+});
+
+test('rejects lookalike or non-https origins by default', () => {
+  assert.equal(isAllowedOrigin('https://notstelfaro.com'), false);
+  assert.equal(isAllowedOrigin('https://stelfaro.com.evil.test'), false);
+  assert.equal(isAllowedOrigin('http://stelfaro.com'), false);
+  assert.equal(isAllowedOrigin(''), false);
+});
+
+test('still trusts local dev origins', () => {
+  assert.equal(isAllowedOrigin('http://localhost:5173'), true);
+  assert.equal(isAllowedOrigin('http://localhost:8000'), true);
+});
 
 test('encodes Spanish text using CP850', () => {
   assert.deepEqual(
