@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import {
   CoreDteClient,
   PlatformClient,
@@ -19,6 +19,7 @@ import {
 import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiPhoneInput, UiRefreshButton, UiSaveIcon, UiSearchInput, UiSearchSelect, UiSelect, UiStatusBadge, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
 import BillingModalShell from '../components/BillingModalShell.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
+import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
 import { clearBillingDataCache } from '../support/billingDataCache';
 
 const props = withDefaults(defineProps<{
@@ -90,6 +91,25 @@ const brokenLogoIds = ref<Set<number>>(new Set());
 const companyActivities = ref<string[]>(['']);
 const catalogs = ref<BillingCatalogs | null>(null);
 const syncingCompany = ref(false);
+const dteOptions = [
+  { code: '01', label: 'Factura consumidor final', short: 'FCF' },
+  { code: '03', label: 'Comprobante credito fiscal', short: 'CCF' },
+  { code: '05', label: 'Nota de credito', short: 'NC' },
+  { code: '06', label: 'Nota de debito', short: 'ND' },
+  { code: '14', label: 'Sujeto excluido', short: 'FSE' }
+];
+const eventOptions = [
+  { code: 'invalidacion', label: 'Invalidacion', short: 'INV' },
+  { code: 'contingencia', label: 'Contingencia', short: 'CONT' },
+  { code: 'retorno', label: 'Retorno', short: 'RET' },
+  { code: 'operaciones_especiales', label: 'Operaciones especiales', short: 'OPE' }
+];
+const selectedDteCodes = ref<string[]>(dteOptions.map((option) => option.code));
+const selectedEventTypes = ref<string[]>(eventOptions.map((option) => option.code));
+const savingEnabledTypes = ref(false);
+const floatingToasts = ref<BillingFloatingToast[]>([]);
+let floatingToastId = 0;
+const floatingToastTimers: ReturnType<typeof window.setTimeout>[] = [];
 const fiscalDocument = ref<FiscalDocumentDetection>({
   valid: false,
   type: '',
@@ -362,6 +382,19 @@ const resultLabel = computed(() => {
 onMounted(() => {
   void loadInitialData();
 });
+
+onBeforeUnmount(() => {
+  floatingToastTimers.forEach((timer) => window.clearTimeout(timer));
+});
+
+function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
+  const id = ++floatingToastId;
+  floatingToasts.value = [...floatingToasts.value, { id, ...toast }];
+  const timer = window.setTimeout(() => {
+    floatingToasts.value = floatingToasts.value.filter((item) => item.id !== id);
+  }, 4300);
+  floatingToastTimers.push(timer);
+}
 
 watch(selectedEmpresa, (empresa) => {
   syncCompanyForm(empresa);
@@ -773,6 +806,12 @@ function syncCompanyForm(empresa: BillingEmpresa | null): void {
   });
   companyActivities.value = activities.length ? activities : [''];
   syncPrimaryActivity();
+  selectedDteCodes.value = empresa?.enabled_document_types?.length
+    ? empresa.enabled_document_types
+    : dteOptions.map((option) => option.code);
+  selectedEventTypes.value = empresa?.enabled_event_types?.length
+    ? empresa.enabled_event_types
+    : eventOptions.map((option) => option.code);
   queueMicrotask(() => {
     syncingCompany.value = false;
   });
@@ -1040,6 +1079,8 @@ async function saveCompanyData(): Promise<void> {
     codigo_actividad: companyForm.codigo_actividad,
     desc_actividad: companyForm.desc_actividad,
     actividades_economicas: normalizedEconomicActivities(),
+    enabled_document_types: selectedDteCodes.value,
+    enabled_event_types: selectedEventTypes.value,
     ambiente: companyForm.ambiente,
     direccion: companyForm.direccion,
     departamento: companyForm.departamento,
@@ -1070,6 +1111,64 @@ function addCompanyActivity(): void {
   }
 
   companyActivities.value = [...companyActivities.value, ''];
+}
+
+function toggleDte(code: string): void {
+  if (selectedDteCodes.value.includes(code)) {
+    if (selectedDteCodes.value.length === 1) {
+      return;
+    }
+
+    selectedDteCodes.value = selectedDteCodes.value.filter((item) => item !== code);
+  } else {
+    selectedDteCodes.value = [...selectedDteCodes.value, code];
+  }
+
+  void saveEnabledTypes();
+}
+
+function toggleEventType(code: string): void {
+  if (selectedEventTypes.value.includes(code)) {
+    if (selectedEventTypes.value.length === 1) {
+      return;
+    }
+
+    selectedEventTypes.value = selectedEventTypes.value.filter((item) => item !== code);
+  } else {
+    selectedEventTypes.value = [...selectedEventTypes.value, code];
+  }
+
+  void saveEnabledTypes();
+}
+
+async function saveEnabledTypes(): Promise<void> {
+  if (!selectedEmpresa.value) {
+    return;
+  }
+
+  savingEnabledTypes.value = true;
+
+  try {
+    await client.value.updateBillingCompany(selectedEmpresa.value.id, {
+      enabled_document_types: selectedDteCodes.value,
+      enabled_event_types: selectedEventTypes.value
+    });
+    showFloatingToast({
+      title: 'Cambios guardados',
+      message: 'DTE y eventos habilitados actualizados.',
+      variant: 'success'
+    });
+    await loadContext();
+  } catch (caught) {
+    showFloatingToast({
+      title: 'No fue posible guardar',
+      message: await errorMessageFromResponse(caught, 'No fue posible actualizar los DTE/eventos habilitados.'),
+      variant: 'error'
+    });
+    syncCompanyForm(selectedEmpresa.value);
+  } finally {
+    savingEnabledTypes.value = false;
+  }
 }
 
 function removeCompanyActivity(index: number): void {
@@ -1626,6 +1725,60 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               <div class="grid gap-4" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
                 <UiPhoneInput v-model="companyForm.telefono" label="Telefono" />
                 <UiEmailInput v-model="companyForm.email" label="Correo" />
+              </div>
+            </div>
+
+            <div class="mt-6 grid gap-3 border-t border-slate-100 pt-5">
+              <div>
+                <p class="text-sm font-semibold text-slate-950">DTE habilitados</p>
+                <p class="mt-1 text-xs text-slate-500">Estos documentos tendran correlativos activos y seran los unicos visibles para el tenant. Los cambios se guardan al instante.</p>
+              </div>
+
+              <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                <div
+                  v-for="option in dteOptions"
+                  :key="option.code"
+                  class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  <span class="min-w-0">
+                    <span class="block truncate text-sm font-semibold text-slate-950">{{ option.short }}</span>
+                    <span class="mt-0.5 block truncate text-xs text-slate-500">{{ option.label }}</span>
+                  </span>
+                  <UiToggle
+                    class="shrink-0"
+                    :model-value="selectedDteCodes.includes(option.code)"
+                    :disabled="loading || savingEnabledTypes"
+                    :aria-label="`Habilitar ${option.label}`"
+                    @update:model-value="toggleDte(option.code)"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-6 grid gap-3 border-t border-slate-100 pt-5">
+              <div>
+                <p class="text-sm font-semibold text-slate-950">Eventos habilitados</p>
+                <p class="mt-1 text-xs text-slate-500">Estos eventos MH seran visibles y permitidos para el tenant. Los cambios se guardan al instante.</p>
+              </div>
+
+              <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                <div
+                  v-for="option in eventOptions"
+                  :key="option.code"
+                  class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  <span class="min-w-0">
+                    <span class="block truncate text-sm font-semibold text-slate-950">{{ option.short }}</span>
+                    <span class="mt-0.5 block truncate text-xs text-slate-500">{{ option.label }}</span>
+                  </span>
+                  <UiToggle
+                    class="shrink-0"
+                    :model-value="selectedEventTypes.includes(option.code)"
+                    :disabled="loading || savingEnabledTypes"
+                    :aria-label="`Habilitar ${option.label}`"
+                    @update:model-value="toggleEventType(option.code)"
+                  />
+                </div>
               </div>
             </div>
 
@@ -2207,5 +2360,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
       :message="deleteOverlayMessage"
       @close="deleteOverlayOpen = false"
     />
+
+    <BillingFloatingToastStack :toasts="floatingToasts" />
   </div>
 </template>
