@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue';
-import { Bell, CalendarClock, CheckCheck, FileClock, Trash2, X } from 'lucide-vue-next';
+import { Bell, CalendarClock, CheckCheck, Download, FileClock, Trash2, X } from 'lucide-vue-next';
 import { PlatformClient, type PlatformInternalNotification } from '@stelfaro/api-client';
 import { UiButton, UiStatusBadge } from '@stelfaro/ui';
 
@@ -168,11 +168,13 @@ function dueLabel(notification: PlatformInternalNotification): string {
 function notificationIcon(notification: PlatformInternalNotification): Component {
   if (notification.category === 'tenant_request') return FileClock;
   if (notification.category === 'tax_deadline') return CalendarClock;
+  if (notification.category === 'agent_release') return Download;
   return Bell;
 }
 
 function notificationTone(notification: PlatformInternalNotification): string {
   if (notification.category === 'tenant_request') return 'bg-sky-100 text-sky-700 dark:bg-primary-soft dark:text-primary';
+  if (notification.category === 'agent_release') return 'bg-emerald-100 text-emerald-700 dark:bg-success-soft dark:text-success';
   return 'bg-amber-100 text-amber-700 dark:bg-warning-soft dark:text-warning';
 }
 
