@@ -508,7 +508,7 @@ export type FollowUpNotesResponse = {
 };
 
 export type WorkshopTicketSettings = {
-  receipt_copies: 1 | 2;
+  receipt_copies: 1 | 2 | 3;
   terms: string;
 };
 
