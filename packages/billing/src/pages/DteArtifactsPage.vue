@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { CoreDteClient, type DteBulkExportSource, type DteDraftSummary, type LegacyDteArchiveSummary, type MhFiscalEventSummary, type PaginationMeta } from '@stelfaro/api-client';
+import { CoreDteClient, type DteDraftSummary, type MhFiscalEventSummary, type PaginationMeta } from '@stelfaro/api-client';
 import { currency, fiscalDateTime } from '@stelfaro/shared';
 import { UiActionDropdown, UiActionMenuItem, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiMailIcon, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import { Printer, SlidersHorizontal } from 'lucide-vue-next';
@@ -12,21 +12,14 @@ const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
   authToken?: string | null;
   initialArtifactType?: ArtifactTab;
-  empresaId?: number;
 }>(), {
   coreBaseUrl: '/api/v1',
   authToken: null,
-  initialArtifactType: 'dte',
-  empresaId: 0
+  initialArtifactType: 'dte'
 });
 
-type ArtifactTab = 'dte' | 'events' | 'legacy';
+type ArtifactTab = 'dte' | 'events';
 type PageItem = number | 'ellipsis';
-const tabOptions: Array<{ value: ArtifactTab; label: string }> = [
-  { value: 'dte', label: 'DTE' },
-  { value: 'events', label: 'Eventos' },
-  { value: 'legacy', label: 'Historial' }
-];
 
 const supportedTypes = new Set(['01', '03', '05', '06', '14']);
 const supportedEventTypes = new Set(['invalidacion', 'retorno', 'operaciones_especiales']);
@@ -61,21 +54,10 @@ const tipoDte = ref('');
 const eventType = ref('');
 const documents = ref<DteDraftSummary[]>([]);
 const events = ref<MhFiscalEventSummary[]>([]);
-const legacyItems = ref<LegacyDteArchiveSummary[]>([]);
 const dtePage = ref(1);
 const eventPage = ref(1);
-const legacyPage = ref(1);
 const dteMeta = ref<PaginationMeta | null>(null);
 const eventMeta = ref<PaginationMeta | null>(null);
-const legacyMeta = ref<PaginationMeta | null>(null);
-const openingLegacyPdfId = ref<string | null>(null);
-const openingLegacyJsonId = ref<string | null>(null);
-const exportFrom = ref('');
-const exportTo = ref('');
-const exportSource = ref<DteBulkExportSource>('both');
-const exporting = ref(false);
-const exportError = ref<string | null>(null);
-const exportProgress = ref<{ processed: number; total: number; percent: number } | null>(null);
 const floatingToasts = ref<BillingFloatingToast[]>([]);
 let floatingToastId = 0;
 const floatingToastTimers: ReturnType<typeof window.setTimeout>[] = [];
@@ -86,31 +68,12 @@ let searchTimer: ReturnType<typeof window.setTimeout> | null = null;
 const emptyState = computed(() => {
   if (loading.value) return false;
 
-  if (activeTab.value === 'dte') return documents.value.length === 0;
-  if (activeTab.value === 'legacy') return legacyItems.value.length === 0;
-
-  return events.value.length === 0;
+  return activeTab.value === 'dte' ? documents.value.length === 0 : events.value.length === 0;
 });
 
-const currentMeta = computed(() => {
-  if (activeTab.value === 'dte') return dteMeta.value;
-  if (activeTab.value === 'legacy') return legacyMeta.value;
-
-  return eventMeta.value;
-});
-const currentPage = computed(() => {
-  if (activeTab.value === 'dte') return dtePage.value;
-  if (activeTab.value === 'legacy') return legacyPage.value;
-
-  return eventPage.value;
-});
-const resultCount = computed(() => {
-  if (currentMeta.value) return currentMeta.value.total;
-  if (activeTab.value === 'dte') return documents.value.length;
-  if (activeTab.value === 'legacy') return legacyItems.value.length;
-
-  return events.value.length;
-});
+const currentMeta = computed(() => activeTab.value === 'dte' ? dteMeta.value : eventMeta.value);
+const currentPage = computed(() => activeTab.value === 'dte' ? dtePage.value : eventPage.value);
+const resultCount = computed(() => currentMeta.value?.total ?? (activeTab.value === 'dte' ? documents.value.length : events.value.length));
 const paginationItems = computed<PageItem[]>(() => pageItems(currentMeta.value?.last_page ?? 1, currentPage.value));
 const activeFilterLabel = computed(() => {
   const value = activeTab.value === 'dte' ? tipoDte.value : eventType.value;
@@ -164,32 +127,7 @@ async function loadActiveTab(): Promise<void> {
     return;
   }
 
-  if (activeTab.value === 'legacy') {
-    await loadLegacy();
-    return;
-  }
-
   await loadDocuments();
-}
-
-async function loadLegacy(): Promise<void> {
-  loading.value = true;
-  error.value = null;
-
-  try {
-    const response = await client.value.legacyDteArchive({
-      empresa_id: props.empresaId || undefined,
-      limit: pageSize,
-      page: legacyPage.value
-    });
-
-    legacyItems.value = response.data;
-    legacyMeta.value = response.meta as PaginationMeta ?? fallbackMeta(legacyItems.value.length, legacyPage.value);
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'No fue posible cargar el historial legado.';
-  } finally {
-    loading.value = false;
-  }
 }
 
 async function loadDocuments(): Promise<void> {
@@ -239,7 +177,6 @@ async function loadEvents(): Promise<void> {
 function resetPages(): void {
   dtePage.value = 1;
   eventPage.value = 1;
-  legacyPage.value = 1;
 }
 
 function goToPage(page: number): void {
@@ -250,13 +187,6 @@ function goToPage(page: number): void {
     if (nextPage === dtePage.value) return;
     dtePage.value = nextPage;
     void loadDocuments();
-    return;
-  }
-
-  if (activeTab.value === 'legacy') {
-    if (nextPage === legacyPage.value) return;
-    legacyPage.value = nextPage;
-    void loadLegacy();
     return;
   }
 
@@ -368,78 +298,6 @@ async function openEventJson(event: MhFiscalEventSummary): Promise<void> {
     error.value = caught instanceof Error ? caught.message : 'No fue posible abrir el JSON del evento.';
   } finally {
     openingEventJsonId.value = null;
-  }
-}
-
-async function openLegacyPdf(item: LegacyDteArchiveSummary): Promise<void> {
-  const target = window.open('about:blank', '_blank');
-  openingLegacyPdfId.value = item.id;
-  error.value = null;
-
-  try {
-    const pdf = await client.value.legacyDteArchivePdf(item.id);
-    openBlob(target, pdf, 'PDF');
-  } catch (caught) {
-    if (target) target.close();
-    error.value = caught instanceof Error ? caught.message : 'No fue posible abrir el PDF del historial.';
-  } finally {
-    openingLegacyPdfId.value = null;
-  }
-}
-
-async function openLegacyJson(item: LegacyDteArchiveSummary): Promise<void> {
-  const target = window.open('about:blank', '_blank');
-  openingLegacyJsonId.value = item.id;
-  error.value = null;
-
-  try {
-    const json = await client.value.legacyDteArchiveJson(item.id);
-    openBlob(target, json, 'JSON');
-  } catch (caught) {
-    if (target) target.close();
-    error.value = caught instanceof Error ? caught.message : 'No fue posible abrir el JSON del historial.';
-  } finally {
-    openingLegacyJsonId.value = null;
-  }
-}
-
-async function downloadZipExport(): Promise<void> {
-  if (!props.empresaId || !exportFrom.value || !exportTo.value) return;
-
-  exporting.value = true;
-  exportError.value = null;
-  exportProgress.value = null;
-
-  try {
-    let progress = await client.value.startDteBulkExport({
-      empresa_id: props.empresaId,
-      from: exportFrom.value,
-      to: exportTo.value,
-      source: exportSource.value
-    });
-    exportProgress.value = { processed: progress.processed, total: progress.total, percent: progress.percent };
-
-    while (!progress.ready && !unmounted) {
-      progress = await client.value.stepDteBulkExport(progress.job, props.empresaId);
-      exportProgress.value = { processed: progress.processed, total: progress.total, percent: progress.percent };
-    }
-
-    if (unmounted) return;
-
-    const blob = await client.value.downloadDteBulkExport(progress.job, props.empresaId);
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = progress.file_name || 'dte.zip';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-    pushFloatingToast({ title: 'ZIP listo', message: `Se descargaron ${progress.total} documentos.`, variant: 'success' });
-  } catch (caught) {
-    exportError.value = caught instanceof Error ? caught.message : 'No fue posible generar el ZIP.';
-  } finally {
-    exporting.value = false;
   }
 }
 
@@ -587,56 +445,6 @@ function formatDate(value?: string | null): string {
     <p v-if="error" class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ error }}</p>
     <BillingFloatingToastStack :toasts="floatingToasts" />
 
-    <div class="flex gap-2 rounded-xl border border-line bg-surface p-1.5 shadow-sm">
-      <button
-        v-for="tab in tabOptions"
-        :key="tab.value"
-        type="button"
-        class="flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition"
-        :class="activeTab === tab.value ? 'bg-slate-950 text-white' : 'text-slate-600 hover:bg-slate-50'"
-        @click="activeTab = tab.value"
-      >
-        {{ tab.label }}
-      </button>
-    </div>
-
-    <div v-if="props.empresaId" class="rounded-2xl border border-line bg-surface p-3 shadow-sm md:rounded-lg md:p-5">
-      <p class="text-sm font-semibold text-slate-950">Descargar ZIP por rango de fechas</p>
-      <p class="mt-1 text-xs text-muted">Incluye el JSON y PDF de cada documento (emitidos y/o historial legado).</p>
-
-      <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
-        <label class="text-xs font-semibold text-slate-600">
-          Desde
-          <input v-model="exportFrom" type="date" class="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm text-slate-950" />
-        </label>
-        <label class="text-xs font-semibold text-slate-600">
-          Hasta
-          <input v-model="exportTo" type="date" class="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm text-slate-950" />
-        </label>
-        <label class="text-xs font-semibold text-slate-600">
-          Origen
-          <select v-model="exportSource" class="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm text-slate-950">
-            <option value="both">Emitidos + historial</option>
-            <option value="emitted">Solo emitidos</option>
-            <option value="legacy">Solo historial legado</option>
-          </select>
-        </label>
-        <button
-          type="button"
-          class="self-end rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
-          :disabled="exporting || !exportFrom || !exportTo"
-          @click="downloadZipExport"
-        >
-          {{ exporting ? 'Preparando...' : 'Descargar ZIP' }}
-        </button>
-      </div>
-
-      <p v-if="exportProgress && exporting" class="mt-2 text-xs text-muted">
-        {{ exportProgress.processed }}/{{ exportProgress.total }} documentos ({{ exportProgress.percent }}%)
-      </p>
-      <p v-if="exportError" class="mt-2 text-xs text-rose-600">{{ exportError }}</p>
-    </div>
-
     <div class="rounded-2xl border border-line bg-surface p-3 shadow-sm md:rounded-lg md:p-5">
       <div class="space-y-3">
         <div class="flex items-end gap-2">
@@ -677,13 +485,11 @@ function formatDate(value?: string | null): string {
           />
 
           <UiSelect
-            v-else-if="activeTab === 'events'"
+            v-else
             v-model="eventType"
             label="Tipo de evento"
             :options="artifactEventTypeOptions"
           />
-
-          <div v-else></div>
 
           <div class="flex items-center justify-between rounded-xl bg-surface-raised px-3 py-2 text-sm text-muted md:block md:min-w-28 md:rounded-md">
             <p class="text-xs font-semibold uppercase">Resultados</p>
@@ -714,58 +520,17 @@ function formatDate(value?: string | null): string {
           v-else
           class="hidden grid-cols-[minmax(0,1.5fr)_160px_96px] gap-4 rounded-t-md bg-slate-50 px-4 py-3 text-xs font-semibold uppercase text-slate-500 md:grid"
         >
-          <span>{{ activeTab === 'legacy' ? 'Documento' : 'Evento' }}</span>
+          <span>Evento</span>
           <span>Fecha</span>
           <span class="text-right">Acciones</span>
         </div>
 
         <div v-if="loading" class="flex justify-center px-4 py-10">
-          <UiLoadingMark :label="activeTab === 'dte' ? 'Cargando comprobantes' : activeTab === 'legacy' ? 'Cargando historial' : 'Cargando eventos'" />
+          <UiLoadingMark :label="activeTab === 'dte' ? 'Cargando comprobantes' : 'Cargando eventos'" />
         </div>
 
         <div v-else-if="emptyState" class="px-4 py-10 text-sm text-slate-600">
-          {{ activeTab === 'dte' ? 'No hay comprobantes para mostrar.' : activeTab === 'legacy' ? 'No hay historial legado para mostrar.' : eventEmptyMessage() }}
-        </div>
-
-        <div v-else-if="activeTab === 'legacy'" class="space-y-3 md:divide-y md:divide-line md:space-y-0">
-          <article
-            v-for="item in legacyItems"
-            :key="item.id"
-            class="sf-interactive-row relative grid grid-cols-1 gap-3 rounded-2xl border border-line bg-surface px-4 py-4 shadow-sm md:grid-cols-[minmax(0,1.5fr)_160px_96px] md:items-center md:rounded-none md:border-0 md:bg-transparent md:shadow-none"
-          >
-            <div class="min-w-0 pr-12 md:pr-0">
-              <p class="flex min-w-0 items-center gap-2 font-semibold text-slate-950">
-                <UiDocumentIcon class="h-5 w-5 shrink-0 text-sky-600" />
-                <span class="truncate">{{ item.numeroControl ?? item.codigoGeneracion ?? item.id }}</span>
-              </p>
-              <p class="mt-1 truncate font-mono text-xs text-slate-500">{{ item.codigoGeneracion }}</p>
-              <p class="mt-2 text-xs font-semibold uppercase text-primary">{{ item.documentoCodigo }}</p>
-            </div>
-
-            <p class="text-sm text-slate-600">{{ formatDate(item.fechaEmision) }}</p>
-
-            <UiActionDropdown class="absolute right-3 top-3 md:static" label="Abrir acciones del historial" menu-width="w-48">
-              <button
-                type="button"
-                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="openingLegacyPdfId === item.id"
-                @click="openLegacyPdf(item)"
-              >
-                <UiDocumentIcon class="h-5 w-5 text-sky-600" />
-                <span>{{ openingLegacyPdfId === item.id ? 'Abriendo PDF...' : 'Abrir PDF' }}</span>
-              </button>
-
-              <button
-                type="button"
-                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="openingLegacyJsonId === item.id"
-                @click="openLegacyJson(item)"
-              >
-                <UiCodeBracketIcon class="h-5 w-5 text-sky-600" />
-                <span>{{ openingLegacyJsonId === item.id ? 'Abriendo JSON...' : 'Abrir JSON' }}</span>
-              </button>
-            </UiActionDropdown>
-          </article>
+          {{ activeTab === 'dte' ? 'No hay comprobantes para mostrar.' : eventEmptyMessage() }}
         </div>
 
         <div v-else-if="activeTab === 'dte'" class="space-y-3 md:divide-y md:divide-line md:space-y-0">

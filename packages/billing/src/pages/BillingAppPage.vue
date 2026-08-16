@@ -459,7 +459,6 @@ const selectedComponentProps = computed(() => {
     return {
       ...baseProps,
       initialArtifactType: selectedArtifactType.value,
-      empresaId: Number(activeCompany.value?.id || 0),
     };
   }
 

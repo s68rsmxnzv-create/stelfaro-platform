@@ -1897,34 +1897,6 @@ export type PaginationMeta = {
   has_more_pages: boolean;
 };
 
-export type LegacyDteArchiveSummary = {
-  id: string;
-  empresaId: number;
-  documentoCodigo: string;
-  numeroControl: string | null;
-  codigoGeneracion: string | null;
-  fechaEmision: string | null;
-};
-
-export type LegacyDteArchiveListResponse = {
-  data: LegacyDteArchiveSummary[];
-  meta: Pick<PaginationMeta, "current_page" | "per_page" | "last_page" | "total">;
-};
-
-export type DteBulkExportSource = "emitted" | "legacy" | "both";
-
-export type DteBulkExportProgress = {
-  ok: boolean;
-  job: string;
-  status: "processing" | "ready";
-  processed: number;
-  total: number;
-  percent: number;
-  ready: boolean;
-  file_name: string;
-  failed: Array<{ id: string; message: string }>;
-};
-
 export type MhFiscalEventValidation = {
   id: number;
   estado: string;
@@ -4632,8 +4604,6 @@ export class CoreDteClient {
       platform_user_id?: number;
       performed_by_platform_user_id?: number;
       issued_by_user_id?: number;
-      from?: string;
-      to?: string;
       limit?: number;
       page?: number;
       include_payload?: boolean;
@@ -4775,62 +4745,6 @@ export class CoreDteClient {
     return this.http
       .get(`mh/events/${id}/artifacts/client-json`, {
         headers: { Accept: "application/json" },
-      })
-      .blob();
-  }
-
-  legacyDteArchive(
-    params: {
-      empresa_id?: number;
-      documento_codigo?: string;
-      from?: string;
-      to?: string;
-      limit?: number;
-      page?: number;
-    } = {},
-  ): Promise<LegacyDteArchiveListResponse> {
-    return this.http
-      .get("billing/legacy-archive", { searchParams: compactParams(params) })
-      .json();
-  }
-
-  legacyDteArchiveJson(id: string): Promise<Blob> {
-    return this.http
-      .get(`billing/legacy-archive/${id}/json`, {
-        headers: { Accept: "application/json" },
-      })
-      .blob();
-  }
-
-  legacyDteArchivePdf(id: string): Promise<Blob> {
-    return this.http
-      .get(`billing/legacy-archive/${id}/pdf`, {
-        headers: { Accept: "application/pdf" },
-        timeout: 90000,
-      })
-      .blob();
-  }
-
-  startDteBulkExport(payload: {
-    empresa_id: number;
-    from: string;
-    to: string;
-    source?: DteBulkExportSource;
-  }): Promise<DteBulkExportProgress> {
-    return this.http.post("billing/dte-exports", { json: payload }).json();
-  }
-
-  stepDteBulkExport(job: string, empresaId: number): Promise<DteBulkExportProgress> {
-    return this.http
-      .post(`billing/dte-exports/${job}/step`, { json: { empresa_id: empresaId } })
-      .json();
-  }
-
-  downloadDteBulkExport(job: string, empresaId: number): Promise<Blob> {
-    return this.http
-      .get(`billing/dte-exports/${job}/download`, {
-        searchParams: { empresa_id: empresaId },
-        timeout: 90000,
       })
       .blob();
   }
