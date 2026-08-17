@@ -80,44 +80,44 @@ async function saveTransport(): Promise<void> {
 <template>
   <section class="mx-auto max-w-5xl">
     <div class="mb-6">
-      <p class="text-sm font-semibold uppercase tracking-wide text-slate-500">Notificaciones</p>
-      <h1 class="mt-1 text-2xl font-semibold text-slate-950">Buzon SMTP global</h1>
-      <p class="mt-2 max-w-3xl text-sm text-slate-600">
+      <p class="text-sm font-semibold uppercase tracking-wide text-muted">Notificaciones</p>
+      <h1 class="mt-1 text-2xl font-semibold text-text">Buzon SMTP global</h1>
+      <p class="mt-2 max-w-3xl text-sm text-muted">
         Buzon contratado que transporta todos los correos de la plataforma. Los alias de remitente usan este mismo buzon como salida.
       </p>
     </div>
 
-    <div v-if="!session.isConnected" class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+    <div v-if="!session.isConnected" class="rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm text-warning">
       No fue posible conectar con el servicio de notificaciones.
     </div>
 
     <div v-else class="grid gap-6 lg:grid-cols-[1fr_320px]">
-      <form class="rounded-lg border border-slate-200 bg-white p-5" @submit.prevent="saveTransport">
-        <p v-if="error" class="mb-4 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ error }}</p>
-        <p v-if="saved" class="mb-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Buzon guardado.</p>
+      <form class="rounded-lg border border-line bg-surface p-5" @submit.prevent="saveTransport">
+        <p v-if="error" class="mb-4 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">{{ error }}</p>
+        <p v-if="saved" class="mb-4 rounded-md bg-success-soft px-3 py-2 text-sm text-success">Buzon guardado.</p>
 
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="block sm:col-span-2">
-            <span class="text-sm font-medium text-slate-700">Nombre interno</span>
-            <input v-model="form.name" required class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900" />
+            <span class="text-sm font-medium text-muted">Nombre interno</span>
+            <input v-model="form.name" required class="mt-1 h-10 w-full rounded-md border border-line-strong px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary-soft" />
           </label>
 
           <label class="block">
-            <span class="text-sm font-medium text-slate-700">Host SMTP</span>
-            <input v-model="form.host" required class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900" />
+            <span class="text-sm font-medium text-muted">Host SMTP</span>
+            <input v-model="form.host" required class="mt-1 h-10 w-full rounded-md border border-line-strong px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary-soft" />
           </label>
 
           <div class="grid grid-cols-2 gap-3">
             <label class="block">
-              <span class="text-sm font-medium text-slate-700">Puerto</span>
-              <input v-model="form.port" type="number" min="1" max="65535" required class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900" />
+              <span class="text-sm font-medium text-muted">Puerto</span>
+              <input v-model="form.port" type="number" min="1" max="65535" required class="mt-1 h-10 w-full rounded-md border border-line-strong px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary-soft" />
             </label>
             <UiSelect v-model="form.scheme" label="Cifrado" :options="[{ value: 'ssl', label: 'SSL' }, { value: 'tls', label: 'TLS' }, { value: 'null', label: 'Ninguno' }]" />
           </div>
 
           <label class="block">
-            <span class="text-sm font-medium text-slate-700">Usuario SMTP</span>
-            <input v-model="form.username" required class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900" autocomplete="off" />
+            <span class="text-sm font-medium text-muted">Usuario SMTP</span>
+            <input v-model="form.username" required class="mt-1 h-10 w-full rounded-md border border-line-strong px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary-soft" autocomplete="off" />
           </label>
 
           <UiPasswordInput v-model="form.password" label="Contrasena SMTP" autocomplete="new-password" :placeholder="current?.password_configured ? 'Conservar actual' : ''" />
@@ -125,8 +125,8 @@ async function saveTransport(): Promise<void> {
           <UiEmailInput v-model="form.default_from_email" label="From por defecto" required />
 
           <label class="block">
-            <span class="text-sm font-medium text-slate-700">Nombre por defecto</span>
-            <input v-model="form.default_from_name" class="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-900" />
+            <span class="text-sm font-medium text-muted">Nombre por defecto</span>
+            <input v-model="form.default_from_name" class="mt-1 h-10 w-full rounded-md border border-line-strong px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary-soft" />
           </label>
         </div>
 
@@ -136,20 +136,20 @@ async function saveTransport(): Promise<void> {
         </UiButton>
       </form>
 
-      <aside class="rounded-lg border border-slate-200 bg-white p-5">
-        <h2 class="text-base font-semibold text-slate-950">Estado</h2>
+      <aside class="rounded-lg border border-line bg-surface p-5">
+        <h2 class="text-base font-semibold text-text">Estado</h2>
         <dl class="mt-4 space-y-3 text-sm">
           <div>
-            <dt class="text-slate-500">Activo</dt>
-            <dd class="font-medium text-slate-950">{{ current ? 'Si' : 'No configurado' }}</dd>
+            <dt class="text-muted">Activo</dt>
+            <dd class="font-medium text-text">{{ current ? 'Si' : 'No configurado' }}</dd>
           </div>
           <div>
-            <dt class="text-slate-500">Password</dt>
-            <dd class="font-medium text-slate-950">{{ current?.password_configured ? 'Configurado' : 'Pendiente' }}</dd>
+            <dt class="text-muted">Password</dt>
+            <dd class="font-medium text-text">{{ current?.password_configured ? 'Configurado' : 'Pendiente' }}</dd>
           </div>
           <div>
-            <dt class="text-slate-500">Transporte</dt>
-            <dd class="font-medium text-slate-950">{{ current ? `${current.host}:${current.port}` : '-' }}</dd>
+            <dt class="text-muted">Transporte</dt>
+            <dd class="font-medium text-text">{{ current ? `${current.host}:${current.port}` : '-' }}</dd>
           </div>
         </dl>
       </aside>

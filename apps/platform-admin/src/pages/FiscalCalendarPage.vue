@@ -233,9 +233,9 @@ function typeLabel(type: FiscalCalendarEntry['type']): string {
   <section class="mx-auto max-w-7xl">
     <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <p class="text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Gobierno fiscal</p>
-        <h1 class="mt-1 text-2xl font-bold text-slate-950 dark:text-text">Calendario fiscal</h1>
-        <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-muted">Administra asuetos y vencimientos sin modificar ni desplegar código.</p>
+        <p class="text-sm font-bold uppercase tracking-wide text-soft">Gobierno fiscal</p>
+        <h1 class="mt-1 text-2xl font-bold text-text">Calendario fiscal</h1>
+        <p class="mt-2 max-w-3xl text-sm text-muted">Administra asuetos y vencimientos sin modificar ni desplegar código.</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <UiRefreshButton :loading="loading" @click="load(selectedCalendar?.id)" />
@@ -244,56 +244,56 @@ function typeLabel(type: FiscalCalendarEntry['type']): string {
       </div>
     </div>
 
-    <p v-if="error" class="mb-4 rounded-md bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-danger-soft dark:text-danger">{{ error }}</p>
-    <p v-if="success" class="mb-4 rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:bg-success-soft dark:text-success">{{ success }}</p>
+    <p v-if="error" class="mb-4 rounded-md bg-danger-soft px-4 py-3 text-sm text-danger">{{ error }}</p>
+    <p v-if="success" class="mb-4 rounded-md bg-success-soft px-4 py-3 text-sm text-success">{{ success }}</p>
 
     <UiPanel variant="raised" class="mb-5">
       <div class="grid gap-4 lg:grid-cols-[minmax(260px,0.7fr)_minmax(0,1.3fr)_auto] lg:items-end">
         <UiSelect v-model.number="selectedCalendarId" label="Calendario" :options="yearOptions" placeholder="Selecciona un año" />
         <div v-if="selectedCalendar" class="min-w-0 pb-1">
           <div class="flex flex-wrap items-center gap-2">
-            <p class="truncate font-bold text-slate-950 dark:text-text">{{ selectedCalendar.name }}</p>
+            <p class="truncate font-bold text-text">{{ selectedCalendar.name }}</p>
             <UiStatusBadge :tone="statusTone(selectedCalendar.status)">{{ statusLabel(selectedCalendar.status) }}</UiStatusBadge>
           </div>
-          <p class="mt-1 truncate text-sm text-slate-500 dark:text-muted">{{ selectedCalendar.source_name || 'Sin fuente registrada' }} · {{ selectedCalendar.source_reference || 'Sin referencia' }}</p>
+          <p class="mt-1 truncate text-sm text-muted">{{ selectedCalendar.source_name || 'Sin fuente registrada' }} · {{ selectedCalendar.source_reference || 'Sin referencia' }}</p>
         </div>
         <UiButton variant="secondary" :disabled="!selectedCalendar" @click="openEditCalendar"><Pencil class="h-4 w-4" />Configurar</UiButton>
       </div>
     </UiPanel>
 
     <div v-if="selectedCalendar" class="mb-5 grid gap-4 sm:grid-cols-3">
-      <UiPanel variant="raised"><p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Fechas registradas</p><p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ selectedCalendar.entries.length }}</p></UiPanel>
-      <UiPanel variant="raised"><p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Días no hábiles</p><p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ nonBusinessCount }}</p></UiPanel>
-      <UiPanel variant="raised"><p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Vencimientos</p><p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ deadlineCount }}</p></UiPanel>
+      <UiPanel variant="raised"><p class="text-xs font-bold uppercase tracking-wide text-soft">Fechas registradas</p><p class="mt-2 text-2xl font-black text-text">{{ selectedCalendar.entries.length }}</p></UiPanel>
+      <UiPanel variant="raised"><p class="text-xs font-bold uppercase tracking-wide text-soft">Días no hábiles</p><p class="mt-2 text-2xl font-black text-text">{{ nonBusinessCount }}</p></UiPanel>
+      <UiPanel variant="raised"><p class="text-xs font-bold uppercase tracking-wide text-soft">Vencimientos</p><p class="mt-2 text-2xl font-black text-text">{{ deadlineCount }}</p></UiPanel>
     </div>
 
     <UiPanel variant="raised">
       <div v-if="!selectedCalendar && !loading" class="py-12 text-center">
-        <CalendarDays class="mx-auto h-10 w-10 text-slate-400 dark:text-muted" />
-        <p class="mt-3 font-bold text-slate-950 dark:text-text">Aún no hay calendarios</p>
-        <p class="mt-1 text-sm text-slate-500 dark:text-muted">Crea el primer año para comenzar.</p>
+        <CalendarDays class="mx-auto h-10 w-10 text-soft" />
+        <p class="mt-3 font-bold text-text">Aún no hay calendarios</p>
+        <p class="mt-1 text-sm text-muted">Crea el primer año para comenzar.</p>
       </div>
-      <p v-else-if="loading" class="py-8 text-center text-sm text-slate-500 dark:text-muted">Cargando calendario...</p>
+      <p v-else-if="loading" class="py-8 text-center text-sm text-muted">Cargando calendario...</p>
       <FiscalCalendarGrid v-else-if="selectedCalendar" v-model:month="activeMonth" :year="selectedCalendar.year" :entries="selectedCalendar.entries" @select="openDay" />
     </UiPanel>
 
     <UiModalShell :open="dayModalOpen" :title="selectedDate ? formatDate(selectedDate) : 'Día fiscal'" :description="isWeekend(selectedDate) ? 'Los fines de semana se excluyen automáticamente del conteo de días hábiles.' : 'Actividades fiscales registradas para esta fecha.'" @close="dayModalOpen = false">
       <div class="grid gap-3">
-        <div v-if="selectedDateEntries.length === 0" class="rounded-lg border border-dashed border-slate-300 px-4 py-8 text-center dark:border-line">
-          <CalendarDays class="mx-auto h-8 w-8 text-slate-400 dark:text-muted" />
-          <p class="mt-2 font-bold text-slate-950 dark:text-text">Sin actividades registradas</p>
-          <p class="mt-1 text-sm text-slate-500 dark:text-muted">Puedes agregar un asueto, vencimiento u otra actividad fiscal.</p>
+        <div v-if="selectedDateEntries.length === 0" class="rounded-lg border border-dashed border-line-strong px-4 py-8 text-center">
+          <CalendarDays class="mx-auto h-8 w-8 text-soft" />
+          <p class="mt-2 font-bold text-text">Sin actividades registradas</p>
+          <p class="mt-1 text-sm text-muted">Puedes agregar un asueto, vencimiento u otra actividad fiscal.</p>
         </div>
-        <article v-for="entry in selectedDateEntries" :key="entry.id" class="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center dark:border-line dark:bg-surface-muted">
+        <article v-for="entry in selectedDateEntries" :key="entry.id" class="flex flex-col gap-3 rounded-lg border border-line bg-surface-muted p-4 sm:flex-row sm:items-center">
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2">
-              <p class="font-bold text-slate-950 dark:text-text">{{ entry.name }}</p>
+              <p class="font-bold text-text">{{ entry.name }}</p>
               <UiStatusBadge :tone="entry.type === 'holiday' ? 'info' : entry.type === 'declaration_deadline' ? 'warning' : 'neutral'">{{ typeLabel(entry.type) }}</UiStatusBadge>
               <UiStatusBadge v-if="entry.is_non_business_day" tone="warning">No hábil</UiStatusBadge>
               <UiStatusBadge :tone="entry.active ? 'success' : 'neutral'">{{ entry.active ? 'Activa' : 'Inactiva' }}</UiStatusBadge>
             </div>
-            <p v-if="entry.form_code || entry.applicability" class="mt-2 text-sm text-slate-600 dark:text-muted">{{ [entry.form_code, entry.applicability].filter(Boolean).join(' · ') }}</p>
-            <p v-if="entry.notes" class="mt-1 text-sm text-slate-500 dark:text-muted">{{ entry.notes }}</p>
+            <p v-if="entry.form_code || entry.applicability" class="mt-2 text-sm text-muted">{{ [entry.form_code, entry.applicability].filter(Boolean).join(' · ') }}</p>
+            <p v-if="entry.notes" class="mt-1 text-sm text-muted">{{ entry.notes }}</p>
           </div>
           <div class="flex shrink-0 gap-2">
             <UiButton size="sm" variant="secondary" @click="openEditEntry(entry)"><Pencil class="h-4 w-4" />Editar</UiButton>
@@ -320,9 +320,9 @@ function typeLabel(type: FiscalCalendarEntry['type']): string {
         <UiInput v-model="entryForm.name" label="Descripción" placeholder="Ej. Día de la Independencia" />
         <div v-if="entryForm.type === 'declaration_deadline'" class="grid gap-4 sm:grid-cols-2"><UiInput v-model="entryForm.form_code" label="Formulario" placeholder="Ej. F-07" /><UiInput v-model="entryForm.applicability" label="A quién aplica" placeholder="Ej. Contribuyentes de IVA" /></div>
         <UiTextarea v-model="entryForm.notes" label="Notas" :rows="3" />
-        <div class="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-line dark:bg-surface-muted">
-          <label class="flex items-center justify-between gap-4"><span><strong class="block text-sm text-slate-950 dark:text-text">Día no hábil</strong><small class="text-slate-500 dark:text-muted">Se excluye del conteo de días hábiles.</small></span><UiToggle v-model="entryForm.is_non_business_day" /></label>
-          <label class="flex items-center justify-between gap-4"><span><strong class="block text-sm text-slate-950 dark:text-text">Fecha activa</strong><small class="text-slate-500 dark:text-muted">Puede desactivarse sin eliminar el registro.</small></span><UiToggle v-model="entryForm.active" variant="success" /></label>
+        <div class="grid gap-3 rounded-lg border border-line bg-surface-muted p-4">
+          <label class="flex items-center justify-between gap-4"><span><strong class="block text-sm text-text">Día no hábil</strong><small class="text-muted">Se excluye del conteo de días hábiles.</small></span><UiToggle v-model="entryForm.is_non_business_day" /></label>
+          <label class="flex items-center justify-between gap-4"><span><strong class="block text-sm text-text">Fecha activa</strong><small class="text-muted">Puede desactivarse sin eliminar el registro.</small></span><UiToggle v-model="entryForm.active" variant="success" /></label>
         </div>
         <div class="flex justify-end gap-2"><UiButton variant="secondary" @click="entryModalOpen = false">Cancelar</UiButton><UiButton type="submit" :disabled="saving">{{ saving ? 'Guardando...' : 'Guardar fecha' }}</UiButton></div>
       </form>

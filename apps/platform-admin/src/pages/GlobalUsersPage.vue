@@ -66,9 +66,9 @@ function membershipSummary(memberships: PlatformTenantMembership[]): string {
   <section class="mx-auto max-w-7xl">
     <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <p class="text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Usuarios</p>
-        <h1 class="mt-1 text-2xl font-bold text-slate-950 dark:text-text">Usuarios globales</h1>
-        <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-muted">
+        <p class="text-sm font-bold uppercase tracking-wide text-soft">Usuarios</p>
+        <h1 class="mt-1 text-2xl font-bold text-text">Usuarios globales</h1>
+        <p class="mt-2 max-w-3xl text-sm text-muted">
           Vista global de usuarios SaaS, empresas asociadas y membresias activas.
         </p>
       </div>
@@ -78,31 +78,31 @@ function membershipSummary(memberships: PlatformTenantMembership[]): string {
 
     <div class="mb-6 grid gap-4 md:grid-cols-3">
       <UiPanel variant="raised">
-        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Usuarios</p>
-        <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ users.length }}</p>
+        <p class="text-xs font-bold uppercase tracking-wide text-soft">Usuarios</p>
+        <p class="mt-2 text-2xl font-bold text-text">{{ users.length }}</p>
       </UiPanel>
       <UiPanel variant="raised">
-        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Membresias activas</p>
-        <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ activeMemberships }}</p>
+        <p class="text-xs font-bold uppercase tracking-wide text-soft">Membresias activas</p>
+        <p class="mt-2 text-2xl font-bold text-text">{{ activeMemberships }}</p>
       </UiPanel>
       <UiPanel variant="raised">
-        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Empresas vinculadas</p>
-        <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ tenantCount }}</p>
+        <p class="text-xs font-bold uppercase tracking-wide text-soft">Empresas vinculadas</p>
+        <p class="mt-2 text-2xl font-bold text-text">{{ tenantCount }}</p>
       </UiPanel>
     </div>
 
-    <p v-if="error" class="mb-4 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-danger-soft dark:text-danger">{{ error }}</p>
+    <p v-if="error" class="mb-4 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">{{ error }}</p>
 
     <UiPanel variant="raised">
       <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 class="text-lg font-bold text-slate-950 dark:text-text">Directorio</h2>
-          <p class="mt-1 text-sm text-slate-500 dark:text-muted">{{ totalMemberships }} membresias registradas.</p>
+          <h2 class="text-lg font-bold text-text">Directorio</h2>
+          <p class="mt-1 text-sm text-muted">{{ totalMemberships }} membresias registradas.</p>
         </div>
       </div>
 
       <UiDataTable>
-        <thead class="bg-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-surface-muted dark:text-soft">
+        <thead class="bg-surface-muted text-left text-xs font-semibold uppercase tracking-wide text-soft">
           <tr>
             <th class="px-4 py-3">Usuario</th>
             <th class="px-4 py-3">Empresas</th>
@@ -110,19 +110,19 @@ function membershipSummary(memberships: PlatformTenantMembership[]): string {
             <th class="px-4 py-3">Estado</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100 dark:divide-line">
+        <tbody class="divide-y divide-line">
           <tr v-if="loading">
-            <td class="px-4 py-6 text-slate-500 dark:text-muted" colspan="4">Cargando usuarios...</td>
+            <td class="px-4 py-6 text-muted" colspan="4">Cargando usuarios...</td>
           </tr>
           <tr v-else-if="users.length === 0">
-            <td class="px-4 py-6 text-slate-500 dark:text-muted" colspan="4">No hay usuarios para mostrar.</td>
+            <td class="px-4 py-6 text-muted" colspan="4">No hay usuarios para mostrar.</td>
           </tr>
-          <tr v-for="user in users" v-else :key="user.id" class="hover:bg-slate-50 dark:hover:bg-surface-muted">
+          <tr v-for="user in users" v-else :key="user.id" class="hover:bg-surface-muted">
             <td class="px-4 py-4">
-              <p class="font-bold text-slate-950 dark:text-text">{{ user.name }}</p>
-              <p class="mt-1 text-sm text-slate-500 dark:text-muted">{{ user.email }}</p>
+              <p class="font-bold text-text">{{ user.name }}</p>
+              <p class="mt-1 text-sm text-muted">{{ user.email }}</p>
             </td>
-            <td class="px-4 py-4 text-sm text-slate-600 dark:text-muted">
+            <td class="px-4 py-4 text-sm text-muted">
               {{ membershipSummary(user.memberships) }}
             </td>
             <td class="px-4 py-4">

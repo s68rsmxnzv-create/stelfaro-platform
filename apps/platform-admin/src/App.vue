@@ -86,12 +86,12 @@ function toggleTheme(): void {
 
 function companyViewButtonClass(view: 'data' | 'fiscal' | 'sucursales' | 'correlativos' | 'users' | 'subscription'): string {
   return workspace.activeCompanyView === view
-    ? 'bg-slate-100 text-slate-950'
-    : 'text-slate-800 hover:bg-slate-50 hover:text-slate-950';
+    ? 'bg-surface-strong text-text'
+    : 'text-muted hover:bg-surface-muted hover:text-text';
 }
 
 function companyViewIconClass(view: 'data' | 'fiscal' | 'sucursales' | 'correlativos' | 'users' | 'subscription'): string {
-  return workspace.activeCompanyView === view ? 'text-slate-950' : 'text-slate-600';
+  return workspace.activeCompanyView === view ? 'text-text' : 'text-muted';
 }
 
 const navEntries = computed<UiSidebarNavEntry[]>(() => [
@@ -234,38 +234,38 @@ function adminIconComponent(icon?: string): Component {
 
 <template>
   <div v-if="platform.loading" class="sf-app-background grid min-h-screen place-items-center px-4">
-    <div class="rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-sm">
+    <div class="rounded-lg border border-line bg-surface px-5 py-4 text-sm font-medium text-muted shadow-surface">
       Validando sesion de plataforma...
     </div>
   </div>
 
   <div v-else-if="platform.lastError || !platform.authenticated" class="sf-app-background grid min-h-screen place-items-center px-4">
-    <div class="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-      <h1 class="text-lg font-semibold text-slate-950">Sesion requerida</h1>
-      <p class="mt-2 text-sm text-slate-600">Ingresa desde Stelfaro para abrir el panel administrativo.</p>
-      <p v-if="platform.lastError" class="mt-4 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ platform.lastError }}</p>
-      <button type="button" class="mt-5 h-10 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800" @click="goToLogin">
+    <div class="w-full max-w-md rounded-lg border border-line bg-surface p-6 shadow-surface">
+      <h1 class="text-lg font-semibold text-text">Sesion requerida</h1>
+      <p class="mt-2 text-sm text-muted">Ingresa desde Stelfaro para abrir el panel administrativo.</p>
+      <p v-if="platform.lastError" class="mt-4 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">{{ platform.lastError }}</p>
+      <button type="button" class="mt-5 h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-contrast hover:bg-primary-hover" @click="goToLogin">
         Ir al login
       </button>
     </div>
   </div>
 
   <div v-else-if="!platform.canAccessAdmin" class="sf-app-background grid min-h-screen place-items-center px-4">
-    <div class="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-      <h1 class="text-lg font-semibold text-slate-950">Acceso reservado</h1>
-      <p class="mt-2 text-sm text-slate-600">Tu usuario no tiene permisos para administrar la plataforma.</p>
+    <div class="w-full max-w-md rounded-lg border border-line bg-surface p-6 shadow-surface">
+      <h1 class="text-lg font-semibold text-text">Acceso reservado</h1>
+      <p class="mt-2 text-sm text-muted">Tu usuario no tiene permisos para administrar la plataforma.</p>
     </div>
   </div>
 
   <div v-else class="sf-app-background min-h-screen">
-    <aside v-if="!companyDetailActive" class="fixed inset-y-0 left-0 hidden flex-col border-r border-slate-200 bg-white text-[15.5px] transition-[width] lg:flex" :class="adminSidebarCompact ? 'w-20' : 'w-72'">
-      <div class="flex h-16 items-center border-b border-slate-200" :class="adminSidebarCompact ? 'justify-center px-3' : 'gap-3 px-6'">
+    <aside v-if="!companyDetailActive" class="fixed inset-y-0 left-0 hidden flex-col border-r border-line bg-surface text-[15.5px] transition-[width] lg:flex" :class="adminSidebarCompact ? 'w-20' : 'w-72'">
+      <div class="flex h-16 items-center border-b border-line" :class="adminSidebarCompact ? 'justify-center px-3' : 'gap-3 px-6'">
         <div v-if="!adminSidebarCompact" class="min-w-0">
-          <p class="text-sm font-bold uppercase tracking-wide text-slate-500">Stelfaro Admin</p>
-          <h1 class="truncate text-lg font-bold text-slate-950">Administración global</h1>
+          <p class="text-sm font-bold uppercase tracking-wide text-muted">Stelfaro Admin</p>
+          <h1 class="truncate text-lg font-bold text-text">Administración global</h1>
         </div>
-        <button v-if="!adminSidebarCompact" type="button" class="ml-auto grid h-9 w-9 place-items-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-950" aria-label="Contraer barra lateral" @click="adminSidebarCompact = true"><ChevronLeft class="h-5 w-5" /></button>
-        <button v-else type="button" class="grid h-10 w-10 place-items-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-950" aria-label="Expandir barra lateral" @click="adminSidebarCompact = false"><ChevronRight class="h-5 w-5" /></button>
+        <button v-if="!adminSidebarCompact" type="button" class="ml-auto grid h-9 w-9 place-items-center rounded-md text-muted hover:bg-surface-strong hover:text-text" aria-label="Contraer barra lateral" @click="adminSidebarCompact = true"><ChevronLeft class="h-5 w-5" /></button>
+        <button v-else type="button" class="grid h-10 w-10 place-items-center rounded-md text-muted hover:bg-surface-strong hover:text-text" aria-label="Expandir barra lateral" @click="adminSidebarCompact = false"><ChevronRight class="h-5 w-5" /></button>
       </div>
 
       <div class="flex-1 overflow-y-auto py-5" :class="adminSidebarCompact ? 'px-3' : 'px-4'">
@@ -274,7 +274,7 @@ function adminIconComponent(icon?: string): Component {
         </UiHierarchicalSidebarNav>
       </div>
 
-      <div class="border-t border-slate-200 p-4">
+      <div class="border-t border-line p-4">
         <OwnerAvatarMenu
           :name="platform.session?.user.name"
           :email="platform.session?.user.email"
@@ -288,17 +288,17 @@ function adminIconComponent(icon?: string): Component {
       </div>
     </aside>
 
-    <aside v-else class="fixed inset-y-0 left-0 hidden w-[420px] border-r border-slate-200 bg-white lg:flex">
-      <div class="flex w-24 flex-col border-r border-slate-200">
-        <div class="grid h-16 place-items-center border-b border-slate-200">
-          <span class="text-lg font-black tracking-tight text-slate-950">SF</span>
+    <aside v-else class="fixed inset-y-0 left-0 hidden w-[420px] border-r border-line bg-surface lg:flex">
+      <div class="flex w-24 flex-col border-r border-line">
+        <div class="grid h-16 place-items-center border-b border-line">
+          <span class="text-lg font-black tracking-tight text-text">SF</span>
         </div>
 
         <nav class="flex-1 overflow-y-auto px-2 py-4">
           <RouterLink
             to="/"
-            class="flex flex-col items-center gap-1 rounded-lg px-2 py-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
-            :class="route.path === '/' ? 'bg-slate-100 text-slate-950' : ''"
+            class="flex flex-col items-center gap-1 rounded-lg px-2 py-3 text-xs font-bold text-muted transition hover:bg-surface-muted hover:text-text"
+            :class="route.path === '/' ? 'bg-surface-strong text-text' : ''"
           >
             <svg class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
               <path d="m4 11 8-7 8 7" />
@@ -309,8 +309,8 @@ function adminIconComponent(icon?: string): Component {
 
           <RouterLink
             to="/empresas"
-            class="mt-1 flex flex-col items-center gap-1 rounded-lg px-2 py-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
-            :class="route.path.startsWith('/empresas') ? 'bg-slate-100 text-slate-950' : ''"
+            class="mt-1 flex flex-col items-center gap-1 rounded-lg px-2 py-3 text-xs font-bold text-muted transition hover:bg-surface-muted hover:text-text"
+            :class="route.path.startsWith('/empresas') ? 'bg-surface-strong text-text' : ''"
           >
             <svg class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
               <path d="M4 21h16" />
@@ -322,8 +322,8 @@ function adminIconComponent(icon?: string): Component {
 
           <RouterLink
             to="/subscriptions"
-            class="mt-1 flex flex-col items-center gap-1 rounded-lg px-2 py-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
-            :class="route.path.startsWith('/subscriptions') ? 'bg-slate-100 text-slate-950' : ''"
+            class="mt-1 flex flex-col items-center gap-1 rounded-lg px-2 py-3 text-xs font-bold text-muted transition hover:bg-surface-muted hover:text-text"
+            :class="route.path.startsWith('/subscriptions') ? 'bg-surface-strong text-text' : ''"
           >
             <svg class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
               <path d="M4 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
@@ -334,8 +334,8 @@ function adminIconComponent(icon?: string): Component {
 
           <RouterLink
             to="/notifications/sender-aliases"
-            class="mt-1 flex flex-col items-center gap-1 rounded-lg px-2 py-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
-            :class="route.path.startsWith('/notifications') ? 'bg-slate-100 text-slate-950' : ''"
+            class="mt-1 flex flex-col items-center gap-1 rounded-lg px-2 py-3 text-xs font-bold text-muted transition hover:bg-surface-muted hover:text-text"
+            :class="route.path.startsWith('/notifications') ? 'bg-surface-strong text-text' : ''"
           >
             <svg class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
               <path d="M4 6h16v12H4z" />
@@ -347,19 +347,19 @@ function adminIconComponent(icon?: string): Component {
       </div>
 
       <div class="flex min-w-0 flex-1 flex-col">
-        <div class="border-b border-slate-200 px-5 py-4">
-          <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Empresa seleccionada</p>
-          <p class="mt-1 truncate text-lg font-bold text-slate-950">{{ workspace.selectedCompany?.tradeName }}</p>
-          <p class="mt-1 truncate text-xs font-semibold text-slate-500">{{ workspace.selectedCompany?.documentLabel }}</p>
+        <div class="border-b border-line px-5 py-4">
+          <p class="text-xs font-bold uppercase tracking-wide text-muted">Empresa seleccionada</p>
+          <p class="mt-1 truncate text-lg font-bold text-text">{{ workspace.selectedCompany?.tradeName }}</p>
+          <p class="mt-1 truncate text-xs font-semibold text-muted">{{ workspace.selectedCompany?.documentLabel }}</p>
         </div>
 
         <nav class="flex-1 overflow-y-auto px-4 py-5">
           <button
             type="button"
-            class="mb-4 flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-bold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+            class="mb-4 flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-bold text-muted transition hover:bg-surface-muted hover:text-text"
             @click="workspace.showCompanySearch"
           >
-            <svg class="h-5 w-5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+            <svg class="h-5 w-5 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
               <path d="m15 18-6-6 6-6" />
             </svg>
             Todas las empresas
@@ -369,10 +369,10 @@ function adminIconComponent(icon?: string): Component {
             <RouterLink
               to="/empresas"
               class="flex min-h-12 items-center gap-3 rounded-lg px-3 text-base font-bold transition"
-              :class="workspace.activeCompanyView === 'users' ? 'text-slate-800 hover:bg-slate-50 hover:text-slate-950' : 'bg-slate-100 text-slate-950'"
+              :class="workspace.activeCompanyView === 'users' ? 'text-muted hover:bg-surface-muted hover:text-text' : 'bg-surface-strong text-text'"
               @click="workspace.setCompanyView('summary')"
             >
-              <svg class="h-[22px] w-[22px] text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+              <svg class="h-[22px] w-[22px] text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
                 <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
                 <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.05.05a2.1 2.1 0 1 1-2.97 2.97l-.05-.05a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.55V21a2.1 2.1 0 0 1-4.2 0v-.08a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.05.05a2.1 2.1 0 1 1-2.97-2.97l.05-.05A1.7 1.7 0 0 0 4.2 15a1.7 1.7 0 0 0-1.55-1H2.6a2.1 2.1 0 0 1 0-4.2h.08a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.05-.05A2.1 2.1 0 1 1 6.8 3.9l.05.05a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1-1.55V2.7a2.1 2.1 0 0 1 4.2 0v.08a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.05-.05a2.1 2.1 0 1 1 2.97 2.97l-.05.05a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.55 1h.08a2.1 2.1 0 0 1 0 4.2H21a1.7 1.7 0 0 0-1.6 1Z" />
               </svg>
@@ -452,15 +452,15 @@ function adminIconComponent(icon?: string): Component {
             </template>
           </div>
 
-          <div class="mt-6 border-t border-slate-200 pt-5">
-            <p class="px-3 text-xs font-bold uppercase tracking-wide text-slate-500">Acciones</p>
+          <div class="mt-6 border-t border-line pt-5">
+            <p class="px-3 text-xs font-bold uppercase tracking-wide text-muted">Acciones</p>
             <div class="mt-2 space-y-1">
               <button
                 type="button"
-                class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold text-slate-800 transition hover:bg-slate-50 hover:text-slate-950"
+                class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold text-muted transition hover:bg-surface-muted hover:text-text"
                 @click="workspace.requestCompanyAction('edit')"
               >
-                <svg class="h-[22px] w-[22px] text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                <svg class="h-[22px] w-[22px] text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
                   <path d="M12 20h9" />
                   <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
                 </svg>
@@ -468,10 +468,10 @@ function adminIconComponent(icon?: string): Component {
               </button>
               <button
                 type="button"
-                class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold text-slate-800 transition hover:bg-slate-50 hover:text-slate-950"
+                class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold text-muted transition hover:bg-surface-muted hover:text-text"
                 @click="workspace.requestCompanyAction('toggle-status')"
               >
-                <svg class="h-[22px] w-[22px] text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                <svg class="h-[22px] w-[22px] text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
                   <path d="M12 3a9 9 0 1 0 9 9" />
                   <path d="M12 7v5l3 2" />
                   <path d="M19 3v5h-5" />
@@ -480,7 +480,7 @@ function adminIconComponent(icon?: string): Component {
               </button>
               <button
                 type="button"
-                class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold text-rose-700 transition hover:bg-rose-50"
+                class="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold text-danger transition hover:bg-danger-soft"
                 @click="workspace.requestCompanyAction('delete')"
               >
                 <svg class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
@@ -500,14 +500,14 @@ function adminIconComponent(icon?: string): Component {
     <div :class="companyDetailActive ? 'lg:pl-[420px]' : adminSidebarCompact ? 'lg:pl-20' : 'lg:pl-72'">
       <main class="px-4 py-6 sm:px-6 lg:px-8">
         <div class="flex items-center overflow-x-auto whitespace-nowrap pb-5">
-          <RouterLink to="/" class="text-slate-600 transition hover:text-slate-950" aria-label="Inicio">
+          <RouterLink to="/" class="text-muted transition hover:text-text" aria-label="Inicio">
             <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path d="M10.707 2.293a1 1 0 0 0-1.414 0l-7 7a1 1 0 0 0 1.414 1.414L4 10.414V17a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-6.586l.293.293a1 1 0 0 0 1.414-1.414l-7-7Z" />
             </svg>
           </RouterLink>
 
           <template v-for="(crumb, index) in breadcrumbs" :key="`${crumb.label}-${index}`">
-            <span class="mx-4 text-slate-400">
+            <span class="mx-4 text-soft">
               <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                 <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 0 1 0-1.414L10.586 10 7.293 6.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0Z" clip-rule="evenodd" />
               </svg>
@@ -516,14 +516,14 @@ function adminIconComponent(icon?: string): Component {
             <RouterLink
               v-if="crumb.to && index < breadcrumbs.length - 1"
               :to="crumb.to"
-              class="text-sm font-medium text-slate-600 transition hover:text-slate-950 hover:underline"
+              class="text-sm font-medium text-muted transition hover:text-text hover:underline"
             >
               {{ crumb.label }}
             </RouterLink>
             <span
               v-else
               class="text-sm font-semibold"
-              :class="index === breadcrumbs.length - 1 ? 'text-sky-700' : 'text-slate-600'"
+              :class="index === breadcrumbs.length - 1 ? 'text-primary' : 'text-muted'"
             >
               {{ crumb.label }}
             </span>

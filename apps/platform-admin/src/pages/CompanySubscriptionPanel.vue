@@ -166,17 +166,17 @@ function dateInputValue(value: string | null | undefined): string {
   <section>
     <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <p class="text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Suscripcion</p>
-        <h1 class="mt-1 text-2xl font-bold text-slate-950 dark:text-text">Suscripcion de empresa</h1>
-        <p class="mt-2 text-sm text-slate-600 dark:text-muted">
+        <p class="text-sm font-bold uppercase tracking-wide text-soft">Suscripcion</p>
+        <h1 class="mt-1 text-2xl font-bold text-text">Suscripcion de empresa</h1>
+        <p class="mt-2 text-sm text-muted">
           Gestion comercial directa para {{ company.tradeName }}.
         </p>
       </div>
       <UiRefreshButton :loading="loading" @click="load" />
     </div>
 
-    <p v-if="error" class="mb-4 rounded-md bg-rose-600 px-4 py-3 text-sm text-white">{{ error }}</p>
-    <p v-if="saved" class="mb-4 rounded-md bg-emerald-600 px-4 py-3 text-sm text-white">{{ saved }}</p>
+    <p v-if="error" class="mb-4 rounded-md bg-danger px-4 py-3 text-sm text-primary-contrast">{{ error }}</p>
+    <p v-if="saved" class="mb-4 rounded-md bg-success px-4 py-3 text-sm text-primary-contrast">{{ saved }}</p>
 
     <div class="grid gap-5 lg:grid-cols-[1fr_360px]">
       <UiPanel variant="raised">
@@ -188,7 +188,7 @@ function dateInputValue(value: string | null | undefined): string {
         </div>
 
         <div class="mt-5">
-          <p class="text-sm font-bold text-slate-700 dark:text-muted">Duracion</p>
+          <p class="text-sm font-bold text-muted">Duracion</p>
           <div class="mt-2 flex flex-wrap gap-2">
             <UiButton
               v-for="option in durationOptions"
@@ -203,9 +203,9 @@ function dateInputValue(value: string | null | undefined): string {
         </div>
 
         <UiPanel v-if="selectedPlan" variant="muted" class="mt-5">
-          <p class="text-sm font-bold text-slate-950 dark:text-text">{{ selectedPlan.name }}</p>
-          <p class="mt-1 text-sm text-slate-600 dark:text-muted">{{ selectedPlan.description }}</p>
-          <p class="mt-3 text-sm font-semibold text-slate-700 dark:text-muted">
+          <p class="text-sm font-bold text-text">{{ selectedPlan.name }}</p>
+          <p class="mt-1 text-sm text-muted">{{ selectedPlan.description }}</p>
+          <p class="mt-3 text-sm font-semibold text-muted">
             Apps: {{ selectedPlan.included_app_keys.join(' + ') || '-' }}
           </p>
         </UiPanel>
@@ -218,9 +218,9 @@ function dateInputValue(value: string | null | undefined): string {
       </UiPanel>
 
       <UiPanel variant="raised">
-        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Estado actual</p>
+        <p class="text-xs font-bold uppercase tracking-wide text-soft">Estado actual</p>
         <div class="mt-3 flex items-center justify-between gap-3">
-          <p class="text-lg font-black text-slate-950 dark:text-text">
+          <p class="text-lg font-black text-text">
             {{ subscription?.plan?.name ?? 'Sin plan contratado' }}
           </p>
           <UiStatusBadge :tone="statusTone(subscription?.status)">{{ statusLabel(subscription?.status) }}</UiStatusBadge>
@@ -228,16 +228,16 @@ function dateInputValue(value: string | null | undefined): string {
 
         <dl class="mt-5 grid gap-4 text-sm">
           <div>
-            <dt class="font-semibold text-slate-500 dark:text-soft">Fin de prueba</dt>
-            <dd class="mt-1 font-bold text-slate-950 dark:text-text">{{ formatDate(subscription?.trial_ends_at) }}</dd>
+            <dt class="font-semibold text-soft">Fin de prueba</dt>
+            <dd class="mt-1 font-bold text-text">{{ formatDate(subscription?.trial_ends_at) }}</dd>
           </div>
           <div>
-            <dt class="font-semibold text-slate-500 dark:text-soft">Vigente hasta</dt>
-            <dd class="mt-1 font-bold text-slate-950 dark:text-text">{{ formatDate(subscription?.current_period_ends_at) }}</dd>
+            <dt class="font-semibold text-soft">Vigente hasta</dt>
+            <dd class="mt-1 font-bold text-text">{{ formatDate(subscription?.current_period_ends_at) }}</dd>
           </div>
           <div>
-            <dt class="font-semibold text-slate-500 dark:text-soft">Precio</dt>
-            <dd class="mt-1 font-bold text-slate-950 dark:text-text">
+            <dt class="font-semibold text-soft">Precio</dt>
+            <dd class="mt-1 font-bold text-text">
               {{ subscription ? money(subscription.price_cents, subscription.currency) : '-' }}
             </dd>
           </div>

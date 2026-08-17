@@ -317,9 +317,9 @@ async function notifyOwnerCredentials(owner: {
 
 <template>
   <section class="mx-auto max-w-7xl">
-    <div v-if="!core.isConnected" class="rounded-lg border border-slate-200 bg-white p-5">
+    <div v-if="!core.isConnected" class="rounded-lg border border-line bg-surface p-5">
       <UiLoadingMark label="Preparando registro fiscal" />
-      <p v-if="core.lastError" class="mx-auto -mt-8 max-w-xl rounded-md bg-rose-50 px-3 py-2 text-center text-sm text-rose-700">
+      <p v-if="core.lastError" class="mx-auto -mt-8 max-w-xl rounded-md bg-danger-soft px-3 py-2 text-center text-sm text-danger">
         {{ core.lastError }}
       </p>
     </div>
@@ -339,7 +339,7 @@ async function notifyOwnerCredentials(owner: {
             <section class="grid gap-3">
               <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p class="text-sm font-semibold text-slate-950">Apps habilitadas</p>
+                  <p class="text-sm font-semibold text-text">Apps habilitadas</p>
                 </div>
                 <UiRefreshButton
                   class="self-start px-3 py-1.5 text-xs sm:self-auto"
@@ -348,15 +348,15 @@ async function notifyOwnerCredentials(owner: {
                 />
               </div>
 
-              <div v-if="loadingApps" class="text-sm text-slate-500">Cargando apps disponibles...</div>
-              <p v-else-if="appError" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ appError }}</p>
+              <div v-if="loadingApps" class="text-sm text-muted">Cargando apps disponibles...</div>
+              <p v-else-if="appError" class="rounded-md border border-danger/40 bg-danger-soft px-3 py-2 text-sm text-danger">{{ appError }}</p>
               <div v-else class="grid gap-2 md:grid-cols-2">
-                <div class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2">
+                <div class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2">
                   <span class="min-w-0">
-                    <span class="block truncate text-sm font-semibold text-slate-950">Facturacion</span>
-                    <span class="mt-0.5 block truncate text-xs text-slate-500">Eje fiscal central</span>
+                    <span class="block truncate text-sm font-semibold text-text">Facturacion</span>
+                    <span class="mt-0.5 block truncate text-xs text-muted">Eje fiscal central</span>
                   </span>
-                  <span class="inline-flex shrink-0 items-center gap-2 text-xs font-semibold text-slate-500">
+                  <span class="inline-flex shrink-0 items-center gap-2 text-xs font-semibold text-muted">
                     Siempre activa
                     <UiToggle :model-value="true" aria-label="Facturacion activa" disabled />
                   </span>
@@ -365,11 +365,11 @@ async function notifyOwnerCredentials(owner: {
                 <div
                   v-for="app in selectableApps"
                   :key="app.key"
-                  class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 transition hover:border-slate-300 hover:bg-slate-50"
+                  class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2 transition hover:border-line-strong hover:bg-surface-muted"
                 >
                   <span class="min-w-0">
-                    <span class="block truncate text-sm font-semibold text-slate-950">{{ app.name }}</span>
-                    <span class="mt-0.5 block truncate text-xs text-slate-500">{{ app.host ?? app.key }}</span>
+                    <span class="block truncate text-sm font-semibold text-text">{{ app.name }}</span>
+                    <span class="mt-0.5 block truncate text-xs text-muted">{{ app.host ?? app.key }}</span>
                   </span>
                   <UiToggle
                     class="shrink-0"
@@ -380,26 +380,26 @@ async function notifyOwnerCredentials(owner: {
                 </div>
               </div>
 
-              <p v-if="!loadingApps && !appError && !hasFacturacion" class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              <p v-if="!loadingApps && !appError && !hasFacturacion" class="rounded-md border border-warning/40 bg-warning-soft px-3 py-2 text-sm text-warning">
                 Facturacion no esta activa en el catalogo de apps. Activa esa app antes de registrar tenants.
               </p>
             </section>
 
-            <section class="grid gap-3 border-t border-slate-100 pt-5">
+            <section class="grid gap-3 border-t border-line pt-5">
               <div>
-                <p class="text-sm font-semibold text-slate-950">DTE habilitados</p>
-                <p class="mt-1 text-xs text-slate-500">Estos documentos tendran correlativos activos y seran los unicos visibles para el tenant.</p>
+                <p class="text-sm font-semibold text-text">DTE habilitados</p>
+                <p class="mt-1 text-xs text-muted">Estos documentos tendran correlativos activos y seran los unicos visibles para el tenant.</p>
               </div>
 
               <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                 <div
                   v-for="option in dteOptions"
                   :key="option.code"
-                  class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 transition hover:border-slate-300 hover:bg-slate-50"
+                  class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2 transition hover:border-line-strong hover:bg-surface-muted"
                 >
                   <span class="min-w-0">
-                    <span class="block truncate text-sm font-semibold text-slate-950">{{ option.short }}</span>
-                    <span class="mt-0.5 block truncate text-xs text-slate-500">{{ option.label }}</span>
+                    <span class="block truncate text-sm font-semibold text-text">{{ option.short }}</span>
+                    <span class="mt-0.5 block truncate text-xs text-muted">{{ option.label }}</span>
                   </span>
                   <UiToggle
                     class="shrink-0"
@@ -411,21 +411,21 @@ async function notifyOwnerCredentials(owner: {
               </div>
             </section>
 
-            <section class="grid gap-3 border-t border-slate-100 pt-5">
+            <section class="grid gap-3 border-t border-line pt-5">
               <div>
-                <p class="text-sm font-semibold text-slate-950">Eventos habilitados</p>
-                <p class="mt-1 text-xs text-slate-500">Estos eventos MH seran visibles y permitidos para el tenant.</p>
+                <p class="text-sm font-semibold text-text">Eventos habilitados</p>
+                <p class="mt-1 text-xs text-muted">Estos eventos MH seran visibles y permitidos para el tenant.</p>
               </div>
 
               <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                 <div
                   v-for="option in eventOptions"
                   :key="option.code"
-                  class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 transition hover:border-slate-300 hover:bg-slate-50"
+                  class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2 transition hover:border-line-strong hover:bg-surface-muted"
                 >
                   <span class="min-w-0">
-                    <span class="block truncate text-sm font-semibold text-slate-950">{{ option.short }}</span>
-                    <span class="mt-0.5 block truncate text-xs text-slate-500">{{ option.label }}</span>
+                    <span class="block truncate text-sm font-semibold text-text">{{ option.short }}</span>
+                    <span class="mt-0.5 block truncate text-xs text-muted">{{ option.label }}</span>
                   </span>
                   <UiToggle
                     class="shrink-0"
@@ -443,13 +443,13 @@ async function notifyOwnerCredentials(owner: {
       <Teleport to="body">
         <div
           v-if="tenantSyncing"
-          class="fixed inset-0 z-[9998] grid place-items-center bg-slate-950/25 px-4 backdrop-blur-sm"
+          class="fixed inset-0 z-[9998] grid place-items-center bg-overlay px-4 backdrop-blur-sm"
           role="status"
           aria-live="polite"
         >
-          <div class="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl shadow-slate-950/20">
+          <div class="w-full max-w-sm rounded-lg bg-surface p-6 shadow-xl shadow-surface">
             <UiLoadingMark label="Sincronizando tenant" />
-            <p class="mt-3 text-center text-sm text-slate-600">Asignando apps, permisos y acceso operativo para la empresa.</p>
+            <p class="mt-3 text-center text-sm text-muted">Asignando apps, permisos y acceso operativo para la empresa.</p>
           </div>
         </div>
       </Teleport>

@@ -170,9 +170,9 @@ function isoDate(value: string): string | null {
   <section class="mx-auto max-w-7xl">
     <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <p class="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-soft">Plataforma</p>
-        <h1 class="mt-1 text-2xl font-semibold text-slate-950 dark:text-text">Suscripciones</h1>
-        <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-muted">
+        <p class="text-sm font-semibold uppercase tracking-wide text-soft">Plataforma</p>
+        <h1 class="mt-1 text-2xl font-semibold text-text">Suscripciones</h1>
+        <p class="mt-2 max-w-3xl text-sm text-muted">
           Control comercial de tenants, planes, vigencia y acceso operativo a apps.
         </p>
       </div>
@@ -181,32 +181,32 @@ function isoDate(value: string): string | null {
 
     <div class="mb-5 grid gap-4 md:grid-cols-3">
       <UiPanel variant="raised">
-        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Activas o prueba</p>
-        <p class="mt-2 text-3xl font-black text-slate-950 dark:text-text">{{ activeCount }}</p>
+        <p class="text-xs font-bold uppercase tracking-wide text-soft">Activas o prueba</p>
+        <p class="mt-2 text-3xl font-black text-text">{{ activeCount }}</p>
       </UiPanel>
       <UiPanel variant="raised">
-        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Requieren atencion</p>
-        <p class="mt-2 text-3xl font-black text-slate-950 dark:text-text">{{ attentionCount }}</p>
+        <p class="text-xs font-bold uppercase tracking-wide text-soft">Requieren atencion</p>
+        <p class="mt-2 text-3xl font-black text-text">{{ attentionCount }}</p>
       </UiPanel>
       <UiPanel variant="raised">
-        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Sin suscripcion</p>
-        <p class="mt-2 text-3xl font-black text-slate-950 dark:text-text">{{ unassignedCount }}</p>
+        <p class="text-xs font-bold uppercase tracking-wide text-soft">Sin suscripcion</p>
+        <p class="mt-2 text-3xl font-black text-text">{{ unassignedCount }}</p>
       </UiPanel>
     </div>
 
-    <p v-if="error" class="mb-4 rounded-md bg-rose-600 px-4 py-3 text-sm text-white">{{ error }}</p>
-    <p v-if="saved" class="mb-4 rounded-md bg-emerald-600 px-4 py-3 text-sm text-white">{{ saved }}</p>
+    <p v-if="error" class="mb-4 rounded-md bg-danger px-4 py-3 text-sm text-primary-contrast">{{ error }}</p>
+    <p v-if="saved" class="mb-4 rounded-md bg-success px-4 py-3 text-sm text-primary-contrast">{{ saved }}</p>
 
     <UiPanel variant="raised">
       <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 class="text-lg font-black text-slate-950 dark:text-text">Suscripciones por tenant</h2>
-          <p class="text-sm text-slate-600 dark:text-muted">La suscripcion actualiza el acceso a apps incluidas en el plan.</p>
+          <h2 class="text-lg font-black text-text">Suscripciones por tenant</h2>
+          <p class="text-sm text-muted">La suscripcion actualiza el acceso a apps incluidas en el plan.</p>
         </div>
       </div>
 
       <UiDataTable overflow="auto" min-width="min-w-[920px]">
-        <thead class="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 dark:bg-surface-muted dark:text-soft">
+        <thead class="bg-surface-muted text-xs font-bold uppercase tracking-wide text-soft">
           <tr>
             <th class="px-4 py-3">Tenant</th>
             <th class="px-4 py-3">Plan</th>
@@ -216,20 +216,20 @@ function isoDate(value: string): string | null {
             <th class="px-4 py-3 text-right">Acciones</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100 dark:divide-line">
+        <tbody class="divide-y divide-line">
           <tr v-for="row in subscriptions" :key="row.tenant.id">
             <td class="px-4 py-4">
-              <p class="font-bold text-slate-950 dark:text-text">{{ row.tenant.name }}</p>
-              <p class="text-xs text-slate-500 dark:text-soft">{{ row.tenant.slug }}</p>
+              <p class="font-bold text-text">{{ row.tenant.name }}</p>
+              <p class="text-xs text-soft">{{ row.tenant.slug }}</p>
             </td>
-            <td class="px-4 py-4 text-slate-700 dark:text-muted">
+            <td class="px-4 py-4 text-muted">
               {{ row.subscription?.plan?.name ?? 'Sin plan' }}
             </td>
-            <td class="px-4 py-4 text-slate-700 dark:text-muted">{{ appsLabel(row) }}</td>
+            <td class="px-4 py-4 text-muted">{{ appsLabel(row) }}</td>
             <td class="px-4 py-4">
               <UiStatusBadge :tone="statusTone(row.subscription?.status)">{{ statusLabel(row.subscription?.status) }}</UiStatusBadge>
             </td>
-            <td class="px-4 py-4 text-slate-700 dark:text-muted">{{ renewalLabel(row) }}</td>
+            <td class="px-4 py-4 text-muted">{{ renewalLabel(row) }}</td>
             <td class="px-4 py-4 text-right">
               <UiButton size="sm" variant="secondary" @click="openSubscription(row)">
                 {{ row.subscription ? 'Editar' : 'Asignar' }}
@@ -237,7 +237,7 @@ function isoDate(value: string): string | null {
             </td>
           </tr>
           <tr v-if="!subscriptions.length && !loading">
-            <td class="px-4 py-8 text-slate-600 dark:text-muted" colspan="6">No hay tenants registrados.</td>
+            <td class="px-4 py-8 text-muted" colspan="6">No hay tenants registrados.</td>
           </tr>
         </tbody>
       </UiDataTable>
@@ -261,9 +261,9 @@ function isoDate(value: string): string | null {
           <UiInput v-model="form.currentPeriodEndsAt" label="Fin de periodo" type="date" />
         </div>
         <UiPanel v-if="selectedPlan()" variant="muted">
-          <p class="text-sm font-bold text-slate-950 dark:text-text">{{ selectedPlan()?.name }}</p>
-          <p class="mt-1 text-sm text-slate-600 dark:text-muted">{{ selectedPlan()?.description }}</p>
-          <p class="mt-3 text-sm font-semibold text-slate-700 dark:text-muted">
+          <p class="text-sm font-bold text-text">{{ selectedPlan()?.name }}</p>
+          <p class="mt-1 text-sm text-muted">{{ selectedPlan()?.description }}</p>
+          <p class="mt-3 text-sm font-semibold text-muted">
             Apps: {{ selectedPlan()?.included_app_keys.join(' + ') || '-' }}
           </p>
         </UiPanel>

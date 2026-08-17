@@ -480,9 +480,9 @@ function formatDate(value: string | null): string {
   <section class="mx-auto max-w-7xl space-y-5">
     <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div>
-        <p class="text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Usuarios</p>
-        <h1 class="mt-1 text-2xl font-bold text-slate-950 dark:text-text">Usuarios de empresa</h1>
-        <p class="mt-2 text-sm text-slate-600 dark:text-muted">
+        <p class="text-sm font-bold uppercase tracking-wide text-soft">Usuarios</p>
+        <h1 class="mt-1 text-2xl font-bold text-text">Usuarios de empresa</h1>
+        <p class="mt-2 text-sm text-muted">
           Administra accesos directos de {{ company.tradeName }}.
         </p>
       </div>
@@ -495,25 +495,25 @@ function formatDate(value: string | null): string {
 
     <div class="grid gap-4 lg:grid-cols-3">
       <UiPanel variant="raised">
-        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Miembros activos</p>
-        <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ activeMembers.length }}</p>
+        <p class="text-xs font-bold uppercase tracking-wide text-soft">Miembros activos</p>
+        <p class="mt-2 text-2xl font-bold text-text">{{ activeMembers.length }}</p>
       </UiPanel>
       <UiPanel variant="raised">
-        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Pendientes de activacion</p>
-        <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ pendingActivationMembers.length }}</p>
+        <p class="text-xs font-bold uppercase tracking-wide text-soft">Pendientes de activacion</p>
+        <p class="mt-2 text-2xl font-bold text-text">{{ pendingActivationMembers.length }}</p>
       </UiPanel>
       <UiPanel variant="raised">
-        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Tenant SaaS</p>
-        <p class="mt-2 truncate text-lg font-bold text-slate-950 dark:text-text">{{ tenant?.slug ?? 'No vinculado' }}</p>
+        <p class="text-xs font-bold uppercase tracking-wide text-soft">Tenant SaaS</p>
+        <p class="mt-2 truncate text-lg font-bold text-text">{{ tenant?.slug ?? 'No vinculado' }}</p>
       </UiPanel>
     </div>
 
-    <p v-if="error" class="rounded-md bg-rose-700 px-4 py-3 text-sm text-white">{{ error }}</p>
+    <p v-if="error" class="rounded-md bg-danger px-4 py-3 text-sm text-primary-contrast">{{ error }}</p>
     <BillingFloatingToastStack :toasts="floatingToasts" />
 
     <UiPanel v-if="!loading && !tenant" variant="raised">
-      <p class="text-lg font-bold text-slate-950 dark:text-text">Empresa sin tenant vinculado</p>
-      <p class="mt-2 text-sm text-slate-600 dark:text-muted">
+      <p class="text-lg font-bold text-text">Empresa sin tenant vinculado</p>
+      <p class="mt-2 text-sm text-muted">
         Esta empresa fiscal aun no tiene un tenant SaaS asociado en platform-api.
       </p>
     </UiPanel>
@@ -522,13 +522,13 @@ function formatDate(value: string | null): string {
       <UiPanel variant="raised">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 class="text-xl font-bold text-slate-950 dark:text-text">Miembros</h2>
-            <p class="mt-1 text-sm text-slate-600 dark:text-muted">Usuarios con acceso directo a la empresa.</p>
+            <h2 class="text-xl font-bold text-text">Miembros</h2>
+            <p class="mt-1 text-sm text-muted">Usuarios con acceso directo a la empresa.</p>
           </div>
         </div>
 
         <UiDataTable class="mt-5" overflow="visible">
-          <thead class="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-surface-muted dark:text-soft">
+          <thead class="bg-surface-muted text-xs uppercase text-soft">
             <tr>
               <th class="px-4 py-3">Usuario</th>
               <th class="px-4 py-3">Rol</th>
@@ -537,20 +537,20 @@ function formatDate(value: string | null): string {
               <th class="px-4 py-3 text-right">Acciones</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100 dark:divide-line">
+          <tbody class="divide-y divide-line">
             <tr v-if="loading">
-              <td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted">Cargando usuarios...</td>
+              <td colspan="5" class="px-4 py-8 text-center text-sm text-muted">Cargando usuarios...</td>
             </tr>
             <tr v-else-if="memberships.length === 0">
-              <td colspan="5" class="px-4 py-8 text-sm text-slate-600 dark:text-muted">No hay miembros registrados.</td>
+              <td colspan="5" class="px-4 py-8 text-sm text-muted">No hay miembros registrados.</td>
             </tr>
-            <tr v-for="membership in memberships" v-else :key="membership.id" class="hover:bg-slate-50 dark:hover:bg-surface-muted">
+            <tr v-for="membership in memberships" v-else :key="membership.id" class="hover:bg-surface-muted">
               <td class="px-4 py-4">
-                <p class="font-bold text-slate-950 dark:text-text">{{ membership.user.name ?? 'Usuario pendiente' }}</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-muted">{{ membership.user.email ?? 'Sin correo' }}</p>
+                <p class="font-bold text-text">{{ membership.user.name ?? 'Usuario pendiente' }}</p>
+                <p class="mt-1 text-xs text-muted">{{ membership.user.email ?? 'Sin correo' }}</p>
               </td>
-              <td class="px-4 py-4 text-sm font-semibold text-slate-700 dark:text-muted">{{ roleLabel(membership.role) }}</td>
-              <td class="px-4 py-4 text-sm font-semibold text-slate-700 dark:text-muted">{{ fiscalAssignmentLabel(membership) }}</td>
+              <td class="px-4 py-4 text-sm font-semibold text-muted">{{ roleLabel(membership.role) }}</td>
+              <td class="px-4 py-4 text-sm font-semibold text-muted">{{ fiscalAssignmentLabel(membership) }}</td>
               <td class="px-4 py-4">
                 <UiStatusBadge :tone="statusTone(activationStatus(membership))">{{ statusLabel(activationStatus(membership)) }}</UiStatusBadge>
               </td>
@@ -573,12 +573,12 @@ function formatDate(value: string | null): string {
       <UiPanel variant="raised">
         <div class="flex items-start justify-between gap-3">
           <div>
-            <h2 class="text-xl font-bold text-slate-950 dark:text-text">Usuarios creados</h2>
-            <p class="mt-1 text-sm text-slate-600 dark:text-muted">Activacion por cambio de contrasena.</p>
+            <h2 class="text-xl font-bold text-text">Usuarios creados</h2>
+            <p class="mt-1 text-sm text-muted">Activacion por cambio de contrasena.</p>
           </div>
         </div>
 
-        <div v-if="createdMembers.length === 0" class="mt-6 rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-line dark:text-muted">
+        <div v-if="createdMembers.length === 0" class="mt-6 rounded-md border border-dashed border-line-strong p-4 text-sm text-muted">
           No hay usuarios creados para esta empresa.
         </div>
 
@@ -586,14 +586,14 @@ function formatDate(value: string | null): string {
           <div
             v-for="membership in createdMembers"
             :key="membership.id"
-            class="rounded-md border border-slate-200 p-4 dark:border-line dark:bg-surface"
+            class="rounded-md border border-line bg-surface p-4"
           >
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <p class="truncate text-sm font-bold text-slate-950 dark:text-text">{{ membership.user.name ?? 'Usuario sin nombre' }}</p>
-                <p class="mt-1 truncate text-xs text-slate-500 dark:text-muted">{{ membership.user.email ?? 'Sin correo' }}</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-muted">{{ roleLabel(membership.role) }} · {{ activationDescription(membership) }}</p>
-                <p class="mt-1 text-xs font-semibold text-slate-600 dark:text-soft">{{ fiscalAssignmentLabel(membership) }}</p>
+                <p class="truncate text-sm font-bold text-text">{{ membership.user.name ?? 'Usuario sin nombre' }}</p>
+                <p class="mt-1 truncate text-xs text-muted">{{ membership.user.email ?? 'Sin correo' }}</p>
+                <p class="mt-1 text-xs text-muted">{{ roleLabel(membership.role) }} · {{ activationDescription(membership) }}</p>
+                <p class="mt-1 text-xs font-semibold text-soft">{{ fiscalAssignmentLabel(membership) }}</p>
               </div>
               <UiStatusBadge :tone="statusTone(activationStatus(membership))">{{ statusLabel(activationStatus(membership)) }}</UiStatusBadge>
             </div>
@@ -613,15 +613,15 @@ function formatDate(value: string | null): string {
         <UiEmailInput v-model="inviteForm.email" label="Correo" placeholder="usuario@empresa.com" />
         <UiSelect v-model="inviteForm.role" label="Rol" :options="roleOptions" />
         <UiPanel v-if="createdCredentials" variant="raised">
-          <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Credenciales temporales</p>
-          <p class="mt-2 text-sm font-semibold text-slate-950 dark:text-text">{{ createdCredentials.email }}</p>
-          <p v-if="createdCredentials.temporaryPassword" class="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-950 dark:border-line dark:bg-surface-muted dark:text-text">
+          <p class="text-xs font-bold uppercase tracking-wide text-soft">Credenciales temporales</p>
+          <p class="mt-2 text-sm font-semibold text-text">{{ createdCredentials.email }}</p>
+          <p v-if="createdCredentials.temporaryPassword" class="mt-3 rounded-md border border-line bg-surface-muted px-3 py-2 font-mono text-sm text-text">
             {{ createdCredentials.temporaryPassword }}
           </p>
-          <p v-else-if="createdCredentials.temporaryPasswordDelivery" class="mt-3 text-sm text-slate-600 dark:text-muted">
+          <p v-else-if="createdCredentials.temporaryPasswordDelivery" class="mt-3 text-sm text-muted">
             La contrasena temporal fue enviada a {{ createdCredentials.temporaryPasswordDelivery.recipient_email || createdCredentials.email }}.
           </p>
-          <p v-else class="mt-3 text-sm text-slate-600 dark:text-muted">
+          <p v-else class="mt-3 text-sm text-muted">
             El usuario ya existia; no se genero una contrasena nueva.
           </p>
           <div v-if="createdCredentials.temporaryPassword" class="mt-3 flex justify-end">
@@ -657,11 +657,11 @@ function formatDate(value: string | null): string {
       @close="temporaryPasswordOpen = false"
     >
       <UiPanel v-if="resetCredentials" variant="raised">
-        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Entrega esta clave al usuario</p>
-        <p class="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-950 dark:border-line dark:bg-surface-muted dark:text-text">
+        <p class="text-xs font-bold uppercase tracking-wide text-soft">Entrega esta clave al usuario</p>
+        <p class="mt-3 rounded-md border border-line bg-surface-muted px-3 py-2 font-mono text-sm text-text">
           {{ resetCredentials.temporaryPassword }}
         </p>
-        <p class="mt-3 text-sm text-slate-600 dark:text-muted">
+        <p class="mt-3 text-sm text-muted">
           El usuario debera cambiarla al primer inicio de sesion.
         </p>
       </UiPanel>
@@ -680,8 +680,8 @@ function formatDate(value: string | null): string {
     >
       <div class="grid gap-4">
         <UiPanel variant="raised">
-          <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Alcance de facturacion</p>
-          <p class="mt-2 text-sm text-slate-600 dark:text-muted">
+          <p class="text-xs font-bold uppercase tracking-wide text-soft">Alcance de facturacion</p>
+          <p class="mt-2 text-sm text-muted">
             Esta sucursal y punto de venta se enviaran a la sesion fiscal del usuario.
           </p>
         </UiPanel>
