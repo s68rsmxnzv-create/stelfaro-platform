@@ -1,16 +1,16 @@
 :root {
   color-scheme: light;
 
-  --sf-color-app: #ffffff;
-  --sf-app-background: #ffffff radial-gradient(circle at top center, rgb(59 130 246 / 0.28), transparent 42rem);
+  --sf-color-app: #eef1f5;
+  --sf-app-background: #eef1f5 radial-gradient(circle at top center, rgb(59 130 246 / 0.24), transparent 42rem);
   --sf-color-surface: #ffffff;
-  --sf-color-surface-muted: #f1f5f9;
+  --sf-color-surface-muted: #e6eaf0;
   --sf-color-surface-raised: #ffffff;
-  --sf-color-surface-strong: #e2e8f0;
+  --sf-color-surface-strong: #d7dce4;
   --sf-color-navbar: #0f172a;
   --sf-color-menu: #0f172a;
-  --sf-color-line: #e2e8f0;
-  --sf-color-line-strong: #cbd5e1;
+  --sf-color-line: #dbe0e7;
+  --sf-color-line-strong: #bcc4cf;
   --sf-color-text: #0f172a;
   --sf-color-text-muted: #475569;
   --sf-color-text-soft: #64748b;
