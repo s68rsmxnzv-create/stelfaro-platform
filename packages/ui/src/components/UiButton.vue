@@ -18,7 +18,7 @@ withDefaults(defineProps<{
   <button
     :type="type"
     :disabled="disabled"
-    class="inline-flex items-center justify-center rounded-lg text-sm font-semibold tracking-wide transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50"
+    class="inline-flex items-center justify-center rounded-lg text-sm font-semibold tracking-wide transition-colors duration-200 disabled:cursor-not-allowed disabled:!bg-surface-muted disabled:!text-soft disabled:!shadow-none"
     :class="{
       'h-8 px-3': size === 'sm' && !iconOnly,
       'h-8 w-8 p-0': size === 'sm' && iconOnly,
