@@ -285,14 +285,14 @@ function navigate(event, href) {
 
       <div
         v-if="operationalMenuOpen"
-        class="sf-app-menu absolute left-0 z-30 mt-2 w-52 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+        class="sf-app-menu absolute left-0 z-30 mt-2 w-52 rounded-lg border border-white/10 p-2 shadow-xl shadow-surface ring-1 ring-primary/10"
       >
         <a
           v-for="item in extraNavItems"
           :key="item.href"
           :href="item.href"
-          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
-          :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': item.active }"
+          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-primary/15 hover:text-white"
+          :class="{ '!bg-primary !text-primary-contrast shadow-sm shadow-surface': item.active }"
           @click="navigate($event, item.href)"
         >
           {{ item.label }}
@@ -317,14 +317,14 @@ function navigate(event, href) {
 
       <div
         v-if="billingMenuOpen"
-        class="sf-app-menu absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+        class="sf-app-menu absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 p-2 shadow-xl shadow-surface ring-1 ring-primary/10"
       >
         <template v-for="option in billingOptions" :key="option.label">
           <a
             v-if="option.enabled"
             :href="option.href"
-            class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
-            :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === 'billing' && documentSlug === option.slug }"
+            class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-primary/15 hover:text-white"
+            :class="{ '!bg-primary !text-primary-contrast shadow-sm shadow-surface': module === 'billing' && documentSlug === option.slug }"
             @click="navigate($event, option.href)"
           >
             {{ option.label }}
@@ -353,14 +353,14 @@ function navigate(event, href) {
 
       <div
         v-if="eventMenuOpen"
-        class="sf-app-menu absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+        class="sf-app-menu absolute left-0 z-30 mt-2 w-64 rounded-lg border border-white/10 p-2 shadow-xl shadow-surface ring-1 ring-primary/10"
       >
         <a
           v-for="option in visibleEventOptions"
           :key="option.label"
           :href="hrefFor(option.path)"
-          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
-          :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === 'mh-events' && eventSlug === option.slug }"
+          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-primary/15 hover:text-white"
+          :class="{ '!bg-primary !text-primary-contrast shadow-sm shadow-surface': module === 'mh-events' && eventSlug === option.slug }"
           @click="navigate($event, hrefFor(option.path))"
         >
           {{ option.label }}
@@ -385,14 +385,14 @@ function navigate(event, href) {
 
       <div
         v-if="responsesMenuOpen"
-        class="sf-app-menu absolute left-0 z-30 mt-2 w-44 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+        class="sf-app-menu absolute left-0 z-30 mt-2 w-44 rounded-lg border border-white/10 p-2 shadow-xl shadow-surface ring-1 ring-primary/10"
       >
         <a
           v-for="option in responseOptions"
           :key="option.path"
           :href="hrefFor(option.path)"
-          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
-          :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === option.module }"
+          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-primary/15 hover:text-white"
+          :class="{ '!bg-primary !text-primary-contrast shadow-sm shadow-surface': module === option.module }"
           @click="navigate($event, hrefFor(option.path))"
         >
           {{ option.label }}
@@ -417,14 +417,14 @@ function navigate(event, href) {
 
       <div
         v-if="artifactsMenuOpen"
-        class="sf-app-menu absolute left-0 z-30 mt-2 w-44 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+        class="sf-app-menu absolute left-0 z-30 mt-2 w-44 rounded-lg border border-white/10 p-2 shadow-xl shadow-surface ring-1 ring-primary/10"
       >
         <a
           v-for="option in artifactOptions"
           :key="option.path"
           :href="hrefFor(option.path)"
-          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
-          :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === 'artifacts' && artifactSlug === option.slug }"
+          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-primary/15 hover:text-white"
+          :class="{ '!bg-primary !text-primary-contrast shadow-sm shadow-surface': module === 'artifacts' && artifactSlug === option.slug }"
           @click="navigate($event, hrefFor(option.path))"
         >
           {{ option.label }}
@@ -458,7 +458,7 @@ function navigate(event, href) {
 
       <div
         v-if="managementMenuOpen"
-        class="sf-app-menu absolute left-0 z-30 mt-2 w-52 rounded-lg border border-white/10 p-2 shadow-xl shadow-slate-950/30 ring-1 ring-sky-400/10"
+        class="sf-app-menu absolute left-0 z-30 mt-2 w-52 rounded-lg border border-white/10 p-2 shadow-xl shadow-surface ring-1 ring-primary/10"
       >
         <a
           v-for="option in managementOptions"
@@ -466,8 +466,8 @@ function navigate(event, href) {
           :href="option.href"
           :target="option.newTab ? '_blank' : undefined"
           :rel="option.newTab ? 'noopener noreferrer' : undefined"
-          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-sky-500/15 hover:text-white"
-          :class="{ 'bg-sky-500 text-white shadow-sm shadow-sky-950/20': module === option.module }"
+          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-primary/15 hover:text-white"
+          :class="{ '!bg-primary !text-primary-contrast shadow-sm shadow-surface': module === option.module }"
           @click="option.newTab ? closeMenus() : navigate($event, option.href)"
         >
           {{ option.label }}
