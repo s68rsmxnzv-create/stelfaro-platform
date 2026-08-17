@@ -732,8 +732,18 @@ function navigateFromMenu(event, href) {
 
   <div
     v-else
-    class="relative min-h-screen overflow-x-hidden bg-app pb-[env(safe-area-inset-bottom)] pt-[calc(4rem+env(safe-area-inset-top))] text-text"
+    class="relative min-h-screen overflow-x-clip bg-app pb-[env(safe-area-inset-bottom)] pt-[calc(4rem+env(safe-area-inset-top))] text-text"
   >
+    <svg class="absolute h-0 w-0 overflow-hidden" aria-hidden="true" focusable="false">
+      <defs>
+        <filter id="liquid-glass" x="-15%" y="-40%" width="130%" height="180%" color-interpolation-filters="sRGB">
+          <feTurbulence type="fractalNoise" baseFrequency="0.004 0.007" numOctaves="2" seed="7" result="noise" />
+          <feGaussianBlur in="noise" stdDeviation="4" result="softNoise" />
+          <feDisplacementMap in="SourceGraphic" in2="softNoise" scale="30" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </defs>
+    </svg>
+
     <div
       class="sf-app-background pointer-events-none fixed inset-x-0 bottom-0 top-[calc(4rem+env(safe-area-inset-top))] z-0"
     ></div>
@@ -1193,7 +1203,7 @@ function navigateFromMenu(event, href) {
     </Teleport>
 
     <header
-      class="relative z-10 border-b border-line/70 bg-surface/70 shadow-sm shadow-surface backdrop-blur-lg backdrop-saturate-150"
+      class="toolbar-glass sticky top-[calc(4rem+env(safe-area-inset-top))] z-20"
       :class="
         [
           'dashboard',
