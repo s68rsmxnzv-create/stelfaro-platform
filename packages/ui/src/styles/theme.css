@@ -160,13 +160,17 @@
     --glass-blur: 16px;
     --glass-saturate: 150%;
     --glass-brightness: 1.02;
-    --glass-bg: color-mix(in oklab, var(--sf-color-surface) 70%, transparent);
+    --glass-bg: color-mix(in oklab, var(--sf-color-surface) 25%, transparent);
     --glass-border: color-mix(in oklab, var(--sf-color-line) 70%, transparent);
 
     background: var(--glass-bg);
     backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
     border-bottom: 1px solid var(--glass-border);
     box-shadow: 0 1px 2px 0 rgb(0 0 0 / 5%), var(--sf-shadow-surface);
+  }
+
+  .dark .toolbar-glass {
+    --glass-bg: color-mix(in oklab, var(--sf-color-surface) 35%, transparent);
   }
 
   @supports (backdrop-filter: url(#liquid-glass)) {
