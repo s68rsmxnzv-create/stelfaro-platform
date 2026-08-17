@@ -19,6 +19,7 @@ import {
   type CorrelativoReservation,
   type DteDraftSummary,
   type DteHistoryEntry,
+  DteIssueRejectedError,
   type DteIssueProgressEvent,
   type DteIssueResponse,
   type DtePreviewResponse,
@@ -144,6 +145,9 @@ const issuePhaseIndex = ref(0);
 const issueResult = ref<DteIssueResponse | null>(null);
 const issueProgress = ref(0);
 const issueLiveMessage = ref<string | null>(null);
+const stuckIssueRequestId = ref<number | null>(null);
+const stuckRetryAfterSeconds = ref(0);
+const checkingStuckIssueStatus = ref(false);
 const inventoryAvailability = ref<PlatformInventorySummary | null>(null);
 const inventoryAvailabilityLoading = ref(false);
 const inventoryLineDecisionOpen = ref(false);
@@ -2052,6 +2056,8 @@ async function issueDocument(): Promise<void> {
   clearIssueAutoClose();
   issuing.value = true;
   error.value = null;
+  stuckIssueRequestId.value = null;
+  stuckRetryAfterSeconds.value = 0;
   issueModalOpen.value = true;
   issueResult.value = null;
   issueProgress.value = 5;
@@ -2152,8 +2158,45 @@ async function issueDocument(): Promise<void> {
         ? caught.message
         : "No fue posible emitir el DTE.";
     pushIssueLog(error.value, "error");
+    if (
+      caught instanceof DteIssueRejectedError &&
+      caught.status === "processing" &&
+      caught.issueRequestId
+    ) {
+      stuckIssueRequestId.value = caught.issueRequestId;
+      stuckRetryAfterSeconds.value = 0;
+    }
   } finally {
     issuing.value = false;
+  }
+}
+
+async function checkStuckIssueStatus(): Promise<void> {
+  if (!stuckIssueRequestId.value || checkingStuckIssueStatus.value) return;
+
+  checkingStuckIssueStatus.value = true;
+  try {
+    const status = await client.value.getIssueRequestStatus(
+      stuckIssueRequestId.value,
+    );
+    if (status.status === "processing") {
+      stuckRetryAfterSeconds.value = status.retry_after_seconds;
+      return;
+    }
+
+    // El bloqueo ya se libero (vencio su TTL): se puede reintentar emitir
+    // reutilizando la misma llave de idempotencia (currentIssueIdempotencyKey
+    // no se limpio cuando ocurrio el error "en proceso").
+    stuckIssueRequestId.value = null;
+    stuckRetryAfterSeconds.value = 0;
+    error.value = null;
+  } catch (caught) {
+    error.value =
+      caught instanceof Error
+        ? caught.message
+        : "No fue posible verificar el estado de la emision.";
+  } finally {
+    checkingStuckIssueStatus.value = false;
   }
 }
 
@@ -4455,6 +4498,31 @@ function updatePaymentCondition(value: string): void {
         >
           Se resolvio con {{ issueResult.attempts.length }} intentos de
           correlativo.
+        </div>
+      </div>
+
+      <div
+        v-if="stuckIssueRequestId"
+        class="mt-5 rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface"
+      >
+        <p class="text-sm text-slate-600 dark:text-muted">
+          <template v-if="stuckRetryAfterSeconds > 0">
+            Intenta de nuevo en {{ stuckRetryAfterSeconds }} segundos, o
+            vuelve a verificar el estado.
+          </template>
+          <template v-else>
+            Verifica si la emision anterior ya termino antes de reintentar.
+          </template>
+        </p>
+        <div class="mt-3">
+          <UiButton
+            variant="secondary"
+            type="button"
+            :disabled="checkingStuckIssueStatus"
+            @click="checkStuckIssueStatus"
+          >
+            {{ checkingStuckIssueStatus ? "Verificando..." : "Verificar estado" }}
+          </UiButton>
         </div>
       </div>
     </BillingProcessModal>

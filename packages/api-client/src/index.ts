@@ -4103,6 +4103,25 @@ export class PlatformClient {
   }
 }
 
+export class DteIssueRejectedError extends Error {
+  readonly status?: string;
+  readonly issueRequestId?: number;
+
+  constructor(message: string, status?: string, issueRequestId?: number) {
+    super(message);
+    this.name = "DteIssueRejectedError";
+    this.status = status;
+    this.issueRequestId = issueRequestId;
+  }
+}
+
+export type DteIssueRequestStatus = {
+  status: string;
+  locked_at: string | null;
+  retry_after_seconds: number;
+  dte_document_id: number | null;
+};
+
 export class CoreDteClient {
   private readonly http: KyInstance;
   private readonly authToken?: CoreDteClientOptions["authToken"];
@@ -4534,6 +4553,12 @@ export class CoreDteClient {
     return this.http.post("dte/issue", { json: payload }).json();
   }
 
+  getIssueRequestStatus(
+    issueRequestId: number,
+  ): Promise<DteIssueRequestStatus> {
+    return this.http.get(`dte/issue-requests/${issueRequestId}`).json();
+  }
+
   async issueProgress(
     payload: DtePreviewRequest,
     onEvent: (event: DteIssueProgressEvent) => void,
@@ -4580,7 +4605,12 @@ export class CoreDteClient {
                   attempts: event.attempts,
                   idempotent: event.idempotent,
                 };
-              else throw new Error(event.message);
+              else
+                throw new DteIssueRejectedError(
+                  event.message,
+                  event.status,
+                  event.issue_request_id,
+                );
             }
           }
           newline = buffer.indexOf("\n");
