@@ -759,10 +759,10 @@ const eventStatusDetail = computed(() => {
 });
 const eventResultCardClass = computed(() => {
   if (eventAccepted.value)
-    return "border-emerald-200 bg-emerald-50 text-emerald-900";
+    return "border-success bg-success-soft text-success";
   if (eventRejected.value || eventStopped.value)
-    return "border-red-200 bg-red-50 text-red-900";
-  return "border-sky-200 bg-sky-50 text-sky-900";
+    return "border-danger bg-danger-soft text-danger";
+  return "border-primary bg-primary-soft text-primary";
 });
 const eventResultLabel = computed(() => {
   if (eventAccepted.value) return "Evento aceptado";
@@ -2440,11 +2440,11 @@ function contingencyDocumentStatusLabel(document: DteDraftSummary): string {
 
 function contingencyDocumentStatusClass(document: DteDraftSummary): string {
   const status = String(document.estado).toLowerCase();
-  if (status === "accepted") return "bg-emerald-100 text-emerald-700";
-  if (status === "rejected") return "bg-red-100 text-red-700";
-  if (status === "contingency") return "bg-amber-100 text-amber-700";
+  if (status === "accepted") return "bg-success-soft text-success";
+  if (status === "rejected") return "bg-danger-soft text-danger";
+  if (status === "contingency") return "bg-warning-soft text-warning";
 
-  return "bg-slate-100 text-slate-600";
+  return "bg-surface-muted text-muted";
 }
 
 function contingencyRetransmissionResultLabel(result: {
@@ -2465,14 +2465,14 @@ function contingencyRetransmissionResultClass(result: {
   source?: "mh" | "local";
 }): string {
   const status = String(result.status).toLowerCase();
-  if (status === "accepted") return "bg-emerald-100 text-emerald-800";
-  if (status === "rejected") return "bg-red-100 text-red-800";
+  if (status === "accepted") return "bg-success-soft text-success";
+  if (status === "rejected") return "bg-danger-soft text-danger";
   if (status === "error")
     return result.source === "local"
-      ? "bg-amber-100 text-amber-800"
-      : "bg-red-100 text-red-800";
+      ? "bg-warning-soft text-warning"
+      : "bg-danger-soft text-danger";
 
-  return "bg-slate-100 text-slate-700";
+  return "bg-surface-muted text-muted";
 }
 
 function createSpecialOperationLine(): SpecialOperationLine {
@@ -2881,10 +2881,10 @@ function invalidacionLabel(document: DteDraftSummary | null): string {
 }
 
 function invalidacionClass(document: DteDraftSummary | null): string {
-  if (document?.invalidacion?.eligible) return "bg-emerald-50 text-emerald-700";
+  if (document?.invalidacion?.eligible) return "bg-success-soft text-success";
   if (document?.invalidacion?.status === "expired")
-    return "bg-rose-50 text-rose-700";
-  return "bg-amber-50 text-amber-700";
+    return "bg-danger-soft text-danger";
+  return "bg-warning-soft text-warning";
 }
 
 function invalidacionDeadline(document: DteDraftSummary | null): string {
@@ -2898,7 +2898,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
   <section class="space-y-6">
     <p
       v-if="error"
-      class="whitespace-pre-wrap rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+      class="whitespace-pre-wrap rounded-md border border-danger bg-danger-soft px-4 py-3 text-sm text-danger"
     >
       {{ error }}
     </p>
@@ -2922,13 +2922,13 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
     >
       <p
         v-if="contingencyRetransmissionError"
-        class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+        class="mb-3 rounded-md border border-warning bg-warning-soft px-3 py-2 text-sm text-warning"
       >
         {{ contingencyRetransmissionError }}
       </p>
 
       <div
-        class="divide-y divide-slate-100 overflow-hidden rounded-md border border-slate-200 bg-white"
+        class="divide-y divide-line overflow-hidden rounded-md border border-line bg-surface"
       >
         <div
           v-for="document in reportedContingencyDocuments"
@@ -2936,10 +2936,10 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
           class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
         >
           <span class="min-w-0">
-            <span class="block truncate font-semibold text-slate-950">{{
+            <span class="block truncate font-semibold text-text">{{
               document.numeroControl
             }}</span>
-            <span class="block truncate font-mono text-xs text-slate-500">{{
+            <span class="block truncate font-mono text-xs text-muted">{{
               document.codigoGeneracion
             }}</span>
           </span>
@@ -2971,7 +2971,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
       </div>
 
       <template #footer>
-        <p class="mr-auto text-sm text-slate-600">
+        <p class="mr-auto text-sm text-muted">
           <span v-if="retransmittableContingencyDocuments.length">
             {{ retransmittableContingencyDocuments.length }} DTE pendiente{{
               retransmittableContingencyDocuments.length === 1 ? "" : "s"
@@ -3054,16 +3054,16 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
         <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div class="min-w-0 space-y-5">
             <div
-              class="rounded-md border border-slate-200 p-4 dark:border-line"
+              class="rounded-md border border-line p-4 dark:border-line"
             >
               <div class="mb-4">
                 <div>
                   <p
-                    class="text-base font-semibold text-slate-950 dark:text-text"
+                    class="text-base font-semibold text-text dark:text-text"
                   >
                     DTE origen
                   </p>
-                  <p class="mt-1 text-sm text-slate-600 dark:text-muted">
+                  <p class="mt-1 text-sm text-muted dark:text-muted">
                     Busca documentos aceptados con sello y vigencia disponible
                     para retorno.
                   </p>
@@ -3098,7 +3098,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     returnCandidatesLoaded ||
                     returnCandidates.length
                   "
-                  class="absolute z-20 max-h-96 w-full overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg shadow-slate-950/10 dark:border-line dark:bg-surface-raised dark:shadow-black/30"
+                  class="absolute z-20 max-h-96 w-full overflow-y-auto rounded-md border border-line bg-surface shadow-lg shadow-surface dark:bg-surface-raised"
                 >
                   <UiLoadingMark
                     v-if="returnCandidatesLoading"
@@ -3108,7 +3108,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     v-for="document in returnCandidates"
                     v-else
                     :key="document.id"
-                    class="block w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition last:border-b-0 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:hover:bg-primary-soft/20"
+                    class="block w-full border-b border-line px-4 py-3 text-left text-sm transition last:border-b-0 hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:hover:bg-primary-soft/20"
                     type="button"
                     :disabled="!canAddReturnDocument(document)"
                     @click="selectReturnDocument(document)"
@@ -3118,20 +3118,20 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     >
                       <span class="min-w-0">
                         <span
-                          class="block font-semibold text-slate-950 dark:text-text"
+                          class="block font-semibold text-text dark:text-text"
                           >{{ document.tipoDte }} ·
                           {{ document.numeroControl }}</span
                         >
                         <span
-                          class="mt-1 block break-all font-mono text-xs text-slate-500 dark:text-soft"
+                          class="mt-1 block break-all font-mono text-xs text-soft dark:text-soft"
                           >{{ document.codigoGeneracion }}</span
                         >
                         <span
-                          class="mt-2 block truncate text-xs text-slate-600 dark:text-muted"
+                          class="mt-2 block truncate text-xs text-muted dark:text-muted"
                           >{{ returnDocumentParty(document) }}</span
                         >
                         <span
-                          class="mt-1 block truncate text-xs text-slate-500 dark:text-soft"
+                          class="mt-1 block truncate text-xs text-soft dark:text-soft"
                           >{{
                             document.empresa?.razon_social ??
                             document.empresa?.nombre_comercial
@@ -3140,16 +3140,16 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                       </span>
                       <span class="shrink-0 text-left md:text-right">
                         <span
-                          class="block text-sm font-bold text-slate-950 dark:text-text"
+                          class="block text-sm font-bold text-text dark:text-text"
                           >{{ currency(returnDocumentTotal(document)) }}</span
                         >
                         <span
-                          class="mt-1 block text-xs text-slate-500 dark:text-soft"
+                          class="mt-1 block text-xs text-soft dark:text-soft"
                           >Limite
                           {{ returnDocumentDeadlineLabel(document) }}</span
                         >
                         <span
-                          class="mt-1 inline-flex rounded bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700 dark:bg-primary-soft/20 dark:text-primary"
+                          class="mt-1 inline-flex rounded bg-primary-soft/20 px-2 py-1 text-xs font-semibold text-primary dark:bg-primary-soft/20 dark:text-primary"
                         >
                           {{
                             canAddReturnDocument(document)
@@ -3167,7 +3167,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                       !returnCandidatesLoading &&
                       returnCandidates.length === 0
                     "
-                    class="px-4 py-5 text-sm text-slate-500 dark:text-muted"
+                    class="px-4 py-5 text-sm text-muted dark:text-muted"
                   >
                     No hay DTE vigentes para retorno con esa busqueda.
                   </p>
@@ -3176,25 +3176,25 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
               <p
                 v-if="!returnCandidatesLoaded && query.trim().length < 2"
-                class="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-line dark:bg-surface-muted dark:text-muted"
+                class="mt-3 rounded-md border border-line bg-surface-muted px-3 py-2 text-sm text-muted dark:border-line dark:bg-surface-muted dark:text-muted"
               >
                 Escribe al menos 2 caracteres para buscar por numero de control,
                 codigo, sello, receptor o empresa.
               </p>
 
               <div
-                class="mt-4 overflow-hidden rounded-md border border-slate-200 dark:border-line"
+                class="mt-4 overflow-hidden rounded-md border border-line dark:border-line"
               >
                 <div
-                  class="flex items-center justify-between gap-3 border-b border-slate-100 bg-emerald-50 px-4 py-3 dark:border-line dark:bg-emerald-500/10"
+                  class="flex items-center justify-between gap-3 border-b border-line bg-success-soft px-4 py-3 dark:border-line"
                 >
                   <p
-                    class="text-sm font-semibold text-emerald-950 dark:text-emerald-100"
+                    class="text-sm font-semibold text-success"
                   >
                     DTE relacionados
                   </p>
                   <span
-                    class="rounded bg-white px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-100"
+                    class="rounded bg-surface px-2 py-1 text-xs font-semibold text-success"
                   >
                     {{ selectedReturnDocuments.length }} / 50
                   </span>
@@ -3202,7 +3202,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
                 <div
                   v-if="selectedReturnDocuments.length"
-                  class="divide-y divide-slate-100 dark:divide-line"
+                  class="divide-y divide-line dark:divide-line"
                 >
                   <div
                     v-for="document in selectedReturnDocuments"
@@ -3211,23 +3211,23 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                   >
                     <div class="flex items-start justify-between gap-3">
                       <div class="min-w-0">
-                        <p class="font-semibold text-slate-950 dark:text-text">
+                        <p class="font-semibold text-text dark:text-text">
                           {{ returnDocumentTypeLabel(document.tipoDte) }}
                         </p>
                         <p
-                          class="mt-1 truncate font-mono text-xs text-slate-500 dark:text-soft"
+                          class="mt-1 truncate font-mono text-xs text-soft dark:text-soft"
                         >
                           {{ document.codigoGeneracion }}
                         </p>
                         <p
-                          class="mt-2 truncate text-xs text-slate-600 dark:text-muted"
+                          class="mt-2 truncate text-xs text-muted dark:text-muted"
                         >
                           {{ returnDocumentParty(document) }}
                         </p>
                       </div>
                       <button
                         type="button"
-                        class="shrink-0 rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 dark:bg-surface-muted dark:text-muted dark:hover:bg-line"
+                        class="shrink-0 rounded-md bg-surface-muted px-3 py-2 text-xs font-semibold text-muted hover:bg-surface-strong dark:bg-surface-muted dark:text-muted dark:hover:bg-line"
                         @click="removeReturnDocument(document.id)"
                       >
                         Quitar
@@ -3236,24 +3236,24 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     <dl class="mt-3 grid gap-2 text-xs sm:grid-cols-2">
                       <div>
                         <dt
-                          class="font-semibold uppercase text-slate-500 dark:text-soft"
+                          class="font-semibold uppercase text-soft dark:text-soft"
                         >
                           Disponible
                         </dt>
                         <dd
-                          class="mt-1 font-bold text-slate-950 dark:text-text"
+                          class="mt-1 font-bold text-text dark:text-text"
                         >
                           {{ currency(returnDocumentTotal(document)) }}
                         </dd>
                       </div>
                       <div>
                         <dt
-                          class="font-semibold uppercase text-slate-500 dark:text-soft"
+                          class="font-semibold uppercase text-soft dark:text-soft"
                         >
                           Sello MH
                         </dt>
                         <dd
-                          class="mt-1 truncate font-mono text-slate-700 dark:text-muted"
+                          class="mt-1 truncate font-mono text-muted dark:text-muted"
                         >
                           {{ document.selloRecibido }}
                         </dd>
@@ -3264,7 +3264,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
                 <p
                   v-else
-                  class="px-4 py-5 text-sm text-slate-500 dark:text-muted"
+                  class="px-4 py-5 text-sm text-muted dark:text-muted"
                 >
                   Selecciona uno o mas DTE aceptados. Todos deben ser del mismo
                   tipo, empresa y ambiente.
@@ -3273,16 +3273,16 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
             </div>
 
             <div
-              class="rounded-md border border-slate-200 p-4 dark:border-line"
+              class="rounded-md border border-line p-4 dark:border-line"
             >
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p
-                    class="text-base font-semibold text-slate-950 dark:text-text"
+                    class="text-base font-semibold text-text dark:text-text"
                   >
                     Detalle de retorno
                   </p>
-                  <p class="mt-1 text-sm text-slate-600 dark:text-muted">
+                  <p class="mt-1 text-sm text-muted dark:text-muted">
                     {{ retornoLineas.length }} de 2000 items permitidos.
                   </p>
                 </div>
@@ -3298,16 +3298,16 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 <div
                   v-for="(line, index) in retornoLineas"
                   :key="line.id"
-                  class="rounded-md border border-slate-200 bg-white p-3 dark:border-line dark:bg-surface"
+                  class="rounded-md border border-line bg-surface p-3 dark:border-line dark:bg-surface"
                 >
                   <div
                     class="flex flex-wrap items-center justify-between gap-2"
                   >
-                    <p class="text-sm font-bold text-slate-950 dark:text-text">
+                    <p class="text-sm font-bold text-text dark:text-text">
                       Item {{ index + 1 }}
                     </p>
                     <button
-                      class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 dark:bg-surface-muted dark:text-muted dark:hover:bg-line"
+                      class="rounded-md bg-surface-muted px-3 py-2 text-xs font-semibold text-muted hover:bg-surface-strong dark:bg-surface-muted dark:text-muted dark:hover:bg-line"
                       type="button"
                       @click="removeReturnEventLine(line.id)"
                     >
@@ -3331,14 +3331,14 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     />
                     <label class="block">
                       <span
-                        class="text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                        class="text-xs font-semibold uppercase text-soft dark:text-soft"
                         >Cantidad</span
                       >
                       <input
                         v-model.number="line.cantidad"
                         type="number"
                         min="1"
-                        class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text"
+                        class="mt-1 block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-text dark:border-line dark:bg-surface-muted dark:text-text"
                         @input="
                           syncReturnEventAmounts(line);
                           clearEventResult();
@@ -3347,12 +3347,12 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     </label>
                     <label class="block lg:col-span-2">
                       <span
-                        class="text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                        class="text-xs font-semibold uppercase text-soft dark:text-soft"
                         >Descripcion</span
                       >
                       <input
                         v-model="line.descripcion"
-                        class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text"
+                        class="mt-1 block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-text dark:border-line dark:bg-surface-muted dark:text-text"
                         @input="clearEventResult"
                       />
                     </label>
@@ -3371,7 +3371,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     />
                     <label class="block xl:col-span-2">
                       <span
-                        class="text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                        class="text-xs font-semibold uppercase text-soft dark:text-soft"
                         >{{ returnAmountInputLabel() }}</span
                       >
                       <input
@@ -3384,7 +3384,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                             : undefined
                         "
                         step="0.01"
-                        class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text"
+                        class="mt-1 block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-text dark:border-line dark:bg-surface-muted dark:text-text"
                         :placeholder="
                           form.retornoDteType === '01'
                             ? 'Total cobrado'
@@ -3399,28 +3399,28 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     <template v-if="form.retornoDteType === '01'">
                       <label class="block"
                         ><span
-                          class="text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                          class="text-xs font-semibold uppercase text-soft dark:text-soft"
                           >IVA retenido</span
                         ><input
                           v-model.number="line.ivaRete"
                           type="number"
                           min="0"
                           step="0.01"
-                          class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text"
+                          class="mt-1 block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-text dark:border-line dark:bg-surface-muted dark:text-text"
                           @input="clearEventResult"
                       /></label>
                     </template>
                     <template v-else-if="form.retornoDteType === '11'">
                       <label class="block"
                         ><span
-                          class="text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                          class="text-xs font-semibold uppercase text-soft dark:text-soft"
                           >Seguro</span
                         ><input
                           v-model.number="line.seguro"
                           type="number"
                           min="0"
                           step="0.01"
-                          class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text"
+                          class="mt-1 block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-text dark:border-line dark:bg-surface-muted dark:text-text"
                           @input="
                             syncReturnEventPrice(line);
                             clearEventResult();
@@ -3428,14 +3428,14 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                       /></label>
                       <label class="block"
                         ><span
-                          class="text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                          class="text-xs font-semibold uppercase text-soft dark:text-soft"
                           >Flete</span
                         ><input
                           v-model.number="line.flete"
                           type="number"
                           min="0"
                           step="0.01"
-                          class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text"
+                          class="mt-1 block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-text dark:border-line dark:bg-surface-muted dark:text-text"
                           @input="
                             syncReturnEventPrice(line);
                             clearEventResult();
@@ -3443,14 +3443,14 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                       /></label>
                       <label class="block"
                         ><span
-                          class="text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                          class="text-xs font-semibold uppercase text-soft dark:text-soft"
                           >No gravado</span
                         ><input
                           v-model.number="line.noGravado"
                           type="number"
                           min="0"
                           step="0.01"
-                          class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text"
+                          class="mt-1 block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-text dark:border-line dark:bg-surface-muted dark:text-text"
                           @input="
                             syncReturnEventPrice(line);
                             clearEventResult();
@@ -3460,70 +3460,70 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     <template v-else>
                       <label class="block"
                         ><span
-                          class="text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                          class="text-xs font-semibold uppercase text-soft dark:text-soft"
                           >Retencion renta</span
                         ><input
                           v-model.number="line.reteRenta"
                           type="number"
                           min="0"
                           step="0.01"
-                          class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-line dark:bg-surface-muted dark:text-text"
+                          class="mt-1 block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-text dark:border-line dark:bg-surface-muted dark:text-text"
                           @input="clearEventResult"
                       /></label>
                     </template>
                     <div
-                      class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted"
+                      class="rounded-md bg-surface-muted px-3 py-2 dark:bg-surface-muted"
                     >
                       <p
-                        class="text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                        class="text-xs font-semibold uppercase text-soft dark:text-soft"
                       >
                         {{ returnBaseLabel(line) }}
                       </p>
                       <p
-                        class="mt-1 text-sm font-bold text-slate-950 dark:text-text"
+                        class="mt-1 text-sm font-bold text-text dark:text-text"
                       >
                         {{ currency(returnEventLinePrimaryAmount(line)) }}
                       </p>
                     </div>
                     <div
                       v-if="form.retornoDteType === '01'"
-                      class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted"
+                      class="rounded-md bg-surface-muted px-3 py-2 dark:bg-surface-muted"
                     >
                       <p
-                        class="text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                        class="text-xs font-semibold uppercase text-soft dark:text-soft"
                       >
                         IVA informativo
                       </p>
                       <p
-                        class="mt-1 text-sm font-bold text-slate-950 dark:text-text"
+                        class="mt-1 text-sm font-bold text-text dark:text-text"
                       >
                         {{ currency(returnEventLineIva(line)) }}
                       </p>
                     </div>
                     <div
-                      class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted"
+                      class="rounded-md bg-surface-muted px-3 py-2 dark:bg-surface-muted"
                     >
                       <p
-                        class="text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                        class="text-xs font-semibold uppercase text-soft dark:text-soft"
                       >
                         Precio unitario
                       </p>
                       <p
-                        class="mt-1 text-sm font-bold text-slate-950 dark:text-text"
+                        class="mt-1 text-sm font-bold text-text dark:text-text"
                       >
                         {{ currency(line.precioUni) }}
                       </p>
                     </div>
                     <div
-                      class="rounded-md bg-slate-50 px-3 py-2 dark:bg-surface-muted"
+                      class="rounded-md bg-surface-muted px-3 py-2 dark:bg-surface-muted"
                     >
                       <p
-                        class="text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                        class="text-xs font-semibold uppercase text-soft dark:text-soft"
                       >
                         Total
                       </p>
                       <p
-                        class="mt-1 text-sm font-bold text-slate-950 dark:text-text"
+                        class="mt-1 text-sm font-bold text-text dark:text-text"
                       >
                         {{ currency(returnEventLineTotal(line)) }}
                       </p>
@@ -3535,27 +3535,27 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
           </div>
 
           <aside
-            class="min-w-0 rounded-md border border-slate-200 p-4 dark:border-line"
+            class="min-w-0 rounded-md border border-line p-4 dark:border-line"
           >
-            <p class="text-base font-semibold text-slate-950 dark:text-text">
+            <p class="text-base font-semibold text-text dark:text-text">
               Resumen
             </p>
             <dl class="mt-4 space-y-3 text-sm">
               <div class="flex items-center justify-between gap-3">
-                <dt class="text-slate-500 dark:text-muted">DTE origen</dt>
-                <dd class="font-semibold text-slate-950 dark:text-text">
+                <dt class="text-muted dark:text-muted">DTE origen</dt>
+                <dd class="font-semibold text-text dark:text-text">
                   {{ selectedReturnDocuments.length }}
                 </dd>
               </div>
               <div class="flex items-center justify-between gap-3">
-                <dt class="text-slate-500 dark:text-muted">Tipo</dt>
-                <dd class="font-semibold text-slate-950 dark:text-text">
+                <dt class="text-muted dark:text-muted">Tipo</dt>
+                <dd class="font-semibold text-text dark:text-text">
                   {{ returnDocumentTypeLabel(form.retornoDteType) }}
                 </dd>
               </div>
               <div class="flex items-center justify-between gap-3">
-                <dt class="text-slate-500 dark:text-muted">Ventas</dt>
-                <dd class="font-semibold text-slate-950 dark:text-text">
+                <dt class="text-muted dark:text-muted">Ventas</dt>
+                <dd class="font-semibold text-text dark:text-text">
                   {{
                     currency(
                       retornoTotals.totalNoSuj +
@@ -3566,20 +3566,20 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 </dd>
               </div>
               <div class="flex items-center justify-between gap-3">
-                <dt class="text-slate-500 dark:text-muted">Compra</dt>
-                <dd class="font-semibold text-slate-950 dark:text-text">
+                <dt class="text-muted dark:text-muted">Compra</dt>
+                <dd class="font-semibold text-text dark:text-text">
                   {{ currency(retornoTotals.totalCompra) }}
                 </dd>
               </div>
               <div class="flex items-center justify-between gap-3">
-                <dt class="text-slate-500 dark:text-muted">No gravado</dt>
-                <dd class="font-semibold text-slate-950 dark:text-text">
+                <dt class="text-muted dark:text-muted">No gravado</dt>
+                <dd class="font-semibold text-text dark:text-text">
                   {{ currency(retornoTotals.totalNoGravado) }}
                 </dd>
               </div>
               <div class="flex items-center justify-between gap-3">
-                <dt class="text-slate-500 dark:text-muted">Seguro/flete</dt>
-                <dd class="font-semibold text-slate-950 dark:text-text">
+                <dt class="text-muted dark:text-muted">Seguro/flete</dt>
+                <dd class="font-semibold text-text dark:text-text">
                   {{
                     currency(
                       retornoTotals.totalSeguro + retornoTotals.totalFlete,
@@ -3588,26 +3588,26 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 </dd>
               </div>
               <div class="flex items-center justify-between gap-3">
-                <dt class="text-slate-500 dark:text-muted">IVA</dt>
-                <dd class="font-semibold text-slate-950 dark:text-text">
+                <dt class="text-muted dark:text-muted">IVA</dt>
+                <dd class="font-semibold text-text dark:text-text">
                   {{ currency(retornoTotals.totalIva) }}
                 </dd>
               </div>
               <div class="flex items-center justify-between gap-3">
-                <dt class="text-slate-500 dark:text-muted">Retenciones</dt>
-                <dd class="font-semibold text-slate-950 dark:text-text">
+                <dt class="text-muted dark:text-muted">Retenciones</dt>
+                <dd class="font-semibold text-text dark:text-text">
                   {{
                     currency(retornoTotals.ivaRete + retornoTotals.reteRenta)
                   }}
                 </dd>
               </div>
               <div
-                class="flex items-center justify-between gap-3 rounded-md bg-sky-50 px-3 py-3 dark:bg-primary-soft/20"
+                class="flex items-center justify-between gap-3 rounded-md bg-primary-soft/20 px-3 py-3 dark:bg-primary-soft/20"
               >
-                <dt class="font-semibold text-sky-900 dark:text-primary">
+                <dt class="font-semibold text-primary dark:text-primary">
                   Total
                 </dt>
-                <dd class="text-lg font-bold text-sky-950 dark:text-text">
+                <dd class="text-lg font-bold text-text dark:text-text">
                   {{ currency(retornoTotals.total) }}
                 </dd>
               </div>
@@ -3618,41 +3618,41 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
       <div class="pointer-events-none fixed inset-x-0 bottom-4 z-30 px-4">
         <section
-          class="pointer-events-auto mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-700/70 bg-slate-950/95 px-3 py-2 text-white shadow-xl shadow-slate-950/25 backdrop-blur"
+          class="pointer-events-auto mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-lg border border-line-strong bg-surface-strong px-3 py-2 text-text shadow-xl shadow-surface backdrop-blur"
         >
           <div
             class="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 text-sm"
           >
             <p class="min-w-0 max-w-[260px] truncate">
-              <span class="text-slate-400">Empresa</span
-              ><span class="ml-2 font-bold text-white">{{
+              <span class="text-soft">Empresa</span
+              ><span class="ml-2 font-bold text-text">{{
                 selectedRetornoEmpresa?.nombre_comercial ??
                 selectedRetornoEmpresa?.razon_social ??
                 "Pendiente"
               }}</span>
             </p>
             <p class="min-w-0 max-w-[220px] truncate">
-              <span class="text-slate-400">DTE</span
-              ><span class="ml-2 font-semibold text-white">{{
+              <span class="text-soft">DTE</span
+              ><span class="ml-2 font-semibold text-text">{{
                 selectedReturnDocuments.length
               }}</span>
             </p>
             <p class="min-w-0 max-w-[220px] truncate">
-              <span class="text-slate-400">Items</span
-              ><span class="ml-2 font-semibold text-white">{{
+              <span class="text-soft">Items</span
+              ><span class="ml-2 font-semibold text-text">{{
                 retornoLineas.length
               }}</span>
             </p>
             <p class="min-w-0 max-w-[220px] truncate">
-              <span class="text-slate-400">Total</span
-              ><span class="ml-2 font-semibold text-white">{{
+              <span class="text-soft">Total</span
+              ><span class="ml-2 font-semibold text-text">{{
                 currency(retornoTotals.total)
               }}</span>
             </p>
           </div>
           <div class="flex shrink-0 items-center justify-end gap-2">
             <span
-              class="rounded-md bg-sky-600 px-3 py-2 text-sm font-bold text-white shadow-sm shadow-sky-950/30"
+              class="rounded-md bg-primary px-3 py-2 text-sm font-bold text-primary-contrast shadow-sm shadow-surface"
               >{{ actionStatusLabel }}</span
             >
             <UiButton
@@ -3711,7 +3711,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 {{ eventResult.codigoGeneracion }}
               </p>
             </div>
-            <span class="rounded bg-white/75 px-2 py-1 text-xs font-semibold">
+            <span class="rounded bg-surface/75 px-2 py-1 text-xs font-semibold">
               HTTP {{ eventResult.transmission?.http_status ?? "N/D" }}
             </span>
           </div>
@@ -3751,14 +3751,14 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               Ver detalle de respuesta
             </summary>
             <pre
-              class="mt-2 max-h-56 overflow-auto rounded bg-slate-950 p-3 text-xs text-slate-50"
+              class="mt-2 max-h-56 overflow-auto rounded bg-surface-strong p-3 text-xs text-soft"
               >{{ eventMhResponseJson }}</pre>
           </details>
         </div>
 
         <div
           v-else-if="error && !processing"
-          class="mt-5 whitespace-pre-wrap rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          class="mt-5 whitespace-pre-wrap rounded-md border border-danger bg-danger-soft p-4 text-sm text-danger"
         >
           {{ error }}
         </div>
@@ -3768,7 +3768,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
         <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div class="min-w-0 space-y-5">
             <div
-              class="grid gap-4 rounded-md border border-slate-200 p-4 lg:grid-cols-2"
+              class="grid gap-4 rounded-md border border-line p-4 lg:grid-cols-2"
             >
               <UiSelect
                 v-model="form.operacionesDocumentType"
@@ -3785,13 +3785,13 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               />
             </div>
 
-            <div class="rounded-md border border-slate-200 p-4">
+            <div class="rounded-md border border-line p-4">
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p class="text-base font-semibold text-slate-950">
+                  <p class="text-base font-semibold text-text">
                     Detalle de operaciones
                   </p>
-                  <p class="mt-1 text-sm text-slate-600">
+                  <p class="mt-1 text-sm text-muted">
                     {{
                       specialOperationTypeLabel(form.operacionesDocumentType)
                     }}
@@ -3803,13 +3803,13 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     }}
                   </p>
                 </div>
-                <div class="inline-flex rounded-md bg-slate-100 p-1">
+                <div class="inline-flex rounded-md bg-surface-muted p-1">
                   <button
                     class="rounded px-3 py-2 text-sm font-semibold"
                     :class="
                       form.operacionesMode === 'range'
-                        ? 'bg-white text-sky-700 shadow-sm'
-                        : 'text-slate-600'
+                        ? 'bg-surface text-primary shadow-sm'
+                        : 'text-muted'
                     "
                     type="button"
                     @click="form.operacionesMode = 'range'"
@@ -3820,8 +3820,8 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     class="rounded px-3 py-2 text-sm font-semibold"
                     :class="
                       form.operacionesMode === 'single'
-                        ? 'bg-white text-sky-700 shadow-sm'
-                        : 'text-slate-600'
+                        ? 'bg-surface text-primary shadow-sm'
+                        : 'text-muted'
                     "
                     type="button"
                     @click="form.operacionesMode = 'single'"
@@ -3841,16 +3841,16 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 <div
                   v-for="(line, index) in operacionesLineas"
                   :key="line.id"
-                  class="rounded-md border border-slate-200 bg-white p-3"
+                  class="rounded-md border border-line bg-surface p-3"
                 >
                   <div
                     class="flex flex-wrap items-center justify-between gap-2"
                   >
-                    <p class="text-sm font-bold text-slate-950">
+                    <p class="text-sm font-bold text-text">
                       Item {{ index + 1 }}
                     </p>
                     <button
-                      class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200"
+                      class="rounded-md bg-surface-muted px-3 py-2 text-xs font-semibold text-muted hover:bg-surface-strong"
                       type="button"
                       @click="removeSpecialOperationLine(line.id)"
                     >
@@ -3864,12 +3864,12 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                       class="block lg:col-span-2"
                     >
                       <span
-                        class="text-xs font-semibold uppercase text-slate-500"
+                        class="text-xs font-semibold uppercase text-muted"
                         >EOE referencia</span
                       >
                       <input
                         v-model="line.codigoGeneracionRef"
-                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        class="mt-1 block w-full rounded-md border border-line-strong px-3 py-2 text-sm"
                         placeholder="Codigo generacion"
                         @input="clearEventResult"
                       />
@@ -3880,12 +3880,12 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                       class="block lg:col-span-2"
                     >
                       <span
-                        class="text-xs font-semibold uppercase text-slate-500"
+                        class="text-xs font-semibold uppercase text-muted"
                         >Documento origen</span
                       >
                       <input
                         v-model="line.numDocumento"
-                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        class="mt-1 block w-full rounded-md border border-line-strong px-3 py-2 text-sm"
                         placeholder="Numero documento"
                         @input="clearEventResult"
                       />
@@ -3895,13 +3895,13 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                       class="block"
                     >
                       <span
-                        class="text-xs font-semibold uppercase text-slate-500"
+                        class="text-xs font-semibold uppercase text-muted"
                         >Fecha origen</span
                       >
                       <input
                         v-model="line.fechaEmision"
                         type="date"
-                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        class="mt-1 block w-full rounded-md border border-line-strong px-3 py-2 text-sm"
                         @input="clearEventResult"
                       />
                     </label>
@@ -3911,12 +3911,12 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                       class="block"
                     >
                       <span
-                        class="text-xs font-semibold uppercase text-slate-500"
+                        class="text-xs font-semibold uppercase text-muted"
                         >Doc. Del</span
                       >
                       <input
                         v-model="line.docDel"
-                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        class="mt-1 block w-full rounded-md border border-line-strong px-3 py-2 text-sm"
                         placeholder="1"
                         @input="
                           syncSpecialOperationRange(line);
@@ -3929,12 +3929,12 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                       class="block"
                     >
                       <span
-                        class="text-xs font-semibold uppercase text-slate-500"
+                        class="text-xs font-semibold uppercase text-muted"
                         >Doc. Al</span
                       >
                       <input
                         v-model="line.docAl"
-                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        class="mt-1 block w-full rounded-md border border-line-strong px-3 py-2 text-sm"
                         placeholder="25"
                         @input="
                           syncSpecialOperationRange(line);
@@ -3945,7 +3945,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
                     <label class="block">
                       <span
-                        class="text-xs font-semibold uppercase text-slate-500"
+                        class="text-xs font-semibold uppercase text-muted"
                         >Cantidad</span
                       >
                       <input
@@ -3957,7 +3957,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                           (form.operacionesMode === 'range' &&
                             specialOperationRangeQuantity(line) !== null)
                         "
-                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 readonly:bg-slate-50"
+                        class="mt-1 block w-full rounded-md border border-line-strong px-3 py-2 text-sm disabled:bg-surface-muted readonly:bg-surface-muted"
                         @input="
                           syncSpecialOperationPrice(line);
                           clearEventResult();
@@ -3965,18 +3965,18 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                       />
                       <span
                         v-if="form.operacionesMode === 'range'"
-                        class="mt-1 block text-xs text-slate-500"
+                        class="mt-1 block text-xs text-muted"
                         >{{ specialOperationRangeHelp(line) }}</span
                       >
                     </label>
                     <label class="block lg:col-span-2">
                       <span
-                        class="text-xs font-semibold uppercase text-slate-500"
+                        class="text-xs font-semibold uppercase text-muted"
                         >Descripcion</span
                       >
                       <input
                         v-model="line.descripcion"
-                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        class="mt-1 block w-full rounded-md border border-line-strong px-3 py-2 text-sm"
                         @input="clearEventResult"
                       />
                     </label>
@@ -3985,7 +3985,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                   <div class="mt-3 grid gap-3 md:grid-cols-5">
                     <label class="block">
                       <span
-                        class="text-xs font-semibold uppercase text-slate-500"
+                        class="text-xs font-semibold uppercase text-muted"
                         >No sujetas</span
                       >
                       <input
@@ -3993,7 +3993,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                         type="number"
                         min="0"
                         step="0.01"
-                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        class="mt-1 block w-full rounded-md border border-line-strong px-3 py-2 text-sm"
                         @input="
                           syncSpecialOperationPrice(line);
                           clearEventResult();
@@ -4002,7 +4002,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     </label>
                     <label class="block">
                       <span
-                        class="text-xs font-semibold uppercase text-slate-500"
+                        class="text-xs font-semibold uppercase text-muted"
                         >Exentas</span
                       >
                       <input
@@ -4010,7 +4010,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                         type="number"
                         min="0"
                         step="0.01"
-                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        class="mt-1 block w-full rounded-md border border-line-strong px-3 py-2 text-sm"
                         @input="
                           syncSpecialOperationPrice(line);
                           clearEventResult();
@@ -4019,7 +4019,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     </label>
                     <label class="block">
                       <span
-                        class="text-xs font-semibold uppercase text-slate-500"
+                        class="text-xs font-semibold uppercase text-muted"
                         >Gravadas</span
                       >
                       <input
@@ -4027,7 +4027,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                         type="number"
                         min="0"
                         step="0.01"
-                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        class="mt-1 block w-full rounded-md border border-line-strong px-3 py-2 text-sm"
                         @input="
                           syncSpecialOperationPrice(line);
                           clearEventResult();
@@ -4036,7 +4036,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     </label>
                     <label class="block">
                       <span
-                        class="text-xs font-semibold uppercase text-slate-500"
+                        class="text-xs font-semibold uppercase text-muted"
                         >Precio unitario</span
                       >
                       <input
@@ -4044,15 +4044,15 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                         type="number"
                         min="0"
                         step="0.01"
-                        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        class="mt-1 block w-full rounded-md border border-line-strong px-3 py-2 text-sm"
                         @input="clearEventResult"
                       />
                     </label>
-                    <div class="rounded-md bg-slate-50 px-3 py-2">
-                      <p class="text-xs font-semibold uppercase text-slate-500">
+                    <div class="rounded-md bg-surface-muted px-3 py-2">
+                      <p class="text-xs font-semibold uppercase text-muted">
                         Total linea
                       </p>
-                      <p class="mt-1 text-sm font-bold text-slate-950">
+                      <p class="mt-1 text-sm font-bold text-text">
                         {{ currency(specialOperationLineTotal(line)) }}
                       </p>
                     </div>
@@ -4063,7 +4063,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               <div
                 class="mt-4 flex flex-wrap items-center justify-between gap-3"
               >
-                <p class="text-sm text-slate-600">
+                <p class="text-sm text-muted">
                   {{ operacionesLineas.length }} de 500 items permitidos.
                 </p>
                 <UiButton
@@ -4077,55 +4077,55 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
             </div>
           </div>
 
-          <aside class="min-w-0 rounded-md border border-slate-200 p-4">
-            <p class="text-base font-semibold text-slate-950">Resumen</p>
+          <aside class="min-w-0 rounded-md border border-line p-4">
+            <p class="text-base font-semibold text-text">Resumen</p>
             <dl class="mt-4 space-y-3 text-sm">
               <div class="flex items-center justify-between gap-3">
-                <dt class="text-slate-500">No sujetas</dt>
-                <dd class="font-semibold text-slate-950">
+                <dt class="text-muted">No sujetas</dt>
+                <dd class="font-semibold text-text">
                   {{ currency(operacionesTotals.totalNoSuj) }}
                 </dd>
               </div>
               <div class="flex items-center justify-between gap-3">
-                <dt class="text-slate-500">Exentas</dt>
-                <dd class="font-semibold text-slate-950">
+                <dt class="text-muted">Exentas</dt>
+                <dd class="font-semibold text-text">
                   {{ currency(operacionesTotals.totalExenta) }}
                 </dd>
               </div>
               <div class="flex items-center justify-between gap-3">
-                <dt class="text-slate-500">Gravadas</dt>
-                <dd class="font-semibold text-slate-950">
+                <dt class="text-muted">Gravadas</dt>
+                <dd class="font-semibold text-text">
                   {{ currency(operacionesTotals.totalGravada) }}
                 </dd>
               </div>
               <div
-                class="border-t border-slate-200 pt-3 flex items-center justify-between gap-3"
+                class="border-t border-line pt-3 flex items-center justify-between gap-3"
               >
-                <dt class="text-slate-500">Subtotal</dt>
-                <dd class="font-semibold text-slate-950">
+                <dt class="text-muted">Subtotal</dt>
+                <dd class="font-semibold text-text">
                   {{ currency(operacionesTotals.subTotal) }}
                 </dd>
               </div>
               <div class="flex items-center justify-between gap-3">
-                <dt class="text-slate-500">IVA 13%</dt>
-                <dd class="font-semibold text-slate-950">
+                <dt class="text-muted">IVA 13%</dt>
+                <dd class="font-semibold text-text">
                   {{ currency(operacionesTotals.iva) }}
                 </dd>
               </div>
               <div
-                class="rounded-md bg-sky-50 px-3 py-3 flex items-center justify-between gap-3"
+                class="rounded-md bg-primary-soft px-3 py-3 flex items-center justify-between gap-3"
               >
-                <dt class="font-semibold text-sky-900">Total</dt>
-                <dd class="text-lg font-bold text-sky-950">
+                <dt class="font-semibold text-primary">Total</dt>
+                <dd class="text-lg font-bold text-primary">
                   {{ currency(operacionesTotals.total) }}
                 </dd>
               </div>
             </dl>
 
             <div
-              class="mt-5 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600"
+              class="mt-5 rounded-md border border-line bg-surface-muted p-3 text-sm text-muted"
             >
-              <p class="font-semibold text-slate-900">Reglas aplicadas</p>
+              <p class="font-semibold text-text">Reglas aplicadas</p>
               <p class="mt-2">
                 Modelo previo, transmision normal, evento tipo 17 y precio sin
                 IVA.
@@ -4140,37 +4140,37 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
       <div class="pointer-events-none fixed inset-x-0 bottom-4 z-30 px-4">
         <section
-          class="pointer-events-auto mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-700/70 bg-slate-950/95 px-3 py-2 text-white shadow-xl shadow-slate-950/25 backdrop-blur"
+          class="pointer-events-auto mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-lg border border-line-strong bg-surface-strong px-3 py-2 text-text shadow-xl shadow-surface backdrop-blur"
         >
           <div
             class="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 text-sm"
           >
             <p class="min-w-0 max-w-[260px] truncate">
-              <span class="text-slate-400">Empresa</span>
-              <span class="ml-2 font-bold text-white">{{
+              <span class="text-soft">Empresa</span>
+              <span class="ml-2 font-bold text-text">{{
                 selectedOperacionesEmpresa?.nombre_comercial ??
                 selectedOperacionesEmpresa?.razon_social ??
                 "Pendiente"
               }}</span>
             </p>
             <p class="min-w-0 max-w-[260px] truncate">
-              <span class="text-slate-400">Detalle</span>
-              <span class="ml-2 font-semibold text-white"
+              <span class="text-soft">Detalle</span>
+              <span class="ml-2 font-semibold text-text"
                 >{{ operacionesLineas.length }} item{{
                   operacionesLineas.length === 1 ? "" : "s"
                 }}</span
               >
             </p>
             <p class="min-w-0 max-w-[220px] truncate">
-              <span class="text-slate-400">Total</span>
-              <span class="ml-2 font-semibold text-white">{{
+              <span class="text-soft">Total</span>
+              <span class="ml-2 font-semibold text-text">{{
                 currency(operacionesTotals.total)
               }}</span>
             </p>
           </div>
           <div class="flex shrink-0 items-center justify-end gap-2">
             <span
-              class="rounded-md bg-sky-600 px-3 py-2 text-sm font-bold text-white shadow-sm shadow-sky-950/30"
+              class="rounded-md bg-primary px-3 py-2 text-sm font-bold text-primary-contrast shadow-sm shadow-surface"
             >
               {{ actionStatusLabel }}
             </span>
@@ -4230,7 +4230,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 {{ eventResult.codigoGeneracion }}
               </p>
             </div>
-            <span class="rounded bg-white/75 px-2 py-1 text-xs font-semibold">
+            <span class="rounded bg-surface/75 px-2 py-1 text-xs font-semibold">
               HTTP {{ eventResult.transmission?.http_status ?? "N/D" }}
             </span>
           </div>
@@ -4259,26 +4259,26 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               Ver detalle de respuesta
             </summary>
             <pre
-              class="mt-2 max-h-56 overflow-auto rounded bg-slate-950 p-3 text-xs text-slate-50"
+              class="mt-2 max-h-56 overflow-auto rounded bg-surface-strong p-3 text-xs text-soft"
               >{{ eventMhResponseJson }}</pre>
           </details>
         </div>
 
         <div
           v-if="eventAccepted && reportedContingencyDocuments.length"
-          class="mt-5 rounded-md border border-sky-200 bg-sky-50 p-4 text-slate-900"
+          class="mt-5 rounded-md border border-primary bg-primary-soft p-4 text-text"
         >
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p
-                class="text-sm font-semibold uppercase tracking-wide text-sky-700"
+                class="text-sm font-semibold uppercase tracking-wide text-primary"
               >
                 Momento 3
               </p>
-              <h3 class="mt-1 text-base font-bold text-slate-950">
+              <h3 class="mt-1 text-base font-bold text-text">
                 Transmitir DTE reportados
               </h3>
-              <p class="mt-1 text-sm text-slate-600">
+              <p class="mt-1 text-sm text-muted">
                 Desactiva el simulador MH antes de transmitir los documentos
                 reportados en el evento.
               </p>
@@ -4298,13 +4298,13 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
           <p
             v-if="contingencyRetransmissionError"
-            class="mt-3 rounded-md border border-amber-200 bg-white px-3 py-2 text-sm text-amber-800"
+            class="mt-3 rounded-md border border-warning bg-surface px-3 py-2 text-sm text-warning"
           >
             {{ contingencyRetransmissionError }}
           </p>
 
           <div
-            class="mt-3 divide-y divide-slate-200 overflow-hidden rounded-md border border-slate-200 bg-white"
+            class="mt-3 divide-y divide-line overflow-hidden rounded-md border border-line bg-surface"
           >
             <div
               v-for="document in reportedContingencyDocuments"
@@ -4312,10 +4312,10 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               class="flex flex-wrap items-center justify-between gap-3 px-3 py-2 text-sm"
             >
               <span class="min-w-0">
-                <span class="block truncate font-semibold text-slate-950">{{
+                <span class="block truncate font-semibold text-text">{{
                   document.numeroControl
                 }}</span>
-                <span class="block truncate font-mono text-xs text-slate-500">{{
+                <span class="block truncate font-mono text-xs text-muted">{{
                   document.codigoGeneracion
                 }}</span>
               </span>
@@ -4351,7 +4351,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
         <div
           v-else-if="error && !processing"
-          class="mt-5 whitespace-pre-wrap rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          class="mt-5 whitespace-pre-wrap rounded-md border border-danger bg-danger-soft p-4 text-sm text-danger"
         >
           {{ error }}
         </div>
@@ -4396,19 +4396,19 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
         <div
           class="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]"
         >
-          <div class="min-w-0 rounded-md border border-slate-200 p-4">
+          <div class="min-w-0 rounded-md border border-line p-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p class="text-base font-semibold text-slate-950">
+                <p class="text-base font-semibold text-text">
                   DTE en contingencia
                 </p>
-                <p class="mt-1 text-sm text-slate-600">
+                <p class="mt-1 text-sm text-muted">
                   Selecciona documentos firmados con modelo diferido y
                   transmision por contingencia.
                 </p>
               </div>
               <span
-                class="rounded bg-sky-50 px-3 py-2 text-sm font-bold text-sky-700"
+                class="rounded bg-primary-soft px-3 py-2 text-sm font-bold text-primary"
               >
                 {{ selectedContingencyDocuments.length }} seleccionados
               </span>
@@ -4443,16 +4443,16 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
             <div
               v-else
-              class="mt-4 overflow-hidden rounded-md border border-slate-200"
+              class="mt-4 overflow-hidden rounded-md border border-line"
             >
               <div
-                class="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3"
+                class="flex items-center justify-between gap-3 border-b border-line bg-surface-muted px-4 py-3"
               >
-                <p class="text-sm font-semibold text-slate-950">
+                <p class="text-sm font-semibold text-text">
                   Candidatos disponibles
                 </p>
                 <span
-                  class="rounded bg-white px-2 py-1 text-xs font-semibold text-slate-600"
+                  class="rounded bg-surface px-2 py-1 text-xs font-semibold text-muted"
                 >
                   {{ filteredContingencyCandidates.length }}
                 </span>
@@ -4461,7 +4461,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               <button
                 v-for="document in filteredContingencyCandidates"
                 :key="document.id"
-                class="block w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition last:border-b-0 hover:bg-sky-50"
+                class="block w-full border-b border-line px-4 py-3 text-left text-sm transition last:border-b-0 hover:bg-primary-soft"
                 type="button"
                 @click="selectContingencyDocument(document)"
               >
@@ -4469,25 +4469,25 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                   class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between"
                 >
                   <span class="min-w-0">
-                    <span class="block font-semibold text-slate-950"
+                    <span class="block font-semibold text-text"
                       >{{ document.tipoDte }} ·
                       {{ document.numeroControl }}</span
                     >
                     <span
-                      class="mt-1 block truncate font-mono text-xs text-slate-500"
+                      class="mt-1 block truncate font-mono text-xs text-muted"
                       >{{ document.codigoGeneracion }}</span
                     >
-                    <span class="mt-2 block text-xs text-slate-600">{{
+                    <span class="mt-2 block text-xs text-muted">{{
                       document.empresa?.razon_social ??
                       document.empresa?.nombre_comercial
                     }}</span>
                   </span>
                   <span class="shrink-0 text-left md:text-right">
-                    <span class="block text-sm font-bold text-slate-950">{{
+                    <span class="block text-sm font-bold text-text">{{
                       currency(document.totalPagar ?? 0)
                     }}</span>
                     <span
-                      class="mt-1 inline-flex rounded bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700"
+                      class="mt-1 inline-flex rounded bg-primary-soft px-2 py-1 text-xs font-semibold text-primary"
                       >Agregar</span
                     >
                   </span>
@@ -4499,7 +4499,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                   contingencyCandidatesLoaded &&
                   filteredContingencyCandidates.length === 0
                 "
-                class="px-4 py-5 text-sm text-slate-500"
+                class="px-4 py-5 text-sm text-muted"
               >
                 No hay DTE nuevos firmados con modelo diferido para este tipo.
                 Activa el simulador, emite una factura nueva y vuelve a
@@ -4509,16 +4509,16 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
             <div
               v-if="selectedContingencyDocuments.length"
-              class="mt-4 overflow-hidden rounded-md border border-slate-200"
+              class="mt-4 overflow-hidden rounded-md border border-line"
             >
               <div
-                class="flex items-center justify-between gap-3 border-b border-slate-100 bg-emerald-50 px-4 py-3"
+                class="flex items-center justify-between gap-3 border-b border-line bg-success-soft px-4 py-3"
               >
-                <p class="text-sm font-semibold text-emerald-950">
+                <p class="text-sm font-semibold text-success">
                   Lote a reportar
                 </p>
                 <span
-                  class="rounded bg-white px-2 py-1 text-xs font-semibold text-emerald-700"
+                  class="rounded bg-surface px-2 py-1 text-xs font-semibold text-success"
                 >
                   {{ selectedContingencyDocuments.length }}
                 </span>
@@ -4526,16 +4526,16 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               <div
                 v-for="document in selectedContingencyDocuments"
                 :key="document.id"
-                class="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 md:flex-row md:items-start md:justify-between"
+                class="flex flex-col gap-3 border-b border-line px-4 py-3 text-sm last:border-b-0 md:flex-row md:items-start md:justify-between"
               >
                 <div class="min-w-0">
-                  <p class="font-semibold text-slate-950">
+                  <p class="font-semibold text-text">
                     {{ document.tipoDte }} · {{ document.numeroControl }}
                   </p>
-                  <p class="mt-1 break-all font-mono text-xs text-slate-500">
+                  <p class="mt-1 break-all font-mono text-xs text-muted">
                     {{ document.codigoGeneracion }}
                   </p>
-                  <p class="mt-2 text-xs text-slate-600">
+                  <p class="mt-2 text-xs text-muted">
                     {{
                       document.empresa?.razon_social ??
                       document.empresa?.nombre_comercial
@@ -4544,13 +4544,13 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 </div>
                 <div class="flex shrink-0 items-center gap-2">
                   <span
-                    class="rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700"
+                    class="rounded bg-success-soft px-2 py-1 text-xs font-semibold text-success"
                   >
                     {{ currency(document.totalPagar ?? 0) }}
                   </span>
                   <button
                     type="button"
-                    class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                    class="rounded-md bg-surface-muted px-3 py-2 text-xs font-semibold text-muted hover:bg-surface-strong"
                     @click="removeContingencyDocument(document.id)"
                   >
                     Quitar
@@ -4560,9 +4560,9 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
             </div>
           </div>
 
-          <div class="min-w-0 rounded-md border border-slate-200 p-4">
+          <div class="min-w-0 rounded-md border border-line p-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
-              <p class="text-base font-semibold text-slate-950">
+              <p class="text-base font-semibold text-text">
                 Motivo de contingencia
               </p>
               <UiButton
@@ -4587,81 +4587,81 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
             />
             <p
               v-if="!requiresMotivoContingencia"
-              class="mt-2 text-xs font-medium text-slate-500"
+              class="mt-2 text-xs font-medium text-muted"
             >
               Este tipo no requiere detalle adicional.
             </p>
             <p
               v-else-if="form.motivoContingencia.trim()"
-              class="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+              class="mt-2 rounded-md border border-success bg-success-soft px-3 py-2 text-sm text-success"
             >
               {{ form.motivoContingencia }}
             </p>
 
             <div class="mt-4 grid gap-3 sm:grid-cols-2">
               <label class="block">
-                <span class="text-sm font-semibold text-slate-900"
+                <span class="text-sm font-semibold text-text"
                   >Fecha inicio</span
                 >
                 <input
                   v-model="form.contingenciaFInicio"
                   type="date"
-                  class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  class="mt-2 block w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-text shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   @input="markContingencyStartTouched"
                 />
               </label>
               <label class="block">
-                <span class="text-sm font-semibold text-slate-900"
+                <span class="text-sm font-semibold text-text"
                   >Hora inicio</span
                 >
                 <input
                   v-model="form.contingenciaHInicio"
                   type="time"
                   step="1"
-                  class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  class="mt-2 block w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-text shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   @input="markContingencyStartTouched"
                 />
               </label>
               <label class="block">
-                <span class="text-sm font-semibold text-slate-900"
+                <span class="text-sm font-semibold text-text"
                   >Fecha fin</span
                 >
                 <input
                   v-model="form.contingenciaFFin"
                   type="date"
-                  class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  class="mt-2 block w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-text shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   @input="markContingencyEndTouched"
                 />
               </label>
               <label class="block">
-                <span class="text-sm font-semibold text-slate-900"
+                <span class="text-sm font-semibold text-text"
                   >Hora fin</span
                 >
                 <input
                   v-model="form.contingenciaHFin"
                   type="time"
                   step="1"
-                  class="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  class="mt-2 block w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-text shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   @input="markContingencyEndTouched"
                 />
               </label>
             </div>
             <p
               v-if="contingencyWindowError"
-              class="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800"
+              class="mt-3 rounded-md border border-danger bg-danger-soft px-3 py-2 text-sm font-semibold text-danger"
             >
               {{ contingencyWindowError }}
             </p>
 
             <dl
               v-if="selectedContingencyDocuments.length"
-              class="mt-4 grid gap-3 rounded-md border border-sky-100 bg-sky-50 p-3 text-sm"
+              class="mt-4 grid gap-3 rounded-md border border-primary bg-primary-soft p-3 text-sm"
             >
               <div>
-                <dt class="text-xs font-semibold uppercase text-slate-500">
+                <dt class="text-xs font-semibold uppercase text-muted">
                   Empresa
                 </dt>
-                <dd class="mt-1 font-semibold text-slate-950">
+                <dd class="mt-1 font-semibold text-text">
                   {{
                     selectedContingencyCompany?.razon_social ??
                     selectedContingencyCompany?.nombre_comercial
@@ -4669,18 +4669,18 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 </dd>
               </div>
               <div>
-                <dt class="text-xs font-semibold uppercase text-slate-500">
+                <dt class="text-xs font-semibold uppercase text-muted">
                   Periodo reportado
                 </dt>
-                <dd class="mt-1 font-semibold text-slate-950">
+                <dd class="mt-1 font-semibold text-text">
                   {{ contingencyWindowLabel }}
                 </dd>
               </div>
               <div>
-                <dt class="text-xs font-semibold uppercase text-slate-500">
+                <dt class="text-xs font-semibold uppercase text-muted">
                   Ventana posterior
                 </dt>
-                <dd class="mt-1 font-semibold text-slate-950">
+                <dd class="mt-1 font-semibold text-text">
                   72 horas despues del sello del evento
                 </dd>
               </div>
@@ -4691,40 +4691,40 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
       <div class="pointer-events-none fixed inset-x-0 bottom-4 z-30 px-4">
         <section
-          class="pointer-events-auto mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-700/70 bg-slate-950/95 px-3 py-2 text-white shadow-xl shadow-slate-950/25 backdrop-blur"
+          class="pointer-events-auto mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-lg border border-line-strong bg-surface-strong px-3 py-2 text-text shadow-xl shadow-surface backdrop-blur"
         >
           <div
             class="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 text-sm"
           >
             <p class="min-w-0 max-w-[260px] truncate">
-              <span class="text-slate-400">DTE</span>
-              <span class="ml-2 font-bold text-white"
+              <span class="text-soft">DTE</span>
+              <span class="ml-2 font-bold text-text"
                 >{{ selectedContingencyDocuments.length }} seleccionados</span
               >
             </p>
             <p class="min-w-0 max-w-[340px] truncate">
-              <span class="text-slate-400">Motivo</span>
-              <span class="ml-2 font-semibold text-white">{{
+              <span class="text-soft">Motivo</span>
+              <span class="ml-2 font-semibold text-text">{{
                 contingenciaTipos.find(
                   (tipo) => tipo.value === Number(form.tipoContingencia),
                 )?.label ?? "Sin motivo"
               }}</span>
               <span
                 v-if="form.motivoContingencia.trim()"
-                class="ml-2 text-xs text-slate-300"
+                class="ml-2 text-xs text-soft"
                 >{{ form.motivoContingencia }}</span
               >
             </p>
             <p class="min-w-0 max-w-[340px] truncate">
-              <span class="text-slate-400">Periodo</span>
-              <span class="ml-2 font-semibold text-white">{{
+              <span class="text-soft">Periodo</span>
+              <span class="ml-2 font-semibold text-text">{{
                 contingencyWindowLabel
               }}</span>
             </p>
           </div>
           <div class="flex shrink-0 items-center justify-end gap-2">
             <span
-              class="rounded-md bg-sky-600 px-3 py-2 text-sm font-bold text-white shadow-sm shadow-sky-950/30"
+              class="rounded-md bg-primary px-3 py-2 text-sm font-bold text-primary-contrast shadow-sm shadow-surface"
             >
               {{ actionStatusLabel }}
             </span>
@@ -4784,7 +4784,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 {{ eventResult.codigoGeneracion }}
               </p>
             </div>
-            <span class="rounded bg-white/75 px-2 py-1 text-xs font-semibold">
+            <span class="rounded bg-surface/75 px-2 py-1 text-xs font-semibold">
               HTTP {{ eventResult.transmission?.http_status ?? "N/D" }}
             </span>
           </div>
@@ -4797,11 +4797,11 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
             }}
           </p>
           <div class="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-            <div class="rounded bg-white/70 px-3 py-2">
+            <div class="rounded bg-surface/70 px-3 py-2">
               <p class="font-semibold uppercase opacity-70">Codigo mensaje</p>
               <p class="mt-1 break-all font-mono">{{ eventMhCodigoMsg }}</p>
             </div>
-            <div class="rounded bg-white/70 px-3 py-2">
+            <div class="rounded bg-surface/70 px-3 py-2">
               <p class="font-semibold uppercase opacity-70">Procesado MH</p>
               <p class="mt-1">{{ formatDate(eventMhProcessedAt) }}</p>
             </div>
@@ -4840,14 +4840,14 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               Ver detalle de respuesta
             </summary>
             <pre
-              class="mt-2 max-h-56 overflow-auto rounded bg-slate-950 p-3 text-xs text-slate-50"
+              class="mt-2 max-h-56 overflow-auto rounded bg-surface-strong p-3 text-xs text-soft"
               >{{ eventMhResponseJson }}</pre>
           </details>
         </div>
 
         <div
           v-else-if="error && !processing"
-          class="mt-5 whitespace-pre-wrap rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          class="mt-5 whitespace-pre-wrap rounded-md border border-danger bg-danger-soft p-4 text-sm text-danger"
         >
           {{ error }}
         </div>
@@ -4892,14 +4892,14 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
         <div
           class="grid gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)]"
         >
-          <div class="min-w-0 rounded-md border border-slate-200 p-4">
+          <div class="min-w-0 rounded-md border border-line p-4">
             <div class="flex items-center justify-between gap-3">
-              <p class="text-base font-semibold text-slate-950">
+              <p class="text-base font-semibold text-text">
                 DTE a invalidar
               </p>
               <button
                 v-if="selected"
-                class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200"
+                class="rounded-md bg-surface-muted px-3 py-2 text-xs font-semibold text-muted hover:bg-surface-strong"
                 type="button"
                 @click="clearSelectedDocument"
               >
@@ -4917,7 +4917,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
               <div
                 v-if="showSearchResults"
-                class="absolute z-20 mt-2 max-h-80 w-full overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg shadow-slate-950/10"
+                class="absolute z-20 mt-2 max-h-80 w-full overflow-y-auto rounded-md border border-line bg-surface shadow-lg shadow-surface"
               >
                 <UiLoadingMark
                   v-if="loading"
@@ -4928,7 +4928,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                   v-for="document in documents"
                   v-else
                   :key="document.id"
-                  class="block w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition last:border-b-0 hover:bg-sky-50"
+                  class="block w-full border-b border-line px-4 py-3 text-left text-sm transition last:border-b-0 hover:bg-primary-soft"
                   type="button"
                   @click="selectDocument(document)"
                 >
@@ -4936,25 +4936,25 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                     class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between"
                   >
                     <span class="min-w-0">
-                      <span class="block font-semibold text-slate-950"
+                      <span class="block font-semibold text-text"
                         >{{ document.tipoDte }} ·
                         {{ document.numeroControl }}</span
                       >
                       <span
-                        class="mt-1 block truncate font-mono text-xs text-slate-500"
+                        class="mt-1 block truncate font-mono text-xs text-muted"
                         >{{ document.codigoGeneracion }}</span
                       >
-                      <span class="mt-2 block text-xs text-slate-600">{{
+                      <span class="mt-2 block text-xs text-muted">{{
                         document.empresa?.razon_social ??
                         document.empresa?.nombre_comercial
                       }}</span>
                     </span>
                     <span class="shrink-0 text-left md:text-right">
-                      <span class="block text-sm font-bold text-slate-950">{{
+                      <span class="block text-sm font-bold text-text">{{
                         currency(document.totalPagar ?? 0)
                       }}</span>
                       <span
-                        class="mt-1 inline-flex rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700"
+                        class="mt-1 inline-flex rounded bg-success-soft px-2 py-1 text-xs font-semibold text-success"
                         >{{ statusLabel(document) }}</span
                       >
                       <span
@@ -4969,7 +4969,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
                 <p
                   v-if="!loading && searched && documents.length === 0"
-                  class="px-4 py-5 text-sm text-slate-500"
+                  class="px-4 py-5 text-sm text-muted"
                 >
                   No hay DTE aceptados con sello MH para esa busqueda.
                 </p>
@@ -4978,16 +4978,16 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
             <div
               v-if="selected"
-              class="mt-3 rounded-md border border-sky-100 bg-sky-50 p-4 text-sm"
+              class="mt-3 rounded-md border border-primary bg-primary-soft p-4 text-sm"
             >
               <div
                 class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
               >
                 <div class="min-w-0">
-                  <p class="font-semibold text-slate-950">
+                  <p class="font-semibold text-text">
                     {{ selected.tipoDte }} · {{ selected.numeroControl }}
                   </p>
-                  <p class="mt-1 break-all font-mono text-xs text-slate-600">
+                  <p class="mt-1 break-all font-mono text-xs text-muted">
                     {{ selected.codigoGeneracion }}
                   </p>
                 </div>
@@ -5000,70 +5000,70 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               </div>
               <dl class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <div>
-                  <dt class="text-xs font-semibold uppercase text-slate-500">
+                  <dt class="text-xs font-semibold uppercase text-muted">
                     Receptor
                   </dt>
-                  <dd class="mt-1 font-semibold text-slate-950">
+                  <dd class="mt-1 font-semibold text-text">
                     {{ selectedReceptor.nombre ?? "Sin receptor" }}
                   </dd>
                 </div>
                 <div>
-                  <dt class="text-xs font-semibold uppercase text-slate-500">
+                  <dt class="text-xs font-semibold uppercase text-muted">
                     Fecha emision
                   </dt>
-                  <dd class="mt-1 font-semibold text-slate-950">
+                  <dd class="mt-1 font-semibold text-text">
                     {{
                       fiscalDate(String(selectedIdentificacion.fecEmi ?? ""))
                     }}
                   </dd>
                 </div>
                 <div>
-                  <dt class="text-xs font-semibold uppercase text-slate-500">
+                  <dt class="text-xs font-semibold uppercase text-muted">
                     Sello MH
                   </dt>
-                  <dd class="mt-1 truncate font-mono text-xs text-slate-700">
+                  <dd class="mt-1 truncate font-mono text-xs text-muted">
                     {{ selected.selloRecibido }}
                   </dd>
                 </div>
                 <div>
-                  <dt class="text-xs font-semibold uppercase text-slate-500">
+                  <dt class="text-xs font-semibold uppercase text-muted">
                     Total
                   </dt>
-                  <dd class="mt-1 font-semibold text-slate-950">
+                  <dd class="mt-1 font-semibold text-text">
                     {{ currency(selected.totalPagar ?? 0) }}
                   </dd>
                 </div>
                 <div>
-                  <dt class="text-xs font-semibold uppercase text-slate-500">
+                  <dt class="text-xs font-semibold uppercase text-muted">
                     Procesado
                   </dt>
-                  <dd class="mt-1 font-semibold text-slate-950">
+                  <dd class="mt-1 font-semibold text-text">
                     {{
                       formatDate(selected.processed_at ?? selected.created_at)
                     }}
                   </dd>
                 </div>
                 <div>
-                  <dt class="text-xs font-semibold uppercase text-slate-500">
+                  <dt class="text-xs font-semibold uppercase text-muted">
                     Limite invalidacion
                   </dt>
-                  <dd class="mt-1 font-semibold text-slate-950">
+                  <dd class="mt-1 font-semibold text-text">
                     {{ invalidacionDeadline(selected) }}
                   </dd>
                 </div>
               </dl>
               <p
                 v-if="selected.invalidacion?.eligible === false"
-                class="mt-4 rounded-md border border-rose-200 bg-white px-3 py-2 text-sm font-semibold text-rose-700"
+                class="mt-4 rounded-md border border-danger bg-surface px-3 py-2 text-sm font-semibold text-danger"
               >
                 {{ selected.invalidacion.reason }}
               </p>
             </div>
           </div>
 
-          <div class="min-w-0 rounded-md border border-slate-200 p-4">
+          <div class="min-w-0 rounded-md border border-line p-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
-              <p class="text-base font-semibold text-slate-950">
+              <p class="text-base font-semibold text-text">
                 Motivo de invalidacion
               </p>
               <UiButton
@@ -5093,8 +5093,8 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               class="mt-4 rounded-md border px-3 py-3 text-sm"
               :class="
                 form.motivoAnulacion.trim()
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-                  : 'border-amber-200 bg-amber-50 text-amber-800'
+                  ? 'border-success bg-success-soft text-success'
+                  : 'border-warning bg-warning-soft text-warning'
               "
             >
               <p class="font-semibold">
@@ -5106,7 +5106,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               </p>
               <p
                 v-if="form.motivoAnulacion.trim()"
-                class="mt-2 whitespace-pre-wrap text-slate-700"
+                class="mt-2 whitespace-pre-wrap text-muted"
               >
                 {{ form.motivoAnulacion }}
               </p>
@@ -5117,23 +5117,23 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
             <div
               v-if="requiresReplacementDte"
-              class="mt-4 border-t border-slate-200 pt-4"
+              class="mt-4 border-t border-line pt-4"
             >
               <div
                 class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
               >
                 <div>
-                  <p class="text-sm font-semibold text-slate-950">
+                  <p class="text-sm font-semibold text-text">
                     DTE sustituto
                   </p>
-                  <p class="mt-1 text-sm text-slate-600">
+                  <p class="mt-1 text-sm text-muted">
                     Selecciona el documento de reemplazo transmitido.
                   </p>
                 </div>
                 <button
                   v-if="selectedReplacement"
                   type="button"
-                  class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                  class="rounded-md bg-surface-muted px-3 py-2 text-xs font-semibold text-muted hover:bg-surface-strong"
                   @click="clearReplacementDocument"
                 >
                   Cambiar sustituto
@@ -5142,34 +5142,34 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
               <div
                 v-if="selectedReplacement"
-                class="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm"
+                class="mt-4 rounded-md border border-success bg-success-soft p-3 text-sm"
               >
-                <p class="font-semibold text-emerald-950">
+                <p class="font-semibold text-success">
                   {{ selectedReplacement.tipoDte }} ·
                   {{ selectedReplacement.numeroControl }}
                 </p>
-                <p class="mt-1 break-all font-mono text-xs text-emerald-800">
+                <p class="mt-1 break-all font-mono text-xs text-success">
                   {{ selectedReplacement.codigoGeneracion }}
                 </p>
-                <p class="mt-1 text-xs text-emerald-700">
+                <p class="mt-1 text-xs text-success">
                   Sello: {{ selectedReplacement.selloRecibido }}
                 </p>
               </div>
               <p
                 v-if="replacementIdentificationError"
-                class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800"
+                class="mt-3 rounded-md border border-warning bg-warning-soft px-3 py-2 text-sm font-semibold text-warning"
               >
                 {{ replacementIdentificationError }}
               </p>
 
               <div v-if="!selectedReplacement" class="mt-4">
                 <div
-                  class="mb-4 rounded-md border border-sky-200 bg-sky-50 p-3 dark:border-primary/30 dark:bg-primary-soft"
+                  class="mb-4 rounded-md border border-primary/30 bg-primary-soft p-3 dark:border-primary/30 dark:bg-primary-soft"
                 >
-                  <p class="text-sm font-semibold text-sky-950 dark:text-text">
+                  <p class="text-sm font-semibold text-text dark:text-text">
                     Crear el sustituto desde el DTE original
                   </p>
-                  <p class="mt-1 text-sm text-sky-800 dark:text-muted">
+                  <p class="mt-1 text-sm text-muted dark:text-muted">
                     Copia receptor, detalle y pago. Si una línea de inventario
                     es idéntica, conservará la salida original aunque ya no haya
                     otra unidad disponible.
@@ -5184,7 +5184,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 </div>
 
                 <p
-                  class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-soft"
+                  class="mb-2 text-xs font-semibold uppercase tracking-wide text-soft dark:text-soft"
                 >
                   O vincular uno ya emitido
                 </p>
@@ -5197,25 +5197,25 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
                 <div
                   v-if="replacementDocuments.length"
-                  class="mt-2 max-h-72 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-sm"
+                  class="mt-2 max-h-72 overflow-y-auto rounded-md border border-line bg-surface shadow-sm"
                 >
                   <button
                     v-for="document in replacementDocuments"
                     :key="document.id"
                     type="button"
-                    class="block w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition last:border-b-0 hover:bg-sky-50"
+                    class="block w-full border-b border-line px-4 py-3 text-left text-sm transition last:border-b-0 hover:bg-primary-soft"
                     @click="selectReplacementDocument(document)"
                   >
                     <span class="flex flex-col gap-1">
-                      <span class="font-semibold text-slate-950"
+                      <span class="font-semibold text-text"
                         >{{ document.tipoDte }} ·
                         {{ document.numeroControl }}</span
                       >
                       <span
-                        class="break-all font-mono text-xs text-slate-500"
+                        class="break-all font-mono text-xs text-muted"
                         >{{ document.codigoGeneracion }}</span
                       >
-                      <span class="text-xs text-slate-600">{{
+                      <span class="text-xs text-muted">{{
                         recordValue(
                           (document.payload ?? document.dte_json ?? {})
                             .receptor,
@@ -5227,7 +5227,7 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
                 <p
                   v-else-if="replacementSearched"
-                  class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+                  class="mt-2 rounded-md border border-warning bg-warning-soft px-3 py-2 text-sm text-warning"
                 >
                   No hay DTE sustitutos aceptados con sello MH para esa
                   busqueda.
@@ -5240,27 +5240,27 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
 
       <div class="pointer-events-none fixed inset-x-0 bottom-4 z-30 px-4">
         <section
-          class="pointer-events-auto mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-700/70 bg-slate-950/95 px-3 py-2 text-white shadow-xl shadow-slate-950/25 backdrop-blur"
+          class="pointer-events-auto mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-lg border border-line-strong bg-surface-strong px-3 py-2 text-text shadow-xl shadow-surface backdrop-blur"
         >
           <div
             class="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 text-sm"
           >
             <p class="min-w-0 max-w-[300px] truncate">
-              <span class="text-slate-400">DTE</span>
-              <span class="ml-2 font-mono text-xs font-bold text-white">{{
+              <span class="text-soft">DTE</span>
+              <span class="ml-2 font-mono text-xs font-bold text-text">{{
                 selected?.numeroControl ?? "Sin seleccionar"
               }}</span>
             </p>
             <p class="min-w-0 max-w-[340px] truncate">
-              <span class="text-slate-400">Motivo</span>
-              <span class="ml-2 font-semibold text-white">{{
+              <span class="text-soft">Motivo</span>
+              <span class="ml-2 font-semibold text-text">{{
                 invalidacionTipos.find(
                   (tipo) => tipo.value === Number(form.tipoAnulacion),
                 )?.label ?? "Sin motivo"
               }}</span>
               <span
                 v-if="form.motivoAnulacion.trim()"
-                class="ml-2 text-xs text-slate-300"
+                class="ml-2 text-xs text-soft"
                 >{{ form.motivoAnulacion }}</span
               >
             </p>
@@ -5268,15 +5268,15 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               v-if="requiresReplacementDte"
               class="min-w-0 max-w-[260px] truncate"
             >
-              <span class="text-slate-400">Sustituto</span>
-              <span class="ml-2 font-mono text-xs font-bold text-white">{{
+              <span class="text-soft">Sustituto</span>
+              <span class="ml-2 font-mono text-xs font-bold text-text">{{
                 selectedReplacement?.numeroControl ?? "Sin seleccionar"
               }}</span>
             </p>
           </div>
           <div class="flex shrink-0 items-center justify-end gap-2">
             <span
-              class="rounded-md bg-sky-600 px-3 py-2 text-sm font-bold text-white shadow-sm shadow-sky-950/30"
+              class="rounded-md bg-primary px-3 py-2 text-sm font-bold text-primary-contrast shadow-sm shadow-surface"
             >
               {{ actionStatusLabel }}
             </span>

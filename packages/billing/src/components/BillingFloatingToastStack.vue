@@ -15,17 +15,17 @@ const props = withDefaults(defineProps<{
 });
 
 const dotClass = (variant: BillingFloatingToast['variant']): string => {
-  if (variant === 'warning') return 'bg-amber-400';
-  if (variant === 'error') return 'bg-rose-500';
-  if (variant === 'info') return 'bg-sky-500';
-  return 'bg-emerald-500';
+  if (variant === 'warning') return 'bg-warning';
+  if (variant === 'error') return 'bg-danger';
+  if (variant === 'info') return 'bg-primary';
+  return 'bg-success';
 };
 
 const titleClass = (variant: BillingFloatingToast['variant']): string => {
-  if (variant === 'warning') return 'text-amber-700';
-  if (variant === 'error') return 'text-rose-700';
-  if (variant === 'info') return 'text-sky-700';
-  return 'text-emerald-700';
+  if (variant === 'warning') return 'text-warning';
+  if (variant === 'error') return 'text-danger';
+  if (variant === 'info') return 'text-primary';
+  return 'text-success';
 };
 
 const animationClass = (variant: BillingFloatingToast['variant']): string => (
@@ -41,7 +41,7 @@ const visibleToasts = computed(() => props.toasts.slice(-4));
       <div
         v-for="toast in visibleToasts"
         :key="toast.id"
-        class="pointer-events-auto rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-xl shadow-slate-950/10"
+        class="pointer-events-auto rounded-lg border border-line bg-surface px-4 py-3 shadow-xl shadow-surface"
         :class="animationClass(toast.variant)"
         role="status"
         aria-live="polite"
@@ -50,7 +50,7 @@ const visibleToasts = computed(() => props.toasts.slice(-4));
           <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" :class="dotClass(toast.variant)"></span>
           <span class="min-w-0">
             <span class="block text-sm font-bold" :class="titleClass(toast.variant)">{{ toast.title }}</span>
-            <span v-if="toast.message" class="mt-1 block text-sm leading-5 text-slate-600">{{ toast.message }}</span>
+            <span v-if="toast.message" class="mt-1 block text-sm leading-5 text-muted">{{ toast.message }}</span>
           </span>
         </div>
       </div>

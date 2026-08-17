@@ -19,17 +19,17 @@ defineEmits<{
 }>();
 
 const accentClass = computed(() => {
-  if (props.variant === 'success') return 'bg-emerald-500';
-  if (props.variant === 'warning') return 'bg-amber-400';
-  if (props.variant === 'error') return 'bg-rose-500';
-  return 'bg-sky-600';
+  if (props.variant === 'success') return 'bg-success';
+  if (props.variant === 'warning') return 'bg-warning';
+  if (props.variant === 'error') return 'bg-danger';
+  return 'bg-primary';
 });
 
 const titleClass = computed(() => {
-  if (props.variant === 'success') return 'text-emerald-600';
-  if (props.variant === 'warning') return 'text-amber-600';
-  if (props.variant === 'error') return 'text-rose-600';
-  return 'text-sky-600';
+  if (props.variant === 'success') return 'text-success';
+  if (props.variant === 'warning') return 'text-warning';
+  if (props.variant === 'error') return 'text-danger';
+  return 'text-primary';
 });
 </script>
 
@@ -37,15 +37,15 @@ const titleClass = computed(() => {
   <Teleport to="body">
     <div
       v-if="open"
-      class="fixed inset-0 z-[9999] grid place-items-center bg-slate-950/25 px-4 backdrop-blur-sm"
+      class="fixed inset-0 z-[9999] grid place-items-center bg-overlay px-4 backdrop-blur-sm"
       role="status"
       aria-live="polite"
     >
-      <div class="flex w-full max-w-sm overflow-hidden rounded-lg bg-white shadow-xl shadow-slate-950/20">
+      <div class="flex w-full max-w-sm overflow-hidden rounded-lg bg-surface shadow-xl shadow-surface">
         <div class="flex w-12 shrink-0 items-center justify-center" :class="accentClass">
           <svg
             v-if="variant === 'success'"
-            class="h-6 w-6 fill-current text-white"
+            class="h-6 w-6 fill-current text-primary-contrast"
             viewBox="0 0 40 40"
             xmlns="http://www.w3.org/2000/svg"
             aria-hidden="true"
@@ -55,7 +55,7 @@ const titleClass = computed(() => {
 
           <svg
             v-else-if="variant === 'warning'"
-            class="h-6 w-6 fill-current text-white"
+            class="h-6 w-6 fill-current text-primary-contrast"
             viewBox="0 0 40 40"
             xmlns="http://www.w3.org/2000/svg"
             aria-hidden="true"
@@ -65,7 +65,7 @@ const titleClass = computed(() => {
 
           <svg
             v-else-if="variant === 'error'"
-            class="h-6 w-6 fill-current text-white"
+            class="h-6 w-6 fill-current text-primary-contrast"
             viewBox="0 0 40 40"
             xmlns="http://www.w3.org/2000/svg"
             aria-hidden="true"
@@ -74,9 +74,9 @@ const titleClass = computed(() => {
           </svg>
 
           <span v-else class="flex gap-1.5" aria-hidden="true">
-            <span class="size-2 animate-bounce rounded-full bg-white"></span>
-            <span class="size-2 animate-bounce rounded-full bg-white [animation-delay:0.2s]"></span>
-            <span class="size-2 animate-bounce rounded-full bg-white [animation-delay:0.4s]"></span>
+            <span class="size-2 animate-bounce rounded-full bg-primary-contrast"></span>
+            <span class="size-2 animate-bounce rounded-full bg-primary-contrast [animation-delay:0.2s]"></span>
+            <span class="size-2 animate-bounce rounded-full bg-primary-contrast [animation-delay:0.4s]"></span>
           </span>
         </div>
 
@@ -84,12 +84,12 @@ const titleClass = computed(() => {
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <p class="font-semibold" :class="titleClass">{{ title }}</p>
-              <p v-if="message" class="mt-1 break-words text-sm text-slate-600">{{ message }}</p>
+              <p v-if="message" class="mt-1 break-words text-sm text-muted">{{ message }}</p>
             </div>
 
             <button
               v-if="variant !== 'loading'"
-              class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-500"
+              class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-soft hover:bg-surface-muted hover:text-text focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-primary"
               type="button"
               :aria-label="closeLabel"
               @click="$emit('close')"

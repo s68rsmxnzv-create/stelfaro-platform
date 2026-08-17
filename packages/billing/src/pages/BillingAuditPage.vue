@@ -590,9 +590,9 @@ function messageFromError(caught: unknown): string {
   <section class="space-y-5">
     <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <p class="text-sm font-bold uppercase tracking-wide text-sky-700 dark:text-primary">Empresa</p>
-        <h2 class="mt-1 text-2xl font-bold text-slate-950 dark:text-text">Auditoría operativa</h2>
-        <p class="mt-1 text-sm text-slate-500 dark:text-muted">Quién hizo qué en tu cuenta, en lenguaje sencillo.</p>
+        <p class="text-sm font-bold uppercase tracking-wide text-primary">Empresa</p>
+        <h2 class="mt-1 text-2xl font-bold text-text">Auditoría operativa</h2>
+        <p class="mt-1 text-sm text-muted">Quién hizo qué en tu cuenta, en lenguaje sencillo.</p>
       </div>
       <UiRefreshButton :loading="loading" @click="load" />
     </div>
@@ -600,37 +600,37 @@ function messageFromError(caught: unknown): string {
     <div class="grid gap-4 md:grid-cols-4">
       <UiPanel variant="raised">
         <div class="flex items-center gap-3">
-          <Activity class="h-6 w-6 text-sky-600 dark:text-primary" />
+          <Activity class="h-6 w-6 text-primary" />
           <div>
-            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Actividad</p>
-            <p class="text-2xl font-black text-slate-950 dark:text-text">{{ counts.platform }}</p>
+            <p class="text-xs font-bold uppercase text-soft">Actividad</p>
+            <p class="text-2xl font-black text-text">{{ counts.platform }}</p>
           </div>
         </div>
       </UiPanel>
       <UiPanel variant="raised">
         <div class="flex items-center gap-3">
-          <FileText class="h-6 w-6 text-emerald-600" />
+          <FileText class="h-6 w-6 text-success" />
           <div>
-            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">DTE</p>
-            <p class="text-2xl font-black text-slate-950 dark:text-text">{{ counts.dte }}</p>
+            <p class="text-xs font-bold uppercase text-soft">DTE</p>
+            <p class="text-2xl font-black text-text">{{ counts.dte }}</p>
           </div>
         </div>
       </UiPanel>
       <UiPanel variant="raised">
         <div class="flex items-center gap-3">
-          <ScrollText class="h-6 w-6 text-amber-600" />
+          <ScrollText class="h-6 w-6 text-warning" />
           <div>
-            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Eventos</p>
-            <p class="text-2xl font-black text-slate-950 dark:text-text">{{ counts.event }}</p>
+            <p class="text-xs font-bold uppercase text-soft">Eventos</p>
+            <p class="text-2xl font-black text-text">{{ counts.event }}</p>
           </div>
         </div>
       </UiPanel>
       <UiPanel variant="raised">
         <div class="flex items-center gap-3">
-          <ShieldCheck class="h-6 w-6 text-rose-600" />
+          <ShieldCheck class="h-6 w-6 text-danger" />
           <div>
-            <p class="text-xs font-bold uppercase text-slate-500 dark:text-soft">Atención</p>
-            <p class="text-2xl font-black text-slate-950 dark:text-text">{{ counts.failed }}</p>
+            <p class="text-xs font-bold uppercase text-soft">Atención</p>
+            <p class="text-2xl font-black text-text">{{ counts.failed }}</p>
           </div>
         </div>
       </UiPanel>
@@ -646,15 +646,15 @@ function messageFromError(caught: unknown): string {
       </div>
     </UiPanel>
 
-    <p v-if="error" class="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-danger-soft dark:text-danger">{{ error }}</p>
+    <p v-if="error" class="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">{{ error }}</p>
 
     <UiPanel variant="raised">
-      <div class="flex flex-col gap-3 border-b border-slate-100 pb-3 sm:flex-row sm:items-center sm:justify-between dark:border-line">
-        <p class="text-sm text-slate-500 dark:text-muted">{{ rows.length }} {{ rows.length === 1 ? 'registro' : 'registros' }}</p>
+      <div class="flex flex-col gap-3 border-b border-line pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <p class="text-sm text-muted">{{ rows.length }} {{ rows.length === 1 ? 'registro' : 'registros' }}</p>
         <nav v-if="totalPages > 1" class="flex items-center gap-1" aria-label="Paginación superior">
           <button
             type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-muted dark:hover:bg-surface-muted"
+            class="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="page <= 1 || loading"
             aria-label="Página anterior"
             @click="goToPage(page - 1)"
@@ -662,12 +662,12 @@ function messageFromError(caught: unknown): string {
             <ChevronLeft class="h-4 w-4" />
           </button>
           <template v-for="(item, index) in paginationItems" :key="`top-${item}-${index}`">
-            <span v-if="item === 'ellipsis'" class="px-1 text-sm text-slate-400 dark:text-soft">…</span>
+            <span v-if="item === 'ellipsis'" class="px-1 text-sm text-soft">…</span>
             <button
               v-else
               type="button"
               class="flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-sm font-semibold"
-              :class="item === page ? 'bg-sky-600 text-white' : 'text-slate-600 hover:bg-slate-100 dark:text-muted dark:hover:bg-surface-muted'"
+              :class="item === page ? 'bg-primary text-primary-contrast' : 'text-muted hover:bg-surface-muted'"
               :disabled="loading"
               @click="goToPage(item)"
             >
@@ -676,7 +676,7 @@ function messageFromError(caught: unknown): string {
           </template>
           <button
             type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-muted dark:hover:bg-surface-muted"
+            class="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="page >= totalPages || loading"
             aria-label="Página siguiente"
             @click="goToPage(page + 1)"
@@ -687,7 +687,7 @@ function messageFromError(caught: unknown): string {
       </div>
 
       <UiDataTable overflow="auto" min-width="min-w-[960px]">
-        <thead class="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 dark:bg-surface-muted dark:text-soft">
+        <thead class="bg-surface-muted text-xs font-bold uppercase tracking-wide text-soft">
           <tr>
             <th class="px-4 py-3">Fecha</th>
             <th class="px-4 py-3">Origen</th>
@@ -697,39 +697,39 @@ function messageFromError(caught: unknown): string {
             <th class="px-4 py-3">Resultado</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100 dark:divide-line">
+        <tbody class="divide-y divide-line">
           <tr v-if="loading">
-            <td class="px-4 py-6 text-slate-500 dark:text-muted" colspan="6">Cargando auditoría...</td>
+            <td class="px-4 py-6 text-muted" colspan="6">Cargando auditoría...</td>
           </tr>
           <tr v-else-if="rows.length === 0">
-            <td class="px-4 py-6 text-slate-500 dark:text-muted" colspan="6">No hay registros para estos filtros.</td>
+            <td class="px-4 py-6 text-muted" colspan="6">No hay registros para estos filtros.</td>
           </tr>
           <tr
             v-for="row in pagedRows"
             v-else
             :key="row.id"
-            class="cursor-pointer hover:bg-slate-50 dark:hover:bg-surface-muted"
+            class="cursor-pointer hover:bg-surface-muted"
             @click="openDetail(row)"
           >
-            <td class="whitespace-nowrap px-4 py-4 text-sm text-slate-600 dark:text-muted">{{ formatDate(row.created_at) }}</td>
+            <td class="whitespace-nowrap px-4 py-4 text-sm text-muted">{{ formatDate(row.created_at) }}</td>
             <td class="px-4 py-4"><UiStatusBadge :tone="sourceTone(row.source)">{{ sourceLabel(row.source) }}</UiStatusBadge></td>
-            <td class="px-4 py-4 font-bold text-slate-950 dark:text-text">{{ row.action }}</td>
+            <td class="px-4 py-4 font-bold text-text">{{ row.action }}</td>
             <td class="px-4 py-4">
-              <p class="font-semibold text-slate-800 dark:text-text">{{ row.actor }}</p>
-              <p class="mt-1 text-xs text-slate-500 dark:text-muted">{{ row.actor_detail }}</p>
+              <p class="font-semibold text-text">{{ row.actor }}</p>
+              <p class="mt-1 text-xs text-muted">{{ row.actor_detail }}</p>
             </td>
-            <td class="px-4 py-4 text-sm text-slate-600 dark:text-muted">{{ row.context }}</td>
+            <td class="px-4 py-4 text-sm text-muted">{{ row.context }}</td>
             <td class="px-4 py-4"><UiStatusBadge :tone="row.tone">{{ row.result }}</UiStatusBadge></td>
           </tr>
         </tbody>
       </UiDataTable>
 
-      <div v-if="totalPages > 1" class="flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between dark:border-line">
-        <p class="text-sm text-slate-500 dark:text-muted">Página {{ page }} de {{ totalPages }}</p>
+      <div v-if="totalPages > 1" class="flex flex-col gap-3 border-t border-line pt-3 sm:flex-row sm:items-center sm:justify-between">
+        <p class="text-sm text-muted">Página {{ page }} de {{ totalPages }}</p>
         <nav class="flex items-center gap-1" aria-label="Paginación inferior">
           <button
             type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-muted dark:hover:bg-surface-muted"
+            class="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="page <= 1 || loading"
             aria-label="Página anterior"
             @click="goToPage(page - 1)"
@@ -737,12 +737,12 @@ function messageFromError(caught: unknown): string {
             <ChevronLeft class="h-4 w-4" />
           </button>
           <template v-for="(item, index) in paginationItems" :key="`bottom-${item}-${index}`">
-            <span v-if="item === 'ellipsis'" class="px-1 text-sm text-slate-400 dark:text-soft">…</span>
+            <span v-if="item === 'ellipsis'" class="px-1 text-sm text-soft">…</span>
             <button
               v-else
               type="button"
               class="flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-sm font-semibold"
-              :class="item === page ? 'bg-sky-600 text-white' : 'text-slate-600 hover:bg-slate-100 dark:text-muted dark:hover:bg-surface-muted'"
+              :class="item === page ? 'bg-primary text-primary-contrast' : 'text-muted hover:bg-surface-muted'"
               :disabled="loading"
               @click="goToPage(item)"
             >
@@ -751,7 +751,7 @@ function messageFromError(caught: unknown): string {
           </template>
           <button
             type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-muted dark:hover:bg-surface-muted"
+            class="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="page >= totalPages || loading"
             aria-label="Página siguiente"
             @click="goToPage(page + 1)"
@@ -771,27 +771,27 @@ function messageFromError(caught: unknown): string {
       <template v-if="selected">
         <dl class="space-y-3 text-sm">
           <div>
-            <dt class="font-bold text-slate-500 dark:text-soft">Usuario</dt>
-            <dd class="mt-1 text-slate-800 dark:text-text">{{ selected.actor }} · {{ selected.actor_detail }}</dd>
+            <dt class="font-bold text-soft">Usuario</dt>
+            <dd class="mt-1 text-text">{{ selected.actor }} · {{ selected.actor_detail }}</dd>
           </div>
           <div>
-            <dt class="font-bold text-slate-500 dark:text-soft">Fecha</dt>
-            <dd class="mt-1 text-slate-800 dark:text-text">{{ formatDate(selected.created_at) }}</dd>
+            <dt class="font-bold text-soft">Fecha</dt>
+            <dd class="mt-1 text-text">{{ formatDate(selected.created_at) }}</dd>
           </div>
           <div>
-            <dt class="font-bold text-slate-500 dark:text-soft">Empresa</dt>
-            <dd class="mt-1 text-slate-800 dark:text-text">{{ selected.context }}</dd>
+            <dt class="font-bold text-soft">Empresa</dt>
+            <dd class="mt-1 text-text">{{ selected.context }}</dd>
           </div>
           <div v-for="item in selected.summary" :key="item.label">
-            <dt class="font-bold text-slate-500 dark:text-soft">{{ item.label }}</dt>
-            <dd class="mt-1 text-slate-800 dark:text-text">{{ item.value }}</dd>
+            <dt class="font-bold text-soft">{{ item.label }}</dt>
+            <dd class="mt-1 text-text">{{ item.value }}</dd>
           </div>
         </dl>
 
-        <div v-if="selected.technical.length" class="mt-5 border-t border-slate-100 pt-3 dark:border-line">
+        <div v-if="selected.technical.length" class="mt-5 border-t border-line pt-3">
           <button
             type="button"
-            class="flex w-full items-center justify-between text-xs font-bold uppercase tracking-wide text-slate-400 hover:text-slate-600 dark:text-soft dark:hover:text-text"
+            class="flex w-full items-center justify-between text-xs font-bold uppercase tracking-wide text-soft hover:text-text"
             @click="showTechnical = !showTechnical"
           >
             Detalles técnicos
@@ -799,8 +799,8 @@ function messageFromError(caught: unknown): string {
           </button>
           <dl v-if="showTechnical" class="mt-3 space-y-2 text-xs">
             <div v-for="item in selected.technical" :key="item.label" class="flex flex-col gap-0.5">
-              <dt class="font-semibold text-slate-500 dark:text-soft">{{ item.label }}</dt>
-              <dd class="break-words text-slate-600 dark:text-muted">{{ item.value }}</dd>
+              <dt class="font-semibold text-soft">{{ item.label }}</dt>
+              <dd class="break-words text-muted">{{ item.value }}</dd>
             </div>
           </dl>
         </div>

@@ -138,7 +138,7 @@ function categoryTone(value) { return value === 'collection' ? 'warning' : value
 function statusLabel(value) { return value === 'pending' ? 'Pendiente' : value === 'resolved' ? 'Resuelta' : 'Descartada'; }
 function statusTone(value) { return value === 'resolved' ? 'success' : value === 'discarded' ? 'neutral' : 'warning'; }
 function reminderLabel(value) { if (!value) return 'Sin recordatorio'; const date = new Date(value); const now = new Date(); if (date < now) return `Venció ${date.toLocaleString('es-SV')}`; return `Recordar ${date.toLocaleString('es-SV')}`; }
-function reminderClass(value, status) { return status === 'pending' && value && new Date(value) < new Date() ? 'text-rose-600 dark:text-danger' : 'text-slate-500 dark:text-muted'; }
+function reminderClass(value, status) { return status === 'pending' && value && new Date(value) < new Date() ? 'text-danger' : 'text-muted'; }
 function today() { return new Date().toLocaleDateString('en-CA', { timeZone: 'America/El_Salvador' }); }
 function toLocalInput(value) { if (!value) return ''; const date = new Date(value); const pad = (part) => String(part).padStart(2, '0'); return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`; }
 function uuid() { return crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
@@ -149,20 +149,20 @@ function friendlyError(error) { const message = String(error?.message || ''); re
 <template>
   <section class="mx-auto max-w-7xl space-y-5">
     <BillingFloatingToastStack :toasts="toasts" />
-    <div class="rounded-md border border-slate-200 bg-white p-6 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:text-text dark:shadow-none">
+    <div class="rounded-md border border-line bg-surface p-6 shadow-sm shadow-surface text-text dark:shadow-none">
       <div class="flex flex-wrap items-center justify-between gap-4">
-        <div><h2 class="text-2xl font-bold tracking-tight text-slate-950 dark:text-text">Pendientes</h2><p class="mt-1 text-sm text-slate-500 dark:text-muted">Recordatorios personales sin efectos en caja, inventario, ventas o facturación.</p></div>
+        <div><h2 class="text-2xl font-bold tracking-tight text-text">Pendientes</h2><p class="mt-1 text-sm text-muted">Recordatorios personales sin efectos en caja, inventario, ventas o facturación.</p></div>
         <UiButton @click="openCreate"><Plus class="mr-2 h-4 w-4" />Nuevo pendiente</UiButton>
       </div>
       <div class="mt-5 grid gap-3 sm:grid-cols-3">
-        <button type="button" class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-sky-300 dark:border-line dark:bg-surface-muted" @click="filters.status = 'pending'; filters.due = ''"><p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Pendientes</p><p class="mt-1 text-2xl font-bold">{{ stats.pending }}</p></button>
-        <button type="button" class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-rose-300 dark:border-line dark:bg-surface-muted" @click="filters.due = 'overdue'"><p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Atrasados</p><p class="mt-1 text-2xl font-bold text-rose-600 dark:text-danger">{{ stats.overdue }}</p></button>
-        <button type="button" class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-sky-300 dark:border-line dark:bg-surface-muted" @click="filters.due = 'today'"><p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Para hoy</p><p class="mt-1 text-2xl font-bold">{{ stats.today }}</p></button>
+        <button type="button" class="rounded-md border border-line bg-surface-muted px-4 py-3 text-left transition hover:border-primary/50" @click="filters.status = 'pending'; filters.due = ''"><p class="text-xs font-semibold uppercase text-soft">Pendientes</p><p class="mt-1 text-2xl font-bold">{{ stats.pending }}</p></button>
+        <button type="button" class="rounded-md border border-line bg-surface-muted px-4 py-3 text-left transition hover:border-danger/50" @click="filters.due = 'overdue'"><p class="text-xs font-semibold uppercase text-soft">Atrasados</p><p class="mt-1 text-2xl font-bold text-danger">{{ stats.overdue }}</p></button>
+        <button type="button" class="rounded-md border border-line bg-surface-muted px-4 py-3 text-left transition hover:border-primary/50" @click="filters.due = 'today'"><p class="text-xs font-semibold uppercase text-soft">Para hoy</p><p class="mt-1 text-2xl font-bold">{{ stats.today }}</p></button>
       </div>
     </div>
 
-    <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
-      <div v-if="filters.note_id" class="mb-4 flex items-center justify-between rounded-md bg-sky-50 px-4 py-3 text-sm text-sky-800 dark:bg-primary-soft dark:text-primary"><span>Mostrando el pendiente de la notificación.</span><UiButton size="sm" variant="ghost" @click="clearTarget">Ver todos</UiButton></div>
+    <div class="rounded-md border border-line bg-surface p-5">
+      <div v-if="filters.note_id" class="mb-4 flex items-center justify-between rounded-md bg-primary-soft px-4 py-3 text-sm text-primary"><span>Mostrando el pendiente de la notificación.</span><UiButton size="sm" variant="ghost" @click="clearTarget">Ver todos</UiButton></div>
       <div class="grid gap-3 lg:grid-cols-[1fr_190px_190px_190px]">
         <UiSearchInput v-model="filters.q" label="Buscar" placeholder="Persona, asunto o detalle" />
         <UiSelect v-model="filters.status" label="Estado" :options="statusOptions" />
@@ -171,13 +171,13 @@ function friendlyError(error) { const message = String(error?.message || ''); re
       </div>
     </div>
 
-    <div class="overflow-hidden rounded-md border border-slate-200 bg-white dark:border-line dark:bg-surface">
+    <div class="overflow-hidden rounded-md border border-line bg-surface">
       <UiLoadingMark v-if="loading" class="p-10" label="Cargando pendientes" />
-      <p v-else-if="notes.length === 0" class="p-10 text-center text-sm text-slate-500 dark:text-muted">No hay pendientes con estos filtros.</p>
-      <div v-else class="divide-y divide-slate-100 dark:divide-line">
-        <article v-for="note in notes" :key="note.id" class="grid gap-4 p-5 transition hover:bg-sky-50/60 dark:hover:bg-surface-muted lg:grid-cols-[1fr_190px_190px_56px] lg:items-center">
-          <div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><h3 class="font-bold text-slate-950 dark:text-text">{{ note.title }}</h3><UiStatusBadge :tone="categoryTone(note.category)">{{ categoryLabel(note.category) }}</UiStatusBadge></div><p class="mt-1 flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-muted"><UserRound class="h-4 w-4" />{{ note.person.name }}</p><p v-if="note.description" class="mt-1 line-clamp-2 text-sm text-slate-500 dark:text-muted">{{ note.description }}</p></div>
-          <div><UiStatusBadge :tone="statusTone(note.status)">{{ statusLabel(note.status) }}</UiStatusBadge><p class="mt-2 text-xs text-slate-500 dark:text-muted">Registrado {{ new Date(`${note.occurred_on}T12:00:00`).toLocaleDateString('es-SV') }}</p></div>
+      <p v-else-if="notes.length === 0" class="p-10 text-center text-sm text-muted">No hay pendientes con estos filtros.</p>
+      <div v-else class="divide-y divide-line">
+        <article v-for="note in notes" :key="note.id" class="grid gap-4 p-5 transition hover:bg-primary-soft/60 dark:hover:bg-surface-muted lg:grid-cols-[1fr_190px_190px_56px] lg:items-center">
+          <div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><h3 class="font-bold text-text">{{ note.title }}</h3><UiStatusBadge :tone="categoryTone(note.category)">{{ categoryLabel(note.category) }}</UiStatusBadge></div><p class="mt-1 flex items-center gap-2 text-sm font-semibold text-muted"><UserRound class="h-4 w-4" />{{ note.person.name }}</p><p v-if="note.description" class="mt-1 line-clamp-2 text-sm text-muted">{{ note.description }}</p></div>
+          <div><UiStatusBadge :tone="statusTone(note.status)">{{ statusLabel(note.status) }}</UiStatusBadge><p class="mt-2 text-xs text-muted">Registrado {{ new Date(`${note.occurred_on}T12:00:00`).toLocaleDateString('es-SV') }}</p></div>
           <p class="flex items-start gap-2 text-sm font-medium" :class="reminderClass(note.remind_at, note.status)"><CalendarClock class="mt-0.5 h-4 w-4 shrink-0" />{{ reminderLabel(note.remind_at) }}</p>
           <UiActionDropdown>
             <UiActionMenuItem v-if="note.status === 'pending'" @select="openEdit(note)"><template #icon><Pencil class="h-4 w-4" /></template>Editar</UiActionMenuItem>
@@ -186,11 +186,11 @@ function friendlyError(error) { const message = String(error?.message || ''); re
           </UiActionDropdown>
         </article>
       </div>
-      <div v-if="meta.last_page > 1" class="flex items-center justify-between border-t border-slate-200 px-5 py-4 dark:border-line"><UiButton size="sm" variant="secondary" :disabled="meta.current_page <= 1" @click="filters.page--; loadNotes()">Anterior</UiButton><span class="text-sm text-slate-500 dark:text-muted">Página {{ meta.current_page }} de {{ meta.last_page }}</span><UiButton size="sm" variant="secondary" :disabled="meta.current_page >= meta.last_page" @click="filters.page++; loadNotes()">Siguiente</UiButton></div>
+      <div v-if="meta.last_page > 1" class="flex items-center justify-between border-t border-line px-5 py-4"><UiButton size="sm" variant="secondary" :disabled="meta.current_page <= 1" @click="filters.page--; loadNotes()">Anterior</UiButton><span class="text-sm text-muted">Página {{ meta.current_page }} de {{ meta.last_page }}</span><UiButton size="sm" variant="secondary" :disabled="meta.current_page >= meta.last_page" @click="filters.page++; loadNotes()">Siguiente</UiButton></div>
     </div>
 
     <BillingModalShell :open="formOpen" :title="editingNote ? 'Editar pendiente' : 'Nuevo pendiente'" description="Es una nota de seguimiento; no registra dinero, inventario ni ventas." max-width="max-w-2xl" @close="formOpen = false">
-      <div class="relative"><UiSearchInput v-model="form.person_name" label="Persona" placeholder="Buscar cliente o escribir un nombre" /><div v-if="!selectedCustomer && (customerResults.length || customerLoading)" class="absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white p-1 shadow-xl dark:border-line dark:bg-surface-raised"><p v-if="customerLoading" class="px-3 py-2 text-sm text-slate-500">Buscando…</p><button v-for="customer in customerResults" :key="customer.id" type="button" class="block w-full rounded-md px-3 py-2 text-left hover:bg-sky-50 dark:hover:bg-surface-muted" @click="chooseCustomer(customer)"><strong class="block">{{ customer.name }}</strong><span class="text-xs text-slate-500 dark:text-muted">{{ customer.document_number || customer.phone || 'Cliente conocido' }}</span></button></div></div>
+      <div class="relative"><UiSearchInput v-model="form.person_name" label="Persona" placeholder="Buscar cliente o escribir un nombre" /><div v-if="!selectedCustomer && (customerResults.length || customerLoading)" class="absolute z-20 mt-1 w-full rounded-md border border-line bg-surface-raised p-1 shadow-xl"><p v-if="customerLoading" class="px-3 py-2 text-sm text-soft">Buscando…</p><button v-for="customer in customerResults" :key="customer.id" type="button" class="block w-full rounded-md px-3 py-2 text-left hover:bg-primary-soft dark:hover:bg-surface-muted" @click="chooseCustomer(customer)"><strong class="block">{{ customer.name }}</strong><span class="text-xs text-muted">{{ customer.document_number || customer.phone || 'Cliente conocido' }}</span></button></div></div>
       <div class="mt-4 grid gap-4 sm:grid-cols-2"><UiInput v-model="form.person_phone" label="Teléfono (opcional)" /><UiInput v-model="form.person_email" type="email" label="Correo (opcional)" /></div>
       <UiInput v-model="form.title" class="mt-4" label="¿Qué quedó pendiente?" placeholder="Ej. SIM entregada para prueba" />
       <UiTextarea v-model="form.description" class="mt-4" label="Detalle (opcional)" :rows="3" />

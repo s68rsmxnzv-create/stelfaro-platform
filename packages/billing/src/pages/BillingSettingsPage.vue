@@ -288,8 +288,8 @@ const authStatusLabel = computed(() => {
   return selectedMhConfig.value?.credentials_configured ? 'Usuario API configurado' : 'Pendiente de credenciales MH';
 });
 const authStatusClass = computed(() => selectedAuthStatus.value?.status === 'ok' || (selectedMhConfig.value?.credentials_configured && !selectedAuthStatus.value)
-  ? 'text-emerald-700'
-  : 'text-slate-500');
+  ? 'text-success'
+  : 'text-muted');
 const signerStatusLabel = computed(() => {
   if (selectedSignerSync.value?.available === true) {
     return 'Firmador verificado';
@@ -303,10 +303,10 @@ const signerStatusLabel = computed(() => {
 });
 const signerStatusClass = computed(() => {
   if (selectedSignerSync.value?.available === true) {
-    return 'text-emerald-700';
+    return 'text-success';
   }
 
-  return selectedSignerSync.value?.status === 'error' ? 'text-red-700' : 'text-slate-500';
+  return selectedSignerSync.value?.status === 'error' ? 'text-danger' : 'text-muted';
 });
 const departamentoOptions = computed(() => departamentos.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
 const municipioOptions = computed(() => municipios.value.map((item) => ({ value: item.code, label: item.label, hint: item.code })));
@@ -1550,7 +1550,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
 <template>
   <div class="space-y-5">
     <UiCard :variant="props.detailMode && selectedEmpresa ? 'bare' : 'default'">
-      <div v-if="!empresas.length && !loading" class="rounded-md border border-dashed border-slate-300 p-6 text-sm text-slate-500">
+      <div v-if="!empresas.length && !loading" class="rounded-md border border-dashed border-line-strong p-6 text-sm text-muted">
         Aun no hay empresas registradas.
       </div>
 
@@ -1566,8 +1566,8 @@ function markLogoBroken(empresa: BillingEmpresa): void {
 
           <div v-if="searchQuery.trim()" class="mx-auto mt-6 w-full max-w-3xl">
             <div class="mb-4 flex items-center justify-center gap-3 text-center">
-              <p v-if="resultLabel" class="text-sm font-semibold text-slate-950">{{ resultLabel }}</p>
-              <p class="text-sm text-slate-500">{{ empresas.length }} registrada{{ empresas.length === 1 ? '' : 's' }}</p>
+              <p v-if="resultLabel" class="text-sm font-semibold text-text">{{ resultLabel }}</p>
+              <p class="text-sm text-muted">{{ empresas.length }} registrada{{ empresas.length === 1 ? '' : 's' }}</p>
             </div>
 
             <div class="grid gap-3">
@@ -1575,18 +1575,18 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 v-for="empresa in filteredEmpresas"
                 :key="empresa.id"
                 type="button"
-                class="w-full rounded-md border px-6 py-5 text-left transition hover:border-sky-300 hover:bg-slate-50"
-                :class="empresa.id === form.empresa_id ? 'border-sky-500 bg-sky-50' : 'border-blue-100/80 bg-white/85'"
+                class="w-full rounded-md border px-6 py-5 text-left transition hover:border-primary hover:bg-surface-muted"
+                :class="empresa.id === form.empresa_id ? 'border-primary bg-primary-soft' : 'border-primary bg-surface/85'"
                 @click="selectEmpresa(empresa)"
               >
                 <div class="flex items-center gap-4">
-                  <img v-if="hasLogo(empresa)" :src="empresa.logo_url ?? ''" class="h-14 w-14 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(empresa)">
-                  <div v-else class="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-slate-900 text-sm font-bold text-white">
+                  <img v-if="hasLogo(empresa)" :src="empresa.logo_url ?? ''" class="h-14 w-14 rounded-md border border-line object-contain" alt="" @error="markLogoBroken(empresa)">
+                  <div v-else class="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-surface-strong text-sm font-bold text-text">
                     {{ initials(empresa) }}
                   </div>
                   <div class="min-w-0 flex-1">
                     <div class="flex items-start justify-between gap-2">
-                      <p class="truncate text-sm font-semibold text-slate-950">{{ empresa.nombre_comercial }}</p>
+                      <p class="truncate text-sm font-semibold text-text">{{ empresa.nombre_comercial }}</p>
                       <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
                         <UiStatusBadge :tone="companyEnvironmentTone(empresa)">{{ companyEnvironmentLabel(empresa) }}</UiStatusBadge>
                         <UiStatusBadge :tone="empresa.lifecycle_status === 'active' ? 'success' : 'neutral'">
@@ -1594,13 +1594,13 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                         </UiStatusBadge>
                       </div>
                     </div>
-                    <p class="mt-1 truncate text-xs text-slate-500">{{ empresa.razon_social }}</p>
-                    <p class="mt-2 text-xs font-medium text-slate-700">{{ documentLabel(empresa) }}</p>
+                    <p class="mt-1 truncate text-xs text-muted">{{ empresa.razon_social }}</p>
+                    <p class="mt-2 text-xs font-medium text-muted">{{ documentLabel(empresa) }}</p>
                   </div>
                 </div>
               </button>
 
-              <div v-if="searchQuery.trim() && !filteredEmpresas.length" class="rounded-md border border-dashed border-slate-300 p-5 text-center text-sm text-slate-500">
+              <div v-if="searchQuery.trim() && !filteredEmpresas.length" class="rounded-md border border-dashed border-line-strong p-5 text-center text-sm text-muted">
                 No se encontro ninguna empresa con ese criterio.
               </div>
             </div>
@@ -1613,23 +1613,23 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           :class="props.detailMode ? 'flex flex-col' : 'space-y-5'"
           :style="props.detailMode ? { rowGap: '28px' } : undefined"
         >
-          <div v-if="!props.detailMode" id="datos-empresa" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
+          <div v-if="!props.detailMode" id="datos-empresa" class="scroll-mt-6 rounded-md border border-primary bg-surface/85 p-5 shadow-sm shadow-surface backdrop-blur">
             <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div class="flex min-w-0 gap-4">
-                <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
-                <div v-else class="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-slate-900 text-lg font-bold text-white">
+                <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-line object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
+                <div v-else class="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-surface-strong text-lg font-bold text-text">
                   {{ initials(selectedEmpresa) }}
                 </div>
                 <div class="min-w-0">
                   <div class="flex flex-wrap items-center gap-2">
-                    <h2 class="truncate text-xl font-bold text-slate-950">{{ selectedEmpresa.razon_social }}</h2>
-                    <span class="rounded px-2 py-1 text-xs font-semibold" :class="isInactive ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-700'">
+                    <h2 class="truncate text-xl font-bold text-text">{{ selectedEmpresa.razon_social }}</h2>
+                    <span class="rounded px-2 py-1 text-xs font-semibold" :class="isInactive ? 'bg-surface-muted text-muted' : 'bg-success-soft text-success'">
                       {{ isInactive ? 'Inactiva' : 'Activa' }}
                     </span>
                   </div>
-                  <p class="mt-1 text-sm text-slate-600">{{ selectedEmpresa.nombre_comercial }}</p>
-                  <p class="mt-2 text-sm font-medium text-slate-800">{{ selectedDocumentLabel }}</p>
-                  <p class="mt-1 text-sm text-slate-500">{{ selectedEmpresa.codigo_actividad }} · {{ selectedEmpresa.desc_actividad }}</p>
+                  <p class="mt-1 text-sm text-muted">{{ selectedEmpresa.nombre_comercial }}</p>
+                  <p class="mt-2 text-sm font-medium text-text">{{ selectedDocumentLabel }}</p>
+                  <p class="mt-1 text-sm text-muted">{{ selectedEmpresa.codigo_actividad }} · {{ selectedEmpresa.desc_actividad }}</p>
                 </div>
               </div>
 
@@ -1646,11 +1646,11 @@ function markLogoBroken(empresa: BillingEmpresa): void {
             </div>
           </div>
 
-          <div v-if="editingCompany" id="empresa-editor" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
+          <div v-if="editingCompany" id="empresa-editor" class="scroll-mt-6 rounded-md border border-primary bg-surface/85 p-5 shadow-sm shadow-surface backdrop-blur">
               <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p class="text-sm font-semibold text-slate-950">Datos generales de la empresa</p>
-                  <p class="mt-1 text-xs text-slate-500">Nombres, documento fiscal, actividad, direccion, contacto y logo.</p>
+                  <p class="text-sm font-semibold text-text">Datos generales de la empresa</p>
+                  <p class="mt-1 text-xs text-muted">Nombres, documento fiscal, actividad, direccion, contacto y logo.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                 <UiButton v-if="props.detailMode" variant="secondary" :disabled="loading" @click="editingCompany = false">Volver al resumen</UiButton>
@@ -1687,7 +1687,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                       <button
                         v-if="activityIndex === companyActivities.length - 1 && companyActivities.length < 3"
                         type="button"
-                        class="mt-6 grid h-10 w-10 place-items-center rounded-md border border-blue-100 bg-white text-slate-700 shadow-sm shadow-blue-950/5 transition hover:border-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        class="mt-6 grid h-10 w-10 place-items-center rounded-md border border-primary bg-surface text-muted shadow-sm shadow-surface transition hover:border-primary hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
                         :disabled="!companyActivities[0]?.trim()"
                         aria-label="Agregar actividad economica"
                         @click="addCompanyActivity"
@@ -1728,21 +1728,21 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               </div>
             </div>
 
-            <div class="mt-6 grid gap-3 border-t border-slate-100 pt-5">
+            <div class="mt-6 grid gap-3 border-t border-line pt-5">
               <div>
-                <p class="text-sm font-semibold text-slate-950">DTE habilitados</p>
-                <p class="mt-1 text-xs text-slate-500">Estos documentos tendran correlativos activos y seran los unicos visibles para el tenant. Los cambios se guardan al instante.</p>
+                <p class="text-sm font-semibold text-text">DTE habilitados</p>
+                <p class="mt-1 text-xs text-muted">Estos documentos tendran correlativos activos y seran los unicos visibles para el tenant. Los cambios se guardan al instante.</p>
               </div>
 
               <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                 <div
                   v-for="option in dteOptions"
                   :key="option.code"
-                  class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 transition hover:border-slate-300 hover:bg-slate-50"
+                  class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2 transition hover:border-line-strong hover:bg-surface-muted"
                 >
                   <span class="min-w-0">
-                    <span class="block truncate text-sm font-semibold text-slate-950">{{ option.short }}</span>
-                    <span class="mt-0.5 block truncate text-xs text-slate-500">{{ option.label }}</span>
+                    <span class="block truncate text-sm font-semibold text-text">{{ option.short }}</span>
+                    <span class="mt-0.5 block truncate text-xs text-muted">{{ option.label }}</span>
                   </span>
                   <UiToggle
                     class="shrink-0"
@@ -1755,21 +1755,21 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               </div>
             </div>
 
-            <div class="mt-6 grid gap-3 border-t border-slate-100 pt-5">
+            <div class="mt-6 grid gap-3 border-t border-line pt-5">
               <div>
-                <p class="text-sm font-semibold text-slate-950">Eventos habilitados</p>
-                <p class="mt-1 text-xs text-slate-500">Estos eventos MH seran visibles y permitidos para el tenant. Los cambios se guardan al instante.</p>
+                <p class="text-sm font-semibold text-text">Eventos habilitados</p>
+                <p class="mt-1 text-xs text-muted">Estos eventos MH seran visibles y permitidos para el tenant. Los cambios se guardan al instante.</p>
               </div>
 
               <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                 <div
                   v-for="option in eventOptions"
                   :key="option.code"
-                  class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 transition hover:border-slate-300 hover:bg-slate-50"
+                  class="flex min-h-14 items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2 transition hover:border-line-strong hover:bg-surface-muted"
                 >
                   <span class="min-w-0">
-                    <span class="block truncate text-sm font-semibold text-slate-950">{{ option.short }}</span>
-                    <span class="mt-0.5 block truncate text-xs text-slate-500">{{ option.label }}</span>
+                    <span class="block truncate text-sm font-semibold text-text">{{ option.short }}</span>
+                    <span class="mt-0.5 block truncate text-xs text-muted">{{ option.label }}</span>
                   </span>
                   <UiToggle
                     class="shrink-0"
@@ -1785,16 +1785,16 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </div>
 
           <template v-if="props.detailMode && !editingCompany && !editingFiscal && !editingSucursales && !editingCorrelativos">
-            <div id="settings-summary" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
+            <div id="settings-summary" class="scroll-mt-6 rounded-md border border-primary bg-surface/90 p-5 shadow-sm shadow-surface backdrop-blur">
               <div class="flex min-w-0 gap-4">
-                <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-slate-200 object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
-                <div v-else class="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-slate-900 text-lg font-bold text-white">
+                <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-line object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
+                <div v-else class="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-surface-strong text-lg font-bold text-text">
                   {{ initials(selectedEmpresa) }}
                 </div>
                 <div class="min-w-0">
                   <div class="flex flex-wrap items-center gap-2">
-                    <h2 class="truncate text-xl font-bold text-slate-950">{{ selectedEmpresa.razon_social }}</h2>
-                    <span class="rounded px-2 py-1 text-xs font-semibold" :class="isInactive ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-700'">
+                    <h2 class="truncate text-xl font-bold text-text">{{ selectedEmpresa.razon_social }}</h2>
+                    <span class="rounded px-2 py-1 text-xs font-semibold" :class="isInactive ? 'bg-surface-muted text-muted' : 'bg-success-soft text-success'">
                       {{ isInactive ? 'Inactiva' : 'Activa' }}
                     </span>
                     <div class="relative">
@@ -1802,114 +1802,114 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                         type="button"
                         class="rounded px-2 py-1 text-xs font-semibold transition hover:brightness-95"
                         :class="{
-                          'bg-emerald-50 text-emerald-700': fiscalHealth.tone === 'success',
-                          'bg-amber-50 text-amber-700': fiscalHealth.tone === 'warning',
-                          'bg-red-50 text-red-700': fiscalHealth.tone === 'danger',
-                          'bg-slate-100 text-slate-600': fiscalHealth.tone === 'slate'
+                          'bg-success-soft text-success': fiscalHealth.tone === 'success',
+                          'bg-warning-soft text-warning': fiscalHealth.tone === 'warning',
+                          'bg-danger-soft text-danger': fiscalHealth.tone === 'danger',
+                          'bg-surface-muted text-muted': fiscalHealth.tone === 'slate'
                         }"
                         @click="healthOpen = !healthOpen"
                       >
                         {{ fiscalHealth.label }}
                       </button>
-                      <div v-if="healthOpen" class="absolute left-0 z-20 mt-2 w-72 rounded-md border border-slate-200 bg-white p-4 text-sm shadow-lg">
-                        <p class="font-semibold text-slate-950">Salud fiscal</p>
-                        <p class="mt-1 text-xs text-slate-500">{{ fiscalHealth.detail }}</p>
+                      <div v-if="healthOpen" class="absolute left-0 z-20 mt-2 w-72 rounded-md border border-line bg-surface p-4 text-sm shadow-lg">
+                        <p class="font-semibold text-text">Salud fiscal</p>
+                        <p class="mt-1 text-xs text-muted">{{ fiscalHealth.detail }}</p>
                         <div class="mt-4 space-y-3">
                           <div class="flex items-center justify-between gap-3">
-                            <span class="text-slate-600">Autorizacion MH</span>
-                            <span class="rounded px-2 py-1 text-xs font-semibold" :class="fiscalHealth.authReady ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'">
+                            <span class="text-muted">Autorizacion MH</span>
+                            <span class="rounded px-2 py-1 text-xs font-semibold" :class="fiscalHealth.authReady ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'">
                               {{ fiscalHealth.authReady ? 'OK' : 'Pendiente' }}
                             </span>
                           </div>
                           <div class="flex items-center justify-between gap-3">
-                            <span class="text-slate-600">Firmador</span>
-                            <span class="rounded px-2 py-1 text-xs font-semibold" :class="fiscalHealth.signerReady ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'">
+                            <span class="text-muted">Firmador</span>
+                            <span class="rounded px-2 py-1 text-xs font-semibold" :class="fiscalHealth.signerReady ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'">
                               {{ fiscalHealth.signerReady ? 'OK' : 'Error' }}
                             </span>
                           </div>
                         </div>
-                        <p v-if="selectedSignerSync?.message" class="mt-3 rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700">{{ selectedSignerSync.message }}</p>
-                        <p class="mt-4 text-xs text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${formatDateTime(selectedMhConfig.last_verified_at)}` : 'Sin verificacion registrada' }}</p>
+                        <p v-if="selectedSignerSync?.message" class="mt-3 rounded bg-danger-soft px-2 py-1 text-xs font-medium text-danger">{{ selectedSignerSync.message }}</p>
+                        <p class="mt-4 text-xs text-muted">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${formatDateTime(selectedMhConfig.last_verified_at)}` : 'Sin verificacion registrada' }}</p>
                       </div>
                     </div>
                   </div>
-                  <p class="mt-1 text-sm text-slate-600">{{ selectedEmpresa.nombre_comercial }}</p>
-                  <p class="mt-2 text-sm font-medium text-slate-800">{{ selectedDocumentLabel }}</p>
-                  <p class="mt-1 text-sm text-slate-500">{{ selectedEmpresa.codigo_actividad }} · {{ selectedEmpresa.desc_actividad }}</p>
+                  <p class="mt-1 text-sm text-muted">{{ selectedEmpresa.nombre_comercial }}</p>
+                  <p class="mt-2 text-sm font-medium text-text">{{ selectedDocumentLabel }}</p>
+                  <p class="mt-1 text-sm text-muted">{{ selectedEmpresa.codigo_actividad }} · {{ selectedEmpresa.desc_actividad }}</p>
                 </div>
               </div>
             </div>
 
             <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
-              <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
-                <p class="truncate text-[11px] font-bold uppercase text-slate-500">DTE emitidos</p>
-                <p class="mt-2 text-2xl font-bold text-slate-950">{{ companySummary?.totals.emitted ?? 0 }}</p>
+              <div class="min-w-0 rounded-md border border-primary bg-surface/90 p-4 shadow-sm shadow-surface">
+                <p class="truncate text-[11px] font-bold uppercase text-muted">DTE emitidos</p>
+                <p class="mt-2 text-2xl font-bold text-text">{{ companySummary?.totals.emitted ?? 0 }}</p>
               </div>
-              <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
-                <p class="truncate text-[11px] font-bold uppercase text-slate-500">Bien</p>
-                <p class="mt-2 text-2xl font-bold text-emerald-700">{{ companySummary?.totals.accepted ?? 0 }}</p>
+              <div class="min-w-0 rounded-md border border-primary bg-surface/90 p-4 shadow-sm shadow-surface">
+                <p class="truncate text-[11px] font-bold uppercase text-muted">Bien</p>
+                <p class="mt-2 text-2xl font-bold text-success">{{ companySummary?.totals.accepted ?? 0 }}</p>
               </div>
-              <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
-                <p class="truncate text-[11px] font-bold uppercase text-slate-500">Rechazos</p>
-                <p class="mt-2 text-2xl font-bold text-red-700">{{ companySummary?.totals.rejected ?? 0 }}</p>
+              <div class="min-w-0 rounded-md border border-primary bg-surface/90 p-4 shadow-sm shadow-surface">
+                <p class="truncate text-[11px] font-bold uppercase text-muted">Rechazos</p>
+                <p class="mt-2 text-2xl font-bold text-danger">{{ companySummary?.totals.rejected ?? 0 }}</p>
               </div>
-              <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
-                <p class="truncate text-[11px] font-bold uppercase text-slate-500">Activo desde</p>
-                <p class="mt-2 text-sm font-semibold text-slate-950">{{ formatDate(selectedEmpresa.created_at) }}</p>
+              <div class="min-w-0 rounded-md border border-primary bg-surface/90 p-4 shadow-sm shadow-surface">
+                <p class="truncate text-[11px] font-bold uppercase text-muted">Activo desde</p>
+                <p class="mt-2 text-sm font-semibold text-text">{{ formatDate(selectedEmpresa.created_at) }}</p>
               </div>
-              <div class="min-w-0 rounded-md border border-blue-100/80 bg-white/90 p-4 shadow-sm shadow-blue-950/5">
-                <p class="truncate text-[11px] font-bold uppercase text-slate-500">Suscripcion hasta</p>
-                <p class="mt-1 text-sm font-semibold text-slate-950">No registrada</p>
+              <div class="min-w-0 rounded-md border border-primary bg-surface/90 p-4 shadow-sm shadow-surface">
+                <p class="truncate text-[11px] font-bold uppercase text-muted">Suscripcion hasta</p>
+                <p class="mt-1 text-sm font-semibold text-text">No registrada</p>
               </div>
             </div>
 
-            <div class="rounded-md border border-blue-100/80 bg-white/90 p-5 shadow-sm shadow-blue-950/5">
-              <p class="text-sm font-semibold text-slate-950">Resumen informativo</p>
+            <div class="rounded-md border border-primary bg-surface/90 p-5 shadow-sm shadow-surface">
+              <p class="text-sm font-semibold text-text">Resumen informativo</p>
               <div class="mt-4 grid gap-8" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
                 <div class="space-y-4">
                   <div>
-                    <p class="text-xs font-bold uppercase text-slate-500">Contribuyente</p>
-                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.razon_social }}</p>
+                    <p class="text-xs font-bold uppercase text-muted">Contribuyente</p>
+                    <p class="mt-1 text-sm font-semibold text-text">{{ selectedEmpresa.razon_social }}</p>
                   </div>
                   <div>
-                    <p class="text-xs font-bold uppercase text-slate-500">Direccion</p>
-                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.direccion ? displayText(selectedSucursal.direccion) : 'Direccion pendiente' }}</p>
-                    <p class="mt-1 text-xs text-slate-500">{{ branchLocationLabel(selectedSucursal) }}</p>
+                    <p class="text-xs font-bold uppercase text-muted">Direccion</p>
+                    <p class="mt-1 text-sm font-semibold text-text">{{ selectedSucursal?.direccion ? displayText(selectedSucursal.direccion) : 'Direccion pendiente' }}</p>
+                    <p class="mt-1 text-xs text-muted">{{ branchLocationLabel(selectedSucursal) }}</p>
                   </div>
                   <div>
-                    <p class="text-xs font-bold uppercase text-slate-500">Telefono</p>
-                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.telefono ?? 'No registrado' }}</p>
+                    <p class="text-xs font-bold uppercase text-muted">Telefono</p>
+                    <p class="mt-1 text-sm font-semibold text-text">{{ selectedSucursal?.telefono ?? 'No registrado' }}</p>
                   </div>
                   <div>
-                    <p class="text-xs font-bold uppercase text-slate-500">Correo</p>
-                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedSucursal?.email ?? 'No registrado' }}</p>
+                    <p class="text-xs font-bold uppercase text-muted">Correo</p>
+                    <p class="mt-1 text-sm font-semibold text-text">{{ selectedSucursal?.email ?? 'No registrado' }}</p>
                   </div>
                 </div>
 
                 <div class="space-y-4">
                   <div>
-                    <p class="text-xs font-bold uppercase text-slate-500">Nombre comercial</p>
-                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.nombre_comercial }}</p>
+                    <p class="text-xs font-bold uppercase text-muted">Nombre comercial</p>
+                    <p class="mt-1 text-sm font-semibold text-text">{{ selectedEmpresa.nombre_comercial }}</p>
                   </div>
                   <div>
-                    <p class="text-xs font-bold uppercase text-slate-500">Ambiente</p>
-                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ form.ambiente }} · {{ environmentLabel }}</p>
+                    <p class="text-xs font-bold uppercase text-muted">Ambiente</p>
+                    <p class="mt-1 text-sm font-semibold text-text">{{ form.ambiente }} · {{ environmentLabel }}</p>
                   </div>
                   <div>
-                    <p class="text-xs font-bold uppercase text-slate-500">NIT</p>
-                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.fiscal_document_number ?? selectedEmpresa.nit }}</p>
+                    <p class="text-xs font-bold uppercase text-muted">NIT</p>
+                    <p class="mt-1 text-sm font-semibold text-text">{{ selectedEmpresa.fiscal_document_number ?? selectedEmpresa.nit }}</p>
                   </div>
                   <div>
-                    <p class="text-xs font-bold uppercase text-slate-500">NRC</p>
-                    <p class="mt-1 text-sm font-semibold text-slate-950">{{ selectedEmpresa.nrc ?? 'No registrado' }}</p>
+                    <p class="text-xs font-bold uppercase text-muted">NRC</p>
+                    <p class="mt-1 text-sm font-semibold text-text">{{ selectedEmpresa.nrc ?? 'No registrado' }}</p>
                   </div>
                   <div>
-                    <p class="text-xs font-bold uppercase text-slate-500">Actividades economicas</p>
+                    <p class="text-xs font-bold uppercase text-muted">Actividades economicas</p>
                     <div class="mt-1 space-y-1">
                       <p
                         v-for="activity in economicActivitiesFor(selectedEmpresa)"
                         :key="activity.codigo"
-                        class="text-sm font-semibold text-slate-950"
+                        class="text-sm font-semibold text-text"
                       >
                         {{ activity.codigo }} · {{ activity.descripcion }}
                       </p>
@@ -1921,10 +1921,10 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </template>
 
           <template v-if="editingSucursales">
-            <div id="sucursales" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
-              <div class="flex flex-col gap-3 border-b border-slate-200 pb-4 lg:flex-row lg:items-start lg:justify-between">
+            <div id="sucursales" class="scroll-mt-6 rounded-md border border-primary bg-surface/85 p-5 shadow-sm shadow-surface backdrop-blur">
+              <div class="flex flex-col gap-3 border-b border-line pb-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <p class="text-sm font-semibold text-slate-950">Sucursales y puntos de venta</p>
+                  <p class="text-sm font-semibold text-text">Sucursales y puntos de venta</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
                   <UiButton
@@ -1940,24 +1940,24 @@ function markLogoBroken(empresa: BillingEmpresa): void {
 
               <div class="mt-5 grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
                 <div class="space-y-3">
-                  <p v-if="reachedSucursalLimit" class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                  <p v-if="reachedSucursalLimit" class="rounded-md border border-warning bg-warning-soft px-3 py-2 text-xs font-semibold text-warning">
                     Limite alcanzado: casa matriz y 2 sucursales adicionales.
                   </p>
 
-                  <div class="rounded-md border border-slate-200 bg-white">
+                  <div class="rounded-md border border-line bg-surface">
                     <button
                       v-for="sucursal in sucursales"
                       :key="sucursal.id"
                       type="button"
-                      class="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 text-left last:border-b-0"
-                      :class="sucursal.id === selectedSucursal?.id ? 'bg-sky-50' : 'hover:bg-slate-50'"
+                      class="flex w-full items-center justify-between gap-3 border-b border-line px-4 py-3 text-left last:border-b-0"
+                      :class="sucursal.id === selectedSucursal?.id ? 'bg-primary-soft' : 'hover:bg-surface-muted'"
                       @click="selectedSucursalId = sucursal.id"
                     >
                       <span class="min-w-0">
-                        <span class="block truncate text-sm font-bold text-slate-950">{{ sucursal.nombre }}</span>
-                        <span class="mt-1 block truncate text-xs text-slate-500">{{ sucursal.codigo }} · {{ sucursal.puntosVenta.length }} punto{{ sucursal.puntosVenta.length === 1 ? '' : 's' }}</span>
+                        <span class="block truncate text-sm font-bold text-text">{{ sucursal.nombre }}</span>
+                        <span class="mt-1 block truncate text-xs text-muted">{{ sucursal.codigo }} · {{ sucursal.puntosVenta.length }} punto{{ sucursal.puntosVenta.length === 1 ? '' : 's' }}</span>
                       </span>
-                      <span class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">{{ sucursal.codigo }}</span>
+                      <span class="rounded bg-surface-muted px-2 py-1 text-xs font-semibold text-muted">{{ sucursal.codigo }}</span>
                     </button>
                   </div>
 
@@ -1987,11 +1987,11 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                     </UiButton>
                   </div>
 
-                  <div class="mt-6 border-t border-slate-200 pt-5">
+                  <div class="mt-6 border-t border-line pt-5">
                     <div class="flex items-center justify-between gap-3">
                       <div>
-                        <p class="text-sm font-semibold text-slate-950">Puntos de venta</p>
-                        <p class="mt-1 text-xs text-slate-500">Cada punto abre su propia serie {{ selectedSucursal.codigo }} + codigo punto venta.</p>
+                        <p class="text-sm font-semibold text-text">Puntos de venta</p>
+                        <p class="mt-1 text-xs text-muted">Cada punto abre su propia serie {{ selectedSucursal.codigo }} + codigo punto venta.</p>
                       </div>
                       <UiButton
                         variant="secondary"
@@ -2002,22 +2002,22 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                       </UiButton>
                     </div>
 
-                    <div class="mt-4 overflow-hidden rounded-md border border-slate-200">
+                    <div class="mt-4 overflow-hidden rounded-md border border-line">
                       <button
                         v-for="punto in puntosVenta"
                         :key="punto.id"
                         type="button"
-                        class="grid w-full grid-cols-[110px_minmax(0,1fr)_110px] items-center gap-3 border-b border-slate-100 px-3 py-3 text-left text-sm last:border-b-0"
-                        :class="punto.id === selectedPuntoVenta?.id ? 'bg-sky-50' : 'hover:bg-slate-50'"
+                        class="grid w-full grid-cols-[110px_minmax(0,1fr)_110px] items-center gap-3 border-b border-line px-3 py-3 text-left text-sm last:border-b-0"
+                        :class="punto.id === selectedPuntoVenta?.id ? 'bg-primary-soft' : 'hover:bg-surface-muted'"
                         @click="selectedPuntoVentaId = punto.id"
                       >
-                        <span class="font-bold text-slate-950">{{ punto.codigo }}</span>
-                        <span class="truncate text-slate-700">{{ punto.nombre }}</span>
-                        <span class="rounded bg-slate-100 px-2 py-1 text-center text-xs font-semibold text-slate-600">{{ punto.tipo }}</span>
+                        <span class="font-bold text-text">{{ punto.codigo }}</span>
+                        <span class="truncate text-muted">{{ punto.nombre }}</span>
+                        <span class="rounded bg-surface-muted px-2 py-1 text-center text-xs font-semibold text-muted">{{ punto.tipo }}</span>
                       </button>
                     </div>
 
-                    <div v-if="selectedPuntoVenta" class="mt-4 grid gap-4 rounded-md border border-blue-100 bg-white p-4 md:grid-cols-[130px_minmax(0,1fr)_130px_auto] md:items-end">
+                    <div v-if="selectedPuntoVenta" class="mt-4 grid gap-4 rounded-md border border-primary bg-surface p-4 md:grid-cols-[130px_minmax(0,1fr)_130px_auto] md:items-end">
                       <UiInput v-model="puntoVentaForm.codigo" label="Codigo" />
                       <UiInput v-model="puntoVentaForm.nombre" label="Nombre" />
                       <UiInput v-model="puntoVentaForm.tipo" label="Tipo" />
@@ -2033,11 +2033,11 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </template>
 
           <template v-if="editingCorrelativos">
-            <div id="correlativos" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
-              <div class="flex flex-col gap-3 border-b border-slate-200 pb-4 lg:flex-row lg:items-start lg:justify-between">
+            <div id="correlativos" class="scroll-mt-6 rounded-md border border-primary bg-surface/85 p-5 shadow-sm shadow-surface backdrop-blur">
+              <div class="flex flex-col gap-3 border-b border-line pb-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <p class="text-sm font-semibold text-slate-950">Correlativos</p>
-                  <p class="mt-1 text-xs text-slate-500">Selecciona sucursal y punto de venta para ajustar el ultimo correlativo emitido por cada DTE.</p>
+                  <p class="text-sm font-semibold text-text">Correlativos</p>
+                  <p class="mt-1 text-xs text-muted">Selecciona sucursal y punto de venta para ajustar el ultimo correlativo emitido por cada DTE.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                   <UiSelect v-model.number="selectedSucursalId" class="min-w-48" label="Sucursal" hide-label :options="sucursales.map(sucursal => ({ value: sucursal.id, label: `${sucursal.codigo} · ${sucursal.nombre}` }))" />
@@ -2048,11 +2048,11 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               </div>
 
               <UiLoadingMark v-if="correlativosLoading" class="mt-4" label="Cargando correlativos" />
-              <div v-else-if="correlativoRows.length === 0" class="mt-4 rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+              <div v-else-if="correlativoRows.length === 0" class="mt-4 rounded-md border border-dashed border-line-strong p-4 text-sm text-muted">
                 No hay correlativos activos para esta sucursal, punto de venta y ambiente.
               </div>
-              <div v-else class="mt-4 overflow-hidden rounded-md border border-slate-200">
-                <div class="grid grid-cols-[minmax(180px,1fr)_150px_170px_150px] bg-slate-50 px-3 py-2 text-[11px] font-bold uppercase text-slate-500">
+              <div v-else class="mt-4 overflow-hidden rounded-md border border-line">
+                <div class="grid grid-cols-[minmax(180px,1fr)_150px_170px_150px] bg-surface-muted px-3 py-2 text-[11px] font-bold uppercase text-muted">
                   <span>DTE</span>
                   <span>Ultimo emitido</span>
                   <span>Proximo a usar</span>
@@ -2061,15 +2061,15 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 <div
                   v-for="row in correlativoRows"
                   :key="row.id"
-                  class="grid grid-cols-[minmax(180px,1fr)_150px_170px_150px] items-center gap-3 border-t border-slate-100 px-3 py-3 text-sm"
+                  class="grid grid-cols-[minmax(180px,1fr)_150px_170px_150px] items-center gap-3 border-t border-line px-3 py-3 text-sm"
                 >
                   <div class="min-w-0">
-                    <p class="font-bold text-slate-950">{{ dteShortLabel(row.tipo_dte) }}</p>
-                    <p class="truncate text-xs text-slate-500">{{ dteLongLabel(row.tipo_dte) }} · {{ row.sucursal_codigo }}{{ row.punto_venta_codigo }}</p>
+                    <p class="font-bold text-text">{{ dteShortLabel(row.tipo_dte) }}</p>
+                    <p class="truncate text-xs text-muted">{{ dteLongLabel(row.tipo_dte) }} · {{ row.sucursal_codigo }}{{ row.punto_venta_codigo }}</p>
                   </div>
                   <input
                     :value="correlativoDrafts[row.id] ?? String(row.actual)"
-                    class="h-10 w-full rounded-md border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-950 shadow-sm shadow-blue-950/5 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                    class="h-10 w-full rounded-md border border-primary bg-surface px-3 text-sm font-semibold text-text shadow-sm shadow-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary"
                     inputmode="numeric"
                     type="number"
                     min="0"
@@ -2077,8 +2077,8 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                     @input="correlativoDrafts = { ...correlativoDrafts, [row.id]: ($event.target as HTMLInputElement).value.replace(/\\D/g, '') }"
                   >
                   <div class="min-w-0">
-                    <p class="font-semibold text-slate-950">{{ row.next_correlativo ?? 'Sin disponible' }}</p>
-                    <p class="truncate font-mono text-[11px] text-slate-500">{{ row.next_numero_control ?? 'Rango agotado' }}</p>
+                    <p class="font-semibold text-text">{{ row.next_correlativo ?? 'Sin disponible' }}</p>
+                    <p class="truncate font-mono text-[11px] text-muted">{{ row.next_numero_control ?? 'Rango agotado' }}</p>
                   </div>
                   <div class="flex justify-end">
                     <UiButton
@@ -2097,33 +2097,33 @@ function markLogoBroken(empresa: BillingEmpresa): void {
 
           <template v-if="!props.detailMode || editingFiscal">
             <div v-if="!props.detailMode" class="grid gap-4 lg:grid-cols-3">
-              <div class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
-                <p class="font-semibold text-slate-950">Casa matriz</p>
-                <p class="mt-2 text-slate-600">{{ selectedSucursal?.direccion ? displayText(selectedSucursal.direccion) : 'Direccion pendiente' }}</p>
-                <p class="mt-1 text-slate-600">{{ branchLocationLabel(selectedSucursal) }}</p>
+              <div class="rounded-md border border-primary bg-surface/85 p-4 shadow-sm shadow-surface backdrop-blur text-sm">
+                <p class="font-semibold text-text">Casa matriz</p>
+                <p class="mt-2 text-muted">{{ selectedSucursal?.direccion ? displayText(selectedSucursal.direccion) : 'Direccion pendiente' }}</p>
+                <p class="mt-1 text-muted">{{ branchLocationLabel(selectedSucursal) }}</p>
               </div>
-              <div id="credenciales-mh" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
-                <p class="font-semibold text-slate-950">Credenciales MH</p>
+              <div id="credenciales-mh" class="scroll-mt-6 rounded-md border border-primary bg-surface/85 p-4 shadow-sm shadow-surface backdrop-blur text-sm">
+                <p class="font-semibold text-text">Credenciales MH</p>
                 <p class="mt-2" :class="authStatusClass">
                   {{ authStatusLabel }}
                 </p>
-                <p class="mt-1 text-slate-500">Ambiente {{ environmentLabel }}</p>
+                <p class="mt-1 text-muted">Ambiente {{ environmentLabel }}</p>
               </div>
-              <div id="firmador" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur text-sm">
-                <p class="font-semibold text-slate-950">Firmador</p>
+              <div id="firmador" class="scroll-mt-6 rounded-md border border-primary bg-surface/85 p-4 shadow-sm shadow-surface backdrop-blur text-sm">
+                <p class="font-semibold text-text">Firmador</p>
                 <p class="mt-2" :class="signerStatusClass">
                   {{ signerStatusLabel }}
                 </p>
-                <p class="mt-1 text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${formatDateTime(selectedMhConfig.last_verified_at)}` : 'Sin verificacion registrada' }}</p>
-                <p v-if="selectedSignerSync?.message" class="mt-2 rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700">{{ selectedSignerSync.message }}</p>
+                <p class="mt-1 text-muted">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${formatDateTime(selectedMhConfig.last_verified_at)}` : 'Sin verificacion registrada' }}</p>
+                <p v-if="selectedSignerSync?.message" class="mt-2 rounded bg-danger-soft px-2 py-1 text-xs font-medium text-danger">{{ selectedSignerSync.message }}</p>
               </div>
             </div>
 
-            <div id="certificados" class="scroll-mt-6 rounded-md border border-blue-100/80 bg-white/85 p-5 shadow-sm shadow-blue-950/5 backdrop-blur">
-              <div class="flex flex-col gap-3 border-b border-slate-200 pb-5 lg:flex-row lg:items-start lg:justify-between">
+            <div id="certificados" class="scroll-mt-6 rounded-md border border-primary bg-surface/85 p-5 shadow-sm shadow-surface backdrop-blur">
+              <div class="flex flex-col gap-3 border-b border-line pb-5 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <p class="text-sm font-semibold text-slate-950">Datos fiscales</p>
-                  <p class="mt-1 text-xs text-slate-500">Ambiente, certificado activo, credenciales MH, firmador y simulacion por empresa.</p>
+                  <p class="text-sm font-semibold text-text">Datos fiscales</p>
+                  <p class="mt-1 text-xs text-muted">Ambiente, certificado activo, credenciales MH, firmador y simulacion por empresa.</p>
                 </div>
                 <UiButton v-if="props.detailMode" variant="secondary" :disabled="loading" @click="editingFiscal = false">Volver al resumen</UiButton>
               </div>
@@ -2133,36 +2133,36 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                   v-for="row in activeCertificatesByEnvironment"
                   :key="row.ambiente"
                   class="rounded-md border p-4"
-                  :class="row.ambiente === form.ambiente ? 'border-sky-200 bg-sky-50/70' : 'border-slate-200 bg-slate-50/70'"
+                  :class="row.ambiente === form.ambiente ? 'border-primary bg-primary-soft' : 'border-line bg-surface-muted'"
                 >
                   <div class="flex items-start justify-between gap-3">
                     <div>
-                      <p class="text-xs font-bold uppercase text-slate-500">{{ row.ambiente }} · {{ row.label }}</p>
-                      <p class="mt-2 text-sm font-semibold text-slate-950">
+                      <p class="text-xs font-bold uppercase text-muted">{{ row.ambiente }} · {{ row.label }}</p>
+                      <p class="mt-2 text-sm font-semibold text-text">
                         {{ row.activeCertificate?.filename ?? 'Sin certificado activo' }}
                       </p>
-                      <p class="mt-1 text-xs text-slate-500">
+                      <p class="mt-1 text-xs text-muted">
                         {{ row.activeCertificate?.vence_at ? `Vence: ${formatDate(row.activeCertificate.vence_at)}` : 'Carga un certificado para operar en este ambiente.' }}
                       </p>
                     </div>
                     <span
                       class="rounded px-2 py-1 text-xs font-semibold"
                       :class="{
-                        'bg-emerald-50 text-emerald-700': row.activeCount === 1,
-                        'bg-amber-50 text-amber-700': row.activeCount > 1,
-                        'bg-slate-100 text-slate-600': row.activeCount === 0
+                        'bg-success-soft text-success': row.activeCount === 1,
+                        'bg-warning-soft text-warning': row.activeCount > 1,
+                        'bg-surface-muted text-muted': row.activeCount === 0
                       }"
                     >
                       {{ row.activeCount === 1 ? 'Activo' : row.activeCount > 1 ? 'Revisar' : 'Pendiente' }}
                     </span>
                   </div>
-                  <p v-if="row.activeCount > 1" class="mt-3 rounded-md border border-amber-200 bg-white px-3 py-2 text-xs font-medium text-amber-800">
+                  <p v-if="row.activeCount > 1" class="mt-3 rounded-md border border-warning bg-surface px-3 py-2 text-xs font-medium text-warning">
                     Hay mas de un certificado activo para este ambiente. Deja solo uno activo desde soporte fiscal.
                   </p>
                 </div>
               </div>
 
-              <p v-if="hasCertificateConflict" class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+              <p v-if="hasCertificateConflict" class="mt-4 rounded-md border border-warning bg-warning-soft px-3 py-2 text-xs font-medium text-warning">
                 Este ambiente tiene mas de un certificado activo. Guardar una nueva configuracion no debe ocultar esa revision.
               </p>
 
@@ -2170,20 +2170,20 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 <UiSelect v-model="form.ambiente" label="Ambiente" :options="[{ value: '00', label: '00 · Pruebas' }, { value: '01', label: '01 · Producción' }]" />
 
                 <div class="block">
-                  <span class="text-sm font-medium text-slate-700">Certificado activo</span>
-                  <div class="mt-1 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-800">
+                  <span class="text-sm font-medium text-muted">Certificado activo</span>
+                  <div class="mt-1 rounded-md border border-line-strong bg-surface-muted px-3 py-2 text-sm text-text">
                     <p v-if="activeCertificate" class="font-medium">
                       {{ activeCertificate.filename }}
                     </p>
-                    <p v-else class="text-slate-500">
+                    <p v-else class="text-muted">
                       Sin certificado cargado para este ambiente.
                     </p>
                   </div>
-                  <p v-if="activeCertificate?.vence_at" class="mt-1 text-xs text-slate-500">Vence: {{ formatDate(activeCertificate.vence_at) }}</p>
+                  <p v-if="activeCertificate?.vence_at" class="mt-1 text-xs text-muted">Vence: {{ formatDate(activeCertificate.vence_at) }}</p>
                 </div>
 
                 <label class="block md:col-span-2">
-                  <span class="text-sm font-medium text-slate-700">Reemplazar certificado .p12/.crt</span>
+                  <span class="text-sm font-medium text-muted">Reemplazar certificado .p12/.crt</span>
                   <UiFileUpload
                     id="certificate-upload"
                     class="mt-1"
@@ -2194,29 +2194,29 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 </label>
               </div>
 
-              <div class="mt-5 grid gap-4 border-t border-slate-200 pt-5 md:grid-cols-2">
-                <div class="rounded-md border border-slate-200 bg-slate-50/70 p-4">
-                  <p class="text-sm font-semibold text-slate-950">Autorizacion MH</p>
+              <div class="mt-5 grid gap-4 border-t border-line pt-5 md:grid-cols-2">
+                <div class="rounded-md border border-line bg-surface-muted p-4">
+                  <p class="text-sm font-semibold text-text">Autorizacion MH</p>
                   <p class="mt-2 text-sm" :class="authStatusClass">
                     {{ authStatusLabel }}
                   </p>
-                  <p class="mt-1 text-xs text-slate-500">Ambiente {{ form.ambiente }} · {{ environmentLabel }}</p>
+                  <p class="mt-1 text-xs text-muted">Ambiente {{ form.ambiente }} · {{ environmentLabel }}</p>
                 </div>
-                <div class="rounded-md border border-slate-200 bg-slate-50/70 p-4">
-                  <p class="text-sm font-semibold text-slate-950">Firmador</p>
+                <div class="rounded-md border border-line bg-surface-muted p-4">
+                  <p class="text-sm font-semibold text-text">Firmador</p>
                   <p class="mt-2 text-sm" :class="signerStatusClass">
                     {{ signerStatusLabel }}
                   </p>
-                  <p class="mt-1 text-xs text-slate-500">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${formatDateTime(selectedMhConfig.last_verified_at)}` : 'Sin verificacion registrada' }}</p>
-                  <p v-if="selectedSignerSync?.message" class="mt-2 rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700">{{ selectedSignerSync.message }}</p>
+                  <p class="mt-1 text-xs text-muted">{{ selectedMhConfig?.last_verified_at ? `Ultima verificacion: ${formatDateTime(selectedMhConfig.last_verified_at)}` : 'Sin verificacion registrada' }}</p>
+                  <p v-if="selectedSignerSync?.message" class="mt-2 rounded bg-danger-soft px-2 py-1 text-xs font-medium text-danger">{{ selectedSignerSync.message }}</p>
                 </div>
               </div>
 
-              <div class="mt-5 border-t border-slate-200 pt-5">
+              <div class="mt-5 border-t border-line pt-5">
                 <div class="flex items-center justify-between gap-3">
                   <div>
-                    <p class="text-sm font-semibold text-slate-950">Credenciales sensibles</p>
-                    <p class="mt-1 text-xs text-slate-500">Se conservan las existentes si dejas los campos vacios.</p>
+                    <p class="text-sm font-semibold text-text">Credenciales sensibles</p>
+                    <p class="mt-1 text-xs text-muted">Se conservan las existentes si dejas los campos vacios.</p>
                   </div>
                   <UiButton variant="secondary" @click="editingCredentials = !editingCredentials">
                     {{ editingCredentials ? 'Ocultar' : 'Editar credenciales' }}
@@ -2237,16 +2237,16 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 </UiButton>
                 <UiButton variant="secondary" :disabled="loading || !form.empresa_id || isInactive" @click="verifySigner">Verificar firma</UiButton>
                 <UiButton variant="secondary" :disabled="loading || !form.empresa_id || isInactive" @click="requestBearer">Verificar autorizacion MH</UiButton>
-                <p v-if="saved" class="text-sm text-emerald-700">{{ saved }}</p>
+                <p v-if="saved" class="text-sm text-success">{{ saved }}</p>
               </div>
 
-              <div class="mt-5 rounded-md border p-4" :class="form.simulate_unavailable ? 'border-amber-300 bg-amber-50' : 'border-blue-100/80 bg-slate-50/80'">
+              <div class="mt-5 rounded-md border p-4" :class="form.simulate_unavailable ? 'border-warning bg-warning-soft' : 'border-primary bg-surface-muted'">
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p class="text-sm font-semibold text-slate-950">Simular MH sin respuesta</p>
-                    <p class="mt-1 text-xs text-slate-600">Usalo solo para pruebas de contingencia en este ambiente.</p>
+                    <p class="text-sm font-semibold text-text">Simular MH sin respuesta</p>
+                    <p class="mt-1 text-xs text-muted">Usalo solo para pruebas de contingencia en este ambiente.</p>
                   </div>
-                  <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-800">
+                  <label class="inline-flex items-center gap-3 text-sm font-semibold text-text">
                     <span>{{ form.simulate_unavailable ? 'Activo' : 'Inactivo' }}</span>
                     <UiToggle
                       v-model="form.simulate_unavailable"
@@ -2257,21 +2257,21 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                     />
                   </label>
                 </div>
-                <p v-if="form.simulate_unavailable" class="mt-3 rounded-md border border-amber-200 bg-white px-3 py-2 text-xs font-medium text-amber-800">
+                <p v-if="form.simulate_unavailable" class="mt-3 rounded-md border border-warning bg-surface px-3 py-2 text-xs font-medium text-warning">
                   Recepcion y consulta de DTE fallaran localmente; los eventos MH siguen usando el servicio configurado.
                 </p>
               </div>
             </div>
           </template>
 
-          <div v-if="!props.detailMode && signerStatus" class="rounded-md border p-3 text-sm" :class="signerStatus.available ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'">
+          <div v-if="!props.detailMode && signerStatus" class="rounded-md border p-3 text-sm" :class="signerStatus.available ? 'border-success bg-success-soft text-success' : 'border-danger bg-danger-soft text-danger'">
             <p class="font-semibold">Firmador {{ signerStatus.available ? 'disponible' : 'no disponible' }}</p>
             <p v-if="signerStatus.status_code">HTTP {{ signerStatus.status_code }}</p>
             <p v-if="signerStatus.last_verified_at">Verificado: {{ formatDateTime(signerStatus.last_verified_at) }}</p>
             <p v-if="signerStatus.message">Detalle: {{ signerStatus.message }}</p>
           </div>
 
-          <div v-if="!props.detailMode && bearerStatus" class="rounded-md border p-3 text-sm" :class="bearerStatus.available ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'">
+          <div v-if="!props.detailMode && bearerStatus" class="rounded-md border p-3 text-sm" :class="bearerStatus.available ? 'border-success bg-success-soft text-success' : 'border-danger bg-danger-soft text-danger'">
             <p class="font-semibold">Autorizacion MH {{ bearerStatus.available ? 'verificada' : 'no disponible' }}</p>
             <p v-if="bearerStatus.http_status" class="mt-1">HTTP {{ bearerStatus.http_status }}</p>
             <p v-if="bearerStatus.auth_url">Servicio: {{ bearerStatus.auth_url }}</p>
@@ -2310,8 +2310,8 @@ function markLogoBroken(empresa: BillingEmpresa): void {
             </div>
           </div>
 
-          <div class="rounded-md border border-slate-200 bg-slate-50 p-4">
-            <p class="text-sm font-semibold text-slate-950">Punto inicial</p>
+          <div class="rounded-md border border-line bg-surface-muted p-4">
+            <p class="text-sm font-semibold text-text">Punto inicial</p>
             <div class="mt-4 grid gap-4">
               <UiInput v-model="newSucursalForm.punto_venta_codigo" label="Codigo" />
               <UiInput v-model="newSucursalForm.punto_venta_nombre" label="Nombre" />
@@ -2350,7 +2350,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
         </template>
       </BillingModalShell>
 
-      <p v-if="error" class="mt-4 whitespace-pre-wrap rounded-md bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
+      <p v-if="error" class="mt-4 whitespace-pre-wrap rounded-md bg-danger-soft p-3 text-sm text-danger">{{ error }}</p>
     </UiCard>
 
     <BillingProcessToastOverlay

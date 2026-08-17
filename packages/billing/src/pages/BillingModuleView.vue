@@ -99,7 +99,7 @@ const selectedComponentProps = computed(() => {
 
 <template>
   <div>
-    <div v-if="!authToken" class="rounded-md border border-red-200 bg-red-50 p-5 text-red-700">
+    <div v-if="!authToken" class="rounded-md border border-danger/40 bg-danger-soft p-5 text-danger">
       No fue posible abrir la sesion fiscal.
     </div>
     <component

@@ -199,7 +199,7 @@ function submit(): void {
       <UiPhoneInput v-model="form.phone" label="Telefono (opcional)" />
     </div>
 
-    <p v-if="form.document.trim() && !detection.valid" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+    <p v-if="form.document.trim() && !detection.valid" class="rounded-md bg-warning-soft p-3 text-sm text-warning">
       Usa DUI de 9 digitos o NIT de 14 digitos.
     </p>
 

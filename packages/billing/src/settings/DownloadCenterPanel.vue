@@ -68,7 +68,7 @@ function formatSize(bytes?: number): string {
     <div class="rounded-lg border border-primary/20 bg-primary-soft p-5">
       <div class="flex items-start gap-3">
         <span
-          class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary text-white"
+          class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary text-primary-contrast"
         >
           <ShieldCheck class="h-5 w-5" />
         </span>
@@ -86,7 +86,7 @@ function formatSize(bytes?: number): string {
 
     <div class="grid gap-5 lg:grid-cols-2">
       <article
-        class="flex flex-col rounded-lg border border-line bg-surface p-5 shadow-sm shadow-slate-950/5"
+        class="flex flex-col rounded-lg border border-line bg-surface p-5 shadow-sm shadow-surface"
       >
         <div class="flex items-start justify-between gap-4">
           <span
@@ -131,7 +131,7 @@ function formatSize(bytes?: number): string {
         <a
           :href="windowsAgentHref"
           :download="windowsAgentFileName"
-          class="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-white transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+          class="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-primary-contrast transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
         >
           <Download class="h-4 w-4" />
           Descargar agente para Windows
@@ -142,7 +142,7 @@ function formatSize(bytes?: number): string {
       </article>
 
       <article
-        class="flex flex-col rounded-lg border border-line bg-surface p-5 shadow-sm shadow-slate-950/5"
+        class="flex flex-col rounded-lg border border-line bg-surface p-5 shadow-sm shadow-surface"
       >
         <div class="flex items-start justify-between gap-4">
           <span
@@ -179,7 +179,7 @@ function formatSize(bytes?: number): string {
           v-if="releases.android.available"
           :href="androidAgent.href"
           :download="androidAgent.fileName"
-          class="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-white transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+          class="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-primary-contrast transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
         >
           <Download class="h-4 w-4" />
           Descargar agente para Android

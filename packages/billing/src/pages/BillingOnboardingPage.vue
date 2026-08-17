@@ -149,10 +149,10 @@ onBeforeUnmount(() => {
 
 function stepItemClass(index: number): string {
   if (index <= step.value) {
-    return 'text-sky-600';
+    return 'text-primary';
   }
 
-  return 'text-slate-500';
+  return 'text-muted';
 }
 
 function stepStatusLabel(index: number): string {
@@ -452,8 +452,8 @@ function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
     <UiCard>
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Onboarding fiscal</p>
-          <h1 class="mt-1 text-2xl font-bold text-slate-950">Empresa, certificado y MH</h1>
+          <p class="text-sm font-semibold uppercase tracking-wide text-primary">Onboarding fiscal</p>
+          <h1 class="mt-1 text-2xl font-bold text-text">Empresa, certificado y MH</h1>
         </div>
       </div>
 
@@ -466,7 +466,7 @@ function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
           </div>
 
           <ol
-            class="mt-4 text-sm font-semibold text-slate-500"
+            class="mt-4 text-sm font-semibold text-muted"
             :style="{ display: 'grid', columnGap: '12px', gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }"
           >
             <li
@@ -480,7 +480,7 @@ function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
             >
               <button
                 type="button"
-                class="min-w-0 rounded-md px-1 py-1 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                class="min-w-0 rounded-md px-1 py-1 transition hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-primary"
                 :aria-current="index === step ? 'step' : undefined"
                 :aria-label="`${item}: ${stepStatusLabel(index)}`"
                 @click="step = index"
@@ -527,7 +527,7 @@ function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
                 <button
                   v-if="activityIndex === companyActivities.length - 1 && companyActivities.length < 3"
                   type="button"
-                  class="mt-6 grid h-10 w-10 place-items-center rounded-md border border-blue-100 bg-white text-slate-700 shadow-sm shadow-blue-950/5 transition hover:border-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  class="mt-6 grid h-10 w-10 place-items-center rounded-md border border-line bg-surface text-muted shadow-sm shadow-surface transition hover:border-primary hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
                   :disabled="!companyActivities[0]?.trim()"
                   aria-label="Agregar actividad economica"
                   @click="addCompanyActivity"
@@ -582,7 +582,7 @@ function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
         <UiPasswordInput v-model="fiscalForm.mh_password" label="MH Password API" />
         <div class="grid gap-4 md:col-span-2 md:grid-cols-2 xl:col-span-2">
           <label class="block">
-            <span class="text-sm font-medium text-slate-700">Certificado</span>
+            <span class="text-sm font-medium text-muted">Certificado</span>
             <UiFileUpload
               id="onboarding-certificate-upload"
               class="mt-1"
@@ -611,19 +611,19 @@ function showFloatingToast(toast: Omit<BillingFloatingToast, 'id'>): void {
         </UiButton>
       </div>
 
-      <p v-if="error" class="mt-4 whitespace-pre-wrap rounded-md bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
+      <p v-if="error" class="mt-4 whitespace-pre-wrap rounded-md bg-danger-soft p-3 text-sm text-danger">{{ error }}</p>
     </UiCard>
 
     <Teleport to="body">
       <div
         v-if="processOverlayOpen"
-        class="fixed inset-0 z-[9998] grid place-items-center bg-slate-950/25 px-4 backdrop-blur-sm"
+        class="fixed inset-0 z-[9998] grid place-items-center bg-overlay px-4 backdrop-blur-sm"
         role="status"
         aria-live="polite"
       >
-        <div class="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl shadow-slate-950/20">
+        <div class="w-full max-w-sm rounded-lg bg-surface p-6 shadow-xl shadow-surface">
           <UiLoadingMark :label="processOverlayTitle" />
-          <p class="mt-3 text-center text-sm text-slate-600">{{ processOverlayMessage }}</p>
+          <p class="mt-3 text-center text-sm text-muted">{{ processOverlayMessage }}</p>
         </div>
       </div>
     </Teleport>

@@ -442,7 +442,7 @@ function formatDate(value?: string | null): string {
 
 <template>
   <section class="space-y-6">
-    <p v-if="error" class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ error }}</p>
+    <p v-if="error" class="rounded-md border border-danger/40 bg-danger-soft px-4 py-3 text-sm text-danger">{{ error }}</p>
     <BillingFloatingToastStack :toasts="floatingToasts" />
 
     <div class="rounded-2xl border border-line bg-surface p-3 shadow-sm md:rounded-lg md:p-5">
@@ -508,7 +508,7 @@ function formatDate(value?: string | null): string {
       <div class="overflow-visible md:rounded-md md:border md:border-line">
         <div
           v-if="activeTab === 'dte'"
-          class="hidden grid-cols-[minmax(0,1.5fr)_160px_150px_96px] gap-4 rounded-t-md bg-slate-50 px-4 py-3 text-xs font-semibold uppercase text-slate-500 md:grid"
+          class="hidden grid-cols-[minmax(0,1.5fr)_160px_150px_96px] gap-4 rounded-t-md bg-surface-muted px-4 py-3 text-xs font-semibold uppercase text-soft md:grid"
         >
           <span>Documento</span>
           <span>Fecha</span>
@@ -518,7 +518,7 @@ function formatDate(value?: string | null): string {
 
         <div
           v-else
-          class="hidden grid-cols-[minmax(0,1.5fr)_160px_96px] gap-4 rounded-t-md bg-slate-50 px-4 py-3 text-xs font-semibold uppercase text-slate-500 md:grid"
+          class="hidden grid-cols-[minmax(0,1.5fr)_160px_96px] gap-4 rounded-t-md bg-surface-muted px-4 py-3 text-xs font-semibold uppercase text-soft md:grid"
         >
           <span>Evento</span>
           <span>Fecha</span>
@@ -529,7 +529,7 @@ function formatDate(value?: string | null): string {
           <UiLoadingMark :label="activeTab === 'dte' ? 'Cargando comprobantes' : 'Cargando eventos'" />
         </div>
 
-        <div v-else-if="emptyState" class="px-4 py-10 text-sm text-slate-600">
+        <div v-else-if="emptyState" class="px-4 py-10 text-sm text-muted">
           {{ activeTab === 'dte' ? 'No hay comprobantes para mostrar.' : eventEmptyMessage() }}
         </div>
 
@@ -540,11 +540,11 @@ function formatDate(value?: string | null): string {
             class="sf-interactive-row relative grid grid-cols-1 gap-3 rounded-2xl border border-line bg-surface px-4 py-4 shadow-sm md:grid-cols-[minmax(0,1.5fr)_160px_150px_96px] md:items-center md:rounded-none md:border-0 md:bg-transparent md:shadow-none"
           >
             <div class="min-w-0 pr-12 md:pr-0">
-              <p class="flex min-w-0 items-center gap-2 font-semibold text-slate-950">
-                <UiDocumentIcon class="h-5 w-5 shrink-0 text-sky-600" />
+              <p class="flex min-w-0 items-center gap-2 font-semibold text-text">
+                <UiDocumentIcon class="h-5 w-5 shrink-0 text-primary" />
                 <span class="truncate">{{ document.numeroControl }}</span>
               </p>
-              <p class="mt-1 truncate font-mono text-xs text-slate-500">{{ document.codigoGeneracion }}</p>
+              <p class="mt-1 truncate font-mono text-xs text-soft">{{ document.codigoGeneracion }}</p>
               <p class="mt-2 text-xs font-semibold uppercase text-primary">{{ typeLabel(document.tipoDte) }}</p>
             </div>
 
@@ -567,39 +567,39 @@ function formatDate(value?: string | null): string {
             <UiActionDropdown class="absolute right-3 top-3 md:static" label="Abrir acciones del comprobante" menu-width="w-52">
               <button
                 type="button"
-                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-muted transition hover:bg-surface-muted hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="openingPdfId === document.id"
                 @click="openPdf(document)"
               >
-                <UiDocumentIcon class="h-5 w-5 text-sky-600" />
+                <UiDocumentIcon class="h-5 w-5 text-primary" />
                 <span>{{ openingPdfId === document.id ? 'Abriendo PDF...' : 'Abrir PDF' }}</span>
               </button>
 
               <button
                 type="button"
-                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-muted transition hover:bg-surface-muted hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="openingJsonId === document.id"
                 @click="openJson(document)"
               >
-                <UiCodeBracketIcon class="h-5 w-5 text-sky-600" />
+                <UiCodeBracketIcon class="h-5 w-5 text-primary" />
                 <span>{{ openingJsonId === document.id ? 'Abriendo JSON...' : 'Abrir JSON' }}</span>
               </button>
 
               <UiActionMenuItem :disabled="printingId === document.id" @select="printDocument(document)">
-                <template #icon><Printer class="h-5 w-5 text-sky-600" /></template>
+                <template #icon><Printer class="h-5 w-5 text-primary" /></template>
                 {{ printingId === document.id ? 'Enviando...' : 'Reimprimir comprobante' }}
               </UiActionMenuItem>
 
-              <div v-if="document.estado !== 'invalidated'" class="my-1 border-t border-slate-100"></div>
+              <div v-if="document.estado !== 'invalidated'" class="my-1 border-t border-line"></div>
 
               <button
                 v-if="document.estado !== 'invalidated'"
                 type="button"
-                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-muted transition hover:bg-surface-muted hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="resendingEmailId === document.id"
                 @click="resendEmail(document)"
               >
-                  <UiMailIcon class="h-5 w-5 text-sky-600" />
+                  <UiMailIcon class="h-5 w-5 text-primary" />
                   <span>{{ resendingEmailId === document.id ? 'Esperando envio...' : 'Reenviar correo' }}</span>
                 </button>
             </UiActionDropdown>
@@ -613,34 +613,34 @@ function formatDate(value?: string | null): string {
             class="sf-interactive-row relative grid grid-cols-1 gap-3 rounded-2xl border border-line bg-surface px-4 py-4 shadow-sm md:grid-cols-[minmax(0,1.5fr)_160px_96px] md:items-center md:rounded-none md:border-0 md:bg-transparent md:shadow-none"
           >
             <div class="min-w-0 pr-12 md:pr-0">
-              <p class="flex min-w-0 items-center gap-2 font-semibold text-slate-950">
-                <UiDocumentIcon class="h-5 w-5 shrink-0 text-sky-600" />
+              <p class="flex min-w-0 items-center gap-2 font-semibold text-text">
+                <UiDocumentIcon class="h-5 w-5 shrink-0 text-primary" />
                 <span class="truncate">{{ event.numeroControl ?? event.codigoGeneracion ?? `Evento ${event.id}` }}</span>
               </p>
-              <p class="mt-1 truncate font-mono text-xs text-slate-500">{{ event.codigoGeneracion }}</p>
+              <p class="mt-1 truncate font-mono text-xs text-soft">{{ event.codigoGeneracion }}</p>
               <p class="mt-2 text-xs font-semibold uppercase text-primary">{{ eventLabel(event.eventType) }}</p>
             </div>
 
-            <p class="text-sm text-slate-600">{{ formatDate(event.processed_at ?? event.created_at) }}</p>
+            <p class="text-sm text-muted">{{ formatDate(event.processed_at ?? event.created_at) }}</p>
 
             <UiActionDropdown class="absolute right-3 top-3 md:static" label="Abrir acciones del evento" menu-width="w-48">
               <button
                 type="button"
-                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-muted transition hover:bg-surface-muted hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="openingEventPdfId === event.id"
                 @click="openEventPdf(event)"
               >
-                <UiDocumentIcon class="h-5 w-5 text-sky-600" />
+                <UiDocumentIcon class="h-5 w-5 text-primary" />
                 <span>{{ openingEventPdfId === event.id ? 'Abriendo PDF...' : 'Abrir PDF' }}</span>
               </button>
 
               <button
                 type="button"
-                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-muted transition hover:bg-surface-muted hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="openingEventJsonId === event.id"
                 @click="openEventJson(event)"
               >
-                <UiCodeBracketIcon class="h-5 w-5 text-sky-600" />
+                <UiCodeBracketIcon class="h-5 w-5 text-primary" />
                 <span>{{ openingEventJsonId === event.id ? 'Abriendo JSON...' : 'Abrir JSON' }}</span>
               </button>
             </UiActionDropdown>
@@ -658,7 +658,7 @@ function formatDate(value?: string | null): string {
           <nav class="flex items-center" aria-label="Paginacion">
             <button
               type="button"
-              class="mx-1 flex h-10 min-w-10 items-center justify-center rounded-md bg-white px-3 py-2 text-slate-500 transition-colors duration-300 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-white disabled:hover:text-slate-300 hover:bg-sky-600 hover:text-white"
+              class="mx-1 flex h-10 min-w-10 items-center justify-center rounded-md bg-surface px-3 py-2 text-soft transition-colors duration-300 disabled:cursor-not-allowed disabled:text-soft disabled:hover:bg-surface disabled:hover:text-soft hover:bg-primary hover:text-primary-contrast"
               :disabled="currentPage <= 1 || loading"
               aria-label="Pagina anterior"
               @click="goToPage(currentPage - 1)"
@@ -671,7 +671,7 @@ function formatDate(value?: string | null): string {
             <template v-for="(item, index) in paginationItems" :key="`${item}-${index}`">
               <span
                 v-if="item === 'ellipsis'"
-                class="mx-1 hidden h-10 min-w-10 items-center justify-center rounded-md bg-white px-4 py-2 text-slate-500 sm:inline-flex"
+                class="mx-1 hidden h-10 min-w-10 items-center justify-center rounded-md bg-surface px-4 py-2 text-soft sm:inline-flex"
               >
                 ...
               </span>
@@ -680,7 +680,7 @@ function formatDate(value?: string | null): string {
                 v-else
                 type="button"
                 class="mx-1 hidden h-10 min-w-10 items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition-colors duration-300 sm:inline-flex"
-                :class="item === currentPage ? 'bg-sky-600 text-white' : 'bg-white text-slate-700 hover:bg-sky-600 hover:text-white'"
+                :class="item === currentPage ? 'bg-primary text-primary-contrast' : 'bg-surface text-muted hover:bg-primary hover:text-primary-contrast'"
                 :aria-current="item === currentPage ? 'page' : undefined"
                 :disabled="loading"
                 @click="goToPage(item)"
@@ -691,7 +691,7 @@ function formatDate(value?: string | null): string {
 
             <button
               type="button"
-              class="mx-1 flex h-10 min-w-10 items-center justify-center rounded-md bg-white px-3 py-2 text-slate-700 transition-colors duration-300 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-white disabled:hover:text-slate-300 hover:bg-sky-600 hover:text-white"
+              class="mx-1 flex h-10 min-w-10 items-center justify-center rounded-md bg-surface px-3 py-2 text-muted transition-colors duration-300 disabled:cursor-not-allowed disabled:text-soft disabled:hover:bg-surface disabled:hover:text-soft hover:bg-primary hover:text-primary-contrast"
               :disabled="currentPage >= currentMeta.last_page || loading"
               aria-label="Pagina siguiente"
               @click="goToPage(currentPage + 1)"

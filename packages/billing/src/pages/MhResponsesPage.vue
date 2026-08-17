@@ -152,9 +152,9 @@ function statusLabel(document: DteDraftSummary | null): string {
 
 function statusClass(document: DteDraftSummary | null): string {
   const status = rawStatus(document);
-  if (status.includes('accept') || status.includes('acept') || document?.estado === 'accepted') return 'bg-emerald-50 text-emerald-700';
-  if (status.includes('reject') || status.includes('rech') || document?.estado === 'rejected') return 'bg-rose-50 text-rose-700';
-  return 'bg-slate-100 text-slate-700';
+  if (status.includes('accept') || status.includes('acept') || document?.estado === 'accepted') return 'bg-success-soft text-success';
+  if (status.includes('reject') || status.includes('rech') || document?.estado === 'rejected') return 'bg-danger-soft text-danger';
+  return 'bg-surface-muted text-muted';
 }
 
 function invalidacionLabel(document: DteDraftSummary | null): string {
@@ -173,9 +173,9 @@ function invalidacionLabel(document: DteDraftSummary | null): string {
 }
 
 function invalidacionClass(document: DteDraftSummary | null): string {
-  if (document?.invalidacion?.eligible) return 'bg-emerald-50 text-emerald-700';
-  if (document?.invalidacion?.status === 'expired') return 'bg-rose-50 text-rose-700';
-  return 'bg-amber-50 text-amber-700';
+  if (document?.invalidacion?.eligible) return 'bg-success-soft text-success';
+  if (document?.invalidacion?.status === 'expired') return 'bg-danger-soft text-danger';
+  return 'bg-warning-soft text-warning';
 }
 
 function invalidacionDeadline(document: DteDraftSummary | null): string {
@@ -244,14 +244,14 @@ function copyText(value: string): void {
 <template>
   <section class="space-y-6">
     <div>
-      <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Respuestas MH</p>
-      <h2 class="mt-1 text-2xl font-bold text-slate-950">Documentos transmitidos</h2>
-      <p class="mt-2 text-sm text-slate-600">
+      <p class="text-sm font-semibold uppercase tracking-wide text-primary">Respuestas MH</p>
+      <h2 class="mt-1 text-2xl font-bold text-text">Documentos transmitidos</h2>
+      <p class="mt-2 text-sm text-muted">
         Consulta sello, estado y respuesta de Hacienda para cada documento transmitido.
       </p>
     </div>
 
-    <p v-if="error" class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ error }}</p>
+    <p v-if="error" class="rounded-md border border-danger/40 bg-danger-soft px-4 py-3 text-sm text-danger">{{ error }}</p>
 
     <UiCard>
       <div class="grid gap-4 p-1 md:grid-cols-[minmax(0,1fr)_240px_120px] md:items-end">
@@ -264,46 +264,46 @@ function copyText(value: string): void {
 
         <UiSelect v-model="estado" label="Estado" :options="statusOptions" />
 
-        <div class="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600">
-          <p class="text-xs font-semibold uppercase text-slate-500">Resultados</p>
-          <p class="mt-1 text-lg font-bold text-slate-950">{{ documents.length }}</p>
+        <div class="rounded-md bg-surface-muted px-3 py-2 text-sm text-muted">
+          <p class="text-xs font-semibold uppercase text-muted">Resultados</p>
+          <p class="mt-1 text-lg font-bold text-text">{{ documents.length }}</p>
         </div>
       </div>
     </UiCard>
 
     <UiCard>
-      <div class="overflow-hidden rounded-md border border-slate-200">
+      <div class="overflow-hidden rounded-md border border-line">
         <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-slate-200 text-sm">
-            <thead class="bg-slate-50">
+          <table class="min-w-full divide-y divide-line text-sm">
+            <thead class="bg-surface-muted">
               <tr>
-                <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Fecha</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Empresa</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Documento</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Estado MH</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Invalidacion</th>
-                <th class="px-4 py-3 text-right text-xs font-semibold uppercase text-slate-500">Total</th>
-                <th class="px-4 py-3 text-right text-xs font-semibold uppercase text-slate-500">Accion</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-muted">Fecha</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-muted">Empresa</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-muted">Documento</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-muted">Estado MH</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-muted">Invalidacion</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold uppercase text-muted">Total</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold uppercase text-muted">Accion</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100 bg-white">
+            <tbody class="divide-y divide-line bg-surface">
               <tr
                 v-for="document in documents"
                 :key="document.id"
                 class="sf-interactive-row"
                 @click="openDetail(document)"
               >
-                <td class="whitespace-nowrap px-4 py-4 text-slate-600">
+                <td class="whitespace-nowrap px-4 py-4 text-muted">
                   <p>{{ formatDate(document.processed_at ?? document.created_at) }}</p>
-                  <p class="mt-1 text-xs text-slate-400">ID #{{ document.id }}</p>
+                  <p class="mt-1 text-xs text-soft">ID #{{ document.id }}</p>
                 </td>
                 <td class="px-4 py-4">
-                  <p class="font-semibold text-slate-950">{{ document.empresa?.nombre_comercial ?? 'Empresa' }}</p>
-                  <p class="mt-1 text-xs text-slate-500">{{ document.empresa?.nit ?? 'Sin NIT' }}</p>
+                  <p class="font-semibold text-text">{{ document.empresa?.nombre_comercial ?? 'Empresa' }}</p>
+                  <p class="mt-1 text-xs text-muted">{{ document.empresa?.nit ?? 'Sin NIT' }}</p>
                 </td>
                 <td class="px-4 py-4">
-                  <p class="font-semibold text-slate-950">{{ document.tipoDte }} · {{ document.numeroControl }}</p>
-                  <p class="mt-1 text-xs text-slate-500">{{ attemptsCount(document) }} intento{{ attemptsCount(document) === 1 ? '' : 's' }} de transmision</p>
+                  <p class="font-semibold text-text">{{ document.tipoDte }} · {{ document.numeroControl }}</p>
+                  <p class="mt-1 text-xs text-muted">{{ attemptsCount(document) }} intento{{ attemptsCount(document) === 1 ? '' : 's' }} de transmision</p>
                 </td>
                 <td class="px-4 py-4">
                   <span class="inline-flex rounded px-2 py-1 text-xs font-semibold" :class="statusClass(document)">
@@ -315,7 +315,7 @@ function copyText(value: string): void {
                     {{ invalidacionLabel(document) }}
                   </span>
                 </td>
-                <td class="whitespace-nowrap px-4 py-4 text-right font-semibold text-slate-900">{{ currency(document.totalPagar ?? 0) }}</td>
+                <td class="whitespace-nowrap px-4 py-4 text-right font-semibold text-text">{{ currency(document.totalPagar ?? 0) }}</td>
                 <td class="whitespace-nowrap px-4 py-4 text-right">
                   <UiButton type="button" variant="secondary" @click.stop="openDetail(document)">Ver detalle</UiButton>
                 </td>
@@ -324,10 +324,10 @@ function copyText(value: string): void {
           </table>
         </div>
 
-        <div v-if="loading" class="border-t border-slate-100 bg-slate-50">
+        <div v-if="loading" class="border-t border-line bg-surface-muted">
           <UiLoadingMark label="Cargando respuesta de los DTE emitidos" />
         </div>
-        <p v-if="emptyState" class="border-t border-slate-100 bg-slate-50 px-4 py-5 text-sm text-slate-500">No hay DTE para los filtros actuales.</p>
+        <p v-if="emptyState" class="border-t border-line bg-surface-muted px-4 py-5 text-sm text-muted">No hay DTE para los filtros actuales.</p>
       </div>
     </UiCard>
 
@@ -356,60 +356,60 @@ function copyText(value: string): void {
       </div>
 
       <div v-else-if="selected" class="space-y-5">
-        <p class="break-all font-mono text-xs text-slate-500">{{ selected.codigoGeneracion }}</p>
+        <p class="break-all font-mono text-xs text-muted">{{ selected.codigoGeneracion }}</p>
 
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <div class="rounded-md border border-slate-200 bg-white p-3">
-            <p class="text-[11px] font-semibold uppercase text-slate-500">Estado MH</p>
+          <div class="rounded-md border border-line bg-surface p-3">
+            <p class="text-[11px] font-semibold uppercase text-muted">Estado MH</p>
             <span class="mt-2 inline-flex rounded px-2 py-1 text-sm font-bold" :class="statusClass(selected)">{{ selectedMhSummary.estado }}</span>
           </div>
-          <div class="rounded-md border border-slate-200 bg-white p-3">
-            <p class="text-[11px] font-semibold uppercase text-slate-500">Invalidacion</p>
-            <p class="mt-2 text-sm font-bold text-slate-950">{{ invalidacionLabel(selected) }}</p>
-            <p class="mt-1 text-xs text-slate-500">{{ invalidacionDeadline(selected) }}</p>
+          <div class="rounded-md border border-line bg-surface p-3">
+            <p class="text-[11px] font-semibold uppercase text-muted">Invalidacion</p>
+            <p class="mt-2 text-sm font-bold text-text">{{ invalidacionLabel(selected) }}</p>
+            <p class="mt-1 text-xs text-muted">{{ invalidacionDeadline(selected) }}</p>
           </div>
-          <div class="rounded-md border border-slate-200 bg-white p-3">
-            <p class="text-[11px] font-semibold uppercase text-slate-500">Total</p>
-            <p class="mt-2 text-sm font-bold text-slate-950">{{ currency(selected.totalPagar ?? 0) }}</p>
+          <div class="rounded-md border border-line bg-surface p-3">
+            <p class="text-[11px] font-semibold uppercase text-muted">Total</p>
+            <p class="mt-2 text-sm font-bold text-text">{{ currency(selected.totalPagar ?? 0) }}</p>
           </div>
-          <div class="rounded-md border border-slate-200 bg-white p-3">
-            <p class="text-[11px] font-semibold uppercase text-slate-500">Procesado</p>
-            <p class="mt-2 text-sm font-bold text-slate-950">{{ formatDate(selectedMhSummary.fecProcesamiento) }}</p>
+          <div class="rounded-md border border-line bg-surface p-3">
+            <p class="text-[11px] font-semibold uppercase text-muted">Procesado</p>
+            <p class="mt-2 text-sm font-bold text-text">{{ formatDate(selectedMhSummary.fecProcesamiento) }}</p>
           </div>
-          <div class="rounded-md border border-slate-200 bg-white p-3">
-            <p class="text-[11px] font-semibold uppercase text-slate-500">Codigo mensaje</p>
-            <p class="mt-2 text-sm font-bold text-slate-950">{{ selectedMhSummary.codigoMsg }}</p>
+          <div class="rounded-md border border-line bg-surface p-3">
+            <p class="text-[11px] font-semibold uppercase text-muted">Codigo mensaje</p>
+            <p class="mt-2 text-sm font-bold text-text">{{ selectedMhSummary.codigoMsg }}</p>
           </div>
-          <div class="rounded-md border border-slate-200 bg-white p-3">
-            <p class="text-[11px] font-semibold uppercase text-slate-500">Clasificacion</p>
-            <p class="mt-2 text-sm font-bold text-slate-950">{{ selectedMhSummary.clasificaMsg }}</p>
+          <div class="rounded-md border border-line bg-surface p-3">
+            <p class="text-[11px] font-semibold uppercase text-muted">Clasificacion</p>
+            <p class="mt-2 text-sm font-bold text-text">{{ selectedMhSummary.clasificaMsg }}</p>
           </div>
         </div>
 
-        <div class="rounded-md border border-slate-200 bg-white p-4">
+        <div class="rounded-md border border-line bg-surface p-4">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p class="text-sm font-semibold text-slate-950">Respuesta resumida de Hacienda</p>
-              <p class="mt-1 text-sm text-slate-600">{{ selectedMhSummary.descripcionMsg }}</p>
+              <p class="text-sm font-semibold text-text">Respuesta resumida de Hacienda</p>
+              <p class="mt-1 text-sm text-muted">{{ selectedMhSummary.descripcionMsg }}</p>
             </div>
             <button
-              class="rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+              class="rounded-md bg-surface-muted px-3 py-2 text-xs font-semibold text-muted hover:bg-surface-strong"
               type="button"
               @click="copyText(selectedMhSummary.sello)"
             >
               Copiar sello
             </button>
           </div>
-          <p class="mt-3 break-all font-mono text-xs text-slate-600">{{ selectedMhSummary.sello }}</p>
-          <ul v-if="selectedObservations.length" class="mt-3 list-disc space-y-1 pl-5 text-sm text-rose-700">
+          <p class="mt-3 break-all font-mono text-xs text-muted">{{ selectedMhSummary.sello }}</p>
+          <ul v-if="selectedObservations.length" class="mt-3 list-disc space-y-1 pl-5 text-sm text-danger">
             <li v-for="observation in selectedObservations" :key="observation">{{ observation }}</li>
           </ul>
         </div>
 
-        <div class="border-t border-slate-100 pt-3">
+        <div class="border-t border-line pt-3">
           <button
             type="button"
-            class="flex w-full items-center justify-between text-xs font-bold uppercase tracking-wide text-slate-400 hover:text-slate-600"
+            class="flex w-full items-center justify-between text-xs font-bold uppercase tracking-wide text-soft hover:text-muted"
             @click="showTechnical = !showTechnical"
           >
             Detalles técnicos
@@ -417,55 +417,55 @@ function copyText(value: string): void {
           </button>
 
           <div v-if="showTechnical" class="mt-4 space-y-5">
-            <div class="rounded-md border border-slate-200 bg-white">
-              <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                <h4 class="text-sm font-semibold text-slate-950">Intentos de transmision</h4>
-                <span class="text-xs text-slate-500">{{ selectedAttempts.length }} intento{{ selectedAttempts.length === 1 ? '' : 's' }}</span>
+            <div class="rounded-md border border-line bg-surface">
+              <div class="flex items-center justify-between border-b border-line px-4 py-3">
+                <h4 class="text-sm font-semibold text-text">Intentos de transmision</h4>
+                <span class="text-xs text-muted">{{ selectedAttempts.length }} intento{{ selectedAttempts.length === 1 ? '' : 's' }}</span>
               </div>
-              <div class="divide-y divide-slate-100">
+              <div class="divide-y divide-line">
                 <div v-for="attempt in selectedAttempts" :key="attempt.id" class="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[70px_1fr_80px_100px_80px]">
-                  <p class="font-semibold text-slate-950">#{{ attempt.attempt_number }}</p>
-                  <p class="min-w-0 break-all text-slate-600">{{ attempt.endpoint ?? 'Sin endpoint' }}</p>
-                  <p class="text-slate-700">HTTP {{ attempt.http_status ?? '-' }}</p>
-                  <p class="font-semibold text-slate-900">{{ attempt.result_status ?? '-' }}</p>
-                  <p class="text-slate-500">{{ attempt.duration_ms ?? 0 }} ms</p>
+                  <p class="font-semibold text-text">#{{ attempt.attempt_number }}</p>
+                  <p class="min-w-0 break-all text-muted">{{ attempt.endpoint ?? 'Sin endpoint' }}</p>
+                  <p class="text-muted">HTTP {{ attempt.http_status ?? '-' }}</p>
+                  <p class="font-semibold text-text">{{ attempt.result_status ?? '-' }}</p>
+                  <p class="text-muted">{{ attempt.duration_ms ?? 0 }} ms</p>
                 </div>
-                <p v-if="selectedAttempts.length === 0" class="px-4 py-4 text-sm text-slate-500">Sin intentos registrados.</p>
+                <p v-if="selectedAttempts.length === 0" class="px-4 py-4 text-sm text-muted">Sin intentos registrados.</p>
               </div>
             </div>
 
-            <div class="rounded-md border border-slate-200 bg-white">
-              <div class="border-b border-slate-100 px-4 py-3">
-                <h4 class="text-sm font-semibold text-slate-950">Historial interno</h4>
+            <div class="rounded-md border border-line bg-surface">
+              <div class="border-b border-line px-4 py-3">
+                <h4 class="text-sm font-semibold text-text">Historial interno</h4>
               </div>
-              <div class="divide-y divide-slate-100">
+              <div class="divide-y divide-line">
                 <div v-for="entry in history" :key="`${entry.event}-${entry.created_at}`" class="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                  <p class="font-semibold text-slate-900">{{ historyEventLabel(entry.event) }}</p>
-                  <p class="text-slate-500">{{ formatDate(entry.created_at) }}</p>
+                  <p class="font-semibold text-text">{{ historyEventLabel(entry.event) }}</p>
+                  <p class="text-muted">{{ formatDate(entry.created_at) }}</p>
                 </div>
-                <p v-if="history.length === 0" class="px-4 py-4 text-sm text-slate-500">Sin eventos internos registrados.</p>
+                <p v-if="history.length === 0" class="px-4 py-4 text-sm text-muted">Sin eventos internos registrados.</p>
               </div>
             </div>
 
             <div class="space-y-4">
               <div>
                 <div class="mb-2 flex items-center justify-between gap-2">
-                  <h4 class="text-sm font-semibold text-slate-950">Documento enviado</h4>
-                  <button class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200" type="button" @click="copyText(selectedPayloadJson)">Copiar</button>
+                  <h4 class="text-sm font-semibold text-text">Documento enviado</h4>
+                  <button class="rounded bg-surface-muted px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-strong" type="button" @click="copyText(selectedPayloadJson)">Copiar</button>
                 </div>
                 <pre class="max-h-64 overflow-auto rounded-md bg-slate-950 p-4 text-xs text-slate-50">{{ selectedPayloadJson }}</pre>
               </div>
               <div>
                 <div class="mb-2 flex items-center justify-between gap-2">
-                  <h4 class="text-sm font-semibold text-slate-950">Documento procesado</h4>
-                  <button class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200" type="button" @click="copyText(selectedSignedBundleJson)">Copiar</button>
+                  <h4 class="text-sm font-semibold text-text">Documento procesado</h4>
+                  <button class="rounded bg-surface-muted px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-strong" type="button" @click="copyText(selectedSignedBundleJson)">Copiar</button>
                 </div>
                 <pre class="max-h-64 overflow-auto rounded-md bg-slate-950 p-4 text-xs text-slate-50">{{ selectedSignedBundleJson }}</pre>
               </div>
               <div>
                 <div class="mb-2 flex items-center justify-between gap-2">
-                  <h4 class="text-sm font-semibold text-slate-950">Respuesta MH</h4>
-                  <button class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200" type="button" @click="copyText(selectedMhJson)">Copiar</button>
+                  <h4 class="text-sm font-semibold text-text">Respuesta MH</h4>
+                  <button class="rounded bg-surface-muted px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-strong" type="button" @click="copyText(selectedMhJson)">Copiar</button>
                 </div>
                 <pre class="max-h-64 overflow-auto rounded-md bg-slate-950 p-4 text-xs text-slate-50">{{ selectedMhJson }}</pre>
               </div>

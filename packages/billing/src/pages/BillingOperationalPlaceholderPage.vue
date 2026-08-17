@@ -12,22 +12,22 @@ const props = withDefaults(defineProps<{
 
 <template>
   <section class="mx-auto max-w-7xl">
-    <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm shadow-blue-950/5">
-      <p class="text-sm font-semibold uppercase tracking-wide text-sky-700">Taller electronico</p>
-      <h2 class="mt-2 text-2xl font-semibold text-slate-950">{{ props.title }}</h2>
-      <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{{ props.description }}</p>
+    <div class="rounded-lg border border-line bg-surface p-6 shadow-sm shadow-surface">
+      <p class="text-sm font-semibold uppercase tracking-wide text-primary">Taller electronico</p>
+      <h2 class="mt-2 text-2xl font-semibold text-text">{{ props.title }}</h2>
+      <p class="mt-3 max-w-3xl text-sm leading-6 text-muted">{{ props.description }}</p>
 
       <div class="mt-6 grid gap-4 md:grid-cols-3">
         <article
           v-for="item in props.items"
           :key="item"
-          class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-700"
+          class="rounded-md border border-line bg-surface-muted p-4 text-sm font-medium text-muted"
         >
           {{ item }}
         </article>
       </div>
 
-      <div class="mt-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <div class="mt-6 rounded-md border border-warning/40 bg-warning-soft px-4 py-3 text-sm text-warning">
         Pantalla reservada. El flujo operativo se implementara aqui sin mover la facturacion ni duplicar logica fiscal.
       </div>
     </div>

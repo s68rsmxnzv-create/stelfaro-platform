@@ -514,7 +514,7 @@ function messageFromError(error): string {
 
     <UiCard>
       <UiDataTable overflow="auto" min-width="min-w-[980px]">
-        <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
+        <thead class="border-b border-line text-xs uppercase text-soft">
           <tr>
             <th class="px-4 py-3">Cliente</th>
             <th class="px-4 py-3">Documento</th>
@@ -524,22 +524,22 @@ function messageFromError(error): string {
             <th class="px-4 py-3 text-right">Acciones</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100 dark:divide-line">
+        <tbody class="divide-y divide-line">
           <tr v-if="loading || contextLoading">
             <td class="px-4 py-8" colspan="6">
               <UiLoadingMark label="Cargando clientes" />
             </td>
           </tr>
           <tr v-else-if="customers.length === 0">
-            <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="6">Aún no hay clientes con estos filtros.</td>
+            <td class="px-4 py-8 text-center text-sm text-muted" colspan="6">Aún no hay clientes con estos filtros.</td>
           </tr>
           <tr v-for="customer in customers" v-else :key="customer.id" class="text-sm">
             <td class="px-4 py-3">
-              <p class="font-semibold text-slate-950 dark:text-text">{{ customer.name }}</p>
-              <p class="mt-1 text-xs text-slate-500 dark:text-soft">{{ customer.nombre_comercial || 'Sin nombre comercial' }}</p>
+              <p class="font-semibold text-text">{{ customer.name }}</p>
+              <p class="mt-1 text-xs text-soft">{{ customer.nombre_comercial || 'Sin nombre comercial' }}</p>
             </td>
-            <td class="px-4 py-3 text-slate-700 dark:text-muted">{{ customerDocumentLabel(customer) }}</td>
-            <td class="px-4 py-3 text-slate-700 dark:text-muted">{{ customerContactLabel(customer) }}</td>
+            <td class="px-4 py-3 text-muted">{{ customerDocumentLabel(customer) }}</td>
+            <td class="px-4 py-3 text-muted">{{ customerContactLabel(customer) }}</td>
             <td class="px-4 py-3">
               <div class="flex flex-wrap gap-2">
                 <UiStatusBadge v-if="isAllowed(customer, '01')" tone="info">
@@ -563,11 +563,11 @@ function messageFromError(error): string {
             <td class="px-4 py-3">
               <UiActionDropdown :label="`Abrir acciones de ${customer.name}`" menu-width="w-48">
                 <UiActionMenuItem @select="openEdit(customer)">
-                  <template #icon><Pencil class="h-5 w-5 text-sky-600" aria-hidden="true" /></template>
+                  <template #icon><Pencil class="h-5 w-5 text-primary" aria-hidden="true" /></template>
                   Editar
                 </UiActionMenuItem>
                 <UiActionMenuItem @select="openHistory(customer)">
-                  <template #icon><History class="h-5 w-5 text-sky-600" aria-hidden="true" /></template>
+                  <template #icon><History class="h-5 w-5 text-primary" aria-hidden="true" /></template>
                   Historial de facturación
                 </UiActionMenuItem>
                 <UiActionMenuItem separated tone="danger" :disabled="saving" @select="deactivateCustomer(customer)">
@@ -579,8 +579,8 @@ function messageFromError(error): string {
           </tr>
         </tbody>
       </UiDataTable>
-      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 dark:border-line">
-        <p class="text-sm text-slate-500 dark:text-muted">{{ customerMeta.total }} clientes · Página {{ customerMeta.current_page }} de {{ customerMeta.last_page }}</p>
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3">
+        <p class="text-sm text-muted">{{ customerMeta.total }} clientes · Página {{ customerMeta.current_page }} de {{ customerMeta.last_page }}</p>
         <div class="flex gap-2"><UiButton variant="secondary" size="sm" :disabled="loading || customerPage <= 1" @click="goToCustomerPage(customerPage - 1)">Anterior</UiButton><UiButton variant="secondary" size="sm" :disabled="loading || customerPage >= customerMeta.last_page" @click="goToCustomerPage(customerPage + 1)">Siguiente</UiButton></div>
       </div>
     </UiCard>
@@ -610,23 +610,23 @@ function messageFromError(error): string {
       @close="historyModalOpen = false"
     >
       <div class="grid gap-3 md:grid-cols-3">
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 dark:border-line dark:bg-surface-muted">
-          <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Comprobantes</p>
-          <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ historyMeta?.total ?? historyDocuments.length }}</p>
+        <div class="rounded-md border border-line bg-surface-muted px-4 py-3">
+          <p class="text-xs font-semibold uppercase text-soft">Comprobantes</p>
+          <p class="mt-2 text-2xl font-bold text-text">{{ historyMeta?.total ?? historyDocuments.length }}</p>
         </div>
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 dark:border-line dark:bg-surface-muted">
-          <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Total visible</p>
-          <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-text">{{ currency(historyTotal()) }}</p>
+        <div class="rounded-md border border-line bg-surface-muted px-4 py-3">
+          <p class="text-xs font-semibold uppercase text-soft">Total visible</p>
+          <p class="mt-2 text-2xl font-bold text-text">{{ currency(historyTotal()) }}</p>
         </div>
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 dark:border-line dark:bg-surface-muted">
-          <p class="text-xs font-semibold uppercase text-slate-500 dark:text-soft">Documento</p>
-          <p class="mt-2 truncate text-lg font-bold text-slate-950 dark:text-text">{{ historyCustomer ? customerDocumentLabel(historyCustomer) : 'Sin documento' }}</p>
+        <div class="rounded-md border border-line bg-surface-muted px-4 py-3">
+          <p class="text-xs font-semibold uppercase text-soft">Documento</p>
+          <p class="mt-2 truncate text-lg font-bold text-text">{{ historyCustomer ? customerDocumentLabel(historyCustomer) : 'Sin documento' }}</p>
         </div>
       </div>
 
-      <div class="overflow-hidden rounded-md border border-slate-200 dark:border-line">
+      <div class="overflow-hidden rounded-md border border-line">
         <UiDataTable overflow="auto" min-width="min-w-[780px]">
-          <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
+          <thead class="border-b border-line text-xs uppercase text-soft">
             <tr>
               <th class="px-4 py-3">Comprobante</th>
               <th class="px-4 py-3">Tipo</th>
@@ -636,34 +636,34 @@ function messageFromError(error): string {
               <th class="px-4 py-3 text-right">Acciones</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100 dark:divide-line">
+          <tbody class="divide-y divide-line">
             <tr v-if="historyLoading">
               <td class="px-4 py-8" colspan="6">
                 <UiLoadingMark label="Cargando historial" />
               </td>
             </tr>
             <tr v-else-if="historyDocuments.length === 0">
-              <td class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted" colspan="6">No hay comprobantes aceptados para este cliente.</td>
+              <td class="px-4 py-8 text-center text-sm text-muted" colspan="6">No hay comprobantes aceptados para este cliente.</td>
             </tr>
             <tr v-for="document in historyDocuments" v-else :key="document.id" class="text-sm">
               <td class="min-w-0 px-4 py-3">
-                <p class="truncate font-semibold text-slate-950 dark:text-text">{{ document.numeroControl }}</p>
-                <p class="mt-1 truncate font-mono text-xs text-slate-500 dark:text-soft">{{ document.codigoGeneracion }}</p>
+                <p class="truncate font-semibold text-text">{{ document.numeroControl }}</p>
+                <p class="mt-1 truncate font-mono text-xs text-soft">{{ document.codigoGeneracion }}</p>
               </td>
-              <td class="px-4 py-3 text-slate-700 dark:text-muted">{{ typeLabel(document.tipoDte) }}</td>
-              <td class="px-4 py-3 text-slate-700 dark:text-muted">{{ fiscalDateTime(document.processed_at ?? document.created_at) }}</td>
-              <td class="px-4 py-3 text-right font-semibold text-slate-950 dark:text-text">{{ currency(document.totalPagar ?? 0) }}</td>
+              <td class="px-4 py-3 text-muted">{{ typeLabel(document.tipoDte) }}</td>
+              <td class="px-4 py-3 text-muted">{{ fiscalDateTime(document.processed_at ?? document.created_at) }}</td>
+              <td class="px-4 py-3 text-right font-semibold text-text">{{ currency(document.totalPagar ?? 0) }}</td>
               <td class="px-4 py-3">
                 <UiStatusBadge :tone="statusTone(document.estado)">{{ statusLabel(document.estado) }}</UiStatusBadge>
               </td>
               <td class="px-4 py-3">
                 <UiActionDropdown label="Abrir acciones del comprobante" menu-width="w-52">
                   <UiActionMenuItem :disabled="openingPdfId === document.id" @select="openHistoryPdf(document)">
-                    <template #icon><FileText class="h-5 w-5 text-sky-600" aria-hidden="true" /></template>
+                    <template #icon><FileText class="h-5 w-5 text-primary" aria-hidden="true" /></template>
                     {{ openingPdfId === document.id ? 'Abriendo PDF...' : 'Abrir PDF' }}
                   </UiActionMenuItem>
                   <UiActionMenuItem @select="openHistoryJson(document)">
-                    <template #icon><FileJson class="h-5 w-5 text-sky-600" aria-hidden="true" /></template>
+                    <template #icon><FileJson class="h-5 w-5 text-primary" aria-hidden="true" /></template>
                     {{ openingJsonId === document.id ? 'Abriendo JSON...' : 'Abrir JSON' }}
                   </UiActionMenuItem>
                 </UiActionDropdown>
@@ -675,7 +675,7 @@ function messageFromError(error): string {
 
       <template v-if="historyMeta && historyMeta.last_page > 1" #footer>
         <UiButton variant="secondary" :disabled="historyLoading || historyPage <= 1" @click="goToHistoryPage(historyPage - 1)">Anterior</UiButton>
-        <span class="self-center text-sm font-semibold text-slate-600 dark:text-muted">
+        <span class="self-center text-sm font-semibold text-muted">
           Página {{ historyMeta.current_page }} de {{ historyMeta.last_page }}
         </span>
         <UiButton variant="secondary" :disabled="historyLoading || historyPage >= historyMeta.last_page" @click="goToHistoryPage(historyPage + 1)">Siguiente</UiButton>

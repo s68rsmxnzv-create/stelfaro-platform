@@ -50,14 +50,14 @@ watch(() => props.photoUrl, async (value) => { qr.value = value ? await QRCode.t
 
         <div v-if="mobileQrOpen" class="mt-3 rounded-xl border border-line bg-surface p-4 text-center lg:hidden">
           <img v-if="qr" :src="qr" class="mx-auto h-auto w-full max-w-64" alt="QR temporal para subir fotos">
-          <p v-if="expiresAt" class="mt-2 text-xs text-slate-500">QR válido hasta {{ new Date(expiresAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) }}</p>
-          <p v-else class="py-8 text-sm text-slate-500">No fue posible generar el QR. El equipo sí quedó registrado.</p>
+          <p v-if="expiresAt" class="mt-2 text-xs text-soft">QR válido hasta {{ new Date(expiresAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) }}</p>
+          <p v-else class="py-8 text-sm text-soft">No fue posible generar el QR. El equipo sí quedó registrado.</p>
         </div>
 
         <div class="hidden rounded-lg border border-line bg-surface p-4 text-center lg:block">
           <img v-if="qr" :src="qr" class="mx-auto h-56 w-56" alt="QR temporal para subir fotos">
-          <p v-if="expiresAt" class="mt-2 text-xs text-slate-500">QR válido hasta {{ new Date(expiresAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) }}</p>
-          <p v-else class="py-20 text-sm text-slate-500">No fue posible generar el QR. El equipo sí quedó registrado.</p>
+          <p v-if="expiresAt" class="mt-2 text-xs text-soft">QR válido hasta {{ new Date(expiresAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) }}</p>
+          <p v-else class="py-20 text-sm text-soft">No fue posible generar el QR. El equipo sí quedó registrado.</p>
         </div>
       </div>
 

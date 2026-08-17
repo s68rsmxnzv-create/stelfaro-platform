@@ -189,13 +189,13 @@ function lastSeen(value?: string | null): string {
 
 <template>
   <div class="space-y-5">
-    <header class="rounded-xl bg-gradient-to-br from-primary to-blue-700 p-5 text-white shadow-lg shadow-primary/15 sm:p-6">
+    <header class="rounded-xl bg-gradient-to-br from-primary to-primary-hover p-5 text-primary-contrast shadow-lg shadow-primary/15 sm:p-6">
       <div class="flex items-start gap-4">
-        <span class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/15"><Smartphone class="h-7 w-7" /></span>
+        <span class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary-contrast/15"><Smartphone class="h-7 w-7" /></span>
         <div>
-          <p class="text-xs font-bold uppercase tracking-[0.18em] text-white/70">Impresión Android</p>
+          <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary-contrast/70">Impresión Android</p>
           <h2 class="mt-1 text-xl font-bold">Conecta esta empresa con el agente móvil</h2>
-          <p class="mt-2 max-w-2xl text-sm leading-6 text-white/80">Las mismas plantillas térmicas de Stelfaro se envían por HTTPS al agente Android.</p>
+          <p class="mt-2 max-w-2xl text-sm leading-6 text-primary-contrast/80">Las mismas plantillas térmicas de Stelfaro se envían por HTTPS al agente Android.</p>
         </div>
       </div>
     </header>
@@ -212,7 +212,7 @@ function lastSeen(value?: string | null): string {
             <h3 class="font-bold text-text">Agente Stelfaro para Android</h3>
             <p class="mt-1 text-sm text-muted">Versión {{ androidRelease.version || 'más reciente' }} · {{ formatSize(androidRelease.size) }}</p>
           </div>
-          <a v-if="androidRelease.available" :href="downloadUrl" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-bold text-white">
+          <a v-if="androidRelease.available" :href="downloadUrl" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-bold text-primary-contrast">
             <Download class="h-4 w-4" />Descargar APK
           </a>
         </div>

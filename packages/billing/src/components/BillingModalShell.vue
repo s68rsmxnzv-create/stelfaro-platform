@@ -70,7 +70,7 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div
       v-if="open"
-      class="sf-safe-overlay fixed inset-0 grid place-items-center overflow-y-auto bg-slate-950/45 backdrop-blur-sm"
+      class="sf-safe-overlay fixed inset-0 grid place-items-center overflow-y-auto bg-overlay backdrop-blur-sm"
       :class="[
         zIndexClass,
         mobileFullscreen ? 'sf-safe-overlay-full place-items-stretch overflow-hidden md:place-items-center md:overflow-y-auto' : ''
@@ -79,7 +79,7 @@ onBeforeUnmount(() => {
     >
       <component
         :is="panelAs"
-        class="flex w-full flex-col rounded-md border border-blue-100 bg-white shadow-2xl shadow-slate-950/25 dark:border-line dark:bg-surface dark:shadow-black/40"
+        class="flex w-full flex-col rounded-md border border-line bg-surface shadow-2xl shadow-surface"
         :class="[
           maxWidth,
           panelClass,
@@ -91,14 +91,14 @@ onBeforeUnmount(() => {
         @submit.prevent="emit('submit')"
       >
         <header
-          class="shrink-0 border-b border-slate-200 px-5 py-4 dark:border-line"
+          class="shrink-0 border-b border-line px-5 py-4"
           :class="mobileFullscreen ? 'pt-4' : ''"
         >
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
-              <p v-if="eyebrow" class="text-sm font-semibold uppercase tracking-wide text-sky-700 dark:text-primary">{{ eyebrow }}</p>
-              <h2 class="text-lg font-bold text-slate-950 dark:text-text" :class="eyebrow ? 'mt-1' : ''">{{ title }}</h2>
-              <p v-if="description" class="mt-1 text-sm text-slate-500 dark:text-muted">{{ description }}</p>
+              <p v-if="eyebrow" class="text-sm font-semibold uppercase tracking-wide text-primary">{{ eyebrow }}</p>
+              <h2 class="text-lg font-bold text-text" :class="eyebrow ? 'mt-1' : ''">{{ title }}</h2>
+              <p v-if="description" class="mt-1 text-sm text-muted">{{ description }}</p>
             </div>
             <UiCloseButton :label="closeLabel" :disabled="closeDisabled" @click="close" />
           </div>
@@ -108,7 +108,7 @@ onBeforeUnmount(() => {
           <slot />
         </div>
 
-        <footer v-if="$slots.footer" class="shrink-0 flex justify-end gap-3 border-t border-slate-200 px-5 py-4 dark:border-line">
+        <footer v-if="$slots.footer" class="shrink-0 flex justify-end gap-3 border-t border-line px-5 py-4">
           <slot name="footer" />
         </footer>
       </component>

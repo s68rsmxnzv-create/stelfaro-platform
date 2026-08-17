@@ -41,17 +41,17 @@ const emit = defineEmits<{
 }>();
 
 const statusPanelClass = computed(() => {
-  if (props.accepted) return 'border-emerald-100 bg-emerald-50 dark:border-success/30 dark:bg-success-soft';
-  if (props.warning) return 'border-amber-100 bg-amber-50 dark:border-warning/30 dark:bg-warning-soft';
-  if (props.rejected) return 'border-rose-100 bg-rose-50 dark:border-danger/30 dark:bg-danger-soft';
-  return 'border-sky-100 bg-sky-50 dark:border-primary/30 dark:bg-primary-soft';
+  if (props.accepted) return 'border-success/40 bg-success-soft';
+  if (props.warning) return 'border-warning/40 bg-warning-soft';
+  if (props.rejected) return 'border-danger/40 bg-danger-soft';
+  return 'border-primary/40 bg-primary-soft';
 });
 
 const statusDotClass = computed(() => {
-  if (props.processing) return 'animate-ping bg-sky-500';
-  if (props.accepted) return 'bg-emerald-500';
-  if (props.warning) return 'bg-amber-500';
-  return 'bg-red-500';
+  if (props.processing) return 'animate-ping bg-primary';
+  if (props.accepted) return 'bg-success';
+  if (props.warning) return 'bg-warning';
+  return 'bg-danger';
 });
 
 type TimelineState = 'ok' | 'error' | 'processing' | 'warning' | 'pending';
@@ -94,11 +94,11 @@ const timelineItems = computed<Array<{
 });
 
 function timelineDotClass(state: string): string {
-  if (state === 'error') return 'bg-red-500 ring-red-100';
-  if (state === 'processing') return 'animate-pulse bg-sky-600 ring-sky-100';
-  if (state === 'ok') return 'bg-emerald-500 ring-emerald-100';
-  if (state === 'warning') return 'bg-amber-500 ring-amber-100';
-  return 'bg-slate-300 ring-slate-100';
+  if (state === 'error') return 'bg-danger ring-danger-soft';
+  if (state === 'processing') return 'animate-pulse bg-primary ring-primary-soft';
+  if (state === 'ok') return 'bg-success ring-success-soft';
+  if (state === 'warning') return 'bg-warning ring-warning-soft';
+  return 'bg-surface-strong ring-line';
 }
 
 function close(): void {
@@ -123,24 +123,24 @@ function close(): void {
     @close="close"
   >
     <div class="flex items-center gap-4 rounded-md border p-4" :class="statusPanelClass">
-      <div class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white shadow-sm dark:bg-surface">
+      <div class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-surface shadow-sm">
         <span class="h-4 w-4 rounded-full" :class="statusDotClass"></span>
       </div>
       <div class="min-w-0 flex-1">
-        <p class="font-semibold text-slate-950 dark:text-text">{{ statusLabel }}</p>
-        <p v-if="statusDetail" class="mt-1 text-sm text-slate-600 dark:text-muted">{{ statusDetail }}</p>
+        <p class="font-semibold text-text">{{ statusLabel }}</p>
+        <p v-if="statusDetail" class="mt-1 text-sm text-muted">{{ statusDetail }}</p>
       </div>
       <slot name="status-badge"></slot>
     </div>
 
-    <div v-if="!compact" class="mt-4 rounded-md border border-slate-200 bg-white px-4 py-4 dark:border-line dark:bg-surface">
+    <div v-if="!compact" class="mt-4 rounded-md border border-line bg-surface px-4 py-4">
       <div class="mb-4 flex items-center justify-between gap-3">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ progressLabel }}</p>
-        <span class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">{{ progress }}%</span>
+        <p class="text-xs font-semibold uppercase tracking-wide text-soft">{{ progressLabel }}</p>
+        <span class="rounded bg-surface-muted px-2 py-1 text-xs font-semibold text-muted">{{ progress }}%</span>
       </div>
 
       <div class="overflow-x-auto pb-1">
-        <ol class="relative flex min-w-full gap-6 before:absolute before:left-0 before:top-1.5 before:h-0.5 before:w-full before:rounded-full before:bg-slate-200">
+        <ol class="relative flex min-w-full gap-6 before:absolute before:left-0 before:top-1.5 before:h-0.5 before:w-full before:rounded-full before:bg-line">
           <li
             v-for="item in timelineItems"
             :key="item.key"
@@ -148,8 +148,8 @@ function close(): void {
           >
             <span class="block size-3 rounded-full ring-8" :class="timelineDotClass(item.state)"></span>
             <div class="mt-4">
-              <p class="text-xs font-medium uppercase text-slate-500">{{ item.detail }}</p>
-              <h3 class="mt-1 text-sm font-bold text-slate-950">{{ item.title }}</h3>
+              <p class="text-xs font-medium uppercase text-soft">{{ item.detail }}</p>
+              <h3 class="mt-1 text-sm font-bold text-text">{{ item.title }}</h3>
             </div>
           </li>
         </ol>

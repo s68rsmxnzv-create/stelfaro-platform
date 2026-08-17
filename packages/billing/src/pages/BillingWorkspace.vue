@@ -3804,15 +3804,15 @@ function lineOriginLabel(line: InvoiceLine): string {
 
 function lineOriginClass(line: InvoiceLine): string {
   if (Number(line.inheritedInventoryQuantity || 0) > 0)
-    return "bg-sky-50 text-sky-700 dark:bg-primary-soft dark:text-primary";
+    return "bg-primary-soft text-primary dark:bg-primary-soft dark:text-primary";
   if (line.inventoryBypassReason)
-    return "bg-amber-50 text-amber-700 dark:bg-warning-soft dark:text-warning";
+    return "bg-warning-soft text-warning dark:bg-warning-soft dark:text-warning";
   if (line.lineOrigin === "inventory")
-    return "bg-emerald-50 text-emerald-700 dark:bg-success-soft dark:text-success";
+    return "bg-success-soft text-success dark:bg-success-soft dark:text-success";
   if (line.lineOrigin === "catalog")
-    return "bg-sky-50 text-sky-700 dark:bg-primary-soft dark:text-primary";
+    return "bg-primary-soft text-primary dark:bg-primary-soft dark:text-primary";
 
-  return "bg-slate-100 text-slate-500 dark:bg-surface-muted dark:text-muted";
+  return "bg-surface-muted text-muted dark:bg-surface-muted dark:text-muted";
 }
 
 function useDraftAsCatalogOnce(): void {
@@ -4011,7 +4011,7 @@ function updatePaymentCondition(value: string): void {
       max-width="max-w-lg"
       @close="closeIvaRetentionModal"
     >
-      <div class="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950 dark:border-amber-300/20 dark:bg-amber-200/[0.07] dark:text-slate-200">
+      <div class="rounded-md border border-warning/40 bg-warning-soft p-4 text-sm leading-6 text-warning">
         Por ahora, la compra suma <strong>{{ currency(taxableBase) }}</strong> sin IVA. Para aplicar la retención debe alcanzar al menos <strong>$100.00</strong>; se toman en cuenta todas las líneas gravadas del comprobante.
       </div>
       <template #footer>
@@ -4037,21 +4037,17 @@ function updatePaymentCondition(value: string): void {
             @update:model-value="updatePaymentCondition(String($event))"
           />
           <div
-            class="rounded-md bg-slate-50 px-3 py-2 text-sm dark:bg-surface-muted"
+            class="rounded-md bg-surface-muted px-3 py-2 text-sm"
           >
-            <span class="font-semibold text-slate-500 dark:text-muted"
+            <span class="font-semibold text-muted"
               >Total formas de pago:</span
             >
             <span
               class="ml-2 font-bold"
-              :class="
-                paymentTotalMatches
-                  ? 'text-emerald-700 dark:text-success'
-                  : 'text-red-700 dark:text-danger'
-              "
+              :class="paymentTotalMatches ? 'text-success' : 'text-danger'"
               >{{ currency(paymentTotal) }}</span
             >
-            <span class="ml-2 text-slate-500 dark:text-muted"
+            <span class="ml-2 text-muted"
               >de {{ currency(totalLabel) }}</span
             >
           </div>
@@ -4061,10 +4057,10 @@ function updatePaymentCondition(value: string): void {
           <article
             v-for="(payment, paymentIndex) in paymentLines"
             :key="payment.id"
-            class="rounded-xl border border-slate-200 bg-white p-3 dark:border-line dark:bg-surface"
+            class="rounded-xl border border-line bg-surface p-3"
           >
             <div class="mb-3 flex items-center justify-between">
-              <strong class="text-sm text-slate-950 dark:text-text"
+              <strong class="text-sm text-text"
                 >Pago {{ paymentIndex + 1 }}</strong
               >
               <UiButton
@@ -4128,11 +4124,11 @@ function updatePaymentCondition(value: string): void {
         </div>
 
         <div
-          class="hidden overflow-x-auto rounded-md border border-slate-200 md:block dark:border-line"
+          class="hidden overflow-x-auto rounded-md border border-line md:block"
         >
           <table class="w-full min-w-[960px] text-left text-sm">
             <thead
-              class="bg-blue-50/70 text-xs uppercase text-slate-500 dark:bg-surface-muted dark:text-soft"
+              class="bg-primary-soft text-xs uppercase text-muted dark:bg-surface-muted dark:text-soft"
             >
               <tr>
                 <th class="px-3 py-2">Forma</th>
@@ -4143,7 +4139,7 @@ function updatePaymentCondition(value: string): void {
                 <th class="w-28 px-3 py-2"></th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-200 dark:divide-line">
+            <tbody class="divide-y divide-line">
               <tr v-for="payment in paymentLines" :key="payment.id">
                 <td class="px-3 py-2">
                   <UiSelect
@@ -4220,7 +4216,7 @@ function updatePaymentCondition(value: string): void {
 
         <p
           v-if="!hasValidAdvancedPayments"
-          class="text-sm font-medium text-red-700 dark:text-danger"
+          class="text-sm font-medium text-danger"
         >
           Las formas de pago deben sumar el total y completar plazo/periodo
           cuando aplique.
@@ -4274,7 +4270,7 @@ function updatePaymentCondition(value: string): void {
     >
       <div class="space-y-4">
         <div
-          class="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
+          class="rounded-md border border-warning/40 bg-warning-soft p-4 text-sm text-warning"
         >
           Hay {{ zeroValueLines.length }} linea{{
             zeroValueLines.length === 1 ? "" : "s"
@@ -4284,18 +4280,18 @@ function updatePaymentCondition(value: string): void {
         </div>
 
         <div
-          class="max-h-56 overflow-y-auto rounded-md border border-slate-200 dark:border-line"
+          class="max-h-56 overflow-y-auto rounded-md border border-line"
         >
           <div
             v-for="line in zeroValueLines"
             :key="line.description"
-            class="flex items-center justify-between gap-4 border-b border-slate-100 px-3 py-2 text-sm last:border-b-0 dark:border-line"
+            class="flex items-center justify-between gap-4 border-b border-line px-3 py-2 text-sm last:border-b-0"
           >
             <span
-              class="min-w-0 truncate font-semibold text-slate-950 dark:text-text"
+              class="min-w-0 truncate font-semibold text-text"
               >{{ line.description }}</span
             >
-            <span class="shrink-0 text-slate-600 dark:text-muted">{{
+            <span class="shrink-0 text-muted">{{
               currency(lineNetTotal(line))
             }}</span>
           </div>
@@ -4323,23 +4319,23 @@ function updatePaymentCondition(value: string): void {
     >
       <div v-if="draftInventoryShortage" class="space-y-4">
         <div
-          class="rounded-md border border-amber-200 bg-amber-50 p-4 dark:border-warning/30 dark:bg-warning-soft"
+          class="rounded-md border border-warning/40 bg-warning-soft p-4 dark:border-warning/30"
         >
-          <p class="font-semibold text-amber-900 dark:text-warning">
+          <p class="font-semibold text-warning">
             {{ draftLine.catalogName || draftLine.description }}
           </p>
-          <p class="mt-1 text-sm text-amber-800 dark:text-muted">
+          <p class="mt-1 text-sm text-muted">
             Disponible: {{ formatStock(draftInventoryShortage.branchStock) }} ·
             En la factura: {{ formatStock(draftInventoryShortage.requested) }}.
           </p>
           <p
             v-if="draftInventoryShortage.hasStockElsewhere"
-            class="mt-2 text-sm font-semibold text-amber-900 dark:text-warning"
+            class="mt-2 text-sm font-semibold text-warning"
           >
             Hay unidades disponibles en otra sucursal.
           </p>
         </div>
-        <p class="text-sm text-slate-600 dark:text-muted">
+        <p class="text-sm text-muted">
           Si continúas como catálogo, esta línea no descontará existencias. El
           producto seguirá controlando inventario en futuras ventas.
         </p>
@@ -4410,7 +4406,7 @@ function updatePaymentCondition(value: string): void {
       <template #status-badge>
         <span
           v-if="issueResult && issueAttemptCount > 1"
-          class="shrink-0 rounded-md bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+          class="shrink-0 rounded-md bg-surface px-3 py-1 text-xs font-semibold text-muted"
         >
           {{ issueAttemptCount }} intentos
         </span>
@@ -4418,12 +4414,12 @@ function updatePaymentCondition(value: string): void {
 
       <div
         v-if="inventoryStockError"
-        class="mt-4 rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface"
+        class="mt-4 rounded-md border border-line bg-surface p-4"
       >
-        <p class="text-sm font-semibold text-slate-950 dark:text-text">
+        <p class="text-sm font-semibold text-text">
           ¿Deseas venderlo sin descontar inventario?
         </p>
-        <p class="mt-1 text-sm text-slate-600 dark:text-muted">
+        <p class="mt-1 text-sm text-muted">
           Se usará como artículo de catálogo solo en esta venta. El producto
           seguirá controlando inventario para futuras operaciones.
         </p>
@@ -4444,27 +4440,27 @@ function updatePaymentCondition(value: string): void {
 
       <div
         v-if="issueResult && issueRejected"
-        class="mt-5 rounded-md border border-red-200 bg-red-50 p-3"
+        class="mt-5 rounded-md border border-danger/40 bg-danger-soft p-3"
       >
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="min-w-0">
-            <p class="text-sm font-semibold text-red-900">
+            <p class="text-sm font-semibold text-danger">
               Documento rechazado
             </p>
-            <p class="mt-1 truncate font-mono text-xs text-red-950">
+            <p class="mt-1 truncate font-mono text-xs text-danger">
               {{ issueResult.document.numeroControl }}
             </p>
           </div>
           <div
-            class="flex flex-wrap items-center gap-2 text-xs font-semibold text-red-800"
+            class="flex flex-wrap items-center gap-2 text-xs font-semibold text-danger"
           >
-            <span class="rounded bg-white/75 px-2 py-1"
+            <span class="rounded bg-surface px-2 py-1"
               >HTTP
               {{
                 issueResult.document.transmission?.http_status ?? "N/D"
               }}</span
             >
-            <span class="rounded bg-white/75 px-2 py-1"
+            <span class="rounded bg-surface px-2 py-1"
               >MH
               {{
                 issueResult.document.transmission?.mh_estado ??
@@ -4476,13 +4472,13 @@ function updatePaymentCondition(value: string): void {
         </div>
         <p
           v-if="issueResult.document.transmission?.descripcion_msg"
-          class="mt-2 text-sm text-red-800"
+          class="mt-2 text-sm text-danger"
         >
           {{ issueResult.document.transmission.descripcion_msg }}
         </p>
         <ul
           v-if="issueResult.document.transmission?.observaciones?.length"
-          class="mt-2 list-disc pl-5 text-sm text-red-800"
+          class="mt-2 list-disc pl-5 text-sm text-danger"
         >
           <li
             v-for="observation in issueResult.document.transmission
@@ -4494,7 +4490,7 @@ function updatePaymentCondition(value: string): void {
         </ul>
         <div
           v-if="issueResult.attempts.length > 1"
-          class="mt-2 rounded-md bg-white/70 px-3 py-2 text-xs text-red-900"
+          class="mt-2 rounded-md bg-surface px-3 py-2 text-xs text-danger"
         >
           Se resolvio con {{ issueResult.attempts.length }} intentos de
           correlativo.
@@ -4503,9 +4499,9 @@ function updatePaymentCondition(value: string): void {
 
       <div
         v-if="stuckIssueRequestId"
-        class="mt-5 rounded-md border border-slate-200 bg-white p-4 dark:border-line dark:bg-surface"
+        class="mt-5 rounded-md border border-line bg-surface p-4"
       >
-        <p class="text-sm text-slate-600 dark:text-muted">
+        <p class="text-sm text-muted">
           <template v-if="stuckRetryAfterSeconds > 0">
             Intenta de nuevo en {{ stuckRetryAfterSeconds }} segundos, o
             vuelve a verificar el estado.
@@ -4553,7 +4549,7 @@ function updatePaymentCondition(value: string): void {
       />
       <div
         v-else-if="empresas.length === 0"
-        class="rounded-md bg-amber-50 p-4 text-sm text-amber-800"
+        class="rounded-md bg-warning-soft p-4 text-sm text-muted"
       >
         No hay empresas configuradas. Debes registrar empresa, sucursal, punto
         de venta y correlativos activos.
@@ -4568,7 +4564,7 @@ function updatePaymentCondition(value: string): void {
 
         <div
           v-if="selectedEmpresa && !fiscalEmissionReady"
-          class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-warning/30 dark:bg-warning-soft dark:text-warning"
+          class="rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm text-warning dark:border-warning/30"
         >
           <p class="font-semibold">Emisión pendiente de configuración</p>
           <p class="mt-1">
@@ -4579,15 +4575,15 @@ function updatePaymentCondition(value: string): void {
 
         <section
           v-if="isAdjustmentNote"
-          class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:text-text dark:shadow-surface"
+          class="rounded-md border border-line bg-surface p-4 shadow-sm shadow-surface backdrop-blur dark:text-text"
         >
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 class="text-base font-semibold text-slate-950 dark:text-text">
+              <h2 class="text-base font-semibold text-text">
                 Documento origen
               </h2>
               <p
-                class="mt-1 hidden text-sm text-slate-500 md:block dark:text-muted"
+                class="mt-1 hidden text-sm text-muted md:block"
               >
                 Selecciona un CCF aceptado para
                 {{
@@ -4599,7 +4595,7 @@ function updatePaymentCondition(value: string): void {
             </div>
             <button
               v-if="selectedSourceDocument"
-              class="rounded-lg bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700 md:hidden dark:bg-primary-soft dark:text-primary"
+              class="rounded-lg bg-primary-soft px-3 py-2 text-sm font-semibold text-primary md:hidden"
               type="button"
               @click="mobileSourcePickerOpen = !mobileSourcePickerOpen"
             >
@@ -4607,7 +4603,7 @@ function updatePaymentCondition(value: string): void {
             </button>
             <button
               v-if="selectedSourceDocument"
-              class="hidden rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-600 hover:text-white md:block"
+              class="hidden rounded-md bg-danger-soft px-3 py-2 text-sm font-semibold text-danger hover:bg-danger hover:text-white md:block"
               type="button"
               @click="clearSourceDocument"
             >
@@ -4617,11 +4613,7 @@ function updatePaymentCondition(value: string): void {
 
           <div
             class="mt-4"
-            :class="
-              selectedSourceDocument && !mobileSourcePickerOpen
-                ? 'hidden md:block'
-                : ''
-            "
+            :class="selectedSourceDocument && !mobileSourcePickerOpen ? 'hidden md:block' : ''"
           >
             <UiSearchInput
               v-model="sourceDocumentSearch"
@@ -4631,33 +4623,29 @@ function updatePaymentCondition(value: string): void {
             />
             <div
               v-if="sourceDocuments.length"
-              class="mt-2 max-h-56 overflow-y-auto rounded-md border border-slate-200 dark:border-line"
+              class="mt-2 max-h-56 overflow-y-auto rounded-md border border-line"
             >
               <button
                 v-for="document in sourceDocuments"
                 :key="document.id"
-                class="block w-full border-b border-slate-100 px-3 py-2 text-left text-sm last:border-b-0 dark:border-line"
-                :class="
-                  document.is_related_by_adjustment
-                    ? 'cursor-not-allowed bg-slate-50 opacity-60 dark:bg-surface-muted'
-                    : 'hover:bg-sky-50 dark:hover:bg-surface-muted'
-                "
+                class="block w-full border-b border-line px-3 py-2 text-left text-sm last:border-b-0"
+                :class="document.is_related_by_adjustment ? 'cursor-not-allowed bg-surface-muted opacity-60' : 'hover:bg-primary-soft dark:hover:bg-surface-muted'"
                 type="button"
                 :disabled="document.is_related_by_adjustment"
                 @click="selectSourceDocument(document)"
               >
                 <span
-                  class="flex flex-wrap items-center gap-2 font-semibold text-slate-950 dark:text-text"
+                  class="flex flex-wrap items-center gap-2 font-semibold text-text"
                 >
                   {{ document.numeroControl }}
                   <span
                     v-if="document.is_related_by_adjustment"
-                    class="rounded bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-warning-soft dark:text-warning"
+                    class="rounded bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-warning"
                   >
                     Relacionado
                   </span>
                 </span>
-                <span class="block text-xs text-slate-500 dark:text-muted">
+                <span class="block text-xs text-muted">
                   {{ sourceReceptorName(document) }} ·
                   {{ currency(Number(document.totalPagar ?? 0)) }}
                   <template
@@ -4673,7 +4661,7 @@ function updatePaymentCondition(value: string): void {
                 !selectedSourceDocument &&
                 sourceDocumentSearch.trim().length >= 2
               "
-              class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+              class="mt-2 rounded-md border border-warning/40 bg-warning-soft px-3 py-2 text-sm text-muted"
             >
               No encontramos CCF aceptados para esa busqueda en la empresa
               activa.
@@ -4682,35 +4670,35 @@ function updatePaymentCondition(value: string): void {
 
           <div
             v-if="selectedSourceDocument"
-            class="mt-4 grid gap-3 rounded-md border border-sky-100 bg-sky-50 p-4 text-sm md:grid-cols-4 dark:border-line dark:bg-surface-muted"
+            class="mt-4 grid gap-3 rounded-md border border-primary/40 bg-primary-soft p-4 text-sm md:grid-cols-4 dark:border-line dark:bg-surface-muted"
           >
             <p>
               <span
-                class="block text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                class="block text-xs font-semibold uppercase text-muted dark:text-soft"
                 >CCF origen</span
               >
               <span
-                class="mt-1 block font-mono text-xs text-slate-950 dark:text-text"
+                class="mt-1 block font-mono text-xs text-text"
                 >{{ selectedSourceDocument.numeroControl }}</span
               >
             </p>
             <p>
               <span
-                class="block text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                class="block text-xs font-semibold uppercase text-muted dark:text-soft"
                 >Receptor</span
               >
               <span
-                class="mt-1 block truncate font-semibold text-slate-950 dark:text-text"
+                class="mt-1 block truncate font-semibold text-text"
                 >{{ form.customerName }}</span
               >
             </p>
             <p>
               <span
-                class="block text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                class="block text-xs font-semibold uppercase text-muted dark:text-soft"
                 >Total origen</span
               >
               <span
-                class="mt-1 block font-semibold text-slate-950 dark:text-text"
+                class="mt-1 block font-semibold text-text"
                 >{{
                   currency(Number(selectedSourceDocument.totalPagar ?? 0))
                 }}</span
@@ -4718,11 +4706,11 @@ function updatePaymentCondition(value: string): void {
             </p>
             <p v-if="notaCreditoHasFiscalAdjustments">
               <span
-                class="block text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                class="block text-xs font-semibold uppercase text-muted dark:text-soft"
                 >Ajustes IVA</span
               >
               <span
-                class="mt-1 block text-xs font-semibold text-slate-950 dark:text-text"
+                class="mt-1 block text-xs font-semibold text-text"
               >
                 Origen ret. {{ currency(notaCreditoSourceIvaRete) }} · perc.
                 {{ currency(notaCreditoSourceIvaPerci) }}
@@ -4730,22 +4718,16 @@ function updatePaymentCondition(value: string): void {
             </p>
             <p>
               <span
-                class="block text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                class="block text-xs font-semibold uppercase text-muted dark:text-soft"
                 >{{ isNotaDebito ? "NDE" : "NCE" }}</span
               >
               <span
                 class="mt-1 inline-flex items-center gap-2 rounded px-2 py-1 text-xs font-semibold"
-                :class="
-                  correlativoLoading
-                    ? 'bg-sky-100 text-sky-700 dark:bg-primary-soft dark:text-white'
-                    : correlativoPreview
-                      ? 'bg-emerald-100 text-emerald-700 dark:bg-success-soft dark:text-success'
-                      : 'bg-red-100 text-red-700 dark:bg-danger-soft dark:text-danger'
-                "
+                :class="correlativoLoading ? 'bg-primary-soft text-primary dark:text-white' : correlativoPreview ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'"
               >
                 <span
                   v-if="correlativoLoading"
-                  class="h-3 w-3 animate-spin rounded-full border-2 border-sky-200 border-t-sky-700"
+                  class="h-3 w-3 animate-spin rounded-full border-2 border-primary/40 border-t-sky-700"
                 ></span>
                 {{
                   correlativoLoading
@@ -4771,11 +4753,7 @@ function updatePaymentCondition(value: string): void {
             >
               <span
                 class="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-black"
-                :class="
-                  correlativoPreview
-                    ? 'bg-emerald-900 text-emerald-200'
-                    : 'bg-red-950 text-red-200'
-                "
+                :class="correlativoPreview ? 'bg-emerald-900 text-emerald-200' : 'bg-red-950 text-red-200'"
               >
                 {{ selectedSucursal?.codigo?.slice(-2) || "—" }}
               </span>
@@ -4887,14 +4865,14 @@ function updatePaymentCondition(value: string): void {
 
           <section
             v-if="!isAdjustmentNote"
-            class="w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-blue-100/80 bg-white/90 p-3 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface"
+            class="w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-line bg-surface p-3 shadow-sm shadow-surface"
           >
             <div
               v-if="hasReceptorCard"
-              class="flex min-h-14 items-center gap-3 rounded-xl bg-sky-50/80 px-3 py-2.5 dark:bg-surface-muted"
+              class="flex min-h-14 items-center gap-3 rounded-xl bg-primary-soft px-3 py-2.5 dark:bg-surface-muted"
             >
               <span
-                class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-sm font-black text-sky-700 shadow-sm dark:bg-primary-soft dark:text-primary"
+                class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface text-sm font-black text-primary shadow-sm dark:bg-primary-soft"
               >
                 {{ form.customerName.trim().slice(0, 1).toUpperCase() || "C" }}
               </span>
@@ -4904,7 +4882,7 @@ function updatePaymentCondition(value: string): void {
                 @click="openActiveCustomer"
               >
                 <span
-                  class="block text-[11px] font-bold uppercase tracking-wide text-sky-700 dark:text-primary"
+                  class="block text-[11px] font-bold uppercase tracking-wide text-primary"
                   >{{
                     customerMode === "quick"
                       ? "Cliente temporal"
@@ -4912,11 +4890,11 @@ function updatePaymentCondition(value: string): void {
                   }}</span
                 >
                 <strong
-                  class="mt-0.5 block truncate text-sm text-slate-950 dark:text-text"
+                  class="mt-0.5 block truncate text-sm text-text"
                   >{{ form.customerName }}</strong
                 >
                 <span
-                  class="block truncate text-xs text-slate-500 dark:text-muted"
+                  class="block truncate text-xs text-muted"
                   >{{
                     customerMode === "quick"
                       ? customerSummary
@@ -4941,26 +4919,26 @@ function updatePaymentCondition(value: string): void {
               >
                 <span class="min-w-0 flex-1">
                   <span
-                    class="block text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-soft"
+                    class="block text-[10px] font-bold uppercase tracking-wide text-muted dark:text-soft"
                     >Cliente</span
                   >
                   <strong
-                    class="block truncate text-sm text-slate-950 dark:text-text"
+                    class="block truncate text-sm text-text"
                     >{{ form.customerName || "Consumidor final" }}</strong
                   >
                   <span
-                    class="block truncate text-xs text-slate-500 dark:text-muted"
+                    class="block truncate text-xs text-muted"
                     >{{ customerSummary }}</span
                   >
                 </span>
                 <span
-                  class="shrink-0 text-xs font-bold text-sky-700 dark:text-primary"
+                  class="shrink-0 text-xs font-bold text-primary"
                   >{{ mobileCustomerExpanded ? "Cerrar" : "Cambiar" }}</span
                 >
               </button>
               <div
                 v-if="mobileCustomerExpanded"
-                class="mt-3 border-t border-slate-100 pt-3 dark:border-line"
+                class="mt-3 border-t border-line pt-3"
               >
                 <div class="grid grid-cols-2 gap-2">
                   <button
@@ -4981,7 +4959,7 @@ function updatePaymentCondition(value: string): void {
                 <button
                   v-if="customerMode === 'quick' || customerMode === 'new'"
                   type="button"
-                  class="mt-2 flex w-full items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5 text-left dark:bg-surface-muted"
+                  class="mt-2 flex w-full items-center justify-between rounded-xl bg-surface-muted px-3 py-2.5 text-left"
                   @click="
                     customerMode === 'quick'
                       ? (customerModalMode = 'quick')
@@ -4990,16 +4968,16 @@ function updatePaymentCondition(value: string): void {
                 >
                   <span class="min-w-0"
                     ><strong
-                      class="block truncate text-sm text-slate-950 dark:text-text"
+                      class="block truncate text-sm text-text"
                       >{{ form.customerName }}</strong
                     ><span
-                      class="block truncate text-xs text-slate-500 dark:text-muted"
+                      class="block truncate text-xs text-muted"
                       >{{ customerSummary }}</span
                     ></span
                   >
                   <span
                     v-if="customerMode === 'quick'"
-                    class="ml-2 shrink-0 text-xs font-bold text-sky-700 dark:text-primary"
+                    class="ml-2 shrink-0 text-xs font-bold text-primary"
                     >Editar</span
                   >
                 </button>
@@ -5011,7 +4989,7 @@ function updatePaymentCondition(value: string): void {
                 requiresCustomerIdentificationByAmount &&
                 !hasRequiredCustomerIdentification
               "
-              class="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800"
+              class="mt-3 rounded-xl bg-warning-soft p-3 text-xs text-muted"
             >
               {{ customerIdentificationByAmountMessage }}
             </p>
@@ -5019,7 +4997,7 @@ function updatePaymentCondition(value: string): void {
 
           <section
             v-if="!isAdjustmentNote && supportsAdvancedPayments"
-            class="w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-blue-100/80 bg-white/90 px-3 py-2 shadow-sm shadow-blue-950/5 dark:border-line dark:bg-surface dark:shadow-surface"
+            class="w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-line bg-surface px-3 py-2 shadow-sm shadow-surface"
           >
             <div class="flex min-h-14 items-center gap-2">
               <button
@@ -5028,35 +5006,31 @@ function updatePaymentCondition(value: string): void {
                 @click="openPaymentModal"
               >
                 <span
-                  class="block text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-soft"
+                  class="block text-[11px] font-bold uppercase tracking-wide text-muted dark:text-soft"
                   >Forma de pago</span
                 >
                 <strong
-                  class="mt-0.5 block truncate text-sm text-slate-950 dark:text-text"
+                  class="mt-0.5 block truncate text-sm text-text"
                   >{{ paymentConditionLabel }} ·
                   {{ paymentSummaryLabel }}</strong
                 >
                 <span
                   class="block text-xs"
-                  :class="
-                    paymentTotalMatches
-                      ? 'text-emerald-700 dark:text-success'
-                      : 'text-red-700 dark:text-danger'
-                  "
+                  :class="paymentTotalMatches ? 'text-success' : 'text-danger'"
                   >{{ currency(paymentTotal) }} de
                   {{ currency(totalLabel) }}</span
                 >
               </button>
               <button
                 type="button"
-                class="min-h-10 shrink-0 rounded-xl bg-sky-50 px-3 text-xs font-bold text-sky-700 active:bg-sky-100 dark:bg-primary-soft dark:text-primary"
+                class="min-h-10 shrink-0 rounded-xl bg-primary-soft px-3 text-xs font-bold text-primary active:bg-primary-soft"
                 @click="openPaymentModal"
               >
                 Cambiar
               </button>
               <button
                 type="button"
-                class="min-h-10 shrink-0 rounded-xl px-2 text-xs font-bold text-slate-600 active:bg-slate-100 dark:text-muted dark:active:bg-surface-muted"
+                class="min-h-10 shrink-0 rounded-xl px-2 text-xs font-bold text-muted active:bg-surface-muted"
                 @click="observationsModalOpen = true"
               >
                 {{ form.observations.trim() ? "Nota ✓" : "Nota" }}
@@ -5070,17 +5044,17 @@ function updatePaymentCondition(value: string): void {
           class="hidden gap-4 md:grid xl:grid-cols-3"
         >
           <section
-            class="rounded-md border border-blue-100/80 bg-white/75 px-4 py-3 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:text-text dark:shadow-surface"
+            class="rounded-md border border-line bg-surface px-4 py-3 shadow-sm shadow-surface backdrop-blur dark:text-text"
           >
             <div class="flex h-full flex-col justify-between gap-4">
               <div class="min-w-0">
                 <p
-                  class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-soft"
+                  class="text-xs font-semibold uppercase tracking-wide text-muted dark:text-soft"
                 >
                   Emisor activo
                 </p>
                 <p
-                  class="mt-1 truncate text-sm font-bold text-slate-950 dark:text-text"
+                  class="mt-1 truncate text-sm font-bold text-text"
                 >
                   {{ selectedEmpresa?.razon_social }}
                 </p>
@@ -5088,11 +5062,11 @@ function updatePaymentCondition(value: string): void {
                   class="mt-3 grid gap-x-4 gap-y-2 text-[13px] sm:grid-cols-2"
                 >
                   <p>
-                    <span class="font-semibold text-slate-500 dark:text-muted"
+                    <span class="font-semibold text-muted"
                       >Ambiente:</span
                     >
                     <span
-                      class="ml-1 font-semibold text-slate-950 dark:text-text"
+                      class="ml-1 font-semibold text-text"
                       >{{
                         selectedEmpresa?.ambiente === "01"
                           ? "Produccion"
@@ -5101,29 +5075,29 @@ function updatePaymentCondition(value: string): void {
                     >
                   </p>
                   <p>
-                    <span class="font-semibold text-slate-500 dark:text-muted"
+                    <span class="font-semibold text-muted"
                       >DTE:</span
                     >
                     <span
-                      class="ml-1 font-semibold text-slate-950 dark:text-text"
+                      class="ml-1 font-semibold text-text"
                       >{{ documentLabel }}</span
                     >
                   </p>
                   <p>
-                    <span class="font-semibold text-slate-500 dark:text-muted"
+                    <span class="font-semibold text-muted"
                       >Estab.:</span
                     >
                     <span
-                      class="ml-1 font-semibold text-slate-950 dark:text-text"
+                      class="ml-1 font-semibold text-text"
                       >{{ selectedSucursal?.codigo }}</span
                     >
                   </p>
                   <p class="min-w-0">
-                    <span class="font-semibold text-slate-500 dark:text-muted"
+                    <span class="font-semibold text-muted"
                       >Punto venta:</span
                     >
                     <span
-                      class="ml-1 font-semibold text-slate-950 dark:text-text"
+                      class="ml-1 font-semibold text-text"
                       >{{ selectedPuntoVenta?.codigo }}</span
                     >
                   </p>
@@ -5151,7 +5125,7 @@ function updatePaymentCondition(value: string): void {
                 >
                   <span
                     v-if="billingStationPreference"
-                    class="rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-success-soft dark:text-success"
+                    class="rounded bg-success-soft px-2 py-1 text-xs font-semibold text-success"
                   >
                     Equipo fijado:
                     {{
@@ -5166,7 +5140,7 @@ function updatePaymentCondition(value: string): void {
                   <template v-if="canManageBillingStation">
                     <button
                       type="button"
-                      class="rounded px-2 py-1 text-xs font-semibold text-sky-700 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-primary dark:hover:bg-primary-soft dark:hover:text-white"
+                      class="rounded px-2 py-1 text-xs font-semibold text-primary transition hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white"
                       :disabled="selectedStationIsFixed"
                       @click="saveBillingStationPreference"
                     >
@@ -5175,7 +5149,7 @@ function updatePaymentCondition(value: string): void {
                     <button
                       v-if="billingStationPreference"
                       type="button"
-                      class="rounded px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text"
+                      class="rounded px-2 py-1 text-xs font-semibold text-muted transition hover:bg-surface-muted hover:text-text"
                       @click="clearBillingStationPreference"
                     >
                       Quitar fijacion
@@ -5184,30 +5158,24 @@ function updatePaymentCondition(value: string): void {
                 </div>
               </div>
               <div
-                class="flex flex-wrap items-end justify-between gap-3 border-t border-slate-200 pt-3 dark:border-line"
+                class="flex flex-wrap items-end justify-between gap-3 border-t border-line pt-3"
               >
                 <p
                   v-if="correlativoLoading"
-                  class="inline-flex items-center gap-2 text-sm font-medium text-sky-700 dark:text-primary"
+                  class="inline-flex items-center gap-2 text-sm font-medium text-primary"
                 >
                   <span
-                    class="h-4 w-4 animate-spin rounded-full border-2 border-sky-200 border-t-sky-700"
+                    class="h-4 w-4 animate-spin rounded-full border-2 border-primary/40 border-t-sky-700"
                   ></span>
                   Consultando correlativo disponible...
                 </p>
-                <p v-else-if="!correlativoPreview" class="text-sm text-red-700">
+                <p v-else-if="!correlativoPreview" class="text-sm text-danger">
                   No hay correlativo activo para esta combinacion.
                 </p>
                 <div class="min-w-0 text-right">
                   <span
                     class="inline-flex max-w-full items-center gap-2 rounded px-2 py-1 text-xs font-semibold"
-                    :class="
-                      correlativoLoading
-                        ? 'bg-sky-100 text-sky-700 dark:bg-primary-soft dark:text-white'
-                        : correlativoPreview
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-success-soft dark:text-success'
-                          : 'bg-red-100 text-red-700 dark:bg-danger-soft dark:text-danger'
-                    "
+                    :class="correlativoLoading ? 'bg-primary-soft text-primary dark:text-white' : correlativoPreview ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'"
                   >
                     <template v-if="correlativoPreview">
                       <span class="shrink-0">Numero correlativo</span>
@@ -5227,19 +5195,19 @@ function updatePaymentCondition(value: string): void {
           </section>
 
           <section
-            class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:text-text dark:shadow-surface"
+            class="rounded-md border border-line bg-surface p-4 shadow-sm shadow-surface backdrop-blur dark:text-text"
           >
             <div
               v-if="hasReceptorCard"
-              class="rounded-md border border-sky-100 bg-sky-50/80 p-3 dark:border-line dark:bg-surface-muted"
+              class="rounded-md border border-primary/40 bg-primary-soft p-3 dark:border-line dark:bg-surface-muted"
             >
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0 flex-1">
                   <div
-                    class="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-sky-700"
+                    class="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-primary"
                   >
                     <span
-                      class="rounded bg-white px-2 py-1 dark:bg-primary-soft dark:text-primary"
+                      class="rounded bg-surface px-2 py-1 dark:bg-primary-soft dark:text-primary"
                       >{{
                         customerMode === "quick"
                           ? "Cliente temporal"
@@ -5258,52 +5226,52 @@ function updatePaymentCondition(value: string): void {
                   >
                     <p class="min-w-0 sm:col-span-2">
                       <span
-                        class="block text-[11px] font-semibold text-slate-500 dark:text-soft"
+                        class="block text-[11px] font-semibold text-muted dark:text-soft"
                         >Nombre</span
                       >
                       <span
-                        class="block truncate font-semibold text-slate-950 dark:text-text"
+                        class="block truncate font-semibold text-text"
                         >{{ form.customerName }}</span
                       >
                     </p>
                     <template v-if="customerMode !== 'quick'">
                       <p>
                         <span
-                          class="block text-[11px] font-semibold text-slate-500 dark:text-soft"
+                          class="block text-[11px] font-semibold text-muted dark:text-soft"
                           >Tipo de documento</span
                         >
                         <span
-                          class="block font-semibold text-slate-950 dark:text-text"
+                          class="block font-semibold text-text"
                           >{{ customerDocumentTypeLabel }}</span
                         >
                       </p>
                       <p class="min-w-0">
                         <span
-                          class="block text-[11px] font-semibold text-slate-500 dark:text-soft"
+                          class="block text-[11px] font-semibold text-muted dark:text-soft"
                           >Numero</span
                         >
                         <span
-                          class="block truncate font-semibold text-slate-950 dark:text-text"
+                          class="block truncate font-semibold text-text"
                           >{{ customerDocumentNumberLabel }}</span
                         >
                       </p>
                       <p>
                         <span
-                          class="block text-[11px] font-semibold text-slate-500 dark:text-soft"
+                          class="block text-[11px] font-semibold text-muted dark:text-soft"
                           >Telefono</span
                         >
                         <span
-                          class="block font-semibold text-slate-950 dark:text-text"
+                          class="block font-semibold text-text"
                           >{{ form.customerPhone || "Sin telefono" }}</span
                         >
                       </p>
                       <p class="min-w-0">
                         <span
-                          class="block text-[11px] font-semibold text-slate-500 dark:text-soft"
+                          class="block text-[11px] font-semibold text-muted dark:text-soft"
                           >Correo</span
                         >
                         <span
-                          class="block truncate font-semibold text-slate-950 dark:text-text"
+                          class="block truncate font-semibold text-text"
                           >{{ form.customerEmail || "Sin correo" }}</span
                         >
                       </p>
@@ -5315,21 +5283,21 @@ function updatePaymentCondition(value: string): void {
                     >
                       <p v-if="!isSujetoExcluido">
                         <span
-                          class="block text-[11px] font-semibold text-slate-500 dark:text-soft"
+                          class="block text-[11px] font-semibold text-muted dark:text-soft"
                           >NRC</span
                         >
                         <span
-                          class="block font-semibold text-slate-950 dark:text-text"
+                          class="block font-semibold text-text"
                           >{{ form.customerNrc || "Pendiente" }}</span
                         >
                       </p>
                       <p>
                         <span
-                          class="block text-[11px] font-semibold text-slate-500 dark:text-soft"
+                          class="block text-[11px] font-semibold text-muted dark:text-soft"
                           >Actividad</span
                         >
                         <span
-                          class="block truncate font-semibold text-slate-950 dark:text-text"
+                          class="block truncate font-semibold text-text"
                           >{{
                             form.customerActivityCode &&
                             form.customerActivityDescription
@@ -5340,11 +5308,11 @@ function updatePaymentCondition(value: string): void {
                       </p>
                       <p class="min-w-0 sm:col-span-2">
                         <span
-                          class="block text-[11px] font-semibold text-slate-500 dark:text-soft"
+                          class="block text-[11px] font-semibold text-muted dark:text-soft"
                           >Direccion</span
                         >
                         <span
-                          class="block truncate font-semibold text-slate-950 dark:text-text"
+                          class="block truncate font-semibold text-text"
                           >{{
                             form.customerDepartment &&
                             form.customerMunicipality &&
@@ -5396,7 +5364,7 @@ function updatePaymentCondition(value: string): void {
               <button
                 v-for="mode in customerModes"
                 :key="mode.key"
-                class="rounded-lg px-4 py-2 text-sm font-semibold tracking-wide transition-colors duration-200 focus:outline-none focus:ring focus:ring-sky-300 focus:ring-opacity-70"
+                class="rounded-lg px-4 py-2 text-sm font-semibold tracking-wide transition-colors duration-200 focus:outline-none focus:ring focus:ring-primary focus:ring-opacity-70"
                 :class="customerModeButtonClass(mode)"
                 :disabled="
                   mode.key === 'generic' &&
@@ -5417,16 +5385,16 @@ function updatePaymentCondition(value: string): void {
                   customerMode === 'quick' ||
                   customerMode === 'new')
               "
-              class="mt-4 rounded-md border border-blue-100/80 bg-slate-50/80 p-4 dark:border-line dark:bg-surface-muted"
+              class="mt-4 rounded-md border border-line bg-surface-muted p-4"
             >
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p
-                    class="text-sm font-semibold text-slate-950 dark:text-text"
+                    class="text-sm font-semibold text-text"
                   >
                     {{ form.customerName || "Consumidor Final" }}
                   </p>
-                  <p class="mt-1 text-sm text-slate-600 dark:text-muted">
+                  <p class="mt-1 text-sm text-muted">
                     {{ customerSummary }}
                   </p>
                 </div>
@@ -5445,13 +5413,13 @@ function updatePaymentCondition(value: string): void {
                 requiresCustomerIdentificationByAmount &&
                 !hasRequiredCustomerIdentification
               "
-              class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+              class="mt-4 rounded-md border border-warning/40 bg-warning-soft p-3 text-sm text-muted"
             >
               {{ customerIdentificationByAmountMessage }}
             </p>
             <p
               v-if="isAdjustmentNote && !selectedSourceDocument"
-              class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+              class="mt-4 rounded-md border border-warning/40 bg-warning-soft p-3 text-sm text-muted"
             >
               Selecciona un CCF aceptado para cargar automaticamente el
               receptor.
@@ -5460,23 +5428,19 @@ function updatePaymentCondition(value: string): void {
 
           <section
             v-if="supportsAdvancedPayments"
-            class="rounded-md border border-blue-100/80 bg-white/85 p-4 shadow-sm shadow-blue-950/5 backdrop-blur dark:border-line dark:bg-surface dark:text-text dark:shadow-surface"
+            class="rounded-md border border-line bg-surface p-4 shadow-sm shadow-surface backdrop-blur dark:text-text"
           >
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2
-                  class="text-base font-semibold text-slate-950 dark:text-text"
+                  class="text-base font-semibold text-text"
                 >
                   Pago
                 </h2>
               </div>
               <span
                 class="rounded-full px-2.5 py-1 text-xs font-semibold"
-                :class="
-                  paymentTotalMatches
-                    ? 'bg-emerald-50 text-emerald-700 dark:bg-success-soft dark:text-success'
-                    : 'bg-red-50 text-red-700 dark:bg-danger-soft dark:text-danger'
-                "
+                :class="paymentTotalMatches ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'"
               >
                 {{ currency(paymentTotal) }}
               </span>
@@ -5484,17 +5448,17 @@ function updatePaymentCondition(value: string): void {
 
             <div class="mt-4 grid gap-3 text-sm">
               <div
-                class="rounded-md border border-slate-200 bg-white p-3 dark:border-line dark:bg-surface"
+                class="rounded-md border border-line bg-surface p-3"
               >
                 <p
-                  class="text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                  class="text-xs font-semibold uppercase text-muted dark:text-soft"
                 >
                   Condicion
                 </p>
-                <p class="mt-1 font-semibold text-slate-950 dark:text-text">
+                <p class="mt-1 font-semibold text-text">
                   {{ paymentConditionLabel }}
                 </p>
-                <p class="mt-1 truncate text-xs text-slate-500 dark:text-muted">
+                <p class="mt-1 truncate text-xs text-muted">
                   {{ paymentSummaryLabel }}
                 </p>
                 <div class="mt-3 grid grid-cols-2 gap-2">
@@ -5514,17 +5478,17 @@ function updatePaymentCondition(value: string): void {
               </div>
 
               <div
-                class="w-full min-w-0 overflow-hidden rounded-md border border-slate-200 bg-white p-3 dark:border-line dark:bg-surface"
+                class="w-full min-w-0 overflow-hidden rounded-md border border-line bg-surface p-3"
               >
                 <div class="flex min-w-0 items-center justify-between gap-3">
                   <div class="min-w-0 flex-1 overflow-hidden">
                     <p
-                      class="text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                      class="text-xs font-semibold uppercase text-muted dark:text-soft"
                     >
                       Observaciones
                     </p>
                     <p
-                      class="mt-1 max-w-full truncate text-xs text-slate-500 dark:text-muted"
+                      class="mt-1 max-w-full truncate text-xs text-muted"
                     >
                       {{ form.observations.trim() || "Sin observaciones" }}
                     </p>
@@ -5542,7 +5506,7 @@ function updatePaymentCondition(value: string): void {
 
               <p
                 v-if="!hasValidAdvancedPayments"
-                class="text-xs font-medium text-red-700"
+                class="text-xs font-medium text-danger"
               >
                 Las formas de pago deben sumar {{ currency(totalLabel) }}.
               </p>
@@ -5551,12 +5515,12 @@ function updatePaymentCondition(value: string): void {
         </div>
 
         <section
-          class="relative w-full min-w-0 max-w-full rounded-2xl border border-blue-100/80 bg-white/90 p-3 shadow-sm shadow-blue-950/5 backdrop-blur md:rounded-md md:p-4 dark:border-line dark:bg-surface dark:text-text dark:shadow-surface"
+          class="relative w-full min-w-0 max-w-full rounded-2xl border border-line bg-surface p-3 shadow-sm shadow-surface backdrop-blur md:rounded-md md:p-4 dark:text-text"
           :class="catalogLineSuggestionsOpen ? 'z-40' : 'z-10'"
         >
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 class="text-base font-semibold text-slate-950 dark:text-text">
+              <h2 class="text-base font-semibold text-text">
                 {{ isSujetoExcluido ? "Detalle de compra" : "Detalle" }}
               </h2>
             </div>
@@ -5589,10 +5553,10 @@ function updatePaymentCondition(value: string): void {
             >
               <template #option="{ option: item }">
                 <span
-                  class="block font-semibold text-slate-950 dark:text-text"
+                  class="block font-semibold text-text"
                   >{{ item.name }}</span
                 >
-                <span class="mt-0.5 block text-xs text-slate-500 dark:text-soft"
+                <span class="mt-0.5 block text-xs text-muted dark:text-soft"
                   >{{ item.sku || "Sin código" }} ·
                   {{ currency(item.base_price) }}</span
                 >
@@ -5648,15 +5612,15 @@ function updatePaymentCondition(value: string): void {
             </div>
 
             <div
-              class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 p-3 dark:bg-surface-muted"
+              class="flex items-center justify-between gap-3 rounded-lg bg-surface-muted p-3"
             >
               <div>
                 <p
-                  class="text-xs font-semibold uppercase text-slate-500 dark:text-soft"
+                  class="text-xs font-semibold uppercase text-muted dark:text-soft"
                 >
                   Neto
                 </p>
-                <p class="mt-1 font-bold text-slate-950 dark:text-text">
+                <p class="mt-1 font-bold text-text">
                   {{ currency(lineNetTotal(draftLine)) }}
                 </p>
               </div>
@@ -5672,12 +5636,12 @@ function updatePaymentCondition(value: string): void {
               <article
                 v-for="line in lines"
                 :key="line.id"
-                class="rounded-lg border border-slate-200 bg-white p-3 dark:border-line dark:bg-surface-muted"
+                class="rounded-lg border border-line bg-surface p-3 dark:bg-surface-muted"
               >
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
                     <p
-                      class="break-words font-semibold text-slate-950 dark:text-text"
+                      class="break-words font-semibold text-text"
                     >
                       {{ line.description }}
                     </p>
@@ -5698,22 +5662,22 @@ function updatePaymentCondition(value: string): void {
                 </div>
                 <div class="mt-3 grid grid-cols-3 gap-2 text-xs">
                   <div>
-                    <span class="block text-slate-500 dark:text-soft"
+                    <span class="block text-muted dark:text-soft"
                       >Cantidad</span
-                    ><strong class="text-slate-950 dark:text-text">{{
+                    ><strong class="text-text">{{
                       Number(line.quantity)
                     }}</strong>
                   </div>
                   <div>
-                    <span class="block text-slate-500 dark:text-soft"
+                    <span class="block text-muted dark:text-soft"
                       >Precio</span
-                    ><strong class="text-slate-950 dark:text-text">{{
+                    ><strong class="text-text">{{
                       currency(Number(line.unitPrice))
                     }}</strong>
                   </div>
                   <div class="text-right">
-                    <span class="block text-slate-500 dark:text-soft">Neto</span
-                    ><strong class="text-slate-950 dark:text-text">{{
+                    <span class="block text-muted dark:text-soft">Neto</span
+                    ><strong class="text-text">{{
                       currency(lineNetTotal(line))
                     }}</strong>
                   </div>
@@ -5722,7 +5686,7 @@ function updatePaymentCondition(value: string): void {
             </div>
             <p
               v-else
-              class="rounded-lg bg-slate-50 px-3 py-3 text-center text-xs text-slate-500 dark:bg-surface-muted dark:text-muted"
+              class="rounded-lg bg-surface-muted px-3 py-3 text-center text-xs text-muted"
             >
               Agrega el primer producto o servicio.
             </p>
@@ -5732,17 +5696,17 @@ function updatePaymentCondition(value: string): void {
             <article
               v-for="line in lines"
               :key="line.id"
-              class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-line dark:bg-surface-muted"
+              class="rounded-xl border border-line bg-surface p-3 shadow-sm dark:bg-surface-muted"
             >
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
                   <p
-                    class="break-words text-sm font-bold text-slate-950 dark:text-text"
+                    class="break-words text-sm font-bold text-text"
                   >
                     {{ line.description }}
                   </p>
                   <span
-                    class="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-surface dark:text-muted"
+                    class="mt-1 inline-flex rounded-full bg-surface-muted px-2 py-0.5 text-[10px] font-semibold text-muted dark:bg-surface"
                   >
                     {{
                       line.sourceLine === false ? "Nueva línea" : "Origen CCF"
@@ -5811,15 +5775,15 @@ function updatePaymentCondition(value: string): void {
               </div>
 
               <div
-                class="mt-3 flex items-end justify-between rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-surface"
+                class="mt-3 flex items-end justify-between rounded-xl bg-surface-muted px-3 py-2.5 dark:bg-surface"
               >
                 <div>
                   <span
-                    class="block text-[11px] font-semibold uppercase text-slate-500 dark:text-soft"
+                    class="block text-[11px] font-semibold uppercase text-muted dark:text-soft"
                     >{{ isNotaDebito ? "Incremento" : "Ajuste" }}</span
                   >
                   <strong
-                    class="mt-0.5 block text-sm text-slate-950 dark:text-text"
+                    class="mt-0.5 block text-sm text-text"
                     >{{
                       isNotaDebito && line.sourceLine !== false
                         ? notaDebitoIncrementLabel(line)
@@ -5828,14 +5792,14 @@ function updatePaymentCondition(value: string): void {
                   >
                 </div>
                 <div class="text-right">
-                  <span class="block text-[11px] text-slate-500 dark:text-soft"
+                  <span class="block text-[11px] text-muted dark:text-soft"
                     >Neto</span
                   >
                   <strong
-                    class="block text-base text-slate-950 dark:text-text"
+                    class="block text-base text-text"
                     >{{ currency(lineNetTotal(line)) }}</strong
                   >
-                  <span class="text-[10px] text-slate-500 dark:text-muted"
+                  <span class="text-[10px] text-muted"
                     >IVA {{ currency(lineIvaAmount(line)) }}</span
                   >
                 </div>
@@ -5844,9 +5808,9 @@ function updatePaymentCondition(value: string): void {
 
             <article
               v-if="isNotaDebito && selectedSourceDocument"
-              class="rounded-xl border border-dashed border-sky-300 bg-sky-50/60 p-3 dark:border-primary/40 dark:bg-primary-soft/30"
+              class="rounded-xl border border-dashed border-primary/40 bg-primary-soft p-3 dark:bg-primary-soft/30"
             >
-              <p class="mb-3 text-sm font-bold text-slate-950 dark:text-text">
+              <p class="mb-3 text-sm font-bold text-text">
                 Agregar un cargo nuevo
               </p>
               <div class="grid gap-3">
@@ -5873,13 +5837,13 @@ function updatePaymentCondition(value: string): void {
                   />
                 </div>
                 <div
-                  class="flex items-center justify-between rounded-xl bg-white px-3 py-2.5 dark:bg-surface"
+                  class="flex items-center justify-between rounded-xl bg-surface px-3 py-2.5"
                 >
                   <div>
                     <span
-                      class="block text-[11px] text-slate-500 dark:text-soft"
+                      class="block text-[11px] text-muted dark:text-soft"
                       >Total nuevo</span
-                    ><strong class="text-slate-950 dark:text-text">{{
+                    ><strong class="text-text">{{
                       currency(lineNetTotal(draftLine))
                     }}</strong>
                   </div>
@@ -5890,7 +5854,7 @@ function updatePaymentCondition(value: string): void {
 
             <p
               v-if="lines.length === 0"
-              class="rounded-xl bg-slate-50 px-3 py-4 text-sm text-slate-500 dark:bg-surface-muted dark:text-muted"
+              class="rounded-xl bg-surface-muted px-3 py-4 text-sm text-muted"
             >
               Selecciona un CCF origen para cargar las líneas de
               {{ isNotaDebito ? "débito" : "crédito" }}.
@@ -5898,14 +5862,14 @@ function updatePaymentCondition(value: string): void {
           </div>
 
           <div
-            class="mt-4 hidden rounded-md border border-slate-200 md:block dark:border-line"
+            class="mt-4 hidden rounded-md border border-line md:block"
             :class="isAdjustmentNote ? 'overflow-x-auto' : 'overflow-visible'"
           >
             <table
               class="w-full min-w-[780px] text-left text-sm dark:text-text"
             >
               <thead
-                class="bg-blue-50/70 text-xs uppercase text-slate-500 dark:bg-surface-muted dark:text-muted"
+                class="bg-primary-soft text-xs uppercase text-muted dark:bg-surface-muted"
               >
                 <tr>
                   <th class="px-3 py-2">Descripcion</th>
@@ -5934,10 +5898,10 @@ function updatePaymentCondition(value: string): void {
                   <th class="w-32 px-3 py-2"></th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-200 dark:divide-line">
+              <tbody class="divide-y divide-line">
                 <tr
                   v-if="!isAdjustmentNote"
-                  class="bg-blue-50/40 dark:bg-surface-muted"
+                  class="bg-primary-soft dark:bg-surface-muted"
                 >
                   <td class="px-3 py-2">
                     <UiAutocompleteInput
@@ -5995,11 +5959,11 @@ function updatePaymentCondition(value: string): void {
                       </template>
                       <template #option="{ option: item }">
                         <span
-                          class="block font-semibold text-slate-950 dark:text-text"
+                          class="block font-semibold text-text"
                           >{{ item.name }}</span
                         >
                         <span
-                          class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-soft"
+                          class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted dark:text-soft"
                         >
                           <span>{{ item.sku || "Sin código" }}</span>
                           <span>{{ currency(item.base_price) }}</span>
@@ -6071,7 +6035,7 @@ function updatePaymentCondition(value: string): void {
                   </td>
                   <td class="px-3 py-2 text-right">
                     <span
-                      class="whitespace-nowrap font-semibold text-slate-900 dark:text-text"
+                      class="whitespace-nowrap font-semibold text-text"
                       >{{ currency(lineNetTotal(draftLine)) }}</span
                     >
                     <span
@@ -6079,7 +6043,7 @@ function updatePaymentCondition(value: string): void {
                         isFiscalStyleDocument ||
                         lineDiscountAmount(draftLine) > 0
                       "
-                      class="ml-1 whitespace-nowrap text-[11px] text-slate-500 dark:text-muted"
+                      class="ml-1 whitespace-nowrap text-[11px] text-muted"
                     >
                       ({{
                         [
@@ -6105,7 +6069,7 @@ function updatePaymentCondition(value: string): void {
                 </tr>
                 <tr v-for="line in lines" :key="line.id">
                   <td class="px-3 py-2">
-                    <span class="font-medium text-slate-950 dark:text-text">{{
+                    <span class="font-medium text-text">{{
                       line.description
                     }}</span>
                     <span
@@ -6117,7 +6081,7 @@ function updatePaymentCondition(value: string): void {
                     </span>
                     <span
                       v-if="isAdjustmentNote"
-                      class="ml-2 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500 dark:bg-surface-muted dark:text-muted"
+                      class="ml-2 inline-flex rounded-full bg-surface-muted px-2 py-0.5 text-[11px] font-semibold text-muted"
                     >
                       {{
                         line.sourceLine === false ? "Nueva línea" : "Origen CCF"
@@ -6196,10 +6160,10 @@ function updatePaymentCondition(value: string): void {
                     <template v-if="isAdjustmentNote">
                       <span
                         v-if="isNotaDebito && line.sourceLine !== false"
-                        class="font-semibold text-slate-700 dark:text-muted"
+                        class="font-semibold text-muted"
                         >{{ notaDebitoIncrementLabel(line) }}</span
                       >
-                      <span v-else class="text-slate-400 dark:text-soft"
+                      <span v-else class="text-soft"
                         >No aplica</span
                       >
                     </template>
@@ -6208,7 +6172,7 @@ function updatePaymentCondition(value: string): void {
                         {{ Number(line.discountPercent || 0) }}%
                         <span
                           v-if="lineDiscountAmount(line) > 0"
-                          class="text-[11px] text-slate-500 dark:text-muted"
+                          class="text-[11px] text-muted"
                           >(-{{ currency(lineDiscountAmount(line)) }})</span
                         >
                       </span>
@@ -6216,14 +6180,14 @@ function updatePaymentCondition(value: string): void {
                   </td>
                   <td class="px-3 py-2 text-right">
                     <span
-                      class="whitespace-nowrap font-semibold text-slate-900 dark:text-text"
+                      class="whitespace-nowrap font-semibold text-text"
                       >{{ currency(lineNetTotal(line)) }}</span
                     >
                     <span
                       v-if="
                         isFiscalStyleDocument || lineDiscountAmount(line) > 0
                       "
-                      class="ml-1 whitespace-nowrap text-[11px] text-slate-500 dark:text-muted"
+                      class="ml-1 whitespace-nowrap text-[11px] text-muted"
                     >
                       ({{
                         [
@@ -6251,7 +6215,7 @@ function updatePaymentCondition(value: string): void {
                 </tr>
                 <tr v-if="lines.length === 0">
                   <td
-                    class="px-3 py-4 text-sm text-slate-500 dark:text-muted"
+                    class="px-3 py-4 text-sm text-muted"
                     colspan="6"
                   >
                     {{
@@ -6263,7 +6227,7 @@ function updatePaymentCondition(value: string): void {
                 </tr>
                 <tr
                   v-if="isNotaDebito && selectedSourceDocument"
-                  class="border-t-2 border-slate-200 bg-slate-50/70 dark:border-line-strong dark:bg-surface-muted"
+                  class="border-t-2 border-line bg-surface-muted dark:border-line-strong"
                 >
                   <td class="px-3 py-2">
                     <UiInput
@@ -6295,15 +6259,15 @@ function updatePaymentCondition(value: string): void {
                     />
                   </td>
                   <td class="px-3 py-2">
-                    <span class="text-slate-400">No aplica</span>
+                    <span class="text-soft">No aplica</span>
                   </td>
                   <td class="px-3 py-2 text-right">
                     <span
-                      class="whitespace-nowrap font-semibold text-slate-900 dark:text-text"
+                      class="whitespace-nowrap font-semibold text-text"
                       >{{ currency(lineNetTotal(draftLine)) }}</span
                     >
                     <span
-                      class="ml-1 whitespace-nowrap text-[11px] text-slate-500 dark:text-muted"
+                      class="ml-1 whitespace-nowrap text-[11px] text-muted"
                       >(IVA {{ currency(lineIvaAmount(draftLine)) }})</span
                     >
                   </td>
@@ -6319,17 +6283,17 @@ function updatePaymentCondition(value: string): void {
 
       <div
         v-if="draft"
-        class="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4"
+        class="mt-6 rounded-lg border border-line bg-surface-muted p-4"
       >
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p class="text-sm text-slate-500">Borrador #{{ draft.id }}</p>
-            <p class="font-semibold text-slate-950">
+            <p class="text-sm text-muted">Borrador #{{ draft.id }}</p>
+            <p class="font-semibold text-text">
               {{ draft.numeroControl }}
             </p>
           </div>
           <span
-            class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800"
+            class="rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary"
             >{{ draftStatusLabel(draft.estado) }}</span
           >
         </div>
@@ -6362,14 +6326,14 @@ function updatePaymentCondition(value: string): void {
             >Historial</UiButton
           >
         </div>
-        <p class="mt-3 text-xs text-slate-500">
+        <p class="mt-3 text-xs text-muted">
           Acciones disponibles para el documento preparado.
         </p>
       </div>
 
       <p
         v-if="error"
-        class="mt-4 whitespace-pre-wrap rounded-md bg-red-50 p-3 text-sm text-red-700"
+        class="mt-4 whitespace-pre-wrap rounded-md bg-danger-soft p-3 text-sm text-danger"
       >
         {{ error }}
       </p>

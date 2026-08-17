@@ -388,7 +388,7 @@ function daysUntil(value: string | null | undefined): number | null {
         @company-view-changed="setCompanyView"
       />
 
-      <section v-else class="rounded-lg border border-line bg-surface p-6 shadow-sm shadow-slate-950/5 dark:shadow-black/20">
+      <section v-else class="rounded-lg border border-line bg-surface p-6 shadow-sm shadow-surface">
         <div class="flex flex-col gap-2 border-b border-line pb-5 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 class="mt-1 text-2xl font-bold text-text">{{ activeItem.label }}</h1>
@@ -403,15 +403,15 @@ function daysUntil(value: string | null | undefined): number | null {
 
         <div v-else-if="activeView === 'subscription'" class="mt-6 space-y-4">
           <UiPanel v-if="!selectedCompany" variant="muted">
-            <p class="text-sm font-bold text-slate-950 dark:text-text">Selecciona una empresa</p>
-            <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-muted">Primero elige la empresa desde Resumen para consultar su estado de suscripcion.</p>
+            <p class="text-sm font-bold text-text">Selecciona una empresa</p>
+            <p class="mt-2 text-sm leading-6 text-muted">Primero elige la empresa desde Resumen para consultar su estado de suscripcion.</p>
           </UiPanel>
 
           <UiPanel v-else-if="subscriptionError" variant="default">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p class="text-sm font-bold text-rose-700 dark:text-danger">No se pudo cargar la suscripcion</p>
-                <p class="mt-1 text-sm text-slate-600 dark:text-muted">{{ subscriptionError }}</p>
+                <p class="text-sm font-bold text-danger">No se pudo cargar la suscripcion</p>
+                <p class="mt-1 text-sm text-muted">{{ subscriptionError }}</p>
               </div>
               <UiRefreshButton :loading="subscriptionLoading" label="Reintentar" @click="loadSubscription" />
             </div>
@@ -461,7 +461,7 @@ function daysUntil(value: string | null | undefined): number | null {
                       :href="wompiCheckoutUrl(plan) ?? '#'"
                       target="_blank"
                       rel="noopener noreferrer"
-                      class="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 px-6 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-line dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text"
+                      class="inline-flex w-full items-center justify-center rounded-lg border border-line px-6 py-2 text-sm font-semibold text-muted transition hover:bg-surface-muted hover:text-text"
                     >
                       Abrir checkout
                     </a>
@@ -487,13 +487,13 @@ function daysUntil(value: string | null | undefined): number | null {
             </div>
 
             <UiPanel v-if="hasBillableSubscription" variant="muted">
-              <p class="text-sm font-semibold text-slate-700 dark:text-muted">
+              <p class="text-sm font-semibold text-muted">
                 Tu suscripción está activa. No es necesario realizar otro pago por ahora.
               </p>
             </UiPanel>
 
             <UiPanel v-if="subscriptionRequestMessage" variant="muted">
-              <p class="text-sm font-semibold text-slate-700 dark:text-muted">{{ subscriptionRequestMessage }}</p>
+              <p class="text-sm font-semibold text-muted">{{ subscriptionRequestMessage }}</p>
             </UiPanel>
           </template>
         </div>
@@ -516,17 +516,17 @@ function daysUntil(value: string | null | undefined): number | null {
         <UserSecurityPanel v-else-if="activeView === 'security'" class="mt-6" :platform-base-url="platformBaseUrl" />
 
         <div v-else class="mt-6 grid gap-4 md:grid-cols-3">
-          <div class="rounded-md border border-slate-200 p-4">
-            <p class="text-sm font-bold text-slate-950">Correo</p>
+          <div class="rounded-md border border-line p-4">
+            <p class="text-sm font-bold text-text">Correo</p>
             <a href="mailto:soporte@stelfaro.com" class="mt-2 block text-sm text-primary hover:underline">soporte@stelfaro.com</a>
           </div>
-          <div class="rounded-md border border-slate-200 p-4">
-            <p class="text-sm font-bold text-slate-950">WhatsApp</p>
+          <div class="rounded-md border border-line p-4">
+            <p class="text-sm font-bold text-text">WhatsApp</p>
             <a href="https://wa.me/50375640652" target="_blank" rel="noopener" class="mt-2 block text-sm text-primary hover:underline">+503 7564-0652</a>
           </div>
-          <div class="rounded-md border border-slate-200 p-4">
-            <p class="text-sm font-bold text-slate-950">Horario</p>
-            <p class="mt-2 text-sm text-slate-600">Lunes a domingo, 6:00 a. m. – 8:00 p. m.</p>
+          <div class="rounded-md border border-line p-4">
+            <p class="text-sm font-bold text-text">Horario</p>
+            <p class="mt-2 text-sm text-muted">Lunes a domingo, 6:00 a. m. – 8:00 p. m.</p>
           </div>
         </div>
       </section>

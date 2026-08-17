@@ -173,9 +173,9 @@ function notificationIcon(notification: PlatformInternalNotification): Component
 }
 
 function notificationTone(notification: PlatformInternalNotification): string {
-  if (notification.category === 'tenant_request') return 'bg-sky-100 text-sky-700 dark:bg-primary-soft dark:text-primary';
-  if (notification.category === 'agent_release') return 'bg-emerald-100 text-emerald-700 dark:bg-success-soft dark:text-success';
-  return 'bg-amber-100 text-amber-700 dark:bg-warning-soft dark:text-warning';
+  if (notification.category === 'tenant_request') return 'bg-primary-soft text-primary';
+  if (notification.category === 'agent_release') return 'bg-success-soft text-success';
+  return 'bg-warning-soft text-warning';
 }
 
 function createdLabel(value: string | null): string {
@@ -188,62 +188,62 @@ function createdLabel(value: string | null): string {
   <div ref="root" class="relative">
     <button
       type="button"
-      class="relative grid h-11 w-11 place-items-center rounded-full transition focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-400"
-      :class="appearance === 'dark' ? 'text-slate-200 hover:bg-white/10 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-muted dark:hover:bg-surface-muted dark:hover:text-text'"
+      class="relative grid h-11 w-11 place-items-center rounded-full transition focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+      :class="appearance === 'dark' ? 'text-slate-200 hover:bg-white/10 hover:text-white' : 'text-muted hover:bg-surface-muted hover:text-text'"
       :aria-expanded="open"
       aria-haspopup="dialog"
       aria-label="Notificaciones"
       @click="open = !open"
     >
       <Bell class="h-6 w-6 origin-top" :class="ringing ? 'animate-bounce text-amber-300' : ''" aria-hidden="true" />
-      <span v-if="unreadCount" class="absolute right-0.5 top-0.5 grid min-h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black leading-none text-white ring-2 ring-slate-950" :class="ringing ? 'animate-pulse' : ''">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
+      <span v-if="unreadCount" class="absolute right-0.5 top-0.5 grid min-h-5 min-w-5 place-items-center rounded-full bg-danger px-1 text-[10px] font-black leading-none text-primary-contrast ring-2 ring-slate-950" :class="ringing ? 'animate-pulse' : ''">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
     </button>
 
     <Teleport to="body" :disabled="!mobileViewport">
     <section
       v-if="open"
       ref="panel"
-      class="fixed inset-0 z-[100] flex flex-col overflow-hidden bg-white text-slate-950 dark:bg-surface dark:text-text md:absolute md:inset-auto md:right-0 md:z-40 md:mt-3 md:block md:w-[min(92vw,390px)] md:rounded-xl md:border md:border-slate-200 md:shadow-2xl md:shadow-slate-950/20 md:dark:border-line"
+      class="fixed inset-0 z-[100] flex flex-col overflow-hidden bg-surface text-text md:absolute md:inset-auto md:right-0 md:z-40 md:mt-3 md:block md:w-[min(92vw,390px)] md:rounded-xl md:border md:border-line md:shadow-2xl md:shadow-surface"
       role="dialog"
       aria-modal="true"
       aria-label="Notificaciones internas"
     >
-      <header class="flex min-h-16 items-center justify-between gap-3 border-b border-slate-200 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] dark:border-line md:min-h-0 md:py-3">
+      <header class="flex min-h-16 items-center justify-between gap-3 border-b border-line px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:min-h-0 md:py-3">
         <div>
           <p class="text-lg font-black md:text-base">Notificaciones</p>
-          <p class="mt-0.5 text-xs text-slate-500 dark:text-muted">{{ unreadCount ? `${unreadCount} sin leer` : 'Todo al día' }}</p>
+          <p class="mt-0.5 text-xs text-muted">{{ unreadCount ? `${unreadCount} sin leer` : 'Todo al día' }}</p>
         </div>
         <div class="flex items-center gap-1">
           <UiButton v-if="unreadCount" size="sm" variant="ghost" @click="markAllRead"><CheckCheck class="h-4 w-4" /><span class="hidden min-[360px]:inline">Marcar leídas</span></UiButton>
-          <button type="button" class="grid h-11 w-11 place-items-center rounded-full text-slate-500 active:bg-slate-100 md:hidden dark:text-muted dark:active:bg-surface-muted" aria-label="Cerrar notificaciones" @click="open = false"><X class="h-6 w-6" /></button>
+          <button type="button" class="grid h-11 w-11 place-items-center rounded-full text-muted active:bg-surface-muted md:hidden" aria-label="Cerrar notificaciones" @click="open = false"><X class="h-6 w-6" /></button>
         </div>
       </header>
 
       <div class="min-h-0 flex-1 overscroll-contain overflow-y-auto pb-[env(safe-area-inset-bottom)] md:max-h-[min(70vh,520px)]">
-        <p v-if="loading" class="px-4 py-8 text-center text-sm text-slate-500 dark:text-muted">Cargando notificaciones...</p>
+        <p v-if="loading" class="px-4 py-8 text-center text-sm text-muted">Cargando notificaciones...</p>
         <div v-else-if="notifications.length === 0" class="px-5 py-10 text-center">
-          <Bell class="mx-auto h-9 w-9 text-slate-300 dark:text-soft" />
+          <Bell class="mx-auto h-9 w-9 text-soft" />
           <p class="mt-3 font-bold">Sin notificaciones</p>
-          <p class="mt-1 text-sm text-slate-500 dark:text-muted">Aquí aparecerán solicitudes, respuestas y próximos vencimientos.</p>
+          <p class="mt-1 text-sm text-muted">Aquí aparecerán solicitudes, respuestas y próximos vencimientos.</p>
         </div>
         <article
           v-for="notification in notifications"
           v-else
           :key="notification.id"
-          class="group relative flex w-full gap-3 border-b border-slate-100 px-4 py-4 text-left transition last:border-b-0 hover:bg-sky-50 dark:border-line dark:hover:bg-surface-muted"
-          :class="notification.read_at ? 'bg-white dark:bg-surface' : 'bg-sky-50/70 dark:bg-primary-soft/40'"
+          class="group relative flex w-full gap-3 border-b border-line px-4 py-4 text-left transition last:border-b-0 hover:bg-primary-soft dark:hover:bg-surface-muted"
+          :class="notification.read_at ? 'bg-surface' : 'bg-primary-soft/70 dark:bg-primary-soft/40'"
         >
           <button type="button" class="absolute inset-0 z-0" :aria-label="`Abrir ${notification.title}`" @click="openNotification(notification)"></button>
           <span class="pointer-events-none grid h-10 w-10 shrink-0 place-items-center rounded-full" :class="notificationTone(notification)"><component :is="notificationIcon(notification)" class="h-5 w-5" /></span>
           <span class="pointer-events-none min-w-0 flex-1 pr-7">
             <span class="flex items-start justify-between gap-2">
-              <strong class="text-sm text-slate-950 dark:text-text">{{ notification.title }}</strong>
-              <i v-if="!notification.read_at" class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-sky-500"></i>
+              <strong class="text-sm text-text">{{ notification.title }}</strong>
+              <i v-if="!notification.read_at" class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-primary"></i>
             </span>
-            <span class="mt-1 block text-sm leading-5 text-slate-600 dark:text-muted">{{ notification.message }}</span>
-            <span class="mt-2 flex flex-wrap items-center gap-2"><UiStatusBadge v-if="dueLabel(notification)" tone="warning">{{ dueLabel(notification) }}</UiStatusBadge><UiStatusBadge v-if="notification.metadata?.request_reference" tone="info">{{ notification.metadata.request_reference }}</UiStatusBadge><UiStatusBadge v-if="notification.metadata?.form_code" tone="info">{{ notification.metadata.form_code }}</UiStatusBadge><small class="text-xs text-slate-400 dark:text-soft">{{ createdLabel(notification.created_at) }}</small></span>
+            <span class="mt-1 block text-sm leading-5 text-muted">{{ notification.message }}</span>
+            <span class="mt-2 flex flex-wrap items-center gap-2"><UiStatusBadge v-if="dueLabel(notification)" tone="warning">{{ dueLabel(notification) }}</UiStatusBadge><UiStatusBadge v-if="notification.metadata?.request_reference" tone="info">{{ notification.metadata.request_reference }}</UiStatusBadge><UiStatusBadge v-if="notification.metadata?.form_code" tone="info">{{ notification.metadata.form_code }}</UiStatusBadge><small class="text-xs text-soft">{{ createdLabel(notification.created_at) }}</small></span>
           </span>
-          <button type="button" class="relative z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-400 opacity-70 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:text-soft dark:hover:bg-danger-soft dark:hover:text-danger" :aria-label="`Eliminar ${notification.title}`" title="Eliminar notificación" @click.stop="removeNotification(notification)"><Trash2 class="h-4 w-4" /></button>
+          <button type="button" class="relative z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full text-soft opacity-70 transition hover:bg-danger-soft hover:text-danger group-hover:opacity-100" :aria-label="`Eliminar ${notification.title}`" title="Eliminar notificación" @click.stop="removeNotification(notification)"><Trash2 class="h-4 w-4" /></button>
         </article>
       </div>
     </section>
