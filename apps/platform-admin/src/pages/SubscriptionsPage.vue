@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import type { PlatformSubscriptionPlan, PlatformSubscriptionTenantRow } from '@stelfaro/api-client';
 import { BillingPaginationBar } from '@stelfaro/billing';
-import { UiButton, UiDataTable, UiInput, UiModalShell, UiPanel, UiRefreshButton, UiSelect, UiStatusBadge } from '@stelfaro/ui';
+import { UiButton, UiDataTable, UiInput, UiModalShell, UiPanel, UiRefreshButton, UiSelect, UiStatusBadge, UiToggle } from '@stelfaro/ui';
 import { usePlatformSessionStore } from '../stores/platformSession';
 
 const platform = usePlatformSessionStore();
@@ -24,6 +24,7 @@ const form = reactive({
   status: 'trialing',
   billingCycle: 'monthly',
   price: '',
+  priceOverride: false,
   trialEndsAt: '',
   currentPeriodEndsAt: ''
 });
@@ -76,18 +77,37 @@ function goToPage(next: number): void {
 
 function openSubscription(row: PlatformSubscriptionTenantRow): void {
   const plan = row.subscription?.plan ?? plans.value[0] ?? null;
+  const subscribedPrice = row.subscription?.price_cents;
 
   selectedRow.value = row;
   form.planId = plan ? String(plan.id) : '';
   form.status = row.subscription?.status ?? 'trialing';
   form.billingCycle = row.subscription?.billing_cycle ?? plan?.billing_cycle ?? 'monthly';
-  form.price = String((row.subscription?.price_cents ?? plan?.price_cents ?? 0) / 100);
+  form.priceOverride = subscribedPrice != null && subscribedPrice !== plan?.price_cents;
+  form.price = String((subscribedPrice ?? plan?.price_cents ?? 0) / 100);
   form.trialEndsAt = dateInputValue(row.subscription?.trial_ends_at);
   form.currentPeriodEndsAt = dateInputValue(row.subscription?.current_period_ends_at);
   error.value = null;
   saved.value = null;
   modalOpen.value = true;
 }
+
+watch(() => form.planId, (planId) => {
+  const plan = plans.value.find((item) => item.id === Number(planId)) ?? null;
+  if (!plan) return;
+
+  form.billingCycle = plan.billing_cycle;
+  if (!form.priceOverride) {
+    form.price = String(plan.price_cents / 100);
+  }
+});
+
+watch(() => form.priceOverride, (override) => {
+  const plan = selectedPlan();
+  if (!override && plan) {
+    form.price = String(plan.price_cents / 100);
+  }
+});
 
 async function saveSubscription(): Promise<void> {
   if (!selectedRow.value || !canSave.value) {
@@ -103,7 +123,7 @@ async function saveSubscription(): Promise<void> {
       plan_id: Number(form.planId),
       status: form.status,
       billing_cycle: form.billingCycle,
-      price_cents: Math.round(Number(form.price || 0) * 100),
+      price_cents: form.priceOverride ? Math.round(Number(form.price || 0) * 100) : null,
       currency: 'USD',
       trial_ends_at: isoDate(form.trialEndsAt),
       current_period_ends_at: isoDate(form.currentPeriodEndsAt)
@@ -273,7 +293,22 @@ function isoDate(value: string): string | null {
           <UiSelect v-model="form.status" label="Estado" :options="statusOptions" />
           <UiSelect v-model="form.billingCycle" label="Ciclo" :options="billingCycleOptions" />
         </div>
-        <UiInput v-model="form.price" label="Precio USD" type="number" placeholder="0.00" />
+        <div>
+          <UiInput
+            v-model="form.price"
+            label="Precio USD"
+            type="number"
+            placeholder="0.00"
+            :disabled="!form.priceOverride"
+          />
+          <label class="mt-2 flex items-center gap-2 text-xs font-medium text-muted">
+            <UiToggle v-model="form.priceOverride" />
+            Precio distinto al del plan
+          </label>
+          <p v-if="!form.priceOverride && selectedPlan()" class="mt-1 text-xs text-soft">
+            Se cobrara el precio del plan: {{ money(selectedPlan()!.price_cents, selectedPlan()!.currency) }}
+          </p>
+        </div>
         <div class="grid gap-4 sm:grid-cols-2">
           <UiInput v-model="form.trialEndsAt" label="Fin de prueba" type="date" />
           <UiInput v-model="form.currentPeriodEndsAt" label="Fin de periodo" type="date" />
