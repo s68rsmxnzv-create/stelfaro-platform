@@ -1576,7 +1576,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 :key="empresa.id"
                 type="button"
                 class="w-full rounded-md border px-6 py-5 text-left transition hover:border-primary hover:bg-surface-muted"
-                :class="empresa.id === form.empresa_id ? 'border-primary bg-primary-soft' : 'border-primary bg-surface/85'"
+                :class="empresa.id === form.empresa_id ? 'border-primary bg-primary-soft' : 'border-line bg-surface'"
                 @click="selectEmpresa(empresa)"
               >
                 <div class="flex items-center gap-4">
@@ -1613,7 +1613,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           :class="props.detailMode ? 'flex flex-col' : 'space-y-5'"
           :style="props.detailMode ? { rowGap: '28px' } : undefined"
         >
-          <div v-if="!props.detailMode" id="datos-empresa" class="scroll-mt-6 rounded-md border border-primary bg-surface/85 p-5 shadow-sm shadow-surface backdrop-blur">
+          <div v-if="!props.detailMode" id="datos-empresa" class="scroll-mt-6 rounded-md border border-line bg-surface p-5 shadow-sm shadow-surface backdrop-blur">
             <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div class="flex min-w-0 gap-4">
                 <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-line object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
@@ -1646,7 +1646,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
             </div>
           </div>
 
-          <div v-if="editingCompany" id="empresa-editor" class="scroll-mt-6 rounded-md border border-primary bg-surface/85 p-5 shadow-sm shadow-surface backdrop-blur">
+          <div v-if="editingCompany" id="empresa-editor" class="scroll-mt-6 rounded-md border border-line bg-surface p-5 shadow-sm shadow-surface backdrop-blur">
               <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p class="text-sm font-semibold text-text">Datos generales de la empresa</p>
@@ -1687,7 +1687,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                       <button
                         v-if="activityIndex === companyActivities.length - 1 && companyActivities.length < 3"
                         type="button"
-                        class="mt-6 grid h-10 w-10 place-items-center rounded-md border border-primary bg-surface text-muted shadow-sm shadow-surface transition hover:border-primary hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
+                        class="mt-6 grid h-10 w-10 place-items-center rounded-md border border-line bg-surface text-muted shadow-sm shadow-surface transition hover:border-primary hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
                         :disabled="!companyActivities[0]?.trim()"
                         aria-label="Agregar actividad economica"
                         @click="addCompanyActivity"
@@ -1785,7 +1785,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </div>
 
           <template v-if="props.detailMode && !editingCompany && !editingFiscal && !editingSucursales && !editingCorrelativos">
-            <div id="settings-summary" class="scroll-mt-6 rounded-md border border-primary bg-surface/90 p-5 shadow-sm shadow-surface backdrop-blur">
+            <div id="settings-summary" class="scroll-mt-6 rounded-md border border-line bg-surface p-5 shadow-sm shadow-surface backdrop-blur">
               <div class="flex min-w-0 gap-4">
                 <img v-if="hasLogo(selectedEmpresa)" :src="selectedEmpresa.logo_url ?? ''" class="h-16 w-16 rounded-md border border-line object-contain" alt="" @error="markLogoBroken(selectedEmpresa)">
                 <div v-else class="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-surface-strong text-lg font-bold text-text">
@@ -1841,29 +1841,29 @@ function markLogoBroken(empresa: BillingEmpresa): void {
             </div>
 
             <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
-              <div class="min-w-0 rounded-md border border-primary bg-surface/90 p-4 shadow-sm shadow-surface">
+              <div class="min-w-0 rounded-md border border-line bg-surface p-4 shadow-sm shadow-surface">
                 <p class="truncate text-[11px] font-bold uppercase text-muted">DTE emitidos</p>
                 <p class="mt-2 text-2xl font-bold text-text">{{ companySummary?.totals.emitted ?? 0 }}</p>
               </div>
-              <div class="min-w-0 rounded-md border border-primary bg-surface/90 p-4 shadow-sm shadow-surface">
+              <div class="min-w-0 rounded-md border border-line bg-surface p-4 shadow-sm shadow-surface">
                 <p class="truncate text-[11px] font-bold uppercase text-muted">Bien</p>
                 <p class="mt-2 text-2xl font-bold text-success">{{ companySummary?.totals.accepted ?? 0 }}</p>
               </div>
-              <div class="min-w-0 rounded-md border border-primary bg-surface/90 p-4 shadow-sm shadow-surface">
+              <div class="min-w-0 rounded-md border border-line bg-surface p-4 shadow-sm shadow-surface">
                 <p class="truncate text-[11px] font-bold uppercase text-muted">Rechazos</p>
                 <p class="mt-2 text-2xl font-bold text-danger">{{ companySummary?.totals.rejected ?? 0 }}</p>
               </div>
-              <div class="min-w-0 rounded-md border border-primary bg-surface/90 p-4 shadow-sm shadow-surface">
+              <div class="min-w-0 rounded-md border border-line bg-surface p-4 shadow-sm shadow-surface">
                 <p class="truncate text-[11px] font-bold uppercase text-muted">Activo desde</p>
                 <p class="mt-2 text-sm font-semibold text-text">{{ formatDate(selectedEmpresa.created_at) }}</p>
               </div>
-              <div class="min-w-0 rounded-md border border-primary bg-surface/90 p-4 shadow-sm shadow-surface">
+              <div class="min-w-0 rounded-md border border-line bg-surface p-4 shadow-sm shadow-surface">
                 <p class="truncate text-[11px] font-bold uppercase text-muted">Suscripcion hasta</p>
                 <p class="mt-1 text-sm font-semibold text-text">No registrada</p>
               </div>
             </div>
 
-            <div class="rounded-md border border-primary bg-surface/90 p-5 shadow-sm shadow-surface">
+            <div class="rounded-md border border-line bg-surface p-5 shadow-sm shadow-surface">
               <p class="text-sm font-semibold text-text">Resumen informativo</p>
               <div class="mt-4 grid gap-8" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
                 <div class="space-y-4">
@@ -1921,7 +1921,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </template>
 
           <template v-if="editingSucursales">
-            <div id="sucursales" class="scroll-mt-6 rounded-md border border-primary bg-surface/85 p-5 shadow-sm shadow-surface backdrop-blur">
+            <div id="sucursales" class="scroll-mt-6 rounded-md border border-line bg-surface p-5 shadow-sm shadow-surface backdrop-blur">
               <div class="flex flex-col gap-3 border-b border-line pb-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p class="text-sm font-semibold text-text">Sucursales y puntos de venta</p>
@@ -2017,7 +2017,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                       </button>
                     </div>
 
-                    <div v-if="selectedPuntoVenta" class="mt-4 grid gap-4 rounded-md border border-primary bg-surface p-4 md:grid-cols-[130px_minmax(0,1fr)_130px_auto] md:items-end">
+                    <div v-if="selectedPuntoVenta" class="mt-4 grid gap-4 rounded-md border border-line bg-surface p-4 md:grid-cols-[130px_minmax(0,1fr)_130px_auto] md:items-end">
                       <UiInput v-model="puntoVentaForm.codigo" label="Codigo" />
                       <UiInput v-model="puntoVentaForm.nombre" label="Nombre" />
                       <UiInput v-model="puntoVentaForm.tipo" label="Tipo" />
@@ -2033,7 +2033,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
           </template>
 
           <template v-if="editingCorrelativos">
-            <div id="correlativos" class="scroll-mt-6 rounded-md border border-primary bg-surface/85 p-5 shadow-sm shadow-surface backdrop-blur">
+            <div id="correlativos" class="scroll-mt-6 rounded-md border border-line bg-surface p-5 shadow-sm shadow-surface backdrop-blur">
               <div class="flex flex-col gap-3 border-b border-line pb-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p class="text-sm font-semibold text-text">Correlativos</p>
@@ -2069,7 +2069,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                   </div>
                   <input
                     :value="correlativoDrafts[row.id] ?? String(row.actual)"
-                    class="h-10 w-full rounded-md border border-primary bg-surface px-3 text-sm font-semibold text-text shadow-sm shadow-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary"
+                    class="h-10 w-full rounded-md border border-line bg-surface px-3 text-sm font-semibold text-text shadow-sm shadow-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary"
                     inputmode="numeric"
                     type="number"
                     min="0"
@@ -2097,19 +2097,19 @@ function markLogoBroken(empresa: BillingEmpresa): void {
 
           <template v-if="!props.detailMode || editingFiscal">
             <div v-if="!props.detailMode" class="grid gap-4 lg:grid-cols-3">
-              <div class="rounded-md border border-primary bg-surface/85 p-4 shadow-sm shadow-surface backdrop-blur text-sm">
+              <div class="rounded-md border border-line bg-surface p-4 shadow-sm shadow-surface backdrop-blur text-sm">
                 <p class="font-semibold text-text">Casa matriz</p>
                 <p class="mt-2 text-muted">{{ selectedSucursal?.direccion ? displayText(selectedSucursal.direccion) : 'Direccion pendiente' }}</p>
                 <p class="mt-1 text-muted">{{ branchLocationLabel(selectedSucursal) }}</p>
               </div>
-              <div id="credenciales-mh" class="scroll-mt-6 rounded-md border border-primary bg-surface/85 p-4 shadow-sm shadow-surface backdrop-blur text-sm">
+              <div id="credenciales-mh" class="scroll-mt-6 rounded-md border border-line bg-surface p-4 shadow-sm shadow-surface backdrop-blur text-sm">
                 <p class="font-semibold text-text">Credenciales MH</p>
                 <p class="mt-2" :class="authStatusClass">
                   {{ authStatusLabel }}
                 </p>
                 <p class="mt-1 text-muted">Ambiente {{ environmentLabel }}</p>
               </div>
-              <div id="firmador" class="scroll-mt-6 rounded-md border border-primary bg-surface/85 p-4 shadow-sm shadow-surface backdrop-blur text-sm">
+              <div id="firmador" class="scroll-mt-6 rounded-md border border-line bg-surface p-4 shadow-sm shadow-surface backdrop-blur text-sm">
                 <p class="font-semibold text-text">Firmador</p>
                 <p class="mt-2" :class="signerStatusClass">
                   {{ signerStatusLabel }}
@@ -2119,7 +2119,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               </div>
             </div>
 
-            <div id="certificados" class="scroll-mt-6 rounded-md border border-primary bg-surface/85 p-5 shadow-sm shadow-surface backdrop-blur">
+            <div id="certificados" class="scroll-mt-6 rounded-md border border-line bg-surface p-5 shadow-sm shadow-surface backdrop-blur">
               <div class="flex flex-col gap-3 border-b border-line pb-5 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p class="text-sm font-semibold text-text">Datos fiscales</p>

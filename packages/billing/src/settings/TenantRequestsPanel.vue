@@ -99,6 +99,7 @@ function notify(title: string, detail: string): void { const id = ++toastId; toa
 </script>
 
 <template>
+  <div>
   <BillingFloatingToastStack :toasts="toasts" />
   <div v-if="!canRequest" class="rounded-xl border border-line bg-surface-muted p-6"><h2 class="font-bold text-text">Solicitudes administrativas</h2><p class="mt-2 text-sm text-muted">Solo el propietario o administrador de la empresa puede enviar y consultar solicitudes.</p></div>
   <template v-else>
@@ -121,4 +122,5 @@ function notify(title: string, detail: string): void { const id = ++toastId; toa
     <template #footer><UiButton variant="secondary" :disabled="saving" @click="modalOpen = false">Volver</UiButton><UiButton :disabled="saving || !canSubmit" @click="submit"><Send class="h-4 w-4" />{{ saving ? 'Enviando...' : 'Enviar solicitud' }}</UiButton></template>
   </UiModalShell>
   <UiModalShell :open="Boolean(credentials)" title="Credenciales temporales" description="Compártelas únicamente con la persona autorizada." @close="credentials = null"><div v-if="credentials" class="space-y-3"><div class="rounded-xl border border-line bg-surface-muted p-4"><p class="text-xs font-bold uppercase text-soft">Usuario</p><p class="mt-1 font-semibold text-text">{{ credentials.email }}</p><p class="mt-4 text-xs font-bold uppercase text-soft">Contraseña temporal</p><p class="mt-1 rounded-lg bg-surface px-3 py-2 font-mono text-text">{{ credentials.temporary_password }}</p></div><p class="text-sm text-muted">La contraseña dejará de ser útil cuando el usuario la cambie al iniciar sesión.</p></div><template #footer><UiButton variant="secondary" @click="credentials = null">Cerrar</UiButton><UiButton @click="copyCredentials"><Copy class="h-4 w-4" />Copiar credenciales</UiButton></template></UiModalShell>
+  </div>
 </template>

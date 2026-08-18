@@ -95,6 +95,7 @@ function formattedDate(value: string | null | undefined): string {
 </script>
 
 <template>
+  <div>
   <BillingFloatingToastStack :toasts="toasts" />
   <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
     <section class="rounded-xl border border-line bg-surface p-5 sm:p-6">
@@ -121,4 +122,5 @@ function formattedDate(value: string | null | undefined): string {
     </section>
   </div>
   <p v-if="error" class="mt-4 rounded-xl border border-danger bg-danger-soft px-4 py-3 text-sm text-danger">{{ error }}</p>
+  </div>
 </template>

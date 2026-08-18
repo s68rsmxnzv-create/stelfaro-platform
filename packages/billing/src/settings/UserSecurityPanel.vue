@@ -43,6 +43,7 @@ function date(value: string | null): string { return value ? new Intl.DateTimeFo
 </script>
 
 <template>
+  <div>
   <BillingFloatingToastStack :toasts="toasts" />
   <section class="rounded-xl border border-line bg-surface p-5 sm:p-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div class="flex items-start gap-3"><span class="grid h-11 w-11 place-items-center rounded-xl bg-success-soft text-success"><ShieldCheck class="h-5 w-5" /></span><div><h2 class="font-bold text-text">Sesiones activas</h2><p class="mt-1 text-sm text-muted">Revisa dónde está abierta tu cuenta y cierra accesos que no reconozcas.</p></div></div><div class="flex gap-2"><UiButton size="sm" variant="secondary" :disabled="loading" @click="load"><RefreshCw class="h-4 w-4" />Actualizar</UiButton><UiButton size="sm" variant="secondary" :disabled="closing !== null || sessions.filter(item => !item.current).length === 0" @click="closeOthers"><LogOut class="h-4 w-4" />Cerrar las demás</UiButton></div></div>
@@ -59,4 +60,5 @@ function date(value: string | null): string { return value ? new Intl.DateTimeFo
   <section class="mt-5 rounded-xl border border-line bg-surface p-5 sm:p-6"><h2 class="font-bold text-text">Actividad de seguridad reciente</h2><p class="mt-1 text-sm text-muted">Aquí aparecen bloqueos y eventos relevantes asociados a tu cuenta.</p><div class="mt-4 space-y-2"><div v-for="event in events" :key="event.id" class="flex items-center justify-between gap-4 rounded-xl border border-line bg-surface-raised px-4 py-3"><div><p class="text-sm font-semibold text-text">{{ event.type.replaceAll('_', ' ') }}</p><p class="mt-1 text-xs text-muted">{{ event.device }} · {{ event.ip_address || 'IP no disponible' }}</p></div><span class="shrink-0 text-xs text-muted">{{ date(event.created_at) }}</span></div><p v-if="events.length === 0" class="rounded-xl bg-surface-muted px-4 py-3 text-sm text-muted">No hay alertas recientes para tu cuenta.</p></div></section>
   <section class="mt-5 rounded-xl border border-dashed border-line bg-surface-muted p-5"><p class="font-semibold text-text">Segundo factor</p><p class="mt-1 text-sm text-muted">Se incorporará más adelante. No hay controles simulados ni una activación incompleta.</p></section>
   <p v-if="error" class="mt-4 rounded-xl border border-danger bg-danger-soft px-4 py-3 text-sm text-danger">{{ error }}</p>
+  </div>
 </template>
