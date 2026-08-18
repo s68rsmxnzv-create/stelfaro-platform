@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { PlatformClient, type BillingEmpresa, type PlatformSalesReport, type WorkshopOrder } from '@stelfaro/api-client';
 import { UiButton, UiCard, UiInput, UiModalShell, UiSelect, UiStatusBadge, UiTextarea } from '@stelfaro/ui';
-import { CalendarDays, ChevronLeft, ChevronRight, CircleDollarSign, FileSpreadsheet, HandCoins, Printer, Scale } from 'lucide-vue-next';
+import { CalendarDays, CircleDollarSign, FileSpreadsheet, HandCoins, Printer, Scale } from 'lucide-vue-next';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
+import BillingPaginationBar from '../components/BillingPaginationBar.vue';
 import WorkshopPaymentModal from '../workshop/WorkshopPaymentModal.vue';
 
 type SaleRow = PlatformSalesReport['data'][number];
@@ -250,6 +251,10 @@ onMounted(() => {
     </UiCard>
 
     <UiCard class="overflow-hidden p-0">
+      <div v-if="report && report.meta.last_page > 1" class="border-b border-line px-5 py-4">
+        <BillingPaginationBar :meta="report.meta" :loading="loading" @page="goToPage" />
+      </div>
+
       <div class="overflow-x-auto">
         <table class="min-w-full text-sm">
           <thead class="bg-surface-muted text-left text-xs uppercase text-muted"><tr><th class="px-5 py-3">Fecha</th><th class="px-5 py-3">Venta</th><th class="px-5 py-3">Cliente</th><th class="px-5 py-3">Forma de pago</th><th class="px-5 py-3">Estado</th><th class="px-5 py-3 text-right">Total / saldo</th><th class="px-5 py-3 text-right">Acciones</th></tr></thead>
@@ -267,7 +272,9 @@ onMounted(() => {
           </tbody>
         </table>
       </div>
-      <div class="flex flex-col gap-3 border-t border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><p class="text-sm text-muted">{{ integer(report?.meta.total || 0) }} ventas · Página {{ report?.meta.current_page || 1 }} de {{ report?.meta.last_page || 1 }}</p><div class="flex gap-2"><UiButton size="sm" variant="secondary" :disabled="loading || (report?.meta.current_page || 1) <= 1" @click="goToPage((report?.meta.current_page || 1) - 1)"><ChevronLeft class="h-4 w-4" />Anterior</UiButton><UiButton size="sm" variant="secondary" :disabled="loading || (report?.meta.current_page || 1) >= (report?.meta.last_page || 1)" @click="goToPage((report?.meta.current_page || 1) + 1)">Siguiente<ChevronRight class="h-4 w-4" /></UiButton></div></div>
+      <div v-if="report && report.meta.last_page > 1" class="border-t border-line px-5 py-4">
+        <BillingPaginationBar :meta="report.meta" :loading="loading" @page="goToPage" />
+      </div>
     </UiCard>
 
     <WorkshopPaymentModal :order="paymentOrder" @pay="recordReceivablePayment" @close="paymentOrder = null" />

@@ -8,6 +8,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
 import BillingModalShell from '../components/BillingModalShell.vue';
+import BillingPaginationBar from '../components/BillingPaginationBar.vue';
 import { getBillingCatalogs, getBillingContext, peekBillingCatalogs, peekBillingContext } from '../support/billingDataCache';
 
 const props = withDefaults(defineProps<{
@@ -513,6 +514,10 @@ function messageFromError(error): string {
     </UiCard>
 
     <UiCard>
+      <div v-if="customerMeta.last_page > 1" class="border-b border-line pb-3">
+        <BillingPaginationBar :meta="customerMeta" :loading="loading" @page="goToCustomerPage" />
+      </div>
+
       <UiDataTable overflow="auto" min-width="min-w-[980px]">
         <thead class="border-b border-line text-xs uppercase text-soft">
           <tr>
@@ -579,9 +584,8 @@ function messageFromError(error): string {
           </tr>
         </tbody>
       </UiDataTable>
-      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3">
-        <p class="text-sm text-muted">{{ customerMeta.total }} clientes · Página {{ customerMeta.current_page }} de {{ customerMeta.last_page }}</p>
-        <div class="flex gap-2"><UiButton variant="secondary" size="sm" :disabled="loading || customerPage <= 1" @click="goToCustomerPage(customerPage - 1)">Anterior</UiButton><UiButton variant="secondary" size="sm" :disabled="loading || customerPage >= customerMeta.last_page" @click="goToCustomerPage(customerPage + 1)">Siguiente</UiButton></div>
+      <div v-if="customerMeta.last_page > 1" class="border-t border-line pt-3">
+        <BillingPaginationBar :meta="customerMeta" :loading="loading" @page="goToCustomerPage" />
       </div>
     </UiCard>
 
@@ -622,6 +626,10 @@ function messageFromError(error): string {
           <p class="text-xs font-semibold uppercase text-soft">Documento</p>
           <p class="mt-2 truncate text-lg font-bold text-text">{{ historyCustomer ? customerDocumentLabel(historyCustomer) : 'Sin documento' }}</p>
         </div>
+      </div>
+
+      <div v-if="historyMeta && historyMeta.last_page > 1" class="border-b border-line pb-3">
+        <BillingPaginationBar :meta="historyMeta" :loading="historyLoading" @page="goToHistoryPage" />
       </div>
 
       <div class="overflow-hidden rounded-md border border-line">
@@ -674,11 +682,7 @@ function messageFromError(error): string {
       </div>
 
       <template v-if="historyMeta && historyMeta.last_page > 1" #footer>
-        <UiButton variant="secondary" :disabled="historyLoading || historyPage <= 1" @click="goToHistoryPage(historyPage - 1)">Anterior</UiButton>
-        <span class="self-center text-sm font-semibold text-muted">
-          Página {{ historyMeta.current_page }} de {{ historyMeta.last_page }}
-        </span>
-        <UiButton variant="secondary" :disabled="historyLoading || historyPage >= historyMeta.last_page" @click="goToHistoryPage(historyPage + 1)">Siguiente</UiButton>
+        <BillingPaginationBar class="w-full" :meta="historyMeta" :loading="historyLoading" @page="goToHistoryPage" />
       </template>
     </BillingModalShell>
   </section>

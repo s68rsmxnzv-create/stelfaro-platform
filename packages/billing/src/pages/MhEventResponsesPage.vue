@@ -2,10 +2,12 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import {
   CoreDteClient,
-  type MhFiscalEventSummary
+  type MhFiscalEventSummary,
+  type PaginationMeta
 } from '@stelfaro/api-client';
 import { fiscalDateTime } from '@stelfaro/shared';
 import { UiButton, UiCard, UiLoadingMark, UiSearchInput, UiSelect } from '@stelfaro/ui';
+import BillingPaginationBar from '../components/BillingPaginationBar.vue';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
@@ -15,6 +17,7 @@ const props = withDefaults(defineProps<{
   authToken: null
 });
 
+const pageSize = 20;
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const loading = ref(false);
 const detailLoading = ref(false);
@@ -22,6 +25,8 @@ const error = ref<string | null>(null);
 const query = ref('');
 const estado = ref('');
 const eventType = ref('');
+const page = ref(1);
+const meta = ref<PaginationMeta | null>(null);
 const events = ref<MhFiscalEventSummary[]>([]);
 const selected = ref<MhFiscalEventSummary | null>(null);
 let searchTimer: ReturnType<typeof window.setTimeout> | null = null;
@@ -72,10 +77,12 @@ onMounted(() => {
 
 watch(query, () => {
   if (searchTimer) window.clearTimeout(searchTimer);
+  page.value = 1;
   searchTimer = window.setTimeout(() => void loadEvents(), 250);
 });
 
 watch([estado, eventType], () => {
+  page.value = 1;
   void loadEvents();
 });
 
@@ -88,9 +95,11 @@ async function loadEvents(): Promise<void> {
       q: query.value.trim(),
       estado: estado.value,
       event_type: eventType.value,
-      limit: 40
+      limit: pageSize,
+      page: page.value
     });
     events.value = response.data;
+    meta.value = response.meta ?? fallbackMeta(events.value.length, page.value);
 
     if (!selected.value && events.value[0]) {
       await selectEvent(events.value[0]);
@@ -100,6 +109,24 @@ async function loadEvents(): Promise<void> {
   } finally {
     loading.value = false;
   }
+}
+
+function fallbackMeta(total: number, currentPage: number): PaginationMeta {
+  return {
+    current_page: currentPage,
+    per_page: pageSize,
+    last_page: 1,
+    total,
+    from: total === 0 ? 0 : 1,
+    to: total,
+    has_more_pages: false
+  };
+}
+
+function goToPage(nextPage: number): void {
+  if (nextPage === page.value) return;
+  page.value = nextPage;
+  void loadEvents();
 }
 
 async function selectEvent(event: MhFiscalEventSummary): Promise<void> {
@@ -194,11 +221,7 @@ function copyText(value: string): void {
 <template>
   <section class="space-y-6">
     <div>
-      <p class="text-sm font-semibold uppercase tracking-wide text-primary">Respuestas eventos MH</p>
-      <h2 class="mt-1 text-2xl font-bold text-text">Eventos transmitidos</h2>
-      <p class="mt-2 text-sm text-muted">
-        Consulta estado, sello, intentos y respuesta de Hacienda para eventos fiscales.
-      </p>
+      <h2 class="text-2xl font-bold text-text">Eventos transmitidos</h2>
     </div>
 
     <p v-if="error" class="rounded-md border border-danger/40 bg-danger-soft px-4 py-3 text-sm text-danger">{{ error }}</p>
@@ -218,12 +241,16 @@ function copyText(value: string): void {
 
         <div class="rounded-md bg-surface-muted px-3 py-2 text-sm text-muted">
           <p class="text-xs font-semibold uppercase text-muted">Resultados</p>
-          <p class="mt-1 text-lg font-bold text-text">{{ events.length }}</p>
+          <p class="mt-1 text-lg font-bold text-text">{{ meta?.total ?? events.length }}</p>
         </div>
       </div>
     </UiCard>
 
     <UiCard>
+      <div v-if="meta && meta.last_page > 1" class="border-b border-line pb-3">
+        <BillingPaginationBar :meta="meta" :loading="loading" @page="goToPage" />
+      </div>
+
       <div class="overflow-hidden rounded-md border border-line">
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-line text-sm">
@@ -381,6 +408,10 @@ function copyText(value: string): void {
           <UiLoadingMark label="Cargando respuesta de eventos" />
         </div>
         <p v-if="emptyState" class="border-t border-line bg-surface-muted px-4 py-5 text-sm text-muted">No hay eventos MH para los filtros actuales.</p>
+      </div>
+
+      <div v-if="meta && meta.last_page > 1" class="border-t border-line pt-3">
+        <BillingPaginationBar :meta="meta" :loading="loading" @page="goToPage" />
       </div>
     </UiCard>
   </section>

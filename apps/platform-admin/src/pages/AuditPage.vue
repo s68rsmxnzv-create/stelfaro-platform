@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { Activity, ShieldAlert } from 'lucide-vue-next';
 import type { PlatformAuditLog } from '@stelfaro/api-client';
+import { BillingPaginationBar } from '@stelfaro/billing';
 import { UiButton, UiDataTable, UiInput, UiPanel, UiRefreshButton, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import { usePlatformSessionStore } from '../stores/platformSession';
 
@@ -10,14 +11,17 @@ const logs = ref<PlatformAuditLog[]>([]);
 const selected = ref<PlatformAuditLog | null>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
+const pageSize = 40;
+const page = ref(1);
+const meta = ref<{ current_page: number; last_page: number; total: number } | null>(null);
+const stats = ref({ platform: 0, security: 0, attention: 0 });
 
 const filters = reactive({
   source: 'all',
   q: '',
   result: '',
   dateFrom: '',
-  dateTo: '',
-  limit: 80
+  dateTo: ''
 });
 
 const sourceOptions = [
@@ -38,10 +42,6 @@ const resultOptions = computed(() => filters.source === 'security'
     { value: 'failed', label: 'Fallido' }
   ]);
 
-const platformCount = computed(() => logs.value.filter((log) => log.source === 'platform').length);
-const securityCount = computed(() => logs.value.filter((log) => log.source === 'security').length);
-const failedCount = computed(() => logs.value.filter((log) => log.result === 'failed' || ['warning', 'high'].includes(log.severity ?? '')).length);
-
 onMounted(() => {
   void load();
 });
@@ -57,10 +57,13 @@ async function load(): Promise<void> {
       result: filters.result || undefined,
       date_from: filters.dateFrom || undefined,
       date_to: filters.dateTo || undefined,
-      limit: filters.limit
+      page: page.value,
+      per_page: pageSize
     });
     logs.value = response.data;
     selected.value = response.data[0] ?? null;
+    meta.value = response.meta;
+    if (response.stats) stats.value = response.stats;
   } catch (caught) {
     logs.value = [];
     selected.value = null;
@@ -70,13 +73,24 @@ async function load(): Promise<void> {
   }
 }
 
+function goToPage(next: number): void {
+  if (next === page.value) return;
+  page.value = next;
+  void load();
+}
+
+function applyFilters(): void {
+  page.value = 1;
+  void load();
+}
+
 function resetFilters(): void {
   filters.source = 'all';
   filters.q = '';
   filters.result = '';
   filters.dateFrom = '';
   filters.dateTo = '';
-  filters.limit = 80;
+  page.value = 1;
   void load();
 }
 
@@ -170,7 +184,7 @@ function metadataText(metadata: Record<string, unknown> | null): string {
           </span>
           <div>
             <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Actividad</p>
-            <p class="mt-1 text-2xl font-black text-slate-950 dark:text-text">{{ platformCount }}</p>
+            <p class="mt-1 text-2xl font-black text-slate-950 dark:text-text">{{ stats.platform }}</p>
           </div>
         </div>
       </UiPanel>
@@ -181,13 +195,13 @@ function metadataText(metadata: Record<string, unknown> | null): string {
           </span>
           <div>
             <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Seguridad</p>
-            <p class="mt-1 text-2xl font-black text-slate-950 dark:text-text">{{ securityCount }}</p>
+            <p class="mt-1 text-2xl font-black text-slate-950 dark:text-text">{{ stats.security }}</p>
           </div>
         </div>
       </UiPanel>
       <UiPanel variant="raised">
         <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-soft">Atencion</p>
-        <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ failedCount }}</p>
+        <p class="mt-2 text-2xl font-black text-slate-950 dark:text-text">{{ stats.attention }}</p>
       </UiPanel>
     </div>
 
@@ -199,7 +213,7 @@ function metadataText(metadata: Record<string, unknown> | null): string {
         <UiInput v-model="filters.dateFrom" label="Desde" type="date" />
         <UiInput v-model="filters.dateTo" label="Hasta" type="date" />
         <div class="flex gap-2">
-          <UiButton class="h-12" :disabled="loading" @click="load">Filtrar</UiButton>
+          <UiButton class="h-12" :disabled="loading" @click="applyFilters">Filtrar</UiButton>
           <UiButton class="h-12" variant="secondary" :disabled="loading" @click="resetFilters">Limpiar</UiButton>
         </div>
       </div>
@@ -209,6 +223,10 @@ function metadataText(metadata: Record<string, unknown> | null): string {
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.75fr)]">
       <UiPanel variant="raised">
+        <div v-if="meta && meta.last_page > 1" class="border-b border-slate-200 pb-3 dark:border-line">
+          <BillingPaginationBar :meta="meta" :loading="loading" @page="goToPage" />
+        </div>
+
         <UiDataTable overflow="auto" min-width="min-w-[1040px]">
           <thead class="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 dark:bg-surface-muted dark:text-soft">
             <tr>
@@ -254,6 +272,10 @@ function metadataText(metadata: Record<string, unknown> | null): string {
             </tr>
           </tbody>
         </UiDataTable>
+
+        <div v-if="meta && meta.last_page > 1" class="border-t border-slate-200 pt-3 dark:border-line">
+          <BillingPaginationBar :meta="meta" :loading="loading" @page="goToPage" />
+        </div>
       </UiPanel>
 
       <UiPanel variant="raised">

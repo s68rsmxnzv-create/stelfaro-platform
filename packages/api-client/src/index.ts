@@ -60,6 +60,21 @@ export type PlatformGlobalUser = {
   memberships: PlatformTenantMembership[];
 };
 
+export type PlatformGlobalUsersResponse = {
+  data: PlatformGlobalUser[];
+  meta: {
+    current_page: number;
+    per_page: number;
+    total: number;
+    last_page: number;
+  };
+  stats: {
+    total_users: number;
+    active_memberships: number;
+    tenant_count: number;
+  };
+};
+
 export type PlatformTenantLookup = {
   id: number;
   slug: string;
@@ -117,6 +132,17 @@ export type PlatformSubscriptionTenantRow = {
 export type PlatformSubscriptionsResponse = {
   plans: PlatformSubscriptionPlan[];
   subscriptions: PlatformSubscriptionTenantRow[];
+  meta: {
+    current_page: number;
+    per_page: number;
+    total: number;
+    last_page: number;
+  };
+  stats: {
+    active: number;
+    attention: number;
+    unassigned: number;
+  };
 };
 
 export type PlatformSubscriptionUpdatePayload = {
@@ -258,9 +284,17 @@ export type PlatformAuditLog = {
 export type PlatformAuditLogsResponse = {
   data: PlatformAuditLog[];
   meta: {
-    limit: number;
-    total_returned: number;
+    current_page: number;
+    per_page: number;
+    total: number;
+    last_page: number;
     source: string;
+    tenant_id?: number;
+  };
+  stats?: {
+    platform: number;
+    security: number;
+    attention: number;
   };
 };
 
@@ -336,6 +370,21 @@ export type PlatformTenantRequest = {
   completed_at: string | null;
   created_at: string | null;
   updated_at: string | null;
+};
+
+export type PlatformTenantRequestsResponse = {
+  data: PlatformTenantRequest[];
+  meta: {
+    current_page: number;
+    per_page: number;
+    total: number;
+    last_page: number;
+  };
+  stats: {
+    pending: number;
+    in_review: number;
+    completed: number;
+  };
 };
 
 export type PlatformCreateTenantRequestPayload = {
@@ -2641,8 +2690,8 @@ export class PlatformClient {
   }
 
   adminTenantRequests(
-    params: { status?: string; type?: string; q?: string } = {},
-  ): Promise<{ data: PlatformTenantRequest[] }> {
+    params: { status?: string; type?: string; q?: string; id?: number; page?: number; per_page?: number } = {},
+  ): Promise<PlatformTenantRequestsResponse> {
     return this.http
       .get("admin/platform/requests", { searchParams: compactParams(params) })
       .json();
@@ -2766,8 +2815,12 @@ export class PlatformClient {
     return this.http.delete(`platform/notifications/${notificationId}`).json();
   }
 
-  globalUsers(): Promise<{ users: PlatformGlobalUser[] }> {
-    return this.http.get("admin/platform/users").json();
+  globalUsers(
+    params: { page?: number; per_page?: number } = {},
+  ): Promise<PlatformGlobalUsersResponse> {
+    return this.http
+      .get("admin/platform/users", { searchParams: compactParams(params) })
+      .json();
   }
 
   auditLogs(
@@ -2777,7 +2830,8 @@ export class PlatformClient {
       result?: string;
       date_from?: string;
       date_to?: string;
-      limit?: number;
+      page?: number;
+      per_page?: number;
     } = {},
   ): Promise<PlatformAuditLogsResponse> {
     return this.http
@@ -2792,7 +2846,8 @@ export class PlatformClient {
       result?: string;
       date_from?: string;
       date_to?: string;
-      limit?: number;
+      page?: number;
+      per_page?: number;
     } = {},
   ): Promise<PlatformAuditLogsResponse> {
     return this.http
@@ -2802,8 +2857,12 @@ export class PlatformClient {
       .json();
   }
 
-  subscriptions(): Promise<PlatformSubscriptionsResponse> {
-    return this.http.get("admin/platform/subscriptions").json();
+  subscriptions(
+    params: { page?: number; per_page?: number } = {},
+  ): Promise<PlatformSubscriptionsResponse> {
+    return this.http
+      .get("admin/platform/subscriptions", { searchParams: compactParams(params) })
+      .json();
   }
 
   tenantSubscriptionByCoreEmpresa(coreEmpresaId: number): Promise<{

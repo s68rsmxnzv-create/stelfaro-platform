@@ -8,6 +8,7 @@ export { default as BillingCompanySettingsPage } from './pages/BillingCompanySet
 export { default as CatalogPage } from './pages/CatalogPage.vue';
 export { default as BillingAppNav } from './components/BillingAppNav.vue';
 export { default as BillingModalShell } from './components/BillingModalShell.vue';
+export { default as BillingPaginationBar, type BillingPaginationMeta } from './components/BillingPaginationBar.vue';
 export { default as BillingProcessToastOverlay } from './components/BillingProcessToastOverlay.vue';
 export { default as BillingFloatingToastStack, type BillingFloatingToast } from './components/BillingFloatingToastStack.vue';
 export { default as DteAutomaticPrintModal } from './components/DteAutomaticPrintModal.vue';

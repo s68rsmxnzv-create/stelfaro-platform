@@ -5,6 +5,7 @@ import {
   type BillingCustomer,
   type BillingCatalogs,
   type BillingEmpresa,
+  type PaginationMeta,
   type PlatformQuotation,
   type PlatformReceivable,
   type PlatformSalesOrder,
@@ -53,6 +54,7 @@ import BillingFloatingToastStack from "../components/BillingFloatingToastStack.v
 import BillingCustomerModal, {
   type BillingCustomerModalPayload,
 } from "../components/BillingCustomerModal.vue";
+import BillingPaginationBar from "../components/BillingPaginationBar.vue";
 import CommercialDocumentLinesEditor from "../components/CommercialDocumentLinesEditor.vue";
 
 const props = withDefaults(
@@ -83,6 +85,9 @@ const core = computed(
   () => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }),
 );
 const tab = ref<"orders" | "quotes" | "receivables">("orders");
+const ordersPageSize = 20;
+const ordersPage = ref(1);
+const ordersMeta = ref<PaginationMeta | null>(null);
 const orders = ref<PlatformSalesOrder[]>([]);
 const quotations = ref<PlatformQuotation[]>([]);
 const receivables = ref<PlatformReceivable[]>([]);
@@ -227,13 +232,17 @@ async function load() {
   try {
     const [orderResponse, quoteResponse, receivableResponse] =
       await Promise.all([
-        client.value.salesOrders(props.tenantId, { per_page: 100 }),
+        client.value.salesOrders(props.tenantId, {
+          per_page: ordersPageSize,
+          page: ordersPage.value,
+        }),
         client.value.quotations(props.tenantId),
         client.value.receivables(props.tenantId, {
           aging: receivableAging.value || undefined,
         }),
       ]);
     orders.value = orderResponse.data;
+    ordersMeta.value = orderResponse.meta;
     quotations.value = quoteResponse.data;
     receivables.value = receivableResponse.data;
     receivableTotal.value = receivableResponse.summary.open;
@@ -243,6 +252,11 @@ async function load() {
   } finally {
     loading.value = false;
   }
+}
+function goToOrdersPage(page: number): void {
+  if (page === ordersPage.value) return;
+  ordersPage.value = page;
+  void load();
 }
 function branchPayload(id: number) {
   const branch = props.company?.sucursales?.find(
@@ -742,7 +756,7 @@ onBeforeUnmount(() => {
     <template v-if="tab === 'orders'">
       <div class="flex items-center justify-between">
         <div>
-          <strong class="text-text">{{ orders.length }} órdenes</strong>
+          <strong class="text-text">{{ ordersMeta?.total ?? orders.length }} órdenes</strong>
           <p class="text-sm text-muted">
             {{ money(receivableTotal) }} pendiente por cobrar
           </p>
@@ -751,7 +765,12 @@ onBeforeUnmount(() => {
           ><Plus class="h-4 w-4" />Nueva orden</UiButton
         >
       </div>
-      <UiCard v-for="order in orders" :key="order.id" class="space-y-3">
+      <div class="space-y-3">
+        <div v-if="ordersMeta && ordersMeta.last_page > 1" class="pb-1">
+          <BillingPaginationBar :meta="ordersMeta" :loading="loading" @page="goToOrdersPage" />
+        </div>
+
+        <UiCard v-for="order in orders" :key="order.id" class="space-y-3">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <p class="text-xs font-bold text-primary">{{ order.number }}</p>
@@ -860,6 +879,11 @@ onBeforeUnmount(() => {
       >
         Todavía no hay órdenes comerciales.
       </p>
+
+        <div v-if="ordersMeta && ordersMeta.last_page > 1" class="pt-1">
+          <BillingPaginationBar :meta="ordersMeta" :loading="loading" @page="goToOrdersPage" />
+        </div>
+      </div>
     </template>
 
     <template v-else-if="tab === 'quotes'">

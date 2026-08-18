@@ -3,11 +3,16 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { CheckCircle2, Copy, FileClock, RefreshCw, UserPlus } from 'lucide-vue-next';
 import type { PlatformFiscalScopeResponse, PlatformTenantRequest, PlatformTenantRequestStatus, PlatformTenantRequestType } from '@stelfaro/api-client';
+import { BillingPaginationBar } from '@stelfaro/billing';
 import { UiButton, UiEmailInput, UiInput, UiModalShell, UiPhoneInput, UiSearchInput, UiSelect, UiStatusBadge, UiTextarea } from '@stelfaro/ui';
 import { usePlatformSessionStore } from '../stores/platformSession';
 
 const platform = usePlatformSessionStore();
 const route = useRoute();
+const pageSize = 25;
+const page = ref(1);
+const meta = ref<{ current_page: number; last_page: number; total: number } | null>(null);
+const stats = ref({ pending: 0, in_review: 0, completed: 0 });
 const requests = ref<PlatformTenantRequest[]>([]);
 const loading = ref(false);
 const saving = ref(false);
@@ -24,20 +29,52 @@ const fiscalScope = ref<PlatformFiscalScopeResponse | null>(null);
 const branchForm = reactive({ nombre: '', codigo: 'S001', direccion: '', departamento: '', municipio: '', distrito: '', telefono: '', email: '', punto_venta_codigo: 'P001', punto_venta_nombre: 'Caja principal', punto_venta_tipo: 'terminal' });
 const pointForm = reactive({ sucursal_id: '', codigo: 'P001', nombre: '', tipo: 'terminal' });
 const branchOptions = computed(() => (fiscalScope.value?.sucursales ?? []).map(item => ({ value: item.id, label: `${item.codigo} · ${item.nombre}` })));
-const pendingCount = computed(() => requests.value.filter(item => ['pending', 'needs_information'].includes(item.status)).length);
-const reviewCount = computed(() => requests.value.filter(item => item.status === 'in_review').length);
-const completedCount = computed(() => requests.value.filter(item => item.status === 'completed').length);
 const statusOptions = [{ value: '', label: 'Todos los estados' }, { value: 'pending', label: 'Pendiente' }, { value: 'in_review', label: 'En revisión' }, { value: 'needs_information', label: 'Necesita información' }, { value: 'approved', label: 'Aprobada' }, { value: 'completed', label: 'Completada' }, { value: 'rejected', label: 'Rechazada' }, { value: 'cancelled', label: 'Cancelada' }];
 const typeOptions = [{ value: '', label: 'Todos los tipos' }, { value: 'user_access', label: 'Usuario o acceso' }, { value: 'branch', label: 'Sucursal' }, { value: 'point_of_sale', label: 'Punto de venta' }, { value: 'fiscal_identity', label: 'Datos fiscales' }, { value: 'certificate', label: 'Certificado' }, { value: 'mh_credentials', label: 'Credenciales MH' }, { value: 'correlatives', label: 'Correlativos' }, { value: 'subscription', label: 'Suscripción' }, { value: 'app_access', label: 'Aplicación' }, { value: 'data_migration', label: 'Migración' }, { value: 'support', label: 'Soporte' }];
 
 onMounted(async () => {
   await load();
   const requestedId = Number(route.query.request || 0);
-  const requested = requests.value.find(item => item.id === requestedId);
-  if (requested) open(requested);
+  if (!requestedId) return;
+  const onThisPage = requests.value.find(item => item.id === requestedId);
+  if (onThisPage) { open(onThisPage); return; }
+  // La solicitud enlazada (p. ej. desde una notificacion) puede no estar
+  // en la primera pagina: se busca puntualmente por id sin perder el
+  // listado paginado ya cargado.
+  try {
+    const found = (await platform.client.adminTenantRequests({ id: requestedId })).data[0];
+    if (found) open(found);
+  } catch {
+    // Si la busqueda puntual falla, simplemente no se abre el modal.
+  }
 });
 
-async function load(): Promise<void> { loading.value = true; error.value = null; saved.value = null; try { requests.value = (await platform.client.adminTenantRequests(filters)).data; } catch (caught) { error.value = caught instanceof Error ? caught.message : 'No fue posible cargar las solicitudes.'; } finally { loading.value = false; } }
+function goToPage(next: number): void {
+  if (next === page.value) return;
+  page.value = next;
+  void load();
+}
+
+function applyFilters(): void {
+  page.value = 1;
+  void load();
+}
+
+async function load(): Promise<void> {
+  loading.value = true;
+  error.value = null;
+  saved.value = null;
+  try {
+    const response = await platform.client.adminTenantRequests({ ...filters, page: page.value, per_page: pageSize });
+    requests.value = response.data;
+    meta.value = response.meta;
+    stats.value = response.stats;
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'No fue posible cargar las solicitudes.';
+  } finally {
+    loading.value = false;
+  }
+}
 async function open(item: PlatformTenantRequest): Promise<void> { error.value = null; let current = item; if (item.status === 'pending') { try { current = (await platform.client.reviewAdminTenantRequest(item.id)).data; requests.value = requests.value.map(entry => entry.id === current.id ? current : entry); } catch (caught) { error.value = caught instanceof Error ? caught.message : 'No fue posible iniciar la revisión.'; } } selected.value = current; form.status = current.status; form.admin_response = current.admin_response ?? ''; }
 async function save(): Promise<void> { if (!selected.value || saving.value) return; saving.value = true; error.value = null; try { const response = await platform.client.updateAdminTenantRequest(selected.value.id, { status: form.status, admin_response: form.admin_response.trim() || null }); requests.value = requests.value.map(item => item.id === response.data.id ? response.data : item); selected.value = null; saved.value = `${response.data.reference} fue actualizada.`; if (response.data.status === 'approved' && !response.data.fulfillment && isDirectlyFulfillable(response.data)) await openFulfillment(response.data); } catch (caught) { error.value = caught instanceof Error ? caught.message : 'No fue posible actualizar la solicitud.'; } finally { saving.value = false; } }
 function openUserCreation(item: PlatformTenantRequest): void { userRequest.value = item; userForm.name = String(item.payload?.name ?? ''); userForm.email = String(item.payload?.email ?? ''); userForm.phone = String(item.payload?.phone ?? ''); userForm.role = String(item.payload?.role ?? 'billing_user'); createdCredentials.value = null; }
@@ -62,10 +99,14 @@ function payloadEntries(item: PlatformTenantRequest): Array<[string, unknown]> {
 <template>
   <section class="mx-auto max-w-7xl">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p class="text-sm font-semibold uppercase tracking-wide text-soft">Administración</p><h1 class="mt-1 text-2xl font-semibold text-text">Solicitudes</h1><p class="mt-2 text-sm text-muted">Revisa solicitudes enviadas por administradores de empresa y deja una respuesta trazable.</p></div><UiButton variant="secondary" :disabled="loading" @click="load"><RefreshCw class="h-4 w-4" />Actualizar</UiButton></div>
-    <div class="mt-6 grid gap-4 sm:grid-cols-3"><div class="rounded-xl border border-line bg-surface p-4"><p class="text-xs font-bold uppercase text-soft">Requieren atención</p><p class="mt-2 text-2xl font-black text-warning">{{ pendingCount }}</p></div><div class="rounded-xl border border-line bg-surface p-4"><p class="text-xs font-bold uppercase text-soft">En revisión</p><p class="mt-2 text-2xl font-black text-primary">{{ reviewCount }}</p></div><div class="rounded-xl border border-line bg-surface p-4"><p class="text-xs font-bold uppercase text-soft">Completadas</p><p class="mt-2 text-2xl font-black text-success">{{ completedCount }}</p></div></div>
-    <div class="mt-5 grid gap-4 rounded-xl border border-line bg-surface p-4 lg:grid-cols-[minmax(0,1fr)_240px_240px_auto]"><UiSearchInput v-model="filters.q" label="Buscar" placeholder="Empresa, solicitante o asunto" @search="load" /><UiSelect v-model="filters.status" label="Estado" :options="statusOptions" /><UiSelect v-model="filters.type" label="Tipo" :options="typeOptions" /><div class="flex items-end"><UiButton class="w-full" @click="load">Buscar</UiButton></div></div>
+    <div class="mt-6 grid gap-4 sm:grid-cols-3"><div class="rounded-xl border border-line bg-surface p-4"><p class="text-xs font-bold uppercase text-soft">Requieren atención</p><p class="mt-2 text-2xl font-black text-warning">{{ stats.pending }}</p></div><div class="rounded-xl border border-line bg-surface p-4"><p class="text-xs font-bold uppercase text-soft">En revisión</p><p class="mt-2 text-2xl font-black text-primary">{{ stats.in_review }}</p></div><div class="rounded-xl border border-line bg-surface p-4"><p class="text-xs font-bold uppercase text-soft">Completadas</p><p class="mt-2 text-2xl font-black text-success">{{ stats.completed }}</p></div></div>
+    <div class="mt-5 grid gap-4 rounded-xl border border-line bg-surface p-4 lg:grid-cols-[minmax(0,1fr)_240px_240px_auto]"><UiSearchInput v-model="filters.q" label="Buscar" placeholder="Empresa, solicitante o asunto" @search="applyFilters" /><UiSelect v-model="filters.status" label="Estado" :options="statusOptions" /><UiSelect v-model="filters.type" label="Tipo" :options="typeOptions" /><div class="flex items-end"><UiButton class="w-full" @click="applyFilters">Buscar</UiButton></div></div>
     <p v-if="error" class="mt-4 rounded-xl border border-danger bg-danger-soft px-4 py-3 text-sm text-danger">{{ error }}</p><p v-if="saved" class="mt-4 rounded-xl border border-success bg-success-soft px-4 py-3 text-sm text-success">{{ saved }}</p>
-    <div class="mt-5 overflow-x-auto rounded-xl border border-line bg-surface"><table class="w-full min-w-[900px] text-left text-sm"><thead class="bg-surface-muted text-muted"><tr><th class="px-4 py-3">Solicitud</th><th class="px-4 py-3">Empresa</th><th class="px-4 py-3">Solicitante</th><th class="px-4 py-3">Estado</th><th class="px-4 py-3">Fecha</th><th class="px-4 py-3 text-right">Acción</th></tr></thead><tbody class="divide-y divide-line"><tr v-for="item in requests" :key="item.id" class="sf-interactive-row text-text"><td class="px-4 py-4"><p class="font-mono text-xs font-bold text-primary">{{ item.reference }}</p><p class="mt-1 font-semibold">{{ item.subject }}</p><p class="mt-1 text-xs text-muted">{{ typeLabel(item.type) }}</p></td><td class="px-4 py-4 font-semibold">{{ item.tenant.name || `Empresa ${item.tenant.id}` }}</td><td class="px-4 py-4"><p>{{ item.requester?.name }}</p><p class="mt-1 text-xs text-muted">{{ item.requester?.email }}</p></td><td class="px-4 py-4"><UiStatusBadge :tone="tone(item.status)">{{ statusLabel(item.status) }}</UiStatusBadge></td><td class="px-4 py-4 text-muted">{{ date(item.created_at) }}</td><td class="px-4 py-4 text-right"><UiButton size="sm" variant="secondary" @click="open(item)"><FileClock class="h-4 w-4" />Revisar</UiButton></td></tr><tr v-if="!loading && requests.length === 0"><td colspan="6" class="px-4 py-12 text-center text-muted">No hay solicitudes con estos filtros.</td></tr><tr v-if="loading"><td colspan="6" class="px-4 py-12 text-center text-muted">Cargando solicitudes...</td></tr></tbody></table></div>
+    <div class="mt-5 rounded-xl border border-line bg-surface">
+      <div v-if="meta && meta.last_page > 1" class="border-b border-line p-4"><BillingPaginationBar :meta="meta" :loading="loading" @page="goToPage" /></div>
+      <div class="overflow-x-auto"><table class="w-full min-w-[900px] text-left text-sm"><thead class="bg-surface-muted text-muted"><tr><th class="px-4 py-3">Solicitud</th><th class="px-4 py-3">Empresa</th><th class="px-4 py-3">Solicitante</th><th class="px-4 py-3">Estado</th><th class="px-4 py-3">Fecha</th><th class="px-4 py-3 text-right">Acción</th></tr></thead><tbody class="divide-y divide-line"><tr v-for="item in requests" :key="item.id" class="sf-interactive-row text-text"><td class="px-4 py-4"><p class="font-mono text-xs font-bold text-primary">{{ item.reference }}</p><p class="mt-1 font-semibold">{{ item.subject }}</p><p class="mt-1 text-xs text-muted">{{ typeLabel(item.type) }}</p></td><td class="px-4 py-4 font-semibold">{{ item.tenant.name || `Empresa ${item.tenant.id}` }}</td><td class="px-4 py-4"><p>{{ item.requester?.name }}</p><p class="mt-1 text-xs text-muted">{{ item.requester?.email }}</p></td><td class="px-4 py-4"><UiStatusBadge :tone="tone(item.status)">{{ statusLabel(item.status) }}</UiStatusBadge></td><td class="px-4 py-4 text-muted">{{ date(item.created_at) }}</td><td class="px-4 py-4 text-right"><UiButton size="sm" variant="secondary" @click="open(item)"><FileClock class="h-4 w-4" />Revisar</UiButton></td></tr><tr v-if="!loading && requests.length === 0"><td colspan="6" class="px-4 py-12 text-center text-muted">No hay solicitudes con estos filtros.</td></tr><tr v-if="loading"><td colspan="6" class="px-4 py-12 text-center text-muted">Cargando solicitudes...</td></tr></tbody></table></div>
+      <div v-if="meta && meta.last_page > 1" class="border-t border-line p-4"><BillingPaginationBar :meta="meta" :loading="loading" @page="goToPage" /></div>
+    </div>
   </section>
 
   <UiModalShell :open="Boolean(selected)" :title="selected?.reference || 'Solicitud'" :description="selected ? `${selected.tenant.name} · ${typeLabel(selected.type)}` : null" max-width="max-w-3xl" @close="selected = null">

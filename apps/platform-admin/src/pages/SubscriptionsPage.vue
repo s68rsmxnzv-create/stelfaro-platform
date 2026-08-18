@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import type { PlatformSubscriptionPlan, PlatformSubscriptionTenantRow } from '@stelfaro/api-client';
+import { BillingPaginationBar } from '@stelfaro/billing';
 import { UiButton, UiDataTable, UiInput, UiModalShell, UiPanel, UiRefreshButton, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import { usePlatformSessionStore } from '../stores/platformSession';
 
 const platform = usePlatformSessionStore();
+const pageSize = 25;
+const page = ref(1);
+const meta = ref<{ current_page: number; last_page: number; total: number } | null>(null);
+const stats = ref({ active: 0, attention: 0, unassigned: 0 });
 const plans = ref<PlatformSubscriptionPlan[]>([]);
 const subscriptions = ref<PlatformSubscriptionTenantRow[]>([]);
 const loading = ref(false);
@@ -39,9 +44,6 @@ const billingCycleOptions = [
   { value: 'annual', label: 'Anual' },
   { value: 'manual', label: 'Manual' }
 ];
-const activeCount = computed(() => subscriptions.value.filter((item) => ['trialing', 'active'].includes(item.subscription?.status ?? '')).length);
-const attentionCount = computed(() => subscriptions.value.filter((item) => ['past_due', 'suspended'].includes(item.subscription?.status ?? '')).length);
-const unassignedCount = computed(() => subscriptions.value.filter((item) => !item.subscription).length);
 const canSave = computed(() => Boolean(selectedRow.value && form.planId && form.status && !saving.value));
 
 onMounted(() => {
@@ -54,14 +56,22 @@ async function load(): Promise<void> {
   saved.value = null;
 
   try {
-    const response = await platform.client.subscriptions();
+    const response = await platform.client.subscriptions({ page: page.value, per_page: pageSize });
     plans.value = response.plans;
     subscriptions.value = response.subscriptions;
+    meta.value = response.meta;
+    stats.value = response.stats;
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar suscripciones.';
   } finally {
     loading.value = false;
   }
+}
+
+function goToPage(next: number): void {
+  if (next === page.value) return;
+  page.value = next;
+  void load();
 }
 
 function openSubscription(row: PlatformSubscriptionTenantRow): void {
@@ -182,15 +192,15 @@ function isoDate(value: string): string | null {
     <div class="mb-5 grid gap-4 md:grid-cols-3">
       <UiPanel variant="raised">
         <p class="text-xs font-bold uppercase tracking-wide text-soft">Activas o prueba</p>
-        <p class="mt-2 text-3xl font-black text-text">{{ activeCount }}</p>
+        <p class="mt-2 text-3xl font-black text-text">{{ stats.active }}</p>
       </UiPanel>
       <UiPanel variant="raised">
         <p class="text-xs font-bold uppercase tracking-wide text-soft">Requieren atencion</p>
-        <p class="mt-2 text-3xl font-black text-text">{{ attentionCount }}</p>
+        <p class="mt-2 text-3xl font-black text-text">{{ stats.attention }}</p>
       </UiPanel>
       <UiPanel variant="raised">
         <p class="text-xs font-bold uppercase tracking-wide text-soft">Sin suscripcion</p>
-        <p class="mt-2 text-3xl font-black text-text">{{ unassignedCount }}</p>
+        <p class="mt-2 text-3xl font-black text-text">{{ stats.unassigned }}</p>
       </UiPanel>
     </div>
 
@@ -203,6 +213,10 @@ function isoDate(value: string): string | null {
           <h2 class="text-lg font-black text-text">Suscripciones por tenant</h2>
           <p class="text-sm text-muted">La suscripcion actualiza el acceso a apps incluidas en el plan.</p>
         </div>
+      </div>
+
+      <div v-if="meta && meta.last_page > 1" class="mb-4 border-b border-line pb-3">
+        <BillingPaginationBar :meta="meta" :loading="loading" @page="goToPage" />
       </div>
 
       <UiDataTable overflow="auto" min-width="min-w-[920px]">
@@ -241,6 +255,10 @@ function isoDate(value: string): string | null {
           </tr>
         </tbody>
       </UiDataTable>
+
+      <div v-if="meta && meta.last_page > 1" class="mt-4 border-t border-line pt-3">
+        <BillingPaginationBar :meta="meta" :loading="loading" @page="goToPage" />
+      </div>
     </UiPanel>
 
     <UiModalShell

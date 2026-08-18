@@ -4,6 +4,7 @@ import { PlatformClient } from '@stelfaro/api-client';
 import { UiActionDropdown, UiActionMenuItem, UiButton, UiCheckbox, UiDataTable, UiFileUpload, UiInput, UiLoadingMark, UiModalShell, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
+import BillingPaginationBar from '../components/BillingPaginationBar.vue';
 import BillingProcessToastOverlay from '../components/BillingProcessToastOverlay.vue';
 import BillingSectionLayout from '../components/BillingSectionLayout.vue';
 import { inventoryMovementReasonLabel } from '../support/inventoryMovementLabels';
@@ -334,7 +335,13 @@ const paginatedVisibleItems = computed(() => {
 
   return visibleItems.value.slice(start, start + size);
 });
-const stockPaginationItems = computed(() => pageItems(stockTotalPages.value, stockPage.value));
+const stockMeta = computed(() => ({
+  current_page: stockPage.value,
+  last_page: stockTotalPages.value,
+  total: visibleItems.value.length,
+  from: stockPageStart.value === 0 ? null : stockPageStart.value,
+  to: stockPageEnd.value === 0 ? null : stockPageEnd.value
+}));
 const lowStockItems = computed(() => visibleItems.value.filter((item) => Number(item.branch_stock_quantity || 0) <= 0));
 const overviewAlertCount = computed(() => Number(inventorySummary.value?.below_minimum ?? stockAlerts.value.filter((item) => Number(item.stock_quantity || 0) > 0).length));
 const overviewHealthyCount = computed(() => Number(inventorySummary.value?.healthy ?? Math.max(0, stats.value.products - overviewAlertCount.value - stats.value.lowStock)));
@@ -880,28 +887,6 @@ function quitarLineaCompra(index: number): void {
 
 function goToStockPage(page: number): void {
   stockPage.value = Math.min(Math.max(page, 1), stockTotalPages.value);
-}
-
-function pageItems(lastPage: number, page: number) {
-  if (lastPage <= 7) {
-    return Array.from({ length: lastPage }, (_, index) => index + 1);
-  }
-
-  const pages = new Set([1, 2, lastPage - 1, lastPage, page - 1, page, page + 1]);
-  const visible = [...pages]
-    .filter((item) => item >= 1 && item <= lastPage)
-    .sort((a, b) => a - b);
-  const items = [];
-
-  for (const item of visible) {
-    const previous = items[items.length - 1];
-    if (typeof previous === 'number' && item - previous > 1) {
-      items.push('ellipsis');
-    }
-    items.push(item);
-  }
-
-  return items;
 }
 
 async function saveAdjustment(): Promise<void> {
@@ -1935,6 +1920,10 @@ function messageFromError(error): string {
               </div>
             </div>
             <div class="rounded-md border border-slate-200 bg-white p-5 dark:border-line dark:bg-surface">
+              <div v-if="stockMeta.last_page > 1" class="border-b border-slate-200 pb-4 dark:border-line">
+                <BillingPaginationBar :meta="stockMeta" @page="goToStockPage" />
+              </div>
+
               <UiDataTable overflow="auto" min-width="min-w-[820px]">
                 <thead class="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-line dark:text-soft">
                   <tr>
@@ -1969,48 +1958,8 @@ function messageFromError(error): string {
                   </tr>
                 </tbody>
               </UiDataTable>
-              <div class="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-line lg:flex-row lg:items-center lg:justify-between">
-                <p class="text-sm font-semibold text-slate-500 dark:text-soft">
-                  Mostrando {{ stockPageStart }}-{{ stockPageEnd }} de {{ visibleItems.length }}
-                </p>
-                <div class="flex flex-wrap items-center gap-1">
-                  <button
-                    type="button"
-                    class="grid h-10 min-w-10 place-items-center rounded-md border border-slate-200 bg-white px-3 text-slate-700 transition hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-line dark:bg-surface-muted dark:text-muted dark:hover:border-primary dark:hover:text-primary"
-                    :disabled="stockPage <= 1"
-                    aria-label="Página anterior"
-                    @click="goToStockPage(stockPage - 1)"
-                  >
-                    ‹
-                  </button>
-                  <template v-for="(item, index) in stockPaginationItems" :key="`${item}-${index}`">
-                    <span
-                      v-if="item === 'ellipsis'"
-                      class="hidden h-10 min-w-10 place-items-center px-2 text-sm font-semibold text-slate-400 dark:text-soft sm:grid"
-                    >
-                      ...
-                    </span>
-                    <button
-                      v-else
-                      type="button"
-                      class="hidden h-10 min-w-10 rounded-md border px-3 text-sm font-bold transition sm:inline-flex sm:items-center sm:justify-center"
-                      :class="item === stockPage ? 'border-sky-600 bg-sky-600 text-white dark:border-primary dark:bg-primary dark:text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-sky-300 hover:text-sky-700 dark:border-line dark:bg-surface-muted dark:text-muted dark:hover:border-primary dark:hover:text-primary'"
-                      :aria-current="item === stockPage ? 'page' : undefined"
-                      @click="goToStockPage(item)"
-                    >
-                      {{ item }}
-                    </button>
-                  </template>
-                  <button
-                    type="button"
-                    class="grid h-10 min-w-10 place-items-center rounded-md border border-slate-200 bg-white px-3 text-slate-700 transition hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-line dark:bg-surface-muted dark:text-muted dark:hover:border-primary dark:hover:text-primary"
-                    :disabled="stockPage >= stockTotalPages"
-                    aria-label="Página siguiente"
-                    @click="goToStockPage(stockPage + 1)"
-                  >
-                    ›
-                  </button>
-                </div>
+              <div v-if="stockMeta.last_page > 1" class="mt-4 border-t border-slate-200 pt-4 dark:border-line">
+                <BillingPaginationBar :meta="stockMeta" @page="goToStockPage" />
               </div>
             </div>
           </div>

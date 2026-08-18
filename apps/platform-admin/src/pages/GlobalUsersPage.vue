@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import type { PlatformGlobalUser, PlatformTenantMembership } from '@stelfaro/api-client';
+import { BillingPaginationBar } from '@stelfaro/billing';
 import { UiDataTable, UiPanel, UiRefreshButton, UiStatusBadge } from '@stelfaro/ui';
 import { usePlatformSessionStore } from '../stores/platformSession';
 
 const platform = usePlatformSessionStore();
+const pageSize = 25;
+const page = ref(1);
+const meta = ref<{ current_page: number; last_page: number; total: number } | null>(null);
+const stats = ref({ total_users: 0, active_memberships: 0, tenant_count: 0 });
 const users = ref<PlatformGlobalUser[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
 const totalMemberships = computed(() => users.value.reduce((total, user) => total + user.memberships.length, 0));
-const activeMemberships = computed(() => users.value.flatMap((user) => user.memberships).filter((membership) => membership.status === 'active').length);
-const tenantCount = computed(() => new Set(users.value.flatMap((user) => user.memberships.map((membership) => membership.tenant_id))).size);
 
 onMounted(() => {
   void loadUsers();
@@ -22,14 +25,22 @@ async function loadUsers(): Promise<void> {
   error.value = null;
 
   try {
-    const response = await platform.client.globalUsers();
-    users.value = response.users;
+    const response = await platform.client.globalUsers({ page: page.value, per_page: pageSize });
+    users.value = response.data;
+    meta.value = response.meta;
+    stats.value = response.stats;
   } catch (loadError) {
     users.value = [];
     error.value = loadError instanceof Error ? loadError.message : 'No fue posible cargar usuarios.';
   } finally {
     loading.value = false;
   }
+}
+
+function goToPage(next: number): void {
+  if (next === page.value) return;
+  page.value = next;
+  void loadUsers();
 }
 
 function roleLabel(role: string): string {
@@ -79,15 +90,15 @@ function membershipSummary(memberships: PlatformTenantMembership[]): string {
     <div class="mb-6 grid gap-4 md:grid-cols-3">
       <UiPanel variant="raised">
         <p class="text-xs font-bold uppercase tracking-wide text-soft">Usuarios</p>
-        <p class="mt-2 text-2xl font-bold text-text">{{ users.length }}</p>
+        <p class="mt-2 text-2xl font-bold text-text">{{ stats.total_users }}</p>
       </UiPanel>
       <UiPanel variant="raised">
         <p class="text-xs font-bold uppercase tracking-wide text-soft">Membresias activas</p>
-        <p class="mt-2 text-2xl font-bold text-text">{{ activeMemberships }}</p>
+        <p class="mt-2 text-2xl font-bold text-text">{{ stats.active_memberships }}</p>
       </UiPanel>
       <UiPanel variant="raised">
         <p class="text-xs font-bold uppercase tracking-wide text-soft">Empresas vinculadas</p>
-        <p class="mt-2 text-2xl font-bold text-text">{{ tenantCount }}</p>
+        <p class="mt-2 text-2xl font-bold text-text">{{ stats.tenant_count }}</p>
       </UiPanel>
     </div>
 
@@ -97,8 +108,12 @@ function membershipSummary(memberships: PlatformTenantMembership[]): string {
       <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 class="text-lg font-bold text-text">Directorio</h2>
-          <p class="mt-1 text-sm text-muted">{{ totalMemberships }} membresias registradas.</p>
+          <p class="mt-1 text-sm text-muted">{{ totalMemberships }} membresias en esta pagina.</p>
         </div>
+      </div>
+
+      <div v-if="meta && meta.last_page > 1" class="mb-4 border-b border-line pb-3">
+        <BillingPaginationBar :meta="meta" :loading="loading" @page="goToPage" />
       </div>
 
       <UiDataTable>
@@ -144,6 +159,10 @@ function membershipSummary(memberships: PlatformTenantMembership[]): string {
           </tr>
         </tbody>
       </UiDataTable>
+
+      <div v-if="meta && meta.last_page > 1" class="mt-4 border-t border-line pt-3">
+        <BillingPaginationBar :meta="meta" :loading="loading" @page="goToPage" />
+      </div>
     </UiPanel>
   </section>
 </template>

@@ -5,6 +5,7 @@ import { currency, fiscalDateTime } from '@stelfaro/shared';
 import { UiActionDropdown, UiActionMenuItem, UiCodeBracketIcon, UiDocumentIcon, UiLoadingMark, UiMailIcon, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import { Printer, SlidersHorizontal } from 'lucide-vue-next';
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
+import BillingPaginationBar from '../components/BillingPaginationBar.vue';
 import { dteFiscalTicketFromArtifact } from '../printing/dteFiscalTicket';
 import { sendSilentPrint } from '../printing/printJob';
 
@@ -19,7 +20,6 @@ const props = withDefaults(defineProps<{
 });
 
 type ArtifactTab = 'dte' | 'events';
-type PageItem = number | 'ellipsis';
 
 const supportedTypes = new Set(['01', '03', '05', '06', '14']);
 const supportedEventTypes = new Set(['invalidacion', 'retorno', 'operaciones_especiales']);
@@ -72,9 +72,7 @@ const emptyState = computed(() => {
 });
 
 const currentMeta = computed(() => activeTab.value === 'dte' ? dteMeta.value : eventMeta.value);
-const currentPage = computed(() => activeTab.value === 'dte' ? dtePage.value : eventPage.value);
 const resultCount = computed(() => currentMeta.value?.total ?? (activeTab.value === 'dte' ? documents.value.length : events.value.length));
-const paginationItems = computed<PageItem[]>(() => pageItems(currentMeta.value?.last_page ?? 1, currentPage.value));
 const activeFilterLabel = computed(() => {
   const value = activeTab.value === 'dte' ? tipoDte.value : eventType.value;
   const options = activeTab.value === 'dte' ? dteTypeOptions : artifactEventTypeOptions;
@@ -193,28 +191,6 @@ function goToPage(page: number): void {
   if (nextPage === eventPage.value) return;
   eventPage.value = nextPage;
   void loadEvents();
-}
-
-function pageItems(lastPage: number, page: number): PageItem[] {
-  if (lastPage <= 7) {
-    return Array.from({ length: lastPage }, (_, index) => index + 1);
-  }
-
-  const pages = new Set([1, 2, lastPage - 1, lastPage, page - 1, page, page + 1]);
-  const visible = [...pages]
-    .filter((item) => item >= 1 && item <= lastPage)
-    .sort((a, b) => a - b);
-  const items: PageItem[] = [];
-
-  for (const item of visible) {
-    const previous = items[items.length - 1];
-    if (typeof previous === 'number' && item - previous > 1) {
-      items.push('ellipsis');
-    }
-    items.push(item);
-  }
-
-  return items;
 }
 
 function fallbackMeta(total: number, page: number): PaginationMeta {
@@ -447,53 +423,56 @@ function formatDate(value?: string | null): string {
 
     <div class="rounded-2xl border border-line bg-surface p-3 shadow-sm md:rounded-lg md:p-5">
       <div class="space-y-3">
-        <div class="flex items-end gap-2">
-          <UiSearchInput
-            v-model="query"
-            class="min-w-0 flex-1"
-            :label="activeTab === 'dte' ? 'Buscar comprobante' : 'Buscar evento'"
-            placeholder="Numero, codigo, sello, empresa o NIT"
-            @search="loadActiveTab"
-          />
+        <div class="flex flex-col gap-3 md:flex-row md:items-end">
+          <div class="flex items-end gap-2">
+            <UiSearchInput
+              v-model="query"
+              class="min-w-0 flex-1"
+              :label="activeTab === 'dte' ? 'Buscar comprobante' : 'Buscar evento'"
+              placeholder="Numero, codigo, sello, empresa o NIT"
+              @search="loadActiveTab"
+            />
 
-          <button
-            type="button"
-            class="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-line bg-surface-raised text-muted md:hidden"
-            :class="filtersOpen ? 'border-primary bg-primary-soft text-primary' : ''"
-            :aria-expanded="filtersOpen"
-            aria-label="Mostrar filtros"
-            @click="filtersOpen = !filtersOpen"
+            <button
+              type="button"
+              class="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-line bg-surface-raised text-muted md:hidden"
+              :class="filtersOpen ? 'border-primary bg-primary-soft text-primary' : ''"
+              :aria-expanded="filtersOpen"
+              aria-label="Mostrar filtros"
+              @click="filtersOpen = !filtersOpen"
+            >
+              <SlidersHorizontal class="h-5 w-5" />
+              <span
+                v-if="activeFilterLabel !== 'Todos'"
+                class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary"
+              ></span>
+            </button>
+          </div>
+
+          <div
+            class="gap-3 md:flex md:shrink-0 md:items-end"
+            :class="filtersOpen ? 'grid' : 'hidden'"
           >
-            <SlidersHorizontal class="h-5 w-5" />
-            <span
-              v-if="activeFilterLabel !== 'Todos'"
-              class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary"
-            ></span>
-          </button>
-        </div>
+            <UiSelect
+              v-if="activeTab === 'dte'"
+              v-model="tipoDte"
+              label="Tipo DTE"
+              class="md:w-56"
+              :options="dteTypeOptions"
+            />
 
-        <div
-          class="gap-3 md:grid md:grid-cols-[minmax(0,1fr)_240px_auto] md:items-end"
-          :class="filtersOpen ? 'grid' : 'hidden'"
-        >
-          <div class="hidden md:block"></div>
-          <UiSelect
-            v-if="activeTab === 'dte'"
-            v-model="tipoDte"
-            label="Tipo DTE"
-            :options="dteTypeOptions"
-          />
+            <UiSelect
+              v-else
+              v-model="eventType"
+              label="Tipo de evento"
+              class="md:w-56"
+              :options="artifactEventTypeOptions"
+            />
 
-          <UiSelect
-            v-else
-            v-model="eventType"
-            label="Tipo de evento"
-            :options="artifactEventTypeOptions"
-          />
-
-          <div class="flex items-center justify-between rounded-xl bg-surface-raised px-3 py-2 text-sm text-muted md:block md:min-w-28 md:rounded-md">
-            <p class="text-xs font-semibold uppercase">Resultados</p>
-            <p class="text-base font-bold text-text md:mt-1 md:text-lg">{{ resultCount }}</p>
+            <div class="flex items-center justify-between rounded-xl bg-surface-raised px-3 py-2 text-sm text-muted md:block md:w-28 md:shrink-0 md:rounded-md">
+              <p class="text-xs font-semibold uppercase">Resultados</p>
+              <p class="text-base font-bold text-text md:mt-1 md:text-lg">{{ resultCount }}</p>
+            </div>
           </div>
         </div>
 
@@ -505,6 +484,10 @@ function formatDate(value?: string | null): string {
     </div>
 
     <div class="md:rounded-lg md:border md:border-line md:bg-surface md:p-5 md:shadow-sm">
+      <div v-if="currentMeta && currentMeta.last_page > 1" class="mb-3 border-b border-line pb-3">
+        <BillingPaginationBar :meta="currentMeta" :loading="loading" @page="goToPage" />
+      </div>
+
       <div class="overflow-visible md:rounded-md md:border md:border-line">
         <div
           v-if="activeTab === 'dte'"
@@ -648,59 +631,10 @@ function formatDate(value?: string | null): string {
         </div>
 
         <div
-          v-if="currentMeta && currentMeta.total > 0"
-          class="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-3 py-3 md:mt-0 md:rounded-none md:border-x-0 md:border-b-0 md:bg-surface-raised md:px-4 md:py-4"
+          v-if="currentMeta && currentMeta.last_page > 1"
+          class="mt-3 rounded-2xl border border-line bg-surface px-3 py-3 md:mt-0 md:rounded-none md:border-x-0 md:border-b-0 md:bg-surface-raised md:px-4 md:py-4"
         >
-          <p class="text-sm text-muted">
-            {{ currentMeta.from }}-{{ currentMeta.to }} de {{ currentMeta.total }}
-          </p>
-
-          <nav class="flex items-center" aria-label="Paginacion">
-            <button
-              type="button"
-              class="mx-1 flex h-10 min-w-10 items-center justify-center rounded-md bg-surface px-3 py-2 text-soft transition-colors duration-300 disabled:cursor-not-allowed disabled:text-soft disabled:hover:bg-surface disabled:hover:text-soft hover:bg-primary hover:text-primary-contrast"
-              :disabled="currentPage <= 1 || loading"
-              aria-label="Pagina anterior"
-              @click="goToPage(currentPage - 1)"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
-              </svg>
-            </button>
-
-            <template v-for="(item, index) in paginationItems" :key="`${item}-${index}`">
-              <span
-                v-if="item === 'ellipsis'"
-                class="mx-1 hidden h-10 min-w-10 items-center justify-center rounded-md bg-surface px-4 py-2 text-soft sm:inline-flex"
-              >
-                ...
-              </span>
-
-              <button
-                v-else
-                type="button"
-                class="mx-1 hidden h-10 min-w-10 items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition-colors duration-300 sm:inline-flex"
-                :class="item === currentPage ? 'bg-primary text-primary-contrast' : 'bg-surface text-muted hover:bg-primary hover:text-primary-contrast'"
-                :aria-current="item === currentPage ? 'page' : undefined"
-                :disabled="loading"
-                @click="goToPage(item)"
-              >
-                {{ item }}
-              </button>
-            </template>
-
-            <button
-              type="button"
-              class="mx-1 flex h-10 min-w-10 items-center justify-center rounded-md bg-surface px-3 py-2 text-muted transition-colors duration-300 disabled:cursor-not-allowed disabled:text-soft disabled:hover:bg-surface disabled:hover:text-soft hover:bg-primary hover:text-primary-contrast"
-              :disabled="currentPage >= currentMeta.last_page || loading"
-              aria-label="Pagina siguiente"
-              @click="goToPage(currentPage + 1)"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-              </svg>
-            </button>
-          </nav>
+          <BillingPaginationBar :meta="currentMeta" :loading="loading" @page="goToPage" />
         </div>
       </div>
     </div>

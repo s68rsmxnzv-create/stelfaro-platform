@@ -6,6 +6,7 @@ import { Archive, CalendarClock, Check, Pencil, Plus, UserRound } from 'lucide-v
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
 import BillingModalShell from '../components/BillingModalShell.vue';
+import BillingPaginationBar from '../components/BillingPaginationBar.vue';
 
 const props = withDefaults(defineProps<{
   platformBaseUrl?: string;
@@ -64,6 +65,13 @@ async function loadNotes() {
     notes.value = response.data; stats.value = response.stats; meta.value = response.meta;
   } catch (error) { notify('No se pudieron cargar los pendientes', friendlyError(error), 'error'); }
   finally { loading.value = false; }
+}
+
+function goToNotesPage(page) {
+  const next = Math.min(Math.max(page, 1), meta.value.last_page);
+  if (next === filters.page) return;
+  filters.page = next;
+  loadNotes();
 }
 
 async function searchCustomers() {
@@ -172,6 +180,10 @@ function friendlyError(error) { const message = String(error?.message || ''); re
     </div>
 
     <div class="overflow-hidden rounded-md border border-line bg-surface">
+      <div v-if="meta.last_page > 1" class="border-b border-line px-5 py-4">
+        <BillingPaginationBar :meta="meta" :loading="loading" @page="goToNotesPage" />
+      </div>
+
       <UiLoadingMark v-if="loading" class="p-10" label="Cargando pendientes" />
       <p v-else-if="notes.length === 0" class="p-10 text-center text-sm text-muted">No hay pendientes con estos filtros.</p>
       <div v-else class="divide-y divide-line">
@@ -186,7 +198,9 @@ function friendlyError(error) { const message = String(error?.message || ''); re
           </UiActionDropdown>
         </article>
       </div>
-      <div v-if="meta.last_page > 1" class="flex items-center justify-between border-t border-line px-5 py-4"><UiButton size="sm" variant="secondary" :disabled="meta.current_page <= 1" @click="filters.page--; loadNotes()">Anterior</UiButton><span class="text-sm text-muted">Página {{ meta.current_page }} de {{ meta.last_page }}</span><UiButton size="sm" variant="secondary" :disabled="meta.current_page >= meta.last_page" @click="filters.page++; loadNotes()">Siguiente</UiButton></div>
+      <div v-if="meta.last_page > 1" class="border-t border-line px-5 py-4">
+        <BillingPaginationBar :meta="meta" :loading="loading" @page="goToNotesPage" />
+      </div>
     </div>
 
     <BillingModalShell :open="formOpen" :title="editingNote ? 'Editar pendiente' : 'Nuevo pendiente'" description="Es una nota de seguimiento; no registra dinero, inventario ni ventas." max-width="max-w-2xl" @close="formOpen = false">

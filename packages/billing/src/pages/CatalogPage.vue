@@ -22,6 +22,7 @@ import {
 } from '@stelfaro/ui';
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
+import BillingPaginationBar from '../components/BillingPaginationBar.vue';
 import CatalogItemForm from '../components/CatalogItemForm.vue';
 import CatalogModeBadge from '../components/CatalogModeBadge.vue';
 import { catalogItemTypeOptions } from '../support/catalogOptions';
@@ -46,6 +47,9 @@ const tenantId = computed(() => Number(props.platformSession?.tenant?.id || 0));
 const tenantName = computed(() => props.platformSession?.tenant?.name ?? 'Empresa');
 const activeView = ref<'items' | 'categories'>('items');
 const categories = ref<PlatformCatalogCategory[]>([]);
+const itemsPageSize = 100;
+const itemsPage = ref(1);
+const itemsMeta = ref(null);
 const items = ref<PlatformCatalogItem[]>([]);
 const loading = ref(false);
 const saving = ref(false);
@@ -155,12 +159,14 @@ const bulkValueValid = computed(() => {
 watch(tenantId, () => void loadCatalog());
 watch(() => filters.value.q, () => {
   if (searchTimer) window.clearTimeout(searchTimer);
+  itemsPage.value = 1;
   searchTimer = window.setTimeout(() => {
     const query = filters.value.q.trim();
     if (query.length === 0 || query.length >= 2) void loadCatalog();
   }, 250);
 });
 watch(() => [filters.value.category_id, filters.value.item_type, filters.value.controls_inventory, filters.value.status], () => {
+  itemsPage.value = 1;
   void loadCatalog();
 });
 
@@ -180,6 +186,13 @@ async function loadCatalog(): Promise<void> {
     ]);
     categories.value = categoryResponse.data;
     items.value = itemResponse.data;
+    itemsMeta.value = itemResponse.meta ?? {
+      current_page: itemsPage.value,
+      last_page: 1,
+      total: items.value.length,
+      from: items.value.length === 0 ? 0 : 1,
+      to: items.value.length
+    };
     const visibleIds = new Set(items.value.map((item) => item.id));
     selectedIds.value = new Set([...selectedIds.value].filter((id) => visibleIds.has(id)));
   } catch (error) {
@@ -189,6 +202,12 @@ async function loadCatalog(): Promise<void> {
   }
 }
 
+function goToItemsPage(page: number): void {
+  if (page === itemsPage.value) return;
+  itemsPage.value = page;
+  void loadCatalog();
+}
+
 function normalizedFilters(): Record<string, unknown> {
   return {
     q: filters.value.q || undefined,
@@ -196,7 +215,8 @@ function normalizedFilters(): Record<string, unknown> {
     status: filters.value.status || undefined,
     item_type: filters.value.item_type || undefined,
     controls_inventory: filters.value.controls_inventory === '' ? undefined : filters.value.controls_inventory === 'true',
-    per_page: 100
+    page: itemsPage.value,
+    per_page: itemsPageSize
   };
 }
 
@@ -483,6 +503,10 @@ function messageFromError(error): string {
       </UiPanel>
 
       <UiCard>
+        <div v-if="itemsMeta && itemsMeta.last_page > 1" class="border-b border-line pb-3">
+          <BillingPaginationBar :meta="itemsMeta" :loading="loading" @page="goToItemsPage" />
+        </div>
+
         <UiDataTable overflow="auto" min-width="min-w-[1080px]">
           <thead class="border-b border-line text-xs uppercase text-soft">
             <tr>
@@ -560,6 +584,10 @@ function messageFromError(error): string {
             </tr>
           </tbody>
         </UiDataTable>
+
+        <div v-if="itemsMeta && itemsMeta.last_page > 1" class="border-t border-line pt-3">
+          <BillingPaginationBar :meta="itemsMeta" :loading="loading" @page="goToItemsPage" />
+        </div>
       </UiCard>
     </template>
 

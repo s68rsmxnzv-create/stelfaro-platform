@@ -2,12 +2,12 @@
 // @ts-nocheck
 import { CoreDteClient, PlatformClient, type DteDraftSummary, type MhFiscalEventSummary, type PlatformAuditLog } from '@stelfaro/api-client';
 import { UiDataTable, UiInput, UiModalShell, UiPanel, UiRefreshButton, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
-import { Activity, ChevronDown, ChevronLeft, ChevronRight, FileText, ScrollText, ShieldCheck } from 'lucide-vue-next';
+import { Activity, ChevronDown, FileText, ScrollText, ShieldCheck } from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
+import BillingPaginationBar from '../components/BillingPaginationBar.vue';
 import { getBillingContext, peekBillingContext } from '../support/billingDataCache';
 
 type DetailItem = { label: string; value: string };
-type PageItem = number | 'ellipsis';
 
 type AuditRow = {
   id: string;
@@ -114,7 +114,11 @@ const pagedRows = computed(() => {
   return rows.value.slice(start, start + pageSize);
 });
 
-const paginationItems = computed<PageItem[]>(() => pageItems(totalPages.value, page.value));
+const meta = computed(() => ({
+  current_page: page.value,
+  last_page: totalPages.value,
+  total: rows.value.length
+}));
 
 watch(() => props.authToken, () => {
   void initialize();
@@ -143,28 +147,6 @@ function openDetail(row: AuditRow): void {
 
 function goToPage(target: number): void {
   page.value = Math.min(Math.max(target, 1), totalPages.value);
-}
-
-function pageItems(lastPage: number, current: number): PageItem[] {
-  if (lastPage <= 7) {
-    return Array.from({ length: lastPage }, (_, index) => index + 1);
-  }
-
-  const pages = new Set([1, 2, lastPage - 1, lastPage, current - 1, current, current + 1]);
-  const visible = [...pages]
-    .filter((item) => item >= 1 && item <= lastPage)
-    .sort((a, b) => a - b);
-  const items: PageItem[] = [];
-
-  for (const item of visible) {
-    const previous = items[items.length - 1];
-    if (typeof previous === 'number' && item - previous > 1) {
-      items.push('ellipsis');
-    }
-    items.push(item);
-  }
-
-  return items;
 }
 
 async function initialize(): Promise<void> {
@@ -649,41 +631,8 @@ function messageFromError(caught: unknown): string {
     <p v-if="error" class="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">{{ error }}</p>
 
     <UiPanel variant="raised">
-      <div class="flex flex-col gap-3 border-b border-line pb-3 sm:flex-row sm:items-center sm:justify-between">
-        <p class="text-sm text-muted">{{ rows.length }} {{ rows.length === 1 ? 'registro' : 'registros' }}</p>
-        <nav v-if="totalPages > 1" class="flex items-center gap-1" aria-label="Paginación superior">
-          <button
-            type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="page <= 1 || loading"
-            aria-label="Página anterior"
-            @click="goToPage(page - 1)"
-          >
-            <ChevronLeft class="h-4 w-4" />
-          </button>
-          <template v-for="(item, index) in paginationItems" :key="`top-${item}-${index}`">
-            <span v-if="item === 'ellipsis'" class="px-1 text-sm text-soft">…</span>
-            <button
-              v-else
-              type="button"
-              class="flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-sm font-semibold"
-              :class="item === page ? 'bg-primary text-primary-contrast' : 'text-muted hover:bg-surface-muted'"
-              :disabled="loading"
-              @click="goToPage(item)"
-            >
-              {{ item }}
-            </button>
-          </template>
-          <button
-            type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="page >= totalPages || loading"
-            aria-label="Página siguiente"
-            @click="goToPage(page + 1)"
-          >
-            <ChevronRight class="h-4 w-4" />
-          </button>
-        </nav>
+      <div v-if="meta.last_page > 1" class="border-b border-line pb-3">
+        <BillingPaginationBar :meta="meta" :loading="loading" @page="goToPage" />
       </div>
 
       <UiDataTable overflow="auto" min-width="min-w-[960px]">
@@ -724,41 +673,8 @@ function messageFromError(caught: unknown): string {
         </tbody>
       </UiDataTable>
 
-      <div v-if="totalPages > 1" class="flex flex-col gap-3 border-t border-line pt-3 sm:flex-row sm:items-center sm:justify-between">
-        <p class="text-sm text-muted">Página {{ page }} de {{ totalPages }}</p>
-        <nav class="flex items-center gap-1" aria-label="Paginación inferior">
-          <button
-            type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="page <= 1 || loading"
-            aria-label="Página anterior"
-            @click="goToPage(page - 1)"
-          >
-            <ChevronLeft class="h-4 w-4" />
-          </button>
-          <template v-for="(item, index) in paginationItems" :key="`bottom-${item}-${index}`">
-            <span v-if="item === 'ellipsis'" class="px-1 text-sm text-soft">…</span>
-            <button
-              v-else
-              type="button"
-              class="flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-sm font-semibold"
-              :class="item === page ? 'bg-primary text-primary-contrast' : 'text-muted hover:bg-surface-muted'"
-              :disabled="loading"
-              @click="goToPage(item)"
-            >
-              {{ item }}
-            </button>
-          </template>
-          <button
-            type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="page >= totalPages || loading"
-            aria-label="Página siguiente"
-            @click="goToPage(page + 1)"
-          >
-            <ChevronRight class="h-4 w-4" />
-          </button>
-        </nav>
+      <div v-if="meta.last_page > 1" class="border-t border-line pt-3">
+        <BillingPaginationBar :meta="meta" :loading="loading" @page="goToPage" />
       </div>
     </UiPanel>
 
