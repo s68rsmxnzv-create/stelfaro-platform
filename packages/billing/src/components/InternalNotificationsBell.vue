@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue';
-import { Bell, CalendarClock, CheckCheck, Download, FileClock, Trash2, X } from 'lucide-vue-next';
+import { AlertTriangle, Bell, CalendarClock, CheckCheck, Download, FileClock, Trash2, X } from 'lucide-vue-next';
 import { PlatformClient, type PlatformInternalNotification } from '@stelfaro/api-client';
 import { UiButton, UiStatusBadge } from '@stelfaro/ui';
 
@@ -169,12 +169,14 @@ function notificationIcon(notification: PlatformInternalNotification): Component
   if (notification.category === 'tenant_request') return FileClock;
   if (notification.category === 'tax_deadline') return CalendarClock;
   if (notification.category === 'agent_release') return Download;
+  if (notification.category === 'dte_stuck') return AlertTriangle;
   return Bell;
 }
 
 function notificationTone(notification: PlatformInternalNotification): string {
   if (notification.category === 'tenant_request') return 'bg-primary-soft text-primary';
   if (notification.category === 'agent_release') return 'bg-success-soft text-success';
+  if (notification.category === 'dte_stuck') return 'bg-danger-soft text-danger';
   return 'bg-warning-soft text-warning';
 }
 

@@ -4721,6 +4721,10 @@ export class CoreDteClient {
     return this.http.get(`dte/drafts/${id}`).json();
   }
 
+  retryDocument(id: number): Promise<DteDraftSummary> {
+    return this.http.post(`dte/documents/${id}/retry`).json();
+  }
+
   graphicRepresentationHtml(id: number): Promise<string> {
     return this.http
       .get(`dte/drafts/${id}/artifacts/graphic`, {

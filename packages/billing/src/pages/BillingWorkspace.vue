@@ -62,6 +62,7 @@ import BillingFloatingToastStack, {
   type BillingFloatingToast,
 } from "../components/BillingFloatingToastStack.vue";
 import BillingReplacementNotice from "../components/BillingReplacementNotice.vue";
+import BillingStuckDocumentNotice from "../components/BillingStuckDocumentNotice.vue";
 import BillingReplacementReadyModal from "../components/BillingReplacementReadyModal.vue";
 import DteAutomaticPrintModal from "../components/DteAutomaticPrintModal.vue";
 import { automaticDtePrintDecision } from "../printing/automaticDtePrint";
@@ -128,6 +129,9 @@ const workshopPrintDrawer =
 const replacementOfDteId = Number(
   new URLSearchParams(window.location.search).get("replacement_of") || 0,
 );
+const stuckDocumentId = Number(
+  new URLSearchParams(window.location.search).get("documento_atascado") || 0,
+);
 const loading = ref(false);
 const contextLoading = ref(false);
 const correlativoLoading = ref(false);
@@ -155,6 +159,11 @@ const replacementSourceDocument = ref<DteDraftSummary | null>(null);
 const replacementLoading = ref(false);
 const replacementIssuedDocument = ref<DteDraftSummary | null>(null);
 const replacementReadyModalOpen = ref(false);
+const stuckDocument = ref<DteDraftSummary | null>(null);
+const stuckDocumentLoading = ref(false);
+const stuckDocumentRetrying = ref(false);
+const stuckDocumentRetrySucceeded = ref(false);
+const stuckDocumentError = ref<string | null>(null);
 const pendingAutomaticPrint = ref<{
   document: DteDraftSummary;
   recipientEmail: string;
@@ -1327,6 +1336,7 @@ onMounted(async () => {
   await loadReplacementPrefill();
   await loadWorkshopOrderPrefill();
   await loadSalesOrderPrefill();
+  await loadStuckDocument();
 });
 
 let inventoryAvailabilityToken = 0;
@@ -1531,6 +1541,67 @@ async function loadReplacementPrefill(): Promise<void> {
   } finally {
     replacementLoading.value = false;
   }
+}
+
+const STUCK_DOCUMENT_NON_TERMINAL_STATES = new Set([
+  "draft",
+  "ready_to_sign",
+  "signed",
+  "ready_to_send",
+]);
+
+const stuckDocumentRetryable = computed(() => {
+  const document = stuckDocument.value;
+  if (!document) return false;
+  return (
+    document.errorCode === "ISSUE_PROCESS_INTERRUPTED" ||
+    STUCK_DOCUMENT_NON_TERMINAL_STATES.has(String(document.estado))
+  );
+});
+
+async function loadStuckDocument(): Promise<void> {
+  if (!stuckDocumentId) return;
+
+  stuckDocumentLoading.value = true;
+  stuckDocumentError.value = null;
+  try {
+    stuckDocument.value = await client.value.document(stuckDocumentId);
+  } catch (caught) {
+    stuckDocument.value = null;
+    stuckDocumentError.value =
+      caught instanceof Error
+        ? caught.message
+        : "No fue posible cargar el documento atascado.";
+  } finally {
+    stuckDocumentLoading.value = false;
+  }
+}
+
+async function retryStuckDocument(): Promise<void> {
+  if (!stuckDocument.value || stuckDocumentRetrying.value) return;
+
+  stuckDocumentRetrying.value = true;
+  stuckDocumentError.value = null;
+  stuckDocumentRetrySucceeded.value = false;
+  try {
+    stuckDocument.value = await client.value.retryDocument(
+      stuckDocument.value.id,
+    );
+    stuckDocumentRetrySucceeded.value = true;
+  } catch (caught) {
+    stuckDocumentError.value =
+      caught instanceof Error
+        ? caught.message
+        : "No fue posible reintentar la emisión del documento.";
+  } finally {
+    stuckDocumentRetrying.value = false;
+  }
+}
+
+function dismissStuckDocumentNotice(): void {
+  stuckDocument.value = null;
+  stuckDocumentError.value = null;
+  stuckDocumentRetrySucceeded.value = false;
 }
 
 function applyReplacementSource(
@@ -4556,6 +4627,24 @@ function updatePaymentCondition(value: string): void {
       </div>
 
       <div v-else class="grid gap-3 md:gap-6">
+        <p
+          v-if="!stuckDocument && stuckDocumentError && !stuckDocumentLoading"
+          class="rounded-md bg-danger-soft p-3 text-sm text-danger"
+        >
+          {{ stuckDocumentError }}
+        </p>
+
+        <BillingStuckDocumentNotice
+          v-if="stuckDocument"
+          :document="stuckDocument"
+          :retryable="stuckDocumentRetryable"
+          :retrying="stuckDocumentRetrying"
+          :retry-succeeded="stuckDocumentRetrySucceeded"
+          :error-message="stuckDocumentError"
+          @retry="retryStuckDocument"
+          @dismiss="dismissStuckDocumentNotice"
+        />
+
         <BillingReplacementNotice
           v-if="replacementSourceDocument && !replacementIssuedDocument"
           :source="replacementSourceDocument"
