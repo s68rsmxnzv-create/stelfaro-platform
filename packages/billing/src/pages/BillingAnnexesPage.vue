@@ -2,8 +2,9 @@
 // @ts-nocheck
 import { CoreDteClient, PlatformClient, type DteInvalidatedAnnexResponse, type DteSalesAnnexBookKey, type DteSalesAnnexResponse, type PlatformPurchaseAnnexResponse } from '@stelfaro/api-client';
 import { UiButton, UiInput, UiPanel, UiSelect, UiStatusBadge } from '@stelfaro/ui';
-import { Download, FileSpreadsheet, TriangleAlert } from 'lucide-vue-next';
+import { Download, FileSpreadsheet, Link2, Mail, MessageCircle, TriangleAlert } from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
+import { annexWhatsAppUrl } from '../annexWhatsApp';
 import { getBillingContext, peekBillingContext } from '../support/billingDataCache';
 
 const props = withDefaults(defineProps<{
@@ -31,6 +32,14 @@ const annex = ref<DteSalesAnnexResponse | null>(null);
 const invalidatedAnnex = ref<DteInvalidatedAnnexResponse | null>(null);
 const purchaseAnnex = ref<PlatformPurchaseAnnexResponse | null>(null);
 const activeBook = ref<string>('ventas_contribuyente');
+const shareableBooks = ['ventas_contribuyente', 'ventas_consumidor_final', 'documentos_invalidados'];
+const accountantContacts = ref<Array<{ id: number; name: string; email: string; phone: string | null }>>([]);
+const shareRecipientEmail = ref('');
+const shareRecipientName = ref('');
+const sharePhone = ref('');
+const sharing = ref<'email' | 'link' | null>(null);
+const shareMessage = ref<string | null>(null);
+const lastShareLink = ref<{ url: string; expiresAt: number } | null>(null);
 
 const filters = reactive({
   from: firstDayOfMonth(),
@@ -98,6 +107,15 @@ watch(selectedEmpresaId, () => {
   void load();
 });
 
+watch(tenantId, () => {
+  void loadAccountantContacts();
+}, { immediate: true });
+
+watch(activeBook, () => {
+  lastShareLink.value = null;
+  shareMessage.value = null;
+});
+
 async function initialize(): Promise<void> {
   if (!props.authToken) return;
 
@@ -161,6 +179,83 @@ async function downloadCsv(book: string): Promise<void> {
   } finally {
     downloading.value = null;
   }
+}
+
+async function loadAccountantContacts(): Promise<void> {
+  if (!tenantId.value) return;
+  try {
+    const response = await platformClient.value.accountantContacts(tenantId.value);
+    accountantContacts.value = response.contacts ?? [];
+  } catch {
+    accountantContacts.value = [];
+  }
+}
+
+function selectAccountantContact(contactId: string): void {
+  const contact = accountantContacts.value.find((item) => String(item.id) === contactId);
+  if (!contact) return;
+  shareRecipientEmail.value = contact.email;
+  shareRecipientName.value = contact.name;
+  sharePhone.value = contact.phone ?? '';
+}
+
+async function emailAnnex(book: string): Promise<void> {
+  if (!shareRecipientEmail.value || !selectedEmpresa.value) return;
+
+  sharing.value = 'email';
+  shareMessage.value = null;
+  error.value = null;
+
+  try {
+    const recipient = { email: shareRecipientEmail.value, name: shareRecipientName.value || undefined };
+    if (book === 'documentos_invalidados') {
+      await client.value.invalidatedAnnexEmail(recipient, requestParams.value);
+    } else {
+      await client.value.salesAnnexEmail(book as DteSalesAnnexBookKey, recipient, requestParams.value);
+    }
+    shareMessage.value = `Anexo enviado a ${shareRecipientEmail.value}.`;
+  } catch (caught) {
+    error.value = messageFromError(caught);
+  } finally {
+    sharing.value = null;
+  }
+}
+
+async function generateShareLink(book: string): Promise<void> {
+  if (!selectedEmpresa.value) return;
+
+  sharing.value = 'link';
+  shareMessage.value = null;
+  error.value = null;
+
+  try {
+    const link = book === 'documentos_invalidados'
+      ? await client.value.invalidatedAnnexShareLink(requestParams.value)
+      : await client.value.salesAnnexShareLink(book as DteSalesAnnexBookKey, requestParams.value);
+    lastShareLink.value = { url: link.url, expiresAt: link.expires_at };
+    try {
+      await navigator.clipboard.writeText(link.url);
+      shareMessage.value = 'Enlace copiado al portapapeles.';
+    } catch {
+      shareMessage.value = 'Enlace generado.';
+    }
+  } catch (caught) {
+    error.value = messageFromError(caught);
+  } finally {
+    sharing.value = null;
+  }
+}
+
+async function sendAnnexWhatsApp(book: string): Promise<void> {
+  if (!selectedEmpresa.value) return;
+
+  if (!lastShareLink.value) {
+    await generateShareLink(book);
+  }
+  if (!lastShareLink.value || !sharePhone.value) return;
+
+  const url = annexWhatsAppUrl(sharePhone.value, bookLabels[book] || book, lastShareLink.value.url, lastShareLink.value.expiresAt);
+  if (url) window.open(url, '_blank', 'noopener');
 }
 
 function firstDayOfMonth(): string {
@@ -257,6 +352,41 @@ function messageFromError(caught: unknown): string {
         <ul class="mt-2 space-y-1">
           <li v-for="issue in currentDataset.issues" :key="issue">{{ issue }}</li>
         </ul>
+      </div>
+
+      <div v-if="shareableBooks.includes(activeBook)" class="mt-4 rounded-md border border-slate-200 p-4 dark:border-line">
+        <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Compartir con el contador</p>
+        <div class="mt-3 grid gap-3 md:grid-cols-2">
+          <UiSelect
+            v-if="accountantContacts.length"
+            label="Contacto guardado"
+            :model-value="null"
+            :options="accountantContacts.map((contact) => ({ value: contact.id, label: `${contact.name} (${contact.email})` }))"
+            placeholder="Seleccionar contacto..."
+            @update:model-value="selectAccountantContact(String($event))"
+          />
+          <UiInput v-model="shareRecipientEmail" label="Correo" type="email" placeholder="contador@empresa.com" />
+          <UiInput v-model="shareRecipientName" label="Nombre (opcional)" />
+          <UiInput v-model="sharePhone" label="Teléfono WhatsApp (opcional)" placeholder="7000 0000" />
+        </div>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <UiButton variant="secondary" :disabled="sharing !== null || !shareRecipientEmail" @click="emailAnnex(activeBook)">
+            <Mail class="h-4 w-4" aria-hidden="true" />
+            Enviar por correo
+          </UiButton>
+          <UiButton variant="secondary" :disabled="sharing !== null" @click="generateShareLink(activeBook)">
+            <Link2 class="h-4 w-4" aria-hidden="true" />
+            Compartir enlace
+          </UiButton>
+          <UiButton variant="secondary" :disabled="sharing !== null || !sharePhone" @click="sendAnnexWhatsApp(activeBook)">
+            <MessageCircle class="h-4 w-4" aria-hidden="true" />
+            Enviar por WhatsApp
+          </UiButton>
+        </div>
+        <p v-if="shareMessage" class="mt-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">{{ shareMessage }}</p>
+        <p v-if="lastShareLink" class="mt-1 text-xs text-slate-500 dark:text-soft">
+          Vence: {{ new Date(lastShareLink.expiresAt * 1000).toLocaleString('es-SV') }}
+        </p>
       </div>
 
       <div class="mt-4 overflow-hidden rounded-md border border-slate-200 dark:border-line">

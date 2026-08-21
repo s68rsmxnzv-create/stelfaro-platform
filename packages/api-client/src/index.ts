@@ -2689,6 +2689,14 @@ export class PlatformClient {
       .json();
   }
 
+  accountantContacts(
+    tenantId: number,
+  ): Promise<{ contacts: Array<{ id: number; name: string; email: string; phone: string | null }> }> {
+    return this.http
+      .get(`platform/tenants/${tenantId}/accountant-contacts`)
+      .json();
+  }
+
   adminTenantRequests(
     params: { status?: string; type?: string; q?: string; id?: number; page?: number; per_page?: number } = {},
   ): Promise<PlatformTenantRequestsResponse> {
@@ -4766,6 +4774,54 @@ export class CoreDteClient {
         headers: { Accept: "text/csv" },
       })
       .blob();
+  }
+
+  salesAnnexShareLink(
+    book: DteSalesAnnexBookKey,
+    params: { empresa_id?: number; from?: string; to?: string } = {},
+  ): Promise<{ url: string; expires_at: number }> {
+    return this.http
+      .post(`dte/annexes/sales/${book}/share-link`, {
+        searchParams: compactParams(params),
+      })
+      .json();
+  }
+
+  salesAnnexEmail(
+    book: DteSalesAnnexBookKey,
+    recipient: { email: string; name?: string | null },
+    params: { empresa_id?: number; from?: string; to?: string; subject?: string } = {},
+  ): Promise<{ data: Record<string, unknown> }> {
+    const { subject, ...searchParams } = params;
+    return this.http
+      .post(`dte/annexes/sales/${book}/email`, {
+        searchParams: compactParams(searchParams),
+        json: { recipient, subject },
+      })
+      .json();
+  }
+
+  invalidatedAnnexShareLink(
+    params: { empresa_id?: number; from?: string; to?: string } = {},
+  ): Promise<{ url: string; expires_at: number }> {
+    return this.http
+      .post("dte/annexes/invalidated/share-link", {
+        searchParams: compactParams(params),
+      })
+      .json();
+  }
+
+  invalidatedAnnexEmail(
+    recipient: { email: string; name?: string | null },
+    params: { empresa_id?: number; from?: string; to?: string; subject?: string } = {},
+  ): Promise<{ data: Record<string, unknown> }> {
+    const { subject, ...searchParams } = params;
+    return this.http
+      .post("dte/annexes/invalidated/email", {
+        searchParams: compactParams(searchParams),
+        json: { recipient, subject },
+      })
+      .json();
   }
 
   dashboardSummary(
