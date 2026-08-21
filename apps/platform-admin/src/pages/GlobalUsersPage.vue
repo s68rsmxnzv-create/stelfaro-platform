@@ -49,7 +49,9 @@ function roleLabel(role: string): string {
     company_admin: 'Admin empresa',
     billing_admin: 'Admin facturacion',
     billing_user: 'Cajero',
-    viewer: 'Contador/Lectura',
+    seller: 'Vendedor',
+    viewer: 'Solo lectura',
+    accountant: 'Contador',
     platform_owner: 'Owner plataforma',
     platform_admin: 'Admin plataforma'
   };
