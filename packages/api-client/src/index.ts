@@ -2697,6 +2697,21 @@ export class PlatformClient {
       .json();
   }
 
+  createAccountantContact(
+    tenantId: number,
+    payload: { name: string; email: string; phone?: string | null },
+  ): Promise<{ contact: { id: number; name: string; email: string; phone: string | null } }> {
+    return this.http
+      .post(`platform/tenants/${tenantId}/accountant-contacts`, { json: payload })
+      .json();
+  }
+
+  deleteAccountantContact(tenantId: number, contactId: number): Promise<{ deleted: boolean }> {
+    return this.http
+      .delete(`platform/tenants/${tenantId}/accountant-contacts/${contactId}`)
+      .json();
+  }
+
   adminTenantRequests(
     params: { status?: string; type?: string; q?: string; id?: number; page?: number; per_page?: number } = {},
   ): Promise<PlatformTenantRequestsResponse> {
@@ -4790,13 +4805,13 @@ export class CoreDteClient {
   salesAnnexEmail(
     book: DteSalesAnnexBookKey,
     recipient: { email: string; name?: string | null },
-    params: { empresa_id?: number; from?: string; to?: string; subject?: string } = {},
+    params: { empresa_id?: number; from?: string; to?: string; subject?: string; cc?: string[] } = {},
   ): Promise<{ data: Record<string, unknown> }> {
-    const { subject, ...searchParams } = params;
+    const { subject, cc, ...searchParams } = params;
     return this.http
       .post(`dte/annexes/sales/${book}/email`, {
         searchParams: compactParams(searchParams),
-        json: { recipient, subject },
+        json: { recipient, subject, cc },
       })
       .json();
   }
@@ -4813,14 +4828,20 @@ export class CoreDteClient {
 
   invalidatedAnnexEmail(
     recipient: { email: string; name?: string | null },
-    params: { empresa_id?: number; from?: string; to?: string; subject?: string } = {},
+    params: { empresa_id?: number; from?: string; to?: string; subject?: string; cc?: string[] } = {},
   ): Promise<{ data: Record<string, unknown> }> {
-    const { subject, ...searchParams } = params;
+    const { subject, cc, ...searchParams } = params;
     return this.http
       .post("dte/annexes/invalidated/email", {
         searchParams: compactParams(searchParams),
-        json: { recipient, subject },
+        json: { recipient, subject, cc },
       })
+      .json();
+  }
+
+  annexEmailStatus(messageId: number): Promise<{ status: string; sent_at: string | null; opened_at: string | null; open_count: number }> {
+    return this.http
+      .get(`dte/annexes/email-status/${messageId}`)
       .json();
   }
 

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { CoreDteClient, PlatformClient, type DteInvalidatedAnnexResponse, type DteSalesAnnexBookKey, type DteSalesAnnexResponse, type PlatformPurchaseAnnexResponse } from '@stelfaro/api-client';
-import { UiButton, UiEmailInput, UiInput, UiMetricCard, UiModalShell, UiPanel, UiPhoneInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
-import { CircleCheck, Clock, Download, FileSpreadsheet, Link2, Mail, MessageCircle, Share2, TriangleAlert } from 'lucide-vue-next';
+import { UiButton, UiEmailInput, UiInput, UiMetricCard, UiModalShell, UiPanel, UiPhoneInput, UiStatusBadge } from '@stelfaro/ui';
+import { CircleCheck, Clock, Download, Eye, FileSpreadsheet, Link2, Mail, MessageCircle, Plus, Share2, Trash2, TriangleAlert } from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
 import { annexWhatsAppUrl } from '../annexWhatsApp';
 import { getBillingContext, peekBillingContext } from '../support/billingDataCache';
@@ -33,15 +33,24 @@ const invalidatedAnnex = ref<DteInvalidatedAnnexResponse | null>(null);
 const purchaseAnnex = ref<PlatformPurchaseAnnexResponse | null>(null);
 const activeBook = ref<string>('ventas_contribuyente');
 const shareableBooks = ['ventas_contribuyente', 'ventas_consumidor_final', 'documentos_invalidados'];
+const MAX_ACCOUNTANT_CONTACTS = 5;
+const MAX_CC_RECIPIENTS = 5;
 const accountantContacts = ref<Array<{ id: number; name: string; email: string; phone: string | null }>>([]);
 const shareModalOpen = ref(false);
 const shareRecipientEmail = ref('');
 const shareRecipientName = ref('');
 const sharePhone = ref('');
+const shareCcInput = ref('');
 const sharing = ref<'email' | 'link' | null>(null);
 const shareMessage = ref<string | null>(null);
 const shareError = ref<string | null>(null);
 const lastShareLink = ref<{ url: string; expiresAt: number } | null>(null);
+const lastMessageId = ref<number | null>(null);
+const emailStatus = ref<{ status: string; sent_at: string | null; opened_at: string | null; open_count: number } | null>(null);
+const checkingStatus = ref(false);
+const addingContact = ref(false);
+const contactError = ref<string | null>(null);
+const newContact = reactive({ name: '', email: '', phone: '' });
 
 const filters = reactive({
   from: firstDayOfMonth(),
@@ -94,7 +103,13 @@ const documentCounts = computed(() => ({
   compras: counts.value.compras,
   documentos_invalidados: counts.value.documentos_invalidados
 }));
-const shareContactOptions = computed(() => accountantContacts.value.map((contact) => ({ value: contact.id, label: `${contact.name} · ${contact.email}` })));
+const ccList = computed(() => Array.from(new Set(
+  shareCcInput.value
+    .split(/[,;\s]+/)
+    .map((value) => value.trim())
+    .filter((value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+)).slice(0, MAX_CC_RECIPIENTS));
+const canAddAccountantContact = computed(() => accountantContacts.value.length < MAX_ACCOUNTANT_CONTACTS);
 const sharePeriodLabel = computed(() => {
   if (!filters.from && !filters.to) return '';
   return `${filters.from || 'inicio'} al ${filters.to || 'hoy'}`;
@@ -210,6 +225,9 @@ function selectAccountantContact(contactId: string): void {
 function openShareModal(): void {
   shareMessage.value = null;
   shareError.value = null;
+  contactError.value = null;
+  lastMessageId.value = null;
+  emailStatus.value = null;
   shareModalOpen.value = true;
 }
 
@@ -223,19 +241,71 @@ async function emailAnnex(book: string): Promise<void> {
   sharing.value = 'email';
   shareMessage.value = null;
   shareError.value = null;
+  lastMessageId.value = null;
+  emailStatus.value = null;
 
   try {
     const recipient = { email: shareRecipientEmail.value, name: shareRecipientName.value || undefined };
-    if (book === 'documentos_invalidados') {
-      await client.value.invalidatedAnnexEmail(recipient, requestParams.value);
-    } else {
-      await client.value.salesAnnexEmail(book as DteSalesAnnexBookKey, recipient, requestParams.value);
-    }
-    shareMessage.value = `Anexo enviado a ${shareRecipientEmail.value}.`;
+    const params = { ...requestParams.value, cc: ccList.value.length ? ccList.value : undefined };
+    const response = book === 'documentos_invalidados'
+      ? await client.value.invalidatedAnnexEmail(recipient, params)
+      : await client.value.salesAnnexEmail(book as DteSalesAnnexBookKey, recipient, params);
+    const messageId = Number((response as { data?: { id?: unknown } })?.data?.id);
+    if (Number.isFinite(messageId)) lastMessageId.value = messageId;
+    shareMessage.value = ccList.value.length
+      ? `Anexo enviado a ${shareRecipientEmail.value} con copia a ${ccList.value.length} destinatario(s).`
+      : `Anexo enviado a ${shareRecipientEmail.value}.`;
   } catch (caught) {
     shareError.value = messageFromError(caught);
   } finally {
     sharing.value = null;
+  }
+}
+
+async function checkEmailStatus(): Promise<void> {
+  if (!lastMessageId.value) return;
+
+  checkingStatus.value = true;
+  try {
+    emailStatus.value = await client.value.annexEmailStatus(lastMessageId.value);
+  } catch (caught) {
+    shareError.value = messageFromError(caught);
+  } finally {
+    checkingStatus.value = false;
+  }
+}
+
+async function addAccountantContact(): Promise<void> {
+  if (!tenantId.value || !newContact.name.trim() || !newContact.email.trim()) return;
+
+  addingContact.value = true;
+  contactError.value = null;
+
+  try {
+    const { contact } = await platformClient.value.createAccountantContact(tenantId.value, {
+      name: newContact.name.trim(),
+      email: newContact.email.trim(),
+      phone: newContact.phone.trim() || null
+    });
+    accountantContacts.value = [...accountantContacts.value, contact];
+    newContact.name = '';
+    newContact.email = '';
+    newContact.phone = '';
+  } catch (caught) {
+    contactError.value = messageFromError(caught);
+  } finally {
+    addingContact.value = false;
+  }
+}
+
+async function removeAccountantContact(contactId: number): Promise<void> {
+  if (!tenantId.value) return;
+
+  try {
+    await platformClient.value.deleteAccountantContact(tenantId.value, contactId);
+    accountantContacts.value = accountantContacts.value.filter((contact) => contact.id !== contactId);
+  } catch (caught) {
+    contactError.value = messageFromError(caught);
   }
 }
 
@@ -417,18 +487,54 @@ function messageFromError(caught: unknown): string {
     >
       <div class="space-y-5">
         <div class="space-y-3">
-          <UiSelect
-            v-if="shareContactOptions.length"
-            label="Contacto guardado"
-            :model-value="null"
-            :options="shareContactOptions"
-            placeholder="Elegir un contacto del contador..."
-            @update:model-value="selectAccountantContact(String($event))"
-          />
+          <div>
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Contactos frecuentes</p>
+              <span class="text-xs text-slate-400 dark:text-soft">{{ accountantContacts.length }}/{{ MAX_ACCOUNTANT_CONTACTS }}</span>
+            </div>
+            <ul v-if="accountantContacts.length" class="mt-2 space-y-1.5">
+              <li
+                v-for="contact in accountantContacts"
+                :key="contact.id"
+                class="flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-line dark:bg-surface-muted"
+              >
+                <button type="button" class="min-w-0 flex-1 text-left" @click="selectAccountantContact(String(contact.id))">
+                  <span class="block truncate font-bold text-slate-950 dark:text-text">{{ contact.name }}</span>
+                  <span class="block truncate text-xs text-slate-500 dark:text-soft">{{ contact.email }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="grid h-7 w-7 shrink-0 place-items-center rounded-md text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-soft dark:hover:bg-danger-soft dark:hover:text-danger"
+                  aria-label="Eliminar contacto"
+                  @click="removeAccountantContact(contact.id)"
+                >
+                  <Trash2 class="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </li>
+            </ul>
+            <p v-else class="mt-2 text-xs text-slate-500 dark:text-soft">Aún no tienes contactos guardados. Agrega hasta {{ MAX_ACCOUNTANT_CONTACTS }} para reutilizarlos aquí.</p>
+            <div v-if="canAddAccountantContact" class="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+              <UiInput v-model="newContact.name" placeholder="Nombre" hide-label label="Nombre" />
+              <UiInput v-model="newContact.email" type="email" placeholder="Correo" hide-label label="Correo" />
+              <UiButton variant="secondary" icon-only :disabled="addingContact || !newContact.name.trim() || !newContact.email.trim()" aria-label="Agregar contacto" @click="addAccountantContact">
+                <Plus class="h-4 w-4" aria-hidden="true" />
+              </UiButton>
+            </div>
+            <p v-if="contactError" class="mt-1 text-xs font-semibold text-red-600 dark:text-red-300">{{ contactError }}</p>
+          </div>
+
           <div class="grid gap-3 sm:grid-cols-2">
             <UiEmailInput v-model="shareRecipientEmail" label="Correo del contador" placeholder="contador@empresa.com" />
             <UiInput v-model="shareRecipientName" label="Nombre (opcional)" placeholder="Nombre del contador" />
           </div>
+          <UiInput
+            v-model="shareCcInput"
+            label="Con copia (CC, opcional)"
+            placeholder="otro@empresa.com, contabilidad@empresa.com"
+          />
+          <p v-if="shareCcInput" class="text-xs text-slate-500 dark:text-soft">
+            {{ ccList.length }} de {{ MAX_CC_RECIPIENTS }} correo(s) válidos en copia.
+          </p>
           <UiPhoneInput v-model="sharePhone" label="Teléfono (opcional, para WhatsApp)" />
         </div>
 
@@ -476,6 +582,25 @@ function messageFromError(caught: unknown): string {
           <Clock class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           Enlace vence el {{ new Date(lastShareLink.expiresAt * 1000).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' }) }}
         </p>
+
+        <div v-if="lastMessageId" class="rounded-md border border-slate-200 p-3 dark:border-line">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Confirmación de lectura</p>
+            <UiButton size="sm" variant="ghost" :disabled="checkingStatus" @click="checkEmailStatus">
+              <Eye class="h-3.5 w-3.5" aria-hidden="true" />
+              {{ checkingStatus ? 'Verificando...' : 'Verificar' }}
+            </UiButton>
+          </div>
+          <div v-if="emailStatus" class="mt-2 flex flex-wrap gap-2">
+            <UiStatusBadge :tone="emailStatus.status === 'sent' ? 'success' : emailStatus.status === 'failed' ? 'danger' : 'info'">
+              {{ emailStatus.status === 'sent' ? 'Entregado' : emailStatus.status === 'failed' ? 'Falló el envío' : 'En proceso' }}
+            </UiStatusBadge>
+            <UiStatusBadge :tone="emailStatus.opened_at ? 'success' : 'neutral'">
+              {{ emailStatus.opened_at ? `Abierto ${new Date(emailStatus.opened_at).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' })}` : 'Aún no abierto' }}
+            </UiStatusBadge>
+          </div>
+          <p v-else class="mt-2 text-xs text-slate-500 dark:text-soft">Pulsa "Verificar" para ver si el contador ya recibió y abrió el correo.</p>
+        </div>
       </div>
 
       <template #footer>
