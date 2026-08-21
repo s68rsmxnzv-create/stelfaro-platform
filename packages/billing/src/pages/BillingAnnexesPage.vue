@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { CoreDteClient, PlatformClient, type DteInvalidatedAnnexResponse, type DteSalesAnnexBookKey, type DteSalesAnnexResponse, type PlatformPurchaseAnnexResponse } from '@stelfaro/api-client';
-import { UiButton, UiInput, UiPanel, UiSelect, UiStatusBadge } from '@stelfaro/ui';
-import { Download, FileSpreadsheet, Link2, Mail, MessageCircle, TriangleAlert } from 'lucide-vue-next';
+import { UiButton, UiEmailInput, UiInput, UiMetricCard, UiModalShell, UiPanel, UiPhoneInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
+import { CircleCheck, Clock, Download, FileSpreadsheet, Link2, Mail, MessageCircle, Share2, TriangleAlert } from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
 import { annexWhatsAppUrl } from '../annexWhatsApp';
 import { getBillingContext, peekBillingContext } from '../support/billingDataCache';
@@ -34,11 +34,13 @@ const purchaseAnnex = ref<PlatformPurchaseAnnexResponse | null>(null);
 const activeBook = ref<string>('ventas_contribuyente');
 const shareableBooks = ['ventas_contribuyente', 'ventas_consumidor_final', 'documentos_invalidados'];
 const accountantContacts = ref<Array<{ id: number; name: string; email: string; phone: string | null }>>([]);
+const shareModalOpen = ref(false);
 const shareRecipientEmail = ref('');
 const shareRecipientName = ref('');
 const sharePhone = ref('');
 const sharing = ref<'email' | 'link' | null>(null);
 const shareMessage = ref<string | null>(null);
+const shareError = ref<string | null>(null);
 const lastShareLink = ref<{ url: string; expiresAt: number } | null>(null);
 
 const filters = reactive({
@@ -92,6 +94,11 @@ const documentCounts = computed(() => ({
   compras: counts.value.compras,
   documentos_invalidados: counts.value.documentos_invalidados
 }));
+const shareContactOptions = computed(() => accountantContacts.value.map((contact) => ({ value: contact.id, label: `${contact.name} · ${contact.email}` })));
+const sharePeriodLabel = computed(() => {
+  if (!filters.from && !filters.to) return '';
+  return `${filters.from || 'inicio'} al ${filters.to || 'hoy'}`;
+});
 const totalIssues = computed(() => {
   const salesIssues = Object.values(annex.value?.data ?? {}).reduce((sum, dataset) => sum + (dataset.issues?.length ?? 0), 0);
   return salesIssues
@@ -114,6 +121,7 @@ watch(tenantId, () => {
 watch(activeBook, () => {
   lastShareLink.value = null;
   shareMessage.value = null;
+  shareError.value = null;
 });
 
 async function initialize(): Promise<void> {
@@ -199,12 +207,22 @@ function selectAccountantContact(contactId: string): void {
   sharePhone.value = contact.phone ?? '';
 }
 
+function openShareModal(): void {
+  shareMessage.value = null;
+  shareError.value = null;
+  shareModalOpen.value = true;
+}
+
+function closeShareModal(): void {
+  shareModalOpen.value = false;
+}
+
 async function emailAnnex(book: string): Promise<void> {
   if (!shareRecipientEmail.value || !selectedEmpresa.value) return;
 
   sharing.value = 'email';
   shareMessage.value = null;
-  error.value = null;
+  shareError.value = null;
 
   try {
     const recipient = { email: shareRecipientEmail.value, name: shareRecipientName.value || undefined };
@@ -215,7 +233,7 @@ async function emailAnnex(book: string): Promise<void> {
     }
     shareMessage.value = `Anexo enviado a ${shareRecipientEmail.value}.`;
   } catch (caught) {
-    error.value = messageFromError(caught);
+    shareError.value = messageFromError(caught);
   } finally {
     sharing.value = null;
   }
@@ -226,7 +244,7 @@ async function generateShareLink(book: string): Promise<void> {
 
   sharing.value = 'link';
   shareMessage.value = null;
-  error.value = null;
+  shareError.value = null;
 
   try {
     const link = book === 'documentos_invalidados'
@@ -240,7 +258,7 @@ async function generateShareLink(book: string): Promise<void> {
       shareMessage.value = 'Enlace generado.';
     }
   } catch (caught) {
-    error.value = messageFromError(caught);
+    shareError.value = messageFromError(caught);
   } finally {
     sharing.value = null;
   }
@@ -301,27 +319,12 @@ function messageFromError(caught: unknown): string {
       {{ error }}
     </div>
 
-    <div class="grid gap-4 md:grid-cols-5">
-      <UiPanel variant="raised">
-        <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Ventas contribuyente</p>
-        <p class="mt-3 text-3xl font-black text-slate-950 dark:text-text">{{ documentCounts.ventas_contribuyente }}</p>
-      </UiPanel>
-      <UiPanel variant="raised">
-        <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">DTE consumidor final</p>
-        <p class="mt-3 text-3xl font-black text-slate-950 dark:text-text">{{ documentCounts.ventas_consumidor_final }}</p>
-      </UiPanel>
-      <UiPanel variant="raised">
-        <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Compras</p>
-        <p class="mt-3 text-3xl font-black text-slate-950 dark:text-text">{{ counts.compras }}</p>
-      </UiPanel>
-      <UiPanel variant="raised">
-        <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Invalidados</p>
-        <p class="mt-3 text-3xl font-black text-slate-950 dark:text-text">{{ counts.documentos_invalidados }}</p>
-      </UiPanel>
-      <UiPanel variant="raised">
-        <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Observaciones</p>
-        <p class="mt-3 text-3xl font-black" :class="totalIssues ? 'text-amber-600 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'">{{ totalIssues }}</p>
-      </UiPanel>
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <UiMetricCard label="Ventas contribuyente" :value="documentCounts.ventas_contribuyente" />
+      <UiMetricCard label="DTE consumidor final" :value="documentCounts.ventas_consumidor_final" />
+      <UiMetricCard label="Compras" :value="counts.compras" />
+      <UiMetricCard label="Invalidados" :value="counts.documentos_invalidados" />
+      <UiMetricCard label="Observaciones" :value="totalIssues" :tone="totalIssues ? 'warning' : 'success'" />
     </div>
 
     <UiPanel variant="raised">
@@ -338,10 +341,21 @@ function messageFromError(caught: unknown): string {
             {{ bookLabels[key] }}
           </button>
         </div>
-        <UiButton variant="secondary" :disabled="downloading === activeBook || currentDataset.official_rows.length === 0" @click="downloadCsv(activeBook)">
-          <Download class="h-4 w-4" aria-hidden="true" />
-          Descargar CSV
-        </UiButton>
+        <div class="flex flex-wrap items-center gap-2">
+          <UiButton
+            v-if="shareableBooks.includes(activeBook)"
+            variant="secondary"
+            :disabled="currentDataset.official_rows.length === 0"
+            @click="openShareModal"
+          >
+            <Share2 class="h-4 w-4" aria-hidden="true" />
+            Compartir
+          </UiButton>
+          <UiButton variant="primary" :disabled="downloading === activeBook || currentDataset.official_rows.length === 0" @click="downloadCsv(activeBook)">
+            <Download class="h-4 w-4" aria-hidden="true" />
+            Descargar CSV
+          </UiButton>
+        </div>
       </div>
 
       <div v-if="currentDataset.issues.length" class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
@@ -352,41 +366,6 @@ function messageFromError(caught: unknown): string {
         <ul class="mt-2 space-y-1">
           <li v-for="issue in currentDataset.issues" :key="issue">{{ issue }}</li>
         </ul>
-      </div>
-
-      <div v-if="shareableBooks.includes(activeBook)" class="mt-4 rounded-md border border-slate-200 p-4 dark:border-line">
-        <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Compartir con el contador</p>
-        <div class="mt-3 grid gap-3 md:grid-cols-2">
-          <UiSelect
-            v-if="accountantContacts.length"
-            label="Contacto guardado"
-            :model-value="null"
-            :options="accountantContacts.map((contact) => ({ value: contact.id, label: `${contact.name} (${contact.email})` }))"
-            placeholder="Seleccionar contacto..."
-            @update:model-value="selectAccountantContact(String($event))"
-          />
-          <UiInput v-model="shareRecipientEmail" label="Correo" type="email" placeholder="contador@empresa.com" />
-          <UiInput v-model="shareRecipientName" label="Nombre (opcional)" />
-          <UiInput v-model="sharePhone" label="Teléfono WhatsApp (opcional)" placeholder="7000 0000" />
-        </div>
-        <div class="mt-3 flex flex-wrap items-center gap-2">
-          <UiButton variant="secondary" :disabled="sharing !== null || !shareRecipientEmail" @click="emailAnnex(activeBook)">
-            <Mail class="h-4 w-4" aria-hidden="true" />
-            Enviar por correo
-          </UiButton>
-          <UiButton variant="secondary" :disabled="sharing !== null" @click="generateShareLink(activeBook)">
-            <Link2 class="h-4 w-4" aria-hidden="true" />
-            Compartir enlace
-          </UiButton>
-          <UiButton variant="secondary" :disabled="sharing !== null || !sharePhone" @click="sendAnnexWhatsApp(activeBook)">
-            <MessageCircle class="h-4 w-4" aria-hidden="true" />
-            Enviar por WhatsApp
-          </UiButton>
-        </div>
-        <p v-if="shareMessage" class="mt-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">{{ shareMessage }}</p>
-        <p v-if="lastShareLink" class="mt-1 text-xs text-slate-500 dark:text-soft">
-          Vence: {{ new Date(lastShareLink.expiresAt * 1000).toLocaleString('es-SV') }}
-        </p>
       </div>
 
       <div class="mt-4 overflow-hidden rounded-md border border-slate-200 dark:border-line">
@@ -428,5 +407,80 @@ function messageFromError(caught: unknown): string {
         <UiStatusBadge tone="success">{{ currentDataset.official_rows.length }} filas listas</UiStatusBadge>
       </div>
     </UiPanel>
+
+    <UiModalShell
+      :open="shareModalOpen"
+      title="Compartir anexo"
+      :description="`${bookLabels[activeBook]}${sharePeriodLabel ? ` · ${sharePeriodLabel}` : ''}`"
+      max-width="max-w-lg"
+      @close="closeShareModal"
+    >
+      <div class="space-y-5">
+        <div class="space-y-3">
+          <UiSelect
+            v-if="shareContactOptions.length"
+            label="Contacto guardado"
+            :model-value="null"
+            :options="shareContactOptions"
+            placeholder="Elegir un contacto del contador..."
+            @update:model-value="selectAccountantContact(String($event))"
+          />
+          <div class="grid gap-3 sm:grid-cols-2">
+            <UiEmailInput v-model="shareRecipientEmail" label="Correo del contador" placeholder="contador@empresa.com" />
+            <UiInput v-model="shareRecipientName" label="Nombre (opcional)" placeholder="Nombre del contador" />
+          </div>
+          <UiPhoneInput v-model="sharePhone" label="Teléfono (opcional, para WhatsApp)" />
+        </div>
+
+        <div class="overflow-hidden rounded-md border border-slate-200 dark:border-line">
+          <div class="flex items-center justify-between gap-4 p-4">
+            <div class="flex min-w-0 items-start gap-3">
+              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-sky-100 text-sky-700 dark:bg-primary-soft dark:text-primary"><Mail class="h-4 w-4" aria-hidden="true" /></span>
+              <div class="min-w-0">
+                <p class="font-bold text-slate-950 dark:text-text">Enviar por correo</p>
+                <p class="text-xs text-slate-500 dark:text-soft">El CSV se adjunta al correo indicado.</p>
+              </div>
+            </div>
+            <UiButton size="sm" :disabled="sharing !== null || !shareRecipientEmail" @click="emailAnnex(activeBook)">Enviar</UiButton>
+          </div>
+          <div class="flex items-center justify-between gap-4 border-t border-slate-200 p-4 dark:border-line">
+            <div class="flex min-w-0 items-start gap-3">
+              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-sky-100 text-sky-700 dark:bg-primary-soft dark:text-primary"><Link2 class="h-4 w-4" aria-hidden="true" /></span>
+              <div class="min-w-0">
+                <p class="font-bold text-slate-950 dark:text-text">Generar enlace</p>
+                <p class="text-xs text-slate-500 dark:text-soft">Vence en 7 días. Se copia al portapapeles.</p>
+              </div>
+            </div>
+            <UiButton size="sm" variant="secondary" :disabled="sharing !== null" @click="generateShareLink(activeBook)">Generar</UiButton>
+          </div>
+          <div class="flex items-center justify-between gap-4 border-t border-slate-200 p-4 dark:border-line">
+            <div class="flex min-w-0 items-start gap-3">
+              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-emerald-100 text-emerald-700 dark:bg-success/10 dark:text-success"><MessageCircle class="h-4 w-4" aria-hidden="true" /></span>
+              <div class="min-w-0">
+                <p class="font-bold text-slate-950 dark:text-text">Enviar por WhatsApp</p>
+                <p class="text-xs text-slate-500 dark:text-soft">Abre WhatsApp con el enlace listo para enviar.</p>
+              </div>
+            </div>
+            <UiButton size="sm" variant="success" :disabled="sharing !== null || !sharePhone" @click="sendAnnexWhatsApp(activeBook)">Enviar</UiButton>
+          </div>
+        </div>
+
+        <p v-if="shareError" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+          {{ shareError }}
+        </p>
+        <p v-if="shareMessage" class="flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">
+          <CircleCheck class="h-4 w-4 shrink-0" aria-hidden="true" />
+          {{ shareMessage }}
+        </p>
+        <p v-if="lastShareLink" class="flex items-center gap-2 text-xs text-slate-500 dark:text-soft">
+          <Clock class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          Enlace vence el {{ new Date(lastShareLink.expiresAt * 1000).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' }) }}
+        </p>
+      </div>
+
+      <template #footer>
+        <UiButton variant="secondary" @click="closeShareModal">Listo</UiButton>
+      </template>
+    </UiModalShell>
   </section>
 </template>
