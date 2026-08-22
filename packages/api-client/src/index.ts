@@ -4802,14 +4802,24 @@ export class CoreDteClient {
       .json();
   }
 
-  salesAnnexEmail(
+  salesAnnexZipLink(
     book: DteSalesAnnexBookKey,
+    params: { empresa_id?: number; from?: string; to?: string } = {},
+  ): Promise<{ url: string; expires_at: number }> {
+    return this.http
+      .post(`dte/annexes/sales/${book}/zip-link`, {
+        searchParams: compactParams(params),
+      })
+      .json();
+  }
+
+  annexBundleEmail(
     recipient: { email: string; name?: string | null },
     params: { empresa_id?: number; from?: string; to?: string; subject?: string; cc?: string[] } = {},
   ): Promise<{ data: Record<string, unknown> }> {
     const { subject, cc, ...searchParams } = params;
     return this.http
-      .post(`dte/annexes/sales/${book}/email`, {
+      .post("dte/annexes/share/email", {
         searchParams: compactParams(searchParams),
         json: { recipient, subject, cc },
       })
@@ -4822,19 +4832,6 @@ export class CoreDteClient {
     return this.http
       .post("dte/annexes/invalidated/share-link", {
         searchParams: compactParams(params),
-      })
-      .json();
-  }
-
-  invalidatedAnnexEmail(
-    recipient: { email: string; name?: string | null },
-    params: { empresa_id?: number; from?: string; to?: string; subject?: string; cc?: string[] } = {},
-  ): Promise<{ data: Record<string, unknown> }> {
-    const { subject, cc, ...searchParams } = params;
-    return this.http
-      .post("dte/annexes/invalidated/email", {
-        searchParams: compactParams(searchParams),
-        json: { recipient, subject, cc },
       })
       .json();
   }

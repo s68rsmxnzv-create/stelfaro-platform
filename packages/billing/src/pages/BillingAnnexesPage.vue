@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { CoreDteClient, PlatformClient, type DteInvalidatedAnnexResponse, type DteSalesAnnexBookKey, type DteSalesAnnexResponse, type PlatformPurchaseAnnexResponse } from '@stelfaro/api-client';
-import { UiButton, UiEmailInput, UiInput, UiMetricCard, UiModalShell, UiPanel, UiPhoneInput, UiStatusBadge } from '@stelfaro/ui';
-import { CircleCheck, Clock, Download, Eye, FileSpreadsheet, Link2, Mail, MessageCircle, Plus, Share2, Trash2, TriangleAlert } from 'lucide-vue-next';
+import { UiButton, UiEmailInput, UiInput, UiMetricCard, UiModalShell, UiPanel, UiPhoneInput, UiSearchSelect, UiStatusBadge } from '@stelfaro/ui';
+import { Archive, CircleCheck, Clock, Download, Eye, FileSpreadsheet, Link2, Mail, MessageCircle, Plus, Share2, Trash2, TriangleAlert } from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
 import { annexWhatsAppUrl } from '../annexWhatsApp';
 import { getBillingContext, peekBillingContext } from '../support/billingDataCache';
@@ -41,7 +41,7 @@ const shareRecipientEmail = ref('');
 const shareRecipientName = ref('');
 const sharePhone = ref('');
 const shareCcInput = ref('');
-const sharing = ref<'email' | 'link' | null>(null);
+const sharing = ref<'email' | 'link' | 'zip' | null>(null);
 const shareMessage = ref<string | null>(null);
 const shareError = ref<string | null>(null);
 const lastShareLink = ref<{ url: string; expiresAt: number } | null>(null);
@@ -49,8 +49,10 @@ const lastMessageId = ref<number | null>(null);
 const emailStatus = ref<{ status: string; sent_at: string | null; opened_at: string | null; open_count: number } | null>(null);
 const checkingStatus = ref(false);
 const addingContact = ref(false);
+const showNewContactForm = ref(false);
 const contactError = ref<string | null>(null);
 const newContact = reactive({ name: '', email: '', phone: '' });
+const selectedContactId = ref<string | null>(null);
 
 const filters = reactive({
   from: firstDayOfMonth(),
@@ -97,6 +99,11 @@ const counts = computed(() => ({
   compras: purchaseAnnex.value?.meta?.counts?.compras ?? 0,
   documentos_invalidados: invalidatedAnnex.value?.meta?.counts?.documentos_invalidados ?? 0
 }));
+const hasShareableDocuments = computed(() => (
+  counts.value.ventas_contribuyente > 0
+  || counts.value.ventas_consumidor_final > 0
+  || counts.value.documentos_invalidados > 0
+));
 const documentCounts = computed(() => ({
   ventas_contribuyente: counts.value.ventas_contribuyente,
   ventas_consumidor_final: sumDocumentCount(annex.value?.data?.ventas_consumidor_final?.preview, counts.value.ventas_consumidor_final),
@@ -110,6 +117,11 @@ const ccList = computed(() => Array.from(new Set(
     .filter((value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
 )).slice(0, MAX_CC_RECIPIENTS));
 const canAddAccountantContact = computed(() => accountantContacts.value.length < MAX_ACCOUNTANT_CONTACTS);
+const contactOptions = computed(() => accountantContacts.value.map((contact) => ({
+  value: String(contact.id),
+  label: contact.name,
+  hint: contact.email
+})));
 const sharePeriodLabel = computed(() => {
   if (!filters.from && !filters.to) return '';
   return `${filters.from || 'inicio'} al ${filters.to || 'hoy'}`;
@@ -215,6 +227,8 @@ async function loadAccountantContacts(): Promise<void> {
 }
 
 function selectAccountantContact(contactId: string): void {
+  selectedContactId.value = contactId || null;
+
   const contact = accountantContacts.value.find((item) => String(item.id) === contactId);
   if (!contact) return;
   shareRecipientEmail.value = contact.email;
@@ -228,6 +242,8 @@ function openShareModal(): void {
   contactError.value = null;
   lastMessageId.value = null;
   emailStatus.value = null;
+  selectedContactId.value = null;
+  showNewContactForm.value = false;
   shareModalOpen.value = true;
 }
 
@@ -235,7 +251,7 @@ function closeShareModal(): void {
   shareModalOpen.value = false;
 }
 
-async function emailAnnex(book: string): Promise<void> {
+async function emailAnnex(): Promise<void> {
   if (!shareRecipientEmail.value || !selectedEmpresa.value) return;
 
   sharing.value = 'email';
@@ -247,14 +263,12 @@ async function emailAnnex(book: string): Promise<void> {
   try {
     const recipient = { email: shareRecipientEmail.value, name: shareRecipientName.value || undefined };
     const params = { ...requestParams.value, cc: ccList.value.length ? ccList.value : undefined };
-    const response = book === 'documentos_invalidados'
-      ? await client.value.invalidatedAnnexEmail(recipient, params)
-      : await client.value.salesAnnexEmail(book as DteSalesAnnexBookKey, recipient, params);
+    const response = await client.value.annexBundleEmail(recipient, params);
     const messageId = Number((response as { data?: { id?: unknown } })?.data?.id);
     if (Number.isFinite(messageId)) lastMessageId.value = messageId;
     shareMessage.value = ccList.value.length
-      ? `Anexo enviado a ${shareRecipientEmail.value} con copia a ${ccList.value.length} destinatario(s).`
-      : `Anexo enviado a ${shareRecipientEmail.value}.`;
+      ? `Anexos enviados a ${shareRecipientEmail.value} con copia a ${ccList.value.length} destinatario(s).`
+      : `Anexos enviados a ${shareRecipientEmail.value}.`;
   } catch (caught) {
     shareError.value = messageFromError(caught);
   } finally {
@@ -291,6 +305,7 @@ async function addAccountantContact(): Promise<void> {
     newContact.name = '';
     newContact.email = '';
     newContact.phone = '';
+    showNewContactForm.value = false;
   } catch (caught) {
     contactError.value = messageFromError(caught);
   } finally {
@@ -304,6 +319,7 @@ async function removeAccountantContact(contactId: number): Promise<void> {
   try {
     await platformClient.value.deleteAccountantContact(tenantId.value, contactId);
     accountantContacts.value = accountantContacts.value.filter((contact) => contact.id !== contactId);
+    if (selectedContactId.value === String(contactId)) selectedContactId.value = null;
   } catch (caught) {
     contactError.value = messageFromError(caught);
   }
@@ -326,6 +342,30 @@ async function generateShareLink(book: string): Promise<void> {
       shareMessage.value = 'Enlace copiado al portapapeles.';
     } catch {
       shareMessage.value = 'Enlace generado.';
+    }
+  } catch (caught) {
+    shareError.value = messageFromError(caught);
+  } finally {
+    sharing.value = null;
+  }
+}
+
+async function downloadZipPackage(): Promise<void> {
+  if (!selectedEmpresa.value || activeBook.value === 'documentos_invalidados') return;
+
+  sharing.value = 'zip';
+  shareMessage.value = null;
+  shareError.value = null;
+
+  try {
+    const link = await client.value.salesAnnexZipLink(activeBook.value as DteSalesAnnexBookKey, requestParams.value);
+    lastShareLink.value = { url: link.url, expiresAt: link.expires_at };
+    window.open(link.url, '_blank', 'noopener');
+    try {
+      await navigator.clipboard.writeText(link.url);
+      shareMessage.value = 'Enlace del ZIP copiado al portapapeles. La descarga se abrió en una pestaña nueva.';
+    } catch {
+      shareMessage.value = 'Enlace del ZIP generado. La descarga se abrió en una pestaña nueva.';
     }
   } catch (caught) {
     shareError.value = messageFromError(caught);
@@ -415,7 +455,7 @@ function messageFromError(caught: unknown): string {
           <UiButton
             v-if="shareableBooks.includes(activeBook)"
             variant="secondary"
-            :disabled="currentDataset.official_rows.length === 0"
+            :disabled="!hasShareableDocuments"
             @click="openShareModal"
           >
             <Share2 class="h-4 w-4" aria-hidden="true" />
@@ -480,94 +520,106 @@ function messageFromError(caught: unknown): string {
 
     <UiModalShell
       :open="shareModalOpen"
-      title="Compartir anexo"
+      title="Compartir anexos"
       :description="`${bookLabels[activeBook]}${sharePeriodLabel ? ` · ${sharePeriodLabel}` : ''}`"
-      max-width="max-w-lg"
+      max-width="max-w-2xl"
       @close="closeShareModal"
     >
-      <div class="space-y-5">
-        <div class="space-y-3">
-          <div>
-            <div class="flex items-center justify-between">
-              <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Contactos frecuentes</p>
-              <span class="text-xs text-slate-400 dark:text-soft">{{ accountantContacts.length }}/{{ MAX_ACCOUNTANT_CONTACTS }}</span>
-            </div>
-            <ul v-if="accountantContacts.length" class="mt-2 space-y-1.5">
-              <li
-                v-for="contact in accountantContacts"
-                :key="contact.id"
-                class="flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-line dark:bg-surface-muted"
+      <div class="space-y-4">
+        <div class="grid gap-5 md:grid-cols-2">
+          <div class="space-y-3">
+            <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Destinatario</p>
+
+            <div v-if="accountantContacts.length" class="flex items-end gap-2">
+              <UiSearchSelect
+                :model-value="selectedContactId"
+                label="Contacto guardado"
+                placeholder="Buscar por nombre o correo"
+                clearable
+                clear-label="Nuevo destinatario"
+                :options="contactOptions"
+                class="min-w-0 flex-1"
+                @update:model-value="selectAccountantContact"
+              />
+              <UiButton
+                v-if="selectedContactId"
+                variant="secondary"
+                icon-only
+                aria-label="Eliminar contacto guardado"
+                @click="removeAccountantContact(Number(selectedContactId))"
               >
-                <button type="button" class="min-w-0 flex-1 text-left" @click="selectAccountantContact(String(contact.id))">
-                  <span class="block truncate font-bold text-slate-950 dark:text-text">{{ contact.name }}</span>
-                  <span class="block truncate text-xs text-slate-500 dark:text-soft">{{ contact.email }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="grid h-7 w-7 shrink-0 place-items-center rounded-md text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-soft dark:hover:bg-danger-soft dark:hover:text-danger"
-                  aria-label="Eliminar contacto"
-                  @click="removeAccountantContact(contact.id)"
-                >
-                  <Trash2 class="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
-              </li>
-            </ul>
-            <p v-else class="mt-2 text-xs text-slate-500 dark:text-soft">Aún no tienes contactos guardados. Agrega hasta {{ MAX_ACCOUNTANT_CONTACTS }} para reutilizarlos aquí.</p>
-            <div v-if="canAddAccountantContact" class="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-              <UiInput v-model="newContact.name" placeholder="Nombre" hide-label label="Nombre" />
-              <UiInput v-model="newContact.email" type="email" placeholder="Correo" hide-label label="Correo" />
-              <UiButton variant="secondary" icon-only :disabled="addingContact || !newContact.name.trim() || !newContact.email.trim()" aria-label="Agregar contacto" @click="addAccountantContact">
-                <Plus class="h-4 w-4" aria-hidden="true" />
+                <Trash2 class="h-4 w-4" aria-hidden="true" />
               </UiButton>
             </div>
-            <p v-if="contactError" class="mt-1 text-xs font-semibold text-red-600 dark:text-red-300">{{ contactError }}</p>
-          </div>
 
-          <div class="grid gap-3 sm:grid-cols-2">
             <UiEmailInput v-model="shareRecipientEmail" label="Correo del contador" placeholder="contador@empresa.com" />
             <UiInput v-model="shareRecipientName" label="Nombre (opcional)" placeholder="Nombre del contador" />
-          </div>
-          <UiInput
-            v-model="shareCcInput"
-            label="Con copia (CC, opcional)"
-            placeholder="otro@empresa.com, contabilidad@empresa.com"
-          />
-          <p v-if="shareCcInput" class="text-xs text-slate-500 dark:text-soft">
-            {{ ccList.length }} de {{ MAX_CC_RECIPIENTS }} correo(s) válidos en copia.
-          </p>
-          <UiPhoneInput v-model="sharePhone" label="Teléfono (opcional, para WhatsApp)" />
-        </div>
+            <UiInput
+              v-model="shareCcInput"
+              label="Con copia (CC, opcional)"
+              placeholder="otro@empresa.com, contabilidad@empresa.com"
+            />
+            <p v-if="shareCcInput" class="text-xs text-slate-500 dark:text-soft">
+              {{ ccList.length }} de {{ MAX_CC_RECIPIENTS }} correo(s) válidos en copia.
+            </p>
+            <UiPhoneInput v-model="sharePhone" label="Teléfono (opcional, para WhatsApp)" />
 
-        <div class="overflow-hidden rounded-md border border-slate-200 dark:border-line">
-          <div class="flex items-center justify-between gap-4 p-4">
-            <div class="flex min-w-0 items-start gap-3">
-              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-sky-100 text-sky-700 dark:bg-primary-soft dark:text-primary"><Mail class="h-4 w-4" aria-hidden="true" /></span>
-              <div class="min-w-0">
-                <p class="font-bold text-slate-950 dark:text-text">Enviar por correo</p>
-                <p class="text-xs text-slate-500 dark:text-soft">El CSV se adjunta al correo indicado.</p>
+            <div v-if="canAddAccountantContact">
+              <button
+                v-if="!showNewContactForm"
+                type="button"
+                class="flex items-center gap-1 text-xs font-bold text-sky-700 hover:underline dark:text-primary"
+                @click="showNewContactForm = true"
+              >
+                <Plus class="h-3.5 w-3.5" aria-hidden="true" />
+                Guardar como contacto frecuente
+              </button>
+              <div v-else class="grid gap-2 rounded-md border border-slate-200 p-3 dark:border-line sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                <UiInput v-model="newContact.name" placeholder="Nombre" hide-label label="Nombre" />
+                <UiInput v-model="newContact.email" type="email" placeholder="Correo" hide-label label="Correo" />
+                <UiButton variant="secondary" icon-only :disabled="addingContact || !newContact.name.trim() || !newContact.email.trim()" aria-label="Guardar contacto" @click="addAccountantContact">
+                  <Plus class="h-4 w-4" aria-hidden="true" />
+                </UiButton>
               </div>
+              <p v-if="contactError" class="mt-1 text-xs font-semibold text-red-600 dark:text-red-300">{{ contactError }}</p>
             </div>
-            <UiButton size="sm" :disabled="sharing !== null || !shareRecipientEmail" @click="emailAnnex(activeBook)">Enviar</UiButton>
           </div>
-          <div class="flex items-center justify-between gap-4 border-t border-slate-200 p-4 dark:border-line">
-            <div class="flex min-w-0 items-start gap-3">
-              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-sky-100 text-sky-700 dark:bg-primary-soft dark:text-primary"><Link2 class="h-4 w-4" aria-hidden="true" /></span>
-              <div class="min-w-0">
-                <p class="font-bold text-slate-950 dark:text-text">Generar enlace</p>
-                <p class="text-xs text-slate-500 dark:text-soft">Vence en 7 días. Se copia al portapapeles.</p>
+
+          <div class="space-y-3">
+            <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Acciones</p>
+            <div class="overflow-hidden rounded-md border border-slate-200 dark:border-line">
+              <div class="flex items-center justify-between gap-3 p-3">
+                <div class="flex min-w-0 items-center gap-2.5">
+                  <span class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-sky-100 text-sky-700 dark:bg-primary-soft dark:text-primary"><Mail class="h-4 w-4" aria-hidden="true" /></span>
+                  <p class="min-w-0 truncate font-bold text-slate-950 dark:text-text">Enviar por correo</p>
+                </div>
+                <UiButton size="sm" :disabled="sharing !== null || !shareRecipientEmail" @click="emailAnnex()">Enviar</UiButton>
+              </div>
+              <div class="flex items-center justify-between gap-3 border-t border-slate-200 p-3 dark:border-line">
+                <div class="flex min-w-0 items-center gap-2.5">
+                  <span class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-sky-100 text-sky-700 dark:bg-primary-soft dark:text-primary"><Link2 class="h-4 w-4" aria-hidden="true" /></span>
+                  <p class="min-w-0 truncate font-bold text-slate-950 dark:text-text">Generar enlace</p>
+                </div>
+                <UiButton size="sm" variant="secondary" :disabled="sharing !== null" @click="generateShareLink(activeBook)">Generar</UiButton>
+              </div>
+              <div class="flex items-center justify-between gap-3 border-t border-slate-200 p-3 dark:border-line">
+                <div class="flex min-w-0 items-center gap-2.5">
+                  <span class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-emerald-100 text-emerald-700 dark:bg-success/10 dark:text-success"><MessageCircle class="h-4 w-4" aria-hidden="true" /></span>
+                  <p class="min-w-0 truncate font-bold text-slate-950 dark:text-text">Enviar por WhatsApp</p>
+                </div>
+                <UiButton size="sm" variant="success" :disabled="sharing !== null || !sharePhone" @click="sendAnnexWhatsApp(activeBook)">Enviar</UiButton>
+              </div>
+              <div v-if="activeBook !== 'documentos_invalidados'" class="flex items-center justify-between gap-3 border-t border-slate-200 p-3 dark:border-line">
+                <div class="flex min-w-0 items-center gap-2.5">
+                  <span class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-amber-100 text-amber-700 dark:bg-warning/10 dark:text-warning"><Archive class="h-4 w-4" aria-hidden="true" /></span>
+                  <p class="min-w-0 truncate font-bold text-slate-950 dark:text-text">Descargar paquete ZIP</p>
+                </div>
+                <UiButton size="sm" variant="secondary" :disabled="sharing !== null" @click="downloadZipPackage">Descargar</UiButton>
               </div>
             </div>
-            <UiButton size="sm" variant="secondary" :disabled="sharing !== null" @click="generateShareLink(activeBook)">Generar</UiButton>
-          </div>
-          <div class="flex items-center justify-between gap-4 border-t border-slate-200 p-4 dark:border-line">
-            <div class="flex min-w-0 items-start gap-3">
-              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-emerald-100 text-emerald-700 dark:bg-success/10 dark:text-success"><MessageCircle class="h-4 w-4" aria-hidden="true" /></span>
-              <div class="min-w-0">
-                <p class="font-bold text-slate-950 dark:text-text">Enviar por WhatsApp</p>
-                <p class="text-xs text-slate-500 dark:text-soft">Abre WhatsApp con el enlace listo para enviar.</p>
-              </div>
-            </div>
-            <UiButton size="sm" variant="success" :disabled="sharing !== null || !sharePhone" @click="sendAnnexWhatsApp(activeBook)">Enviar</UiButton>
+            <p class="text-xs text-slate-500 dark:text-soft">
+              El correo adjunta un CSV por cada anexo con datos en el periodo (ventas, consumidor final e invalidados). El enlace, el ZIP y WhatsApp comparten solo el libro activo y vencen en 7 días.
+            </p>
           </div>
         </div>
 
