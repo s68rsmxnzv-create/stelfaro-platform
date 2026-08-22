@@ -49,9 +49,7 @@ const lastMessageId = ref<number | null>(null);
 const emailStatus = ref<{ status: string; sent_at: string | null; opened_at: string | null; open_count: number } | null>(null);
 const statusPolling = ref(false);
 const addingContact = ref(false);
-const showNewContactForm = ref(false);
 const contactError = ref<string | null>(null);
-const newContact = reactive({ name: '', email: '', phone: '' });
 const selectedContactId = ref<string | null>(null);
 
 const historyModalOpen = ref(false);
@@ -157,7 +155,6 @@ watch(activeBook, () => {
   shareError.value = null;
   lastMessageId.value = null;
   emailStatus.value = null;
-  showNewContactForm.value = false;
   stopStatusPolling();
 });
 
@@ -257,7 +254,6 @@ function openShareModal(): void {
   lastMessageId.value = null;
   emailStatus.value = null;
   selectedContactId.value = null;
-  showNewContactForm.value = false;
   shareModalOpen.value = true;
 }
 
@@ -318,7 +314,6 @@ async function emailAnnex(): Promise<void> {
   lastMessageId.value = null;
   emailStatus.value = null;
   lastShareLink.value = null;
-  showNewContactForm.value = false;
   stopStatusPolling();
 
   try {
@@ -341,22 +336,19 @@ async function emailAnnex(): Promise<void> {
 }
 
 async function addAccountantContact(): Promise<void> {
-  if (!tenantId.value || !newContact.name.trim() || !newContact.email.trim()) return;
+  if (!tenantId.value || !shareRecipientName.value.trim() || !shareRecipientEmail.value.trim()) return;
 
   addingContact.value = true;
   contactError.value = null;
 
   try {
     const { contact } = await platformClient.value.createAccountantContact(tenantId.value, {
-      name: newContact.name.trim(),
-      email: newContact.email.trim(),
-      phone: newContact.phone.trim() || null
+      name: shareRecipientName.value.trim(),
+      email: shareRecipientEmail.value.trim(),
+      phone: sharePhone.value.trim() || null
     });
     accountantContacts.value = [...accountantContacts.value, contact];
-    newContact.name = '';
-    newContact.email = '';
-    newContact.phone = '';
-    showNewContactForm.value = false;
+    selectedContactId.value = String(contact.id);
   } catch (caught) {
     contactError.value = messageFromError(caught);
   } finally {
@@ -384,7 +376,6 @@ async function generateShareLink(book: string): Promise<void> {
   shareError.value = null;
   lastMessageId.value = null;
   emailStatus.value = null;
-  showNewContactForm.value = false;
   stopStatusPolling();
 
   try {
@@ -413,7 +404,6 @@ async function downloadZipPackage(): Promise<void> {
   shareError.value = null;
   lastMessageId.value = null;
   emailStatus.value = null;
-  showNewContactForm.value = false;
   stopStatusPolling();
 
   try {
@@ -677,21 +667,14 @@ function messageFromError(caught: unknown): string {
 
             <div v-if="canAddAccountantContact">
               <button
-                v-if="!showNewContactForm"
                 type="button"
-                class="flex items-center gap-1 text-xs font-bold text-sky-700 hover:underline dark:text-primary"
-                @click="showNewContactForm = true"
+                class="flex items-center gap-1 text-xs font-bold text-sky-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:no-underline dark:text-primary"
+                :disabled="addingContact || !shareRecipientName.trim() || !shareRecipientEmail.trim()"
+                @click="addAccountantContact"
               >
                 <Plus class="h-3.5 w-3.5" aria-hidden="true" />
-                Guardar como contacto frecuente
+                {{ addingContact ? 'Guardando...' : 'Guardar como contacto frecuente' }}
               </button>
-              <div v-else class="grid gap-2 rounded-md border border-slate-200 p-3 dark:border-line sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                <UiInput v-model="newContact.name" placeholder="Nombre" hide-label label="Nombre" />
-                <UiInput v-model="newContact.email" type="email" placeholder="Correo" hide-label label="Correo" />
-                <UiButton variant="secondary" icon-only :disabled="addingContact || !newContact.name.trim() || !newContact.email.trim()" aria-label="Guardar contacto" @click="addAccountantContact">
-                  <Plus class="h-4 w-4" aria-hidden="true" />
-                </UiButton>
-              </div>
               <p v-if="contactError" class="mt-1 text-xs font-semibold text-red-600 dark:text-red-300">{{ contactError }}</p>
             </div>
           </div>
