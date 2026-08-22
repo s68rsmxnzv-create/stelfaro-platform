@@ -641,11 +641,11 @@ function messageFromError(caught: unknown): string {
           <div class="space-y-3">
             <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Destinatario</p>
 
-            <div v-if="accountantContacts.length" class="flex items-end gap-2">
+            <div class="flex items-end gap-2">
               <UiSearchSelect
                 :model-value="selectedContactId"
                 label="Contacto guardado"
-                placeholder="Buscar por nombre o correo"
+                :placeholder="accountantContacts.length ? 'Buscar por nombre o correo' : 'Aún no tienes contactos guardados'"
                 clearable
                 clear-label="Nuevo destinatario"
                 :options="contactOptions"
