@@ -1513,6 +1513,13 @@ export type NotificationSenderAliasPayload = {
   metadata?: Record<string, unknown> | null;
 };
 
+export type NotificationMessagePurpose = {
+  purpose: string;
+  source_type: string;
+  message_count: number;
+  last_used_at: string | null;
+};
+
 export type NotificationAction = {
   id: number;
   notification_activity_id: number;
@@ -2576,6 +2583,10 @@ export class NotificationsClient {
     payload: Partial<NotificationSenderAliasPayload>,
   ): Promise<{ data: NotificationSenderAlias }> {
     return this.http.patch(`sender-aliases/${id}`, { json: payload }).json();
+  }
+
+  messagePurposes(): Promise<{ data: NotificationMessagePurpose[] }> {
+    return this.http.get("messages/purposes").json();
   }
 
   activities(
