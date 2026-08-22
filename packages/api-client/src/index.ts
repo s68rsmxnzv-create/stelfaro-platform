@@ -4842,6 +4842,29 @@ export class CoreDteClient {
       .json();
   }
 
+  annexEmailHistory(
+    params: { empresa_id?: number; page?: number; per_page?: number } = {},
+  ): Promise<{
+    data: Array<{
+      id: number;
+      recipient_email: string | null;
+      recipient_name: string | null;
+      books: string[];
+      from: string | null;
+      to: string | null;
+      requested_by: string | null;
+      status: string | null;
+      sent_at: string | null;
+      opened_at: string | null;
+      created_at: string | null;
+    }>;
+    meta: { current_page: number; last_page: number; per_page: number; total: number };
+  }> {
+    return this.http
+      .get('dte/annexes/email-history', { searchParams: compactParams(params) })
+      .json();
+  }
+
   dashboardSummary(
     params: { empresa_id?: number } = {},
   ): Promise<DteDashboardSummary> {

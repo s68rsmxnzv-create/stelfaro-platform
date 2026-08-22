@@ -2,7 +2,7 @@
 // @ts-nocheck
 import { CoreDteClient, PlatformClient, type DteInvalidatedAnnexResponse, type DteSalesAnnexBookKey, type DteSalesAnnexResponse, type PlatformPurchaseAnnexResponse } from '@stelfaro/api-client';
 import { UiButton, UiEmailInput, UiInput, UiMetricCard, UiModalShell, UiPanel, UiPhoneInput, UiSearchSelect, UiStatusBadge } from '@stelfaro/ui';
-import { Archive, CircleCheck, Clock, Download, FileSpreadsheet, Link2, Mail, MessageCircle, Plus, Share2, Trash2, TriangleAlert } from 'lucide-vue-next';
+import { Archive, CircleCheck, Clock, Download, FileSpreadsheet, History, Link2, Mail, MessageCircle, Plus, Share2, Trash2, TriangleAlert } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { annexWhatsAppUrl } from '../annexWhatsApp';
 import { getBillingContext, peekBillingContext } from '../support/billingDataCache';
@@ -53,6 +53,12 @@ const showNewContactForm = ref(false);
 const contactError = ref<string | null>(null);
 const newContact = reactive({ name: '', email: '', phone: '' });
 const selectedContactId = ref<string | null>(null);
+
+const historyModalOpen = ref(false);
+const historyLoading = ref(false);
+const historyError = ref<string | null>(null);
+const historyItems = ref<Awaited<ReturnType<CoreDteClient['annexEmailHistory']>>['data']>([]);
+const historyMeta = ref<{ current_page: number; last_page: number; per_page: number; total: number } | null>(null);
 
 const filters = reactive({
   from: firstDayOfMonth(),
@@ -439,6 +445,50 @@ async function sendAnnexWhatsApp(book: string): Promise<void> {
   if (url) window.open(url, '_blank', 'noopener');
 }
 
+function openHistoryModal(): void {
+  historyModalOpen.value = true;
+  void loadHistoryPage(1);
+}
+
+function closeHistoryModal(): void {
+  historyModalOpen.value = false;
+}
+
+async function loadHistoryPage(page: number): Promise<void> {
+  if (!selectedEmpresa.value) return;
+
+  historyLoading.value = true;
+  historyError.value = null;
+
+  try {
+    const response = await client.value.annexEmailHistory({ empresa_id: selectedEmpresa.value.id, page });
+    historyItems.value = response.data;
+    historyMeta.value = response.meta;
+  } catch (caught) {
+    historyError.value = messageFromError(caught);
+  } finally {
+    historyLoading.value = false;
+  }
+}
+
+function historyStatusLabel(status: string | null): string {
+  if (status === 'sent') return 'Entregado';
+  if (status === 'failed') return 'Falló';
+  if (status === 'waiting_transport') return 'En espera';
+  return 'En proceso';
+}
+
+function historyStatusTone(status: string | null): 'success' | 'danger' | 'info' {
+  if (status === 'sent') return 'success';
+  if (status === 'failed') return 'danger';
+  return 'info';
+}
+
+function formatHistoryDate(value: string | null): string {
+  if (!value) return '—';
+  return new Date(value).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
 function firstDayOfMonth(): string {
   const date = new Date();
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
@@ -518,6 +568,14 @@ function messageFromError(caught: unknown): string {
             <Download class="h-4 w-4" aria-hidden="true" />
             Descargar CSV
           </UiButton>
+          <button
+            type="button"
+            class="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-soft dark:hover:bg-surface-muted dark:hover:text-text"
+            @click="openHistoryModal"
+          >
+            <History class="h-3.5 w-3.5" aria-hidden="true" />
+            Ver historial
+          </button>
         </div>
       </div>
 
@@ -707,6 +765,82 @@ function messageFromError(caught: unknown): string {
 
       <template #footer>
         <UiButton variant="secondary" @click="closeShareModal">Listo</UiButton>
+      </template>
+    </UiModalShell>
+
+    <UiModalShell
+      :open="historyModalOpen"
+      title="Historial de envíos"
+      description="Últimos anexos compartidos por correo para esta empresa"
+      max-width="max-w-3xl"
+      @close="closeHistoryModal"
+    >
+      <div class="space-y-3">
+        <p v-if="historyError" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+          {{ historyError }}
+        </p>
+
+        <div class="overflow-hidden rounded-md border border-slate-200 dark:border-line">
+          <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-line">
+            <thead class="bg-slate-50 dark:bg-surface-muted">
+              <tr>
+                <th class="px-4 py-3 text-left font-black uppercase text-slate-500 dark:text-soft">Enviado</th>
+                <th class="px-4 py-3 text-left font-black uppercase text-slate-500 dark:text-soft">Destinatario</th>
+                <th class="px-4 py-3 text-left font-black uppercase text-slate-500 dark:text-soft">Anexos</th>
+                <th class="px-4 py-3 text-left font-black uppercase text-slate-500 dark:text-soft">Estado</th>
+                <th class="px-4 py-3 text-left font-black uppercase text-slate-500 dark:text-soft">Abierto</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 dark:divide-line">
+              <tr v-for="item in historyItems" :key="item.id">
+                <td class="px-4 py-3 text-slate-700 dark:text-muted">{{ formatHistoryDate(item.sent_at ?? item.created_at) }}</td>
+                <td class="px-4 py-3">
+                  <span class="block font-bold text-slate-950 dark:text-text">{{ item.recipient_name || item.recipient_email }}</span>
+                  <span v-if="item.recipient_name" class="block text-xs text-slate-500 dark:text-soft">{{ item.recipient_email }}</span>
+                </td>
+                <td class="px-4 py-3 text-slate-700 dark:text-muted">{{ item.books.join(', ') || '—' }}</td>
+                <td class="px-4 py-3">
+                  <UiStatusBadge :tone="historyStatusTone(item.status)">{{ historyStatusLabel(item.status) }}</UiStatusBadge>
+                </td>
+                <td class="px-4 py-3 text-slate-700 dark:text-muted">{{ item.opened_at ? formatHistoryDate(item.opened_at) : 'No' }}</td>
+              </tr>
+              <tr v-if="!historyLoading && historyItems.length === 0">
+                <td class="px-4 py-8 text-center text-slate-500 dark:text-muted" colspan="5">Sin envíos registrados todavía.</td>
+              </tr>
+              <tr v-if="historyLoading">
+                <td class="px-4 py-8 text-center text-slate-500 dark:text-muted" colspan="5">Cargando historial...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-if="historyMeta" class="flex items-center justify-between gap-4">
+          <p class="text-xs text-slate-500 dark:text-soft">
+            Página {{ historyMeta.current_page }} de {{ historyMeta.last_page }} · {{ historyMeta.total }} envío(s)
+          </p>
+          <div class="flex gap-2">
+            <UiButton
+              size="sm"
+              variant="secondary"
+              :disabled="historyLoading || historyMeta.current_page <= 1"
+              @click="loadHistoryPage(historyMeta.current_page - 1)"
+            >
+              Anterior
+            </UiButton>
+            <UiButton
+              size="sm"
+              variant="secondary"
+              :disabled="historyLoading || historyMeta.current_page >= historyMeta.last_page"
+              @click="loadHistoryPage(historyMeta.current_page + 1)"
+            >
+              Siguiente
+            </UiButton>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <UiButton variant="secondary" @click="closeHistoryModal">Listo</UiButton>
       </template>
     </UiModalShell>
   </section>
