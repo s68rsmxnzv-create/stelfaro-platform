@@ -260,8 +260,8 @@ function closeShareModal(): void {
   stopStatusPolling();
 }
 
-const STATUS_POLL_INTERVAL_MS = 4000;
-const STATUS_POLL_MAX_ATTEMPTS = 30;
+const STATUS_POLL_INTERVAL_MS = 5000;
+const STATUS_POLL_MAX_ATTEMPTS = 60;
 let statusPollTimer: ReturnType<typeof setInterval> | null = null;
 let statusPollAttempts = 0;
 
@@ -296,8 +296,9 @@ async function pollEmailStatus(): Promise<void> {
     // se reintenta en el siguiente ciclo de polling
   }
 
-  const terminal = emailStatus.value ? ['sent', 'failed'].includes(emailStatus.value.status) : false;
-  if (terminal || statusPollAttempts >= STATUS_POLL_MAX_ATTEMPTS) {
+  const failed = emailStatus.value?.status === 'failed';
+  const opened = Boolean(emailStatus.value?.opened_at);
+  if (failed || opened || statusPollAttempts >= STATUS_POLL_MAX_ATTEMPTS) {
     stopStatusPolling();
   }
 }
