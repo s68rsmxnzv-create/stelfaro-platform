@@ -2,7 +2,7 @@
 // @ts-nocheck
 import { CoreDteClient, PlatformClient, type DteInvalidatedAnnexResponse, type DteSalesAnnexBookKey, type DteSalesAnnexResponse, type PlatformPurchaseAnnexResponse } from '@stelfaro/api-client';
 import { UiButton, UiEmailInput, UiInput, UiMetricCard, UiModalShell, UiPanel, UiPhoneInput, UiSearchSelect, UiStatusBadge } from '@stelfaro/ui';
-import { Archive, CircleCheck, Clock, Download, FileSpreadsheet, History, Link2, Mail, MessageCircle, Plus, Share2, Trash2, TriangleAlert } from 'lucide-vue-next';
+import { Archive, CircleCheck, Clock, Download, FileSpreadsheet, History, Link2, Mail, MessageCircle, Plus, Search, Share2, Trash2, TriangleAlert } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { annexWhatsAppUrl } from '../annexWhatsApp';
 import { getBillingContext, peekBillingContext } from '../support/billingDataCache';
@@ -631,26 +631,39 @@ function messageFromError(caught: unknown): string {
           <div class="space-y-3">
             <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Destinatario</p>
 
-            <div class="flex items-end gap-2">
-              <UiSearchSelect
-                :model-value="selectedContactId"
-                label="Contacto guardado"
-                :placeholder="accountantContacts.length ? 'Buscar por nombre o correo' : 'Aún no tienes contactos guardados'"
-                clearable
-                clear-label="Nuevo destinatario"
-                :options="contactOptions"
-                class="min-w-0 flex-1"
-                @update:model-value="selectAccountantContact"
-              />
-              <UiButton
-                v-if="selectedContactId"
-                variant="secondary"
-                icon-only
-                aria-label="Eliminar contacto guardado"
-                @click="removeAccountantContact(Number(selectedContactId))"
-              >
-                <Trash2 class="h-4 w-4" aria-hidden="true" />
-              </UiButton>
+            <div class="rounded-lg border border-sky-200 bg-sky-50 p-3 dark:border-primary/40 dark:bg-primary-soft/40">
+              <div class="mb-2 flex items-center gap-1.5 text-sky-700 dark:text-primary">
+                <Search class="h-4 w-4" aria-hidden="true" />
+                <span class="text-xs font-black uppercase tracking-wide">Buscar contacto guardado</span>
+              </div>
+              <div class="flex items-end gap-2">
+                <UiSearchSelect
+                  :model-value="selectedContactId"
+                  label="Contacto guardado"
+                  hide-label
+                  :placeholder="accountantContacts.length ? 'Buscar por nombre o correo' : 'Aún no tienes contactos guardados'"
+                  clearable
+                  clear-label="Nuevo destinatario"
+                  :options="contactOptions"
+                  class="min-w-0 flex-1"
+                  @update:model-value="selectAccountantContact"
+                />
+                <UiButton
+                  v-if="selectedContactId"
+                  variant="secondary"
+                  icon-only
+                  aria-label="Eliminar contacto guardado"
+                  @click="removeAccountantContact(Number(selectedContactId))"
+                >
+                  <Trash2 class="h-4 w-4" aria-hidden="true" />
+                </UiButton>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-soft">
+              <span class="h-px flex-1 bg-slate-200 dark:bg-line"></span>
+              o ingresa uno nuevo
+              <span class="h-px flex-1 bg-slate-200 dark:bg-line"></span>
             </div>
 
             <UiEmailInput v-model="shareRecipientEmail" label="Correo del contador" placeholder="contador@empresa.com" />
