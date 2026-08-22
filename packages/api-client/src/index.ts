@@ -2691,7 +2691,7 @@ export class PlatformClient {
 
   accountantContacts(
     tenantId: number,
-  ): Promise<{ contacts: Array<{ id: number; name: string; email: string; phone: string | null }> }> {
+  ): Promise<{ contacts: Array<{ id: number; name: string; email: string; cc: string[]; phone: string | null }> }> {
     return this.http
       .get(`platform/tenants/${tenantId}/accountant-contacts`)
       .json();
@@ -2699,8 +2699,8 @@ export class PlatformClient {
 
   createAccountantContact(
     tenantId: number,
-    payload: { name: string; email: string; phone?: string | null },
-  ): Promise<{ contact: { id: number; name: string; email: string; phone: string | null } }> {
+    payload: { name: string; email: string; cc?: string[]; phone?: string | null },
+  ): Promise<{ contact: { id: number; name: string; email: string; cc: string[]; phone: string | null } }> {
     return this.http
       .post(`platform/tenants/${tenantId}/accountant-contacts`, { json: payload })
       .json();

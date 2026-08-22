@@ -35,7 +35,7 @@ const activeBook = ref<string>('ventas_contribuyente');
 const shareableBooks = ['ventas_contribuyente', 'ventas_consumidor_final', 'documentos_invalidados'];
 const MAX_ACCOUNTANT_CONTACTS = 5;
 const MAX_CC_RECIPIENTS = 5;
-const accountantContacts = ref<Array<{ id: number; name: string; email: string; phone: string | null }>>([]);
+const accountantContacts = ref<Array<{ id: number; name: string; email: string; cc: string[]; phone: string | null }>>([]);
 const shareModalOpen = ref(false);
 const shareRecipientEmail = ref('');
 const shareRecipientName = ref('');
@@ -245,6 +245,7 @@ function selectAccountantContact(contactId: string): void {
   shareRecipientEmail.value = contact.email;
   shareRecipientName.value = contact.name;
   sharePhone.value = contact.phone ?? '';
+  shareCcInput.value = contact.cc?.length ? contact.cc.join(', ') : '';
 }
 
 function openShareModal(): void {
@@ -345,6 +346,7 @@ async function addAccountantContact(): Promise<void> {
     const { contact } = await platformClient.value.createAccountantContact(tenantId.value, {
       name: shareRecipientName.value.trim(),
       email: shareRecipientEmail.value.trim(),
+      cc: ccList.value.length ? ccList.value : undefined,
       phone: sharePhone.value.trim() || null
     });
     accountantContacts.value = [...accountantContacts.value, contact];
