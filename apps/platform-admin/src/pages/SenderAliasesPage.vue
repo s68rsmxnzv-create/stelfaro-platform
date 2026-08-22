@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import type { NotificationActivity, NotificationSenderAlias, NotificationSenderAliasPayload } from '@stelfaro/api-client';
+import type { NotificationActivity, NotificationMessagePurpose, NotificationSenderAlias, NotificationSenderAliasPayload } from '@stelfaro/api-client';
 import { UiButton, UiDataTable, UiEmailInput, UiInput, UiModalShell, UiPanel, UiRefreshButton, UiSaveIcon, UiSelect, UiStatusBadge, UiToggle } from '@stelfaro/ui';
 import { useAdminSessionStore } from '../stores/adminSession';
 
@@ -17,6 +17,7 @@ const fallbackPurposes = [
 const session = useAdminSessionStore();
 const aliases = ref<NotificationSenderAlias[]>([]);
 const activities = ref<NotificationActivity[]>([]);
+const usedPurposes = ref<NotificationMessagePurpose[]>([]);
 const loading = ref(false);
 const saving = ref(false);
 const creatingPurpose = ref(false);
@@ -49,12 +50,16 @@ const purposes = computed(() => {
   activities.value.forEach((activity) => {
     activity.actions.forEach((action) => items.set(action.purpose, action.name || activity.name || action.purpose));
   });
+  usedPurposes.value.forEach((used) => items.set(used.purpose, items.get(used.purpose) ?? humanizePurpose(used.purpose)));
   aliases.value.forEach((alias) => items.set(alias.purpose, items.get(alias.purpose) ?? alias.purpose));
 
   return Array.from(items.entries())
     .map(([value, label]) => ({ value, label }))
     .sort((a, b) => a.label.localeCompare(b.label));
 });
+const purposesWithoutAlias = computed(() => usedPurposes.value.filter((used) => (
+  !aliases.value.some((alias) => alias.purpose === used.purpose && alias.is_active)
+)));
 const filterPurposeOptions = computed(() => [{ value: '', label: 'Todos' }, ...purposes.value]);
 const formPurposeOptions = computed(() => [
   { value: ADD_PURPOSE_VALUE, label: '+ Agregar nuevo proposito' },
@@ -74,17 +79,32 @@ async function loadData(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
-    const [aliasResponse, activityResponse] = await Promise.all([
+    const [aliasResponse, activityResponse, purposesResponse] = await Promise.all([
       session.client.senderAliases(),
-      session.client.activities()
+      session.client.activities(),
+      session.client.messagePurposes()
     ]);
     aliases.value = aliasResponse.data;
     activities.value = activityResponse.data;
+    usedPurposes.value = purposesResponse.data;
   } catch (loadError) {
     error.value = loadError instanceof Error ? loadError.message : 'No fue posible cargar alias.';
   } finally {
     loading.value = false;
   }
+}
+
+function configurePurpose(purpose: string): void {
+  resetForm();
+  form.purpose = purpose;
+}
+
+function humanizePurpose(value: string): string {
+  return value
+    .split('_')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }
 
 async function saveAlias(): Promise<void> {
@@ -236,7 +256,23 @@ function normalizePurpose(value: string): string {
       <p class="text-sm font-medium text-warning">No fue posible conectar con el servicio de notificaciones.</p>
     </UiPanel>
 
-    <div v-else class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+    <UiPanel v-if="session.isConnected && purposesWithoutAlias.length" variant="raised" class="mb-6 border-l-4 border-warning">
+      <p class="text-sm font-semibold text-text">Propositos detectados sin alias configurado</p>
+      <p class="mt-1 text-sm text-muted">
+        Estos propositos ya se han usado para enviar correos, pero no tienen un remitente asignado (usan el remitente por defecto).
+      </p>
+      <ul class="mt-3 space-y-2">
+        <li v-for="used in purposesWithoutAlias" :key="used.purpose" class="flex items-center justify-between gap-3 rounded-md border border-line px-3 py-2">
+          <div class="min-w-0">
+            <p class="truncate font-medium text-text">{{ purposeLabel(used.purpose) }}</p>
+            <p class="text-xs text-soft">{{ used.message_count }} correo(s) &middot; ultimo uso {{ used.last_used_at ? new Date(used.last_used_at).toLocaleString('es-SV') : '-' }}</p>
+          </div>
+          <UiButton type="button" variant="secondary" size="sm" @click="configurePurpose(used.purpose)">Configurar</UiButton>
+        </li>
+      </ul>
+    </UiPanel>
+
+    <div v-if="session.isConnected" class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
       <div class="min-w-0 space-y-4">
         <UiPanel variant="raised">
           <UiSelect v-model="filterPurpose" label="Proposito" :options="filterPurposeOptions" />
