@@ -2,8 +2,8 @@
 // @ts-nocheck
 import { CoreDteClient, PlatformClient, type DteInvalidatedAnnexResponse, type DteSalesAnnexBookKey, type DteSalesAnnexResponse, type PlatformPurchaseAnnexResponse } from '@stelfaro/api-client';
 import { UiButton, UiEmailInput, UiInput, UiMetricCard, UiModalShell, UiPanel, UiPhoneInput, UiSearchSelect, UiStatusBadge } from '@stelfaro/ui';
-import { Archive, CircleCheck, Clock, Download, Eye, FileSpreadsheet, Link2, Mail, MessageCircle, Plus, Share2, Trash2, TriangleAlert } from 'lucide-vue-next';
-import { computed, reactive, ref, watch } from 'vue';
+import { Archive, CircleCheck, Clock, Download, FileSpreadsheet, Link2, Mail, MessageCircle, Plus, Share2, Trash2, TriangleAlert } from 'lucide-vue-next';
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { annexWhatsAppUrl } from '../annexWhatsApp';
 import { getBillingContext, peekBillingContext } from '../support/billingDataCache';
 
@@ -47,7 +47,7 @@ const shareError = ref<string | null>(null);
 const lastShareLink = ref<{ url: string; expiresAt: number } | null>(null);
 const lastMessageId = ref<number | null>(null);
 const emailStatus = ref<{ status: string; sent_at: string | null; opened_at: string | null; open_count: number } | null>(null);
-const checkingStatus = ref(false);
+const statusPolling = ref(false);
 const addingContact = ref(false);
 const showNewContactForm = ref(false);
 const contactError = ref<string | null>(null);
@@ -149,6 +149,14 @@ watch(activeBook, () => {
   lastShareLink.value = null;
   shareMessage.value = null;
   shareError.value = null;
+  lastMessageId.value = null;
+  emailStatus.value = null;
+  showNewContactForm.value = false;
+  stopStatusPolling();
+});
+
+onBeforeUnmount(() => {
+  stopStatusPolling();
 });
 
 async function initialize(): Promise<void> {
@@ -249,6 +257,49 @@ function openShareModal(): void {
 
 function closeShareModal(): void {
   shareModalOpen.value = false;
+  stopStatusPolling();
+}
+
+const STATUS_POLL_INTERVAL_MS = 4000;
+const STATUS_POLL_MAX_ATTEMPTS = 30;
+let statusPollTimer: ReturnType<typeof setInterval> | null = null;
+let statusPollAttempts = 0;
+
+function stopStatusPolling(): void {
+  if (statusPollTimer !== null) {
+    clearInterval(statusPollTimer);
+    statusPollTimer = null;
+  }
+  statusPolling.value = false;
+}
+
+function startStatusPolling(): void {
+  stopStatusPolling();
+  statusPollAttempts = 0;
+  statusPolling.value = true;
+  void pollEmailStatus();
+  statusPollTimer = setInterval(() => {
+    statusPollAttempts += 1;
+    void pollEmailStatus();
+  }, STATUS_POLL_INTERVAL_MS);
+}
+
+async function pollEmailStatus(): Promise<void> {
+  if (!lastMessageId.value) {
+    stopStatusPolling();
+    return;
+  }
+
+  try {
+    emailStatus.value = await client.value.annexEmailStatus(lastMessageId.value);
+  } catch {
+    // se reintenta en el siguiente ciclo de polling
+  }
+
+  const terminal = emailStatus.value ? ['sent', 'failed'].includes(emailStatus.value.status) : false;
+  if (terminal || statusPollAttempts >= STATUS_POLL_MAX_ATTEMPTS) {
+    stopStatusPolling();
+  }
 }
 
 async function emailAnnex(): Promise<void> {
@@ -259,13 +310,19 @@ async function emailAnnex(): Promise<void> {
   shareError.value = null;
   lastMessageId.value = null;
   emailStatus.value = null;
+  lastShareLink.value = null;
+  showNewContactForm.value = false;
+  stopStatusPolling();
 
   try {
     const recipient = { email: shareRecipientEmail.value, name: shareRecipientName.value || undefined };
     const params = { ...requestParams.value, cc: ccList.value.length ? ccList.value : undefined };
     const response = await client.value.annexBundleEmail(recipient, params);
     const messageId = Number((response as { data?: { id?: unknown } })?.data?.id);
-    if (Number.isFinite(messageId)) lastMessageId.value = messageId;
+    if (Number.isFinite(messageId)) {
+      lastMessageId.value = messageId;
+      startStatusPolling();
+    }
     shareMessage.value = ccList.value.length
       ? `Anexos enviados a ${shareRecipientEmail.value} con copia a ${ccList.value.length} destinatario(s).`
       : `Anexos enviados a ${shareRecipientEmail.value}.`;
@@ -273,19 +330,6 @@ async function emailAnnex(): Promise<void> {
     shareError.value = messageFromError(caught);
   } finally {
     sharing.value = null;
-  }
-}
-
-async function checkEmailStatus(): Promise<void> {
-  if (!lastMessageId.value) return;
-
-  checkingStatus.value = true;
-  try {
-    emailStatus.value = await client.value.annexEmailStatus(lastMessageId.value);
-  } catch (caught) {
-    shareError.value = messageFromError(caught);
-  } finally {
-    checkingStatus.value = false;
   }
 }
 
@@ -331,6 +375,10 @@ async function generateShareLink(book: string): Promise<void> {
   sharing.value = 'link';
   shareMessage.value = null;
   shareError.value = null;
+  lastMessageId.value = null;
+  emailStatus.value = null;
+  showNewContactForm.value = false;
+  stopStatusPolling();
 
   try {
     const link = book === 'documentos_invalidados'
@@ -356,6 +404,10 @@ async function downloadZipPackage(): Promise<void> {
   sharing.value = 'zip';
   shareMessage.value = null;
   shareError.value = null;
+  lastMessageId.value = null;
+  emailStatus.value = null;
+  showNewContactForm.value = false;
+  stopStatusPolling();
 
   try {
     const link = await client.value.salesAnnexZipLink(activeBook.value as DteSalesAnnexBookKey, requestParams.value);
@@ -638,10 +690,7 @@ function messageFromError(caught: unknown): string {
         <div v-if="lastMessageId" class="rounded-md border border-slate-200 p-3 dark:border-line">
           <div class="flex items-center justify-between gap-2">
             <p class="text-xs font-black uppercase text-slate-500 dark:text-soft">Confirmación de lectura</p>
-            <UiButton size="sm" variant="ghost" :disabled="checkingStatus" @click="checkEmailStatus">
-              <Eye class="h-3.5 w-3.5" aria-hidden="true" />
-              {{ checkingStatus ? 'Verificando...' : 'Verificar' }}
-            </UiButton>
+            <span v-if="statusPolling" class="text-xs text-slate-400 dark:text-soft">Actualizando…</span>
           </div>
           <div v-if="emailStatus" class="mt-2 flex flex-wrap gap-2">
             <UiStatusBadge :tone="emailStatus.status === 'sent' ? 'success' : emailStatus.status === 'failed' ? 'danger' : 'info'">
@@ -651,7 +700,7 @@ function messageFromError(caught: unknown): string {
               {{ emailStatus.opened_at ? `Abierto ${new Date(emailStatus.opened_at).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' })}` : 'Aún no abierto' }}
             </UiStatusBadge>
           </div>
-          <p v-else class="mt-2 text-xs text-slate-500 dark:text-soft">Pulsa "Verificar" para ver si el contador ya recibió y abrió el correo.</p>
+          <p v-else class="mt-2 text-xs text-slate-500 dark:text-soft">Verificando estado del envío…</p>
         </div>
       </div>
 
