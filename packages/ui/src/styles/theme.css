@@ -157,10 +157,10 @@
    * .header-glass on the public landing page.
    */
   .toolbar-glass {
-    --glass-blur: 16px;
-    --glass-saturate: 150%;
+    --glass-blur: 12px;
+    --glass-saturate: 105%;
     --glass-brightness: 1.02;
-    --glass-bg: color-mix(in oklab, var(--sf-color-surface) 25%, transparent);
+    --glass-bg: color-mix(in oklab, var(--sf-color-surface) 8%, transparent);
     --glass-border: color-mix(in oklab, var(--sf-color-line) 70%, transparent);
 
     background: var(--glass-bg);
@@ -170,14 +170,31 @@
   }
 
   .dark .toolbar-glass {
-    --glass-bg: color-mix(in oklab, var(--sf-color-surface) 35%, transparent);
+    --glass-bg: color-mix(in oklab, var(--sf-color-surface) 11%, transparent);
   }
 
   @supports (backdrop-filter: url(#liquid-glass)) {
     .toolbar-glass {
-      backdrop-filter: url(#liquid-glass) blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+      /*
+       * blur runs BEFORE the SVG displacement on purpose: backdrop-filter
+       * functions apply left to right, so a trailing blur(var(--glass-blur))
+       * after url(#liquid-glass) re-smooths the warp it just introduced and
+       * the edge-lens effect disappears. Blurring first keeps the frosted
+       * look, then the displacement bends that already-soft backdrop and
+       * stays visible in the final result.
+       */
+      backdrop-filter: blur(var(--glass-blur)) url(#liquid-glass) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
     }
   }
+
+  /*
+   * Seed for a future "glass theme" toggle: both Home.vue and BillingAppPage.vue
+   * also define a #liquid-glass-aberration filter (unused today) alongside
+   * #liquid-glass. If we ever want a user-facing glass-intensity/aberration
+   * toggle, swap the url(#liquid-glass) reference above for
+   * url(#liquid-glass-aberration) behind that setting instead of building a
+   * new filter from scratch.
+   */
 
   @media (prefers-reduced-transparency: reduce) {
     .toolbar-glass {
