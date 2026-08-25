@@ -3427,6 +3427,11 @@ function normalizeCustomerDocument(
   documentType: string | null | undefined,
   value: string | null | undefined,
 ): { documentType: string; documentNumber: string } {
+  if (documentType === "03" || documentType === "02") {
+    const normalized = (value ?? "").replace(/\s+/g, "").toUpperCase();
+    return { documentType, documentNumber: normalized };
+  }
+
   const digits = onlyDigits(value);
 
   if (digits.length === 9) {

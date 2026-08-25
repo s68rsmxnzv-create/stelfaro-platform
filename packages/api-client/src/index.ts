@@ -5205,6 +5205,14 @@ function normalizeRecipientDocument(
   type: string | null | undefined,
   value: string | null | undefined,
 ): { documentType: string | null; documentNumber: string | null } {
+  if (type === "03" || type === "02") {
+    const normalized = value ? value.replace(/\s+/g, "").toUpperCase() : "";
+    if (!normalized) {
+      return { documentType: null, documentNumber: null };
+    }
+    return { documentType: type, documentNumber: normalized };
+  }
+
   const digits = onlyDigits(value);
   if (!digits) {
     return { documentType: null, documentNumber: null };

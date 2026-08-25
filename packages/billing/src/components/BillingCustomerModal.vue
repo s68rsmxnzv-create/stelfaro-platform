@@ -135,7 +135,7 @@ const commercialNameNeedsReview = computed(() => Boolean(
   && form.nombreComercial.trim() !== ''
   && form.nombreComercial.trim() === form.name.trim()
 ));
-const canSave = computed(() => Boolean(form.name.trim()) && documentIsValid.value && fiscalComplete.value && !props.loading);
+const canSave = computed(() => Boolean(form.name.trim()) && documentIsValid.value && (isForeignDocument.value || fiscalComplete.value) && !props.loading);
 
 watch(() => props.open, (open) => {
   if (!open) return;
@@ -268,6 +268,7 @@ function submit(): void {
         v-model="form.document"
         :label="documentRequired ? 'DUI/NIT/Pasaporte del cliente' : 'DUI/NIT/Pasaporte del cliente (opcional)'"
         allow-foreign-id
+        :initial-type-code="initialValue?.document_type ?? null"
         @detected="updateDetection"
       />
       <UiInput v-if="isFiscalMode" v-model="form.nrc" label="NRC" />

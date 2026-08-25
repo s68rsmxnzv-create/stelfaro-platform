@@ -10,11 +10,13 @@ const props = withDefaults(defineProps<{
   allowedTypes?: 'dui_or_nit' | 'nit';
   allowForeignId?: boolean;
   showMessage?: boolean;
+  initialTypeCode?: string | null;
 }>(), {
   label: 'DUI/NIT',
   allowedTypes: 'dui_or_nit',
   allowForeignId: false,
-  showMessage: true
+  showMessage: true,
+  initialTypeCode: null
 });
 
 const emit = defineEmits<{
@@ -23,6 +25,10 @@ const emit = defineEmits<{
 }>();
 
 const foreignIdKind = ref<'passport' | 'residentCard'>('passport');
+
+watch(() => props.initialTypeCode, (value) => {
+  foreignIdKind.value = value === '02' ? 'residentCard' : 'passport';
+}, { immediate: true });
 
 const detected = computed(() => detectFiscalDocument(props.modelValue ?? '', props.allowedTypes, props.allowForeignId, foreignIdKind.value));
 const showForeignIdToggle = computed(() => props.allowForeignId && props.allowedTypes !== 'nit' && looksLikeForeignId(props.modelValue ?? ''));
@@ -67,7 +73,13 @@ function toggleForeignIdKind(): void {
       </span>
     </span>
     <span v-if="showForeignIdToggle" class="mt-1 block">
-      <button type="button" class="text-xs font-semibold text-sky-700 transition hover:text-sky-600 dark:text-primary" @click="toggleForeignIdKind">
+      <button
+        type="button"
+        class="text-xs font-semibold text-sky-700 transition hover:text-sky-600 dark:text-primary"
+        :aria-pressed="foreignIdKind === 'residentCard'"
+        :aria-label="foreignIdKind === 'passport' ? 'Marcar como carné de residencia' : 'Marcar como pasaporte'"
+        @click="toggleForeignIdKind"
+      >
         {{ foreignIdKind === 'passport' ? '¿Es carné de residencia?' : '¿Es pasaporte?' }}
       </button>
     </span>
