@@ -1,7 +1,7 @@
 export type FiscalDocumentDetection = {
   valid: boolean;
   type: string;
-  typeCode: string;
+  typeCode?: string;
   typeLabel: string;
   number: string;
   message: string;
