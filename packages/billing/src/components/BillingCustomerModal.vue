@@ -184,6 +184,7 @@ watch(() => props.open, (open) => {
     window.clearTimeout(documentCheckTimer);
     documentCheckTimer = null;
   }
+  documentCheckVersion++;
   form.name = props.mode === 'quick' ? '' : props.initialValue?.name ?? '';
   form.document = props.initialValue?.document_number ?? '';
   form.email = props.initialValue?.email ?? '';
