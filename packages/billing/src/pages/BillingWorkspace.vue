@@ -1089,11 +1089,13 @@ const customerDocumentTypeLabel = computed(() => {
     return form.customerDocument.length === 9 ? "NIT / DUI homologado" : "NIT";
   if (form.customerDocumentType === "36") return "NIT";
   if (form.customerDocumentType === "13") return "DUI";
+  if (form.customerDocumentType === "03") return "Pasaporte";
+  if (form.customerDocumentType === "02") return "Carné";
 
   return form.customerDocumentType || "Sin documento";
 });
 const customerDocumentNumberLabel = computed(() =>
-  formatCustomerDocument(form.customerDocument),
+  formatCustomerDocument(form.customerDocument, form.customerDocumentType),
 );
 
 function lineGrossTotal(line: BillingItem): number {
@@ -1238,7 +1240,11 @@ function roundUpMoney(value: number): number {
   return Math.ceil((value - 0.000000001) * 100) / 100;
 }
 
-function formatCustomerDocument(value: string): string {
+function formatCustomerDocument(value: string, documentType: string): string {
+  if (documentType === "03" || documentType === "02") {
+    return value || "Sin numero";
+  }
+
   const digits = value.replace(/\D+/g, "");
 
   if (digits.length === 9) {
