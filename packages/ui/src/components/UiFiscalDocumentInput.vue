@@ -25,18 +25,34 @@ const emit = defineEmits<{
 }>();
 
 const foreignIdKind = ref<'passport' | 'residentCard'>('passport');
+const forceForeign = ref(false);
 
 watch(() => props.initialTypeCode, (value) => {
-  foreignIdKind.value = value === '02' ? 'residentCard' : 'passport';
+  if (value === '02') {
+    foreignIdKind.value = 'residentCard';
+    forceForeign.value = true;
+  } else if (value === '03') {
+    foreignIdKind.value = 'passport';
+    forceForeign.value = true;
+  } else {
+    foreignIdKind.value = 'passport';
+    forceForeign.value = false;
+  }
 }, { immediate: true });
 
-const detected = computed(() => detectFiscalDocument(props.modelValue ?? '', props.allowedTypes, props.allowForeignId, foreignIdKind.value));
-const showForeignIdToggle = computed(() => props.allowForeignId && props.allowedTypes !== 'nit' && looksLikeForeignId(props.modelValue ?? ''));
+const detected = computed(() => detectFiscalDocument(props.modelValue ?? '', props.allowedTypes, props.allowForeignId, foreignIdKind.value, forceForeign.value));
+const isForeignActive = computed(() => props.allowForeignId && props.allowedTypes !== 'nit' && (forceForeign.value || looksLikeForeignId(props.modelValue ?? '')));
+const showForeignIdToggle = computed(() => props.allowForeignId && props.allowedTypes !== 'nit' && (props.modelValue ?? '').trim() !== '');
+const toggleLabel = computed(() => {
+  if (!isForeignActive.value) return '¿Es pasaporte o carné de residente?';
+  if (foreignIdKind.value === 'passport') return '¿Es carné de residencia?';
+  return looksLikeForeignId(props.modelValue ?? '') ? '¿Es pasaporte?' : 'Usar detección automática (DUI/NIT)';
+});
 const placeholder = computed(() => {
   if (props.allowedTypes === 'nit') return 'NIT de 14 dígitos';
   return props.allowForeignId ? 'DUI, NIT, pasaporte o carné de residente' : 'DUI de 9 o NIT de 14 dígitos';
 });
-const inputMode = computed(() => (props.allowForeignId && looksLikeForeignId(props.modelValue ?? '')) ? 'text' : 'numeric');
+const inputMode = computed(() => (props.allowForeignId && isForeignActive.value) ? 'text' : 'numeric');
 const maxLength = computed(() => (props.allowForeignId ? 20 : 17));
 
 watch(detected, (value) => {
@@ -45,13 +61,29 @@ watch(detected, (value) => {
 
 function formatInput(event: Event): void {
   const input = event.target as HTMLInputElement;
-  const formatted = formatFiscalDocument(input.value, props.allowedTypes, props.allowForeignId);
+  const formatted = formatFiscalDocument(input.value, props.allowedTypes, props.allowForeignId, forceForeign.value);
   input.value = formatted;
   emit('update:modelValue', formatted);
 }
 
-function toggleForeignIdKind(): void {
-  foreignIdKind.value = foreignIdKind.value === 'passport' ? 'residentCard' : 'passport';
+function cycleForeignId(): void {
+  const hasLetters = looksLikeForeignId(props.modelValue ?? '');
+
+  if (!isForeignActive.value) {
+    forceForeign.value = true;
+    foreignIdKind.value = 'passport';
+    return;
+  }
+
+  if (foreignIdKind.value === 'passport') {
+    foreignIdKind.value = 'residentCard';
+    return;
+  }
+
+  foreignIdKind.value = 'passport';
+  if (!hasLetters) {
+    forceForeign.value = false;
+  }
 }
 </script>
 
@@ -76,11 +108,11 @@ function toggleForeignIdKind(): void {
       <button
         type="button"
         class="text-xs font-semibold text-sky-700 transition hover:text-sky-600 dark:text-primary"
-        :aria-pressed="foreignIdKind === 'residentCard'"
-        :aria-label="foreignIdKind === 'passport' ? 'Marcar como carné de residencia' : 'Marcar como pasaporte'"
-        @click="toggleForeignIdKind"
+        :aria-pressed="isForeignActive"
+        :aria-label="toggleLabel"
+        @click="cycleForeignId"
       >
-        {{ foreignIdKind === 'passport' ? '¿Es carné de residencia?' : '¿Es pasaporte?' }}
+        {{ toggleLabel }}
       </button>
     </span>
     <span v-if="showMessage && !detected.valid && detected.message" class="mt-1 block text-xs text-soft">{{ detected.message }}</span>

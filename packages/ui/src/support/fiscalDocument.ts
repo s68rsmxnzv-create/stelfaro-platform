@@ -18,9 +18,10 @@ export function detectFiscalDocument(
   value: string,
   allowedTypes: FiscalDocumentAllowedTypes,
   allowForeignId: boolean,
-  foreignIdKind: ForeignIdKind
+  foreignIdKind: ForeignIdKind,
+  force: boolean = false
 ): FiscalDocumentDetection {
-  if (allowForeignId && allowedTypes !== 'nit' && looksLikeForeignId(value)) {
+  if (allowForeignId && allowedTypes !== 'nit' && (force || looksLikeForeignId(value))) {
     return detectForeignId(value, foreignIdKind);
   }
 
@@ -104,9 +105,10 @@ function detectForeignId(value: string, foreignIdKind: ForeignIdKind): FiscalDoc
 export function formatFiscalDocument(
   value: string,
   allowedTypes: FiscalDocumentAllowedTypes,
-  allowForeignId: boolean
+  allowForeignId: boolean,
+  force: boolean = false
 ): string {
-  if (allowForeignId && allowedTypes !== 'nit' && looksLikeForeignId(value)) {
+  if (allowForeignId && allowedTypes !== 'nit' && (force || looksLikeForeignId(value))) {
     return value.replace(/\s+/g, '').toUpperCase().slice(0, 20);
   }
 

@@ -52,6 +52,24 @@ describe('detectFiscalDocument', () => {
     expect(result.valid).toBe(false);
     expect(result.typeCode).toBe('');
   });
+
+  it('con force=true trata un valor de puros digitos como pasaporte en vez de DUI', () => {
+    const result = detectFiscalDocument('123456789', 'dui_or_nit', true, 'passport', true);
+    expect(result.valid).toBe(true);
+    expect(result.typeCode).toBe('03');
+    expect(result.number).toBe('123456789');
+  });
+
+  it('con force=true y foreignIdKind residentCard trata puros digitos como carne', () => {
+    const result = detectFiscalDocument('123456789012', 'dui_or_nit', true, 'residentCard', true);
+    expect(result.valid).toBe(true);
+    expect(result.typeCode).toBe('02');
+  });
+
+  it('force=true no tiene efecto si allowForeignId es false', () => {
+    const result = detectFiscalDocument('123456789', 'dui_or_nit', false, 'passport', true);
+    expect(result.typeCode).toBe('13');
+  });
 });
 
 describe('formatFiscalDocument', () => {
@@ -61,6 +79,10 @@ describe('formatFiscalDocument', () => {
 
   it('formatea pasaporte en mayusculas sin guiones cuando allowForeignId es true', () => {
     expect(formatFiscalDocument('pa 1234567', 'dui_or_nit', true)).toBe('PA1234567');
+  });
+
+  it('con force=true no agrega guion de DUI a un valor de puros digitos', () => {
+    expect(formatFiscalDocument('123456789', 'dui_or_nit', true, true)).toBe('123456789');
   });
 });
 
