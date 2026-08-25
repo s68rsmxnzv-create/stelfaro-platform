@@ -22,7 +22,7 @@ defineEmits<{
 
 <template>
   <div class="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-0 md:bottom-3 md:px-4">
-    <section class="pointer-events-auto mx-auto grid max-w-4xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-t-2xl border border-line bg-surface-raised/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 text-text shadow-xl shadow-surface backdrop-blur md:flex md:flex-wrap md:justify-between md:gap-2 md:rounded-lg md:px-3 md:py-2">
+    <section class="sheet-glass pointer-events-auto mx-auto grid max-w-4xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-t-2xl px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 text-text md:flex md:flex-wrap md:justify-between md:gap-2 md:rounded-lg md:px-3 md:py-2">
       <p class="text-xs font-semibold text-muted md:hidden">{{ lineCount }} línea{{ lineCount === 1 ? '' : 's' }} · {{ unitCount }} artículo{{ unitCount === 1 ? '' : 's' }}</p>
       <div class="hidden flex-wrap items-center gap-x-4 gap-y-1 text-xs md:flex">
         <div>

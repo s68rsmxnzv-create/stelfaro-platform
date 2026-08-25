@@ -188,6 +188,42 @@
   }
 
   /*
+   * Bottom-sheet variant of .toolbar-glass, same --glass-* contract and
+   * #liquid-glass filter, but the border/shadow face up instead of down
+   * since these panels are pinned to the bottom of the viewport (e.g. the
+   * billing invoice summary bar) rather than the top.
+   */
+  .sheet-glass {
+    --glass-blur: 12px;
+    --glass-saturate: 105%;
+    --glass-brightness: 1.02;
+    --glass-bg: color-mix(in oklab, var(--sf-color-surface) 8%, transparent);
+    --glass-border: color-mix(in oklab, var(--sf-color-line) 70%, transparent);
+
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+    border-top: 1px solid var(--glass-border);
+    box-shadow: 0 -1px 2px 0 rgb(0 0 0 / 5%), var(--sf-shadow-surface);
+  }
+
+  .dark .sheet-glass {
+    --glass-bg: color-mix(in oklab, var(--sf-color-surface) 11%, transparent);
+  }
+
+  @supports (backdrop-filter: url(#liquid-glass)) {
+    .sheet-glass {
+      backdrop-filter: blur(var(--glass-blur)) url(#liquid-glass) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .sheet-glass {
+      background: var(--sf-color-surface);
+      backdrop-filter: none;
+    }
+  }
+
+  /*
    * Seed for a future "glass theme" toggle: both Home.vue and BillingAppPage.vue
    * also define a #liquid-glass-aberration filter (unused today) alongside
    * #liquid-glass. If we ever want a user-facing glass-intensity/aberration

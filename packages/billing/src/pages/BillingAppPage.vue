@@ -16,6 +16,7 @@ import BillingTooltip from "../components/BillingTooltip.vue";
 import InternalNotificationsBell from "../components/InternalNotificationsBell.vue";
 import BillingCompanySettingsPage from "./BillingCompanySettingsPage.vue";
 import BillingAnnexesPage from "./BillingAnnexesPage.vue";
+import BillingIvaBooksPage from "./BillingIvaBooksPage.vue";
 import BillingCustomersPage from "./BillingCustomersPage.vue";
 import CatalogPage from "./CatalogPage.vue";
 import BillingDashboardPage from "./BillingDashboardPage.vue";
@@ -262,6 +263,7 @@ const moduleComponents = {
   inventory: InventoryPage,
   artifacts: DteArtifactsPage,
   annexes: BillingAnnexesPage,
+  "iva-books": BillingIvaBooksPage,
   "mh-events": MhEventsPage,
   "mh-responses": MhResponsesPage,
   "mh-event-responses": MhEventResponsesPage,
@@ -455,6 +457,14 @@ const selectedComponentProps = computed(() => {
     };
   }
 
+  if (props.module === "iva-books") {
+    return {
+      ...baseProps,
+      platformSession: props.platformSession,
+      platformBaseUrl: props.platformBaseUrl,
+    };
+  }
+
   if (props.module === "artifacts") {
     return {
       ...baseProps,
@@ -505,6 +515,7 @@ const pageTitle = computed(() => {
       ? "Comprobantes de eventos"
       : "Comprobantes DTE";
   if (props.module === "annexes") return "Anexos";
+  if (props.module === "iva-books") return "Libros de IVA";
   if (props.module === "mh-responses") return "Respuestas MH";
   if (props.module === "mh-event-responses") return "Respuestas MH - Eventos";
   if (props.module === "audit") return "Auditoría";
