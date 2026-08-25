@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from 'vue';
 import { UiButton, UiEmailInput, UiFiscalDocumentInput, UiInput, UiPhoneInput, UiSaveIcon, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
+import type { BillingCustomer } from '@stelfaro/api-client';
 import BillingModalShell from './BillingModalShell.vue';
 
 export type BillingCustomerModalMode = 'new' | 'quick' | 'edit';
@@ -12,6 +13,7 @@ type SelectOption = {
 };
 
 export type BillingCustomerModalPayload = {
+  id?: number;
   name: string;
   document_type: string | null;
   document_number: string | null;
@@ -40,6 +42,7 @@ const props = withDefaults(defineProps<{
   municipioOptions?: SelectOption[];
   distritoOptions?: SelectOption[];
   allowOptionalAddress?: boolean;
+  onCheckDocument?: (documentType: string, documentNumber: string, excludeId?: number) => Promise<BillingCustomer | null>;
 }>(), {
   loading: false,
   intent: 'standard',
@@ -48,12 +51,14 @@ const props = withDefaults(defineProps<{
   departamentoOptions: () => [],
   municipioOptions: () => [],
   distritoOptions: () => [],
-  allowOptionalAddress: true
+  allowOptionalAddress: true,
+  onCheckDocument: undefined
 });
 
 const emit = defineEmits<{
   close: [];
   save: [payload: BillingCustomerModalPayload];
+  'use-existing': [customer: BillingCustomer];
   'update:departamento': [value: string];
   'update:municipio': [value: string];
 }>();
@@ -75,6 +80,10 @@ const showAddress = ref(false);
 const commercialNameTouched = ref(false);
 const hydrating = ref(false);
 const nameInput = ref<{ $el?: HTMLElement } | null>(null);
+
+const duplicateCustomer = ref<BillingCustomer | null>(null);
+let documentCheckTimer: ReturnType<typeof window.setTimeout> | null = null;
+let documentCheckVersion = 0;
 
 const detection = reactive<FiscalDocumentDetection>({
   valid: false,
@@ -101,6 +110,35 @@ const documentIsValid = computed(() => {
   const digits = form.document.replace(/\D+/g, '');
   return detection.valid || digits.length === 9 || digits.length === 14;
 });
+
+watch([() => form.document, () => detection.typeCode], () => {
+  duplicateCustomer.value = null;
+  if (documentCheckTimer) {
+    window.clearTimeout(documentCheckTimer);
+    documentCheckTimer = null;
+  }
+  if (!props.onCheckDocument || props.mode === 'quick' || hydrating.value) {
+    return;
+  }
+  const version = ++documentCheckVersion;
+  documentCheckTimer = window.setTimeout(async () => {
+    if (!documentIsValid.value || !form.document.trim()) {
+      return;
+    }
+    const excludeId = isEditMode.value ? props.initialValue?.id : undefined;
+    try {
+      const found = await props.onCheckDocument!(detection.typeCode || '', form.document, excludeId);
+      if (version === documentCheckVersion) {
+        duplicateCustomer.value = found;
+      }
+    } catch {
+      if (version === documentCheckVersion) {
+        duplicateCustomer.value = null;
+      }
+    }
+  }, 250);
+});
+
 const selectedActividad = computed(() => props.actividadOptions.find((option) => option.value === form.actividad) ?? null);
 const isEditMode = computed(() => props.mode === 'edit');
 const isFiscalMode = computed(() => props.intent === 'fiscal' || isEditMode.value);
@@ -141,6 +179,11 @@ watch(() => props.open, (open) => {
   if (!open) return;
   hydrating.value = true;
   commercialNameTouched.value = false;
+  duplicateCustomer.value = null;
+  if (documentCheckTimer) {
+    window.clearTimeout(documentCheckTimer);
+    documentCheckTimer = null;
+  }
   form.name = props.mode === 'quick' ? '' : props.initialValue?.name ?? '';
   form.document = props.initialValue?.document_number ?? '';
   form.email = props.initialValue?.email ?? '';
@@ -272,6 +315,17 @@ function submit(): void {
         @detected="updateDetection"
       />
       <UiInput v-if="isFiscalMode" v-model="form.nrc" label="NRC" />
+    </div>
+
+    <div v-if="mode !== 'quick' && duplicateCustomer" class="rounded-md border border-blue-100 bg-blue-50/60 p-3 text-sm text-slate-700 dark:border-line dark:bg-surface-muted dark:text-muted">
+      Ya existe un cliente con este documento: <strong class="text-text">{{ duplicateCustomer.name }}</strong>.
+      <button
+        type="button"
+        class="ml-1 font-semibold text-sky-700 underline transition hover:text-sky-600 dark:text-primary"
+        @click="emit('use-existing', duplicateCustomer)"
+      >
+        Usar este cliente
+      </button>
     </div>
 
     <UiSearchSelect
