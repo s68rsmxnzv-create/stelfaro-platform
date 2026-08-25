@@ -4545,6 +4545,19 @@ export class CoreDteClient {
     return this.http.get(`billing/customers/${customerId}`).json();
   }
 
+  checkCustomerDocument(params: {
+    empresa_id: number;
+    document_number: string;
+    document_type?: string;
+    exclude_id?: number;
+  }): Promise<{ customer: BillingCustomer | null }> {
+    return this.http
+      .get("billing/customers/check-document", {
+        searchParams: compactParams(params),
+      })
+      .json();
+  }
+
   saveCustomer(
     payload: Partial<BillingCustomer> & { empresa_id: number; name: string },
   ): Promise<{ customer: BillingCustomer }> {
