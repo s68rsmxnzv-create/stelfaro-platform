@@ -79,6 +79,7 @@ const nameInput = ref<{ $el?: HTMLElement } | null>(null);
 const detection = reactive<FiscalDocumentDetection>({
   valid: false,
   type: '',
+  typeCode: '',
   typeLabel: '',
   number: '',
   message: ''
@@ -111,10 +112,12 @@ const hasFiscalIntent = computed(() => Boolean(
     || (props.initialValue?.allowed_dte_codes ?? []).includes('03')
   ))
 ));
+const isForeignDocument = computed(() => detection.typeCode === '03' || detection.typeCode === '02');
 const fiscalComplete = computed(() => Boolean(
   !hasFiscalIntent.value
   || (
-    documentIsValid.value
+    !isForeignDocument.value
+    && documentIsValid.value
     && form.nrc.trim()
     && form.actividad.trim()
     && selectedActividad.value
@@ -177,6 +180,7 @@ watch(() => form.municipio, (value, oldValue) => {
 function updateDetection(value: FiscalDocumentDetection): void {
   detection.valid = value.valid;
   detection.type = value.type;
+  detection.typeCode = value.typeCode;
   detection.typeLabel = value.typeLabel;
   detection.number = value.number;
   detection.message = value.message;
@@ -202,6 +206,8 @@ function submit(): void {
   }
 
   const documentDigits = form.document.replace(/\D+/g, '');
+  const documentNumber = isForeignDocument.value ? detection.number : documentDigits;
+  const documentType = form.document.trim() === '' ? null : (detection.typeCode || (documentDigits.length === 14 ? '36' : '13'));
   const activity = selectedActividad.value;
   const allowedDteCodes = new Set(props.initialValue?.allowed_dte_codes ?? []);
   if (hasFiscalIntent.value && fiscalComplete.value) {
@@ -211,8 +217,8 @@ function submit(): void {
 
   emit('save', {
     name: form.name.trim(),
-    document_type: form.document.trim() === '' ? null : hasFiscalIntent.value || detection.typeLabel === 'NIT' || documentDigits.length === 14 ? '36' : '13',
-    document_number: form.document.trim() === '' ? null : documentDigits,
+    document_type: documentType,
+    document_number: form.document.trim() === '' ? null : documentNumber,
     email: form.email.trim() || null,
     phone: form.phone.trim() || null,
     nit: hasFiscalIntent.value ? documentDigits || null : props.initialValue?.nit ?? null,
@@ -260,7 +266,8 @@ function submit(): void {
     <div v-if="mode !== 'quick'" class="grid gap-4 md:grid-cols-2">
       <UiFiscalDocumentInput
         v-model="form.document"
-        :label="documentRequired ? 'DUI/NIT del cliente' : 'DUI/NIT del cliente (opcional)'"
+        :label="documentRequired ? 'DUI/NIT/Pasaporte del cliente' : 'DUI/NIT/Pasaporte del cliente (opcional)'"
+        allow-foreign-id
         @detected="updateDetection"
       />
       <UiInput v-if="isFiscalMode" v-model="form.nrc" label="NRC" />
@@ -315,7 +322,9 @@ function submit(): void {
     </div>
 
     <p v-if="hasFiscalIntent && !fiscalComplete" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800 dark:bg-warning-soft dark:text-warning">
-      Para usar este cliente en Credito Fiscal completa NIT/DUI, NRC, actividad, direccion, correo y telefono.
+      {{ isForeignDocument
+        ? 'Crédito Fiscal requiere NIT del cliente. Un cliente con pasaporte o carné de residente solo puede facturarse con Factura simple.'
+        : 'Para usar este cliente en Credito Fiscal completa NIT/DUI, NRC, actividad, direccion, correo y telefono.' }}
     </p>
 
     <template #footer>
