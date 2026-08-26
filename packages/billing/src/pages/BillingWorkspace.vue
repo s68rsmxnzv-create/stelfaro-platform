@@ -3138,6 +3138,7 @@ function fiscalCustomerInitialValue(
   if (!customer) return null;
 
   return {
+    id: customer.id,
     name: customer.name,
     document_type: "36",
     document_number: customer.nit ?? customer.document_number ?? "",
@@ -3165,6 +3166,32 @@ function openFiscalComplement(customer: BillingCustomer): void {
 function closeFiscalCustomerModal(): void {
   fiscalCustomerModalOpen.value = false;
   fiscalCustomerTarget.value = null;
+}
+
+function checkCustomerDocument(
+  documentType: string,
+  documentNumber: string,
+  excludeId?: number,
+): Promise<BillingCustomer | null> {
+  if (!selectedEmpresa.value) return Promise.resolve(null);
+  return client.value
+    .checkCustomerDocument({
+      empresa_id: selectedEmpresa.value.id,
+      document_type: documentType || undefined,
+      document_number: documentNumber,
+      exclude_id: excludeId,
+    })
+    .then((response) => response.customer);
+}
+
+function useExistingCustomerForQuickModal(customer: BillingCustomer): void {
+  applyCustomer(customer);
+  customerModalMode.value = null;
+}
+
+function useExistingCustomerForFiscalModal(customer: BillingCustomer): void {
+  applyCustomer(customer);
+  closeFiscalCustomerModal();
 }
 
 async function handleFiscalCustomerSave(
@@ -4025,6 +4052,7 @@ function updatePaymentCondition(value: string): void {
       :departamento-options="departamentoOptions"
       :municipio-options="municipioOptions"
       :distrito-options="distritoOptions"
+      :on-check-document="checkCustomerDocument"
       :initial-value="
         customerModalMode === 'quick'
           ? {
@@ -4041,6 +4069,7 @@ function updatePaymentCondition(value: string): void {
       "
       @close="customerModalMode = null"
       @save="handleCustomerModalSave"
+      @use-existing="useExistingCustomerForQuickModal"
       @update:departamento="fiscalModalDepartamento = $event"
       @update:municipio="fiscalModalMunicipio = $event"
     />
@@ -4055,8 +4084,10 @@ function updatePaymentCondition(value: string): void {
       :departamento-options="departamentoOptions"
       :municipio-options="municipioOptions"
       :distrito-options="distritoOptions"
+      :on-check-document="checkCustomerDocument"
       @close="closeFiscalCustomerModal"
       @save="handleFiscalCustomerSave"
+      @use-existing="useExistingCustomerForFiscalModal"
       @update:departamento="fiscalModalDepartamento = $event"
       @update:municipio="fiscalModalMunicipio = $event"
     />
