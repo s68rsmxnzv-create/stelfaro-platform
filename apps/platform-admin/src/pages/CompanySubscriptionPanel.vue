@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import type { PlatformSubscriptionPlan, PlatformSubscriptionTenantRow } from '@stelfaro/api-client';
-import { UiButton, UiInput, UiPanel, UiRefreshButton, UiSelect, UiStatusBadge } from '@stelfaro/ui';
+import { UiButton, UiInput, UiPanel, UiRefreshButton, UiSelect, UiStatusBadge, UiToggle } from '@stelfaro/ui';
 import type { SelectedAdminCompany } from '../stores/adminWorkspace';
 import { usePlatformSessionStore } from '../stores/platformSession';
 
@@ -22,6 +22,7 @@ const form = reactive({
   status: 'active',
   billingCycle: 'manual',
   price: '',
+  priceOverride: false,
   durationDays: '365',
   currentPeriodEndsAt: ''
 });
@@ -60,11 +61,19 @@ watch(() => props.company.id, () => {
   void load();
 });
 
+watch(() => form.priceOverride, (override) => {
+  if (!override && selectedPlan.value) {
+    form.price = String(selectedPlan.value.price_cents / 100);
+  }
+});
+
 watch(selectedPlan, (plan) => {
   if (!plan) return;
 
-  form.price = String(plan.price_cents / 100);
   form.billingCycle = plan.billing_cycle;
+  if (!form.priceOverride) {
+    form.price = String(plan.price_cents / 100);
+  }
 });
 
 async function load(): Promise<void> {
@@ -86,11 +95,13 @@ async function load(): Promise<void> {
 
 function hydrateForm(): void {
   const currentPlan = row.value?.subscription?.plan ?? plans.value.find((plan) => plan.key === 'pro') ?? plans.value[0] ?? null;
+  const subscribedPrice = row.value?.subscription?.price_cents;
 
   form.planId = currentPlan ? String(currentPlan.id) : '';
   form.status = row.value?.subscription?.status === 'trialing' ? 'active' : row.value?.subscription?.status ?? 'active';
   form.billingCycle = row.value?.subscription?.billing_cycle ?? currentPlan?.billing_cycle ?? 'manual';
-  form.price = String((row.value?.subscription?.price_cents ?? currentPlan?.price_cents ?? 0) / 100);
+  form.priceOverride = subscribedPrice != null && subscribedPrice !== currentPlan?.price_cents;
+  form.price = String((subscribedPrice ?? currentPlan?.price_cents ?? 0) / 100);
   form.durationDays = '365';
   form.currentPeriodEndsAt = dateInputValue(row.value?.subscription?.current_period_ends_at);
 }
@@ -107,7 +118,7 @@ async function saveSubscription(): Promise<void> {
       plan_id: Number(form.planId),
       status: form.status,
       billing_cycle: form.billingCycle,
-      price_cents: Math.round(Number(form.price || 0) * 100),
+      price_cents: form.priceOverride ? Math.round(Number(form.price || 0) * 100) : null,
       currency: 'USD',
       duration_days: Number(form.durationDays)
     });
@@ -184,7 +195,22 @@ function dateInputValue(value: string | null | undefined): string {
           <UiSelect v-model="form.planId" label="Plan" :options="planOptions" placeholder="Seleccionar plan" />
           <UiSelect v-model="form.status" label="Estado" :options="statusOptions" />
           <UiSelect v-model="form.billingCycle" label="Ciclo" :options="billingCycleOptions" />
-          <UiInput v-model="form.price" label="Precio USD" type="number" placeholder="0.00" />
+          <div>
+            <UiInput
+              v-model="form.price"
+              label="Precio USD"
+              type="number"
+              placeholder="0.00"
+              :disabled="!form.priceOverride"
+            />
+            <label class="mt-2 flex items-center gap-2 text-xs font-medium text-muted">
+              <UiToggle v-model="form.priceOverride" />
+              Precio distinto al del plan
+            </label>
+            <p v-if="!form.priceOverride && selectedPlan" class="mt-1 text-xs text-soft">
+              Se cobrara el precio del plan: {{ money(selectedPlan.price_cents, selectedPlan.currency) }}
+            </p>
+          </div>
         </div>
 
         <div class="mt-5">

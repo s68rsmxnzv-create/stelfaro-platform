@@ -1513,6 +1513,13 @@ export type NotificationSenderAliasPayload = {
   metadata?: Record<string, unknown> | null;
 };
 
+export type NotificationMessagePurpose = {
+  purpose: string;
+  source_type: string;
+  message_count: number;
+  last_used_at: string | null;
+};
+
 export type NotificationAction = {
   id: number;
   notification_activity_id: number;
@@ -2578,6 +2585,10 @@ export class NotificationsClient {
     return this.http.patch(`sender-aliases/${id}`, { json: payload }).json();
   }
 
+  messagePurposes(): Promise<{ data: NotificationMessagePurpose[] }> {
+    return this.http.get("messages/purposes").json();
+  }
+
   activities(
     params: { key?: string; status?: string } = {},
   ): Promise<{ data: NotificationActivity[] }> {
@@ -2686,6 +2697,29 @@ export class PlatformClient {
   ): Promise<{ data: PlatformTenantRequest }> {
     return this.http
       .post(`platform/tenants/${tenantId}/requests`, { json: payload })
+      .json();
+  }
+
+  accountantContacts(
+    tenantId: number,
+  ): Promise<{ contacts: Array<{ id: number; name: string; email: string; cc: string[]; phone: string | null }> }> {
+    return this.http
+      .get(`platform/tenants/${tenantId}/accountant-contacts`)
+      .json();
+  }
+
+  createAccountantContact(
+    tenantId: number,
+    payload: { name: string; email: string; cc?: string[]; phone?: string | null },
+  ): Promise<{ contact: { id: number; name: string; email: string; cc: string[]; phone: string | null } }> {
+    return this.http
+      .post(`platform/tenants/${tenantId}/accountant-contacts`, { json: payload })
+      .json();
+  }
+
+  deleteAccountantContact(tenantId: number, contactId: number): Promise<{ deleted: boolean }> {
+    return this.http
+      .delete(`platform/tenants/${tenantId}/accountant-contacts/${contactId}`)
       .json();
   }
 
@@ -4779,6 +4813,80 @@ export class CoreDteClient {
         headers: { Accept: "text/csv" },
       })
       .blob();
+  }
+
+  salesAnnexShareLink(
+    book: DteSalesAnnexBookKey,
+    params: { empresa_id?: number; from?: string; to?: string } = {},
+  ): Promise<{ url: string; expires_at: number }> {
+    return this.http
+      .post(`dte/annexes/sales/${book}/share-link`, {
+        searchParams: compactParams(params),
+      })
+      .json();
+  }
+
+  salesAnnexZipLink(
+    book: DteSalesAnnexBookKey,
+    params: { empresa_id?: number; from?: string; to?: string } = {},
+  ): Promise<{ url: string; expires_at: number }> {
+    return this.http
+      .post(`dte/annexes/sales/${book}/zip-link`, {
+        searchParams: compactParams(params),
+      })
+      .json();
+  }
+
+  annexBundleEmail(
+    recipient: { email: string; name?: string | null },
+    params: { empresa_id?: number; from?: string; to?: string; subject?: string; cc?: string[] } = {},
+  ): Promise<{ data: Record<string, unknown> }> {
+    const { subject, cc, ...searchParams } = params;
+    return this.http
+      .post("dte/annexes/share/email", {
+        searchParams: compactParams(searchParams),
+        json: { recipient, subject, cc },
+      })
+      .json();
+  }
+
+  invalidatedAnnexShareLink(
+    params: { empresa_id?: number; from?: string; to?: string } = {},
+  ): Promise<{ url: string; expires_at: number }> {
+    return this.http
+      .post("dte/annexes/invalidated/share-link", {
+        searchParams: compactParams(params),
+      })
+      .json();
+  }
+
+  annexEmailStatus(messageId: number): Promise<{ status: string; sent_at: string | null; opened_at: string | null; open_count: number }> {
+    return this.http
+      .get(`dte/annexes/email-status/${messageId}`)
+      .json();
+  }
+
+  annexEmailHistory(
+    params: { empresa_id?: number; page?: number; per_page?: number } = {},
+  ): Promise<{
+    data: Array<{
+      id: number;
+      recipient_email: string | null;
+      recipient_name: string | null;
+      books: string[];
+      from: string | null;
+      to: string | null;
+      requested_by: string | null;
+      status: string | null;
+      sent_at: string | null;
+      opened_at: string | null;
+      created_at: string | null;
+    }>;
+    meta: { current_page: number; last_page: number; per_page: number; total: number };
+  }> {
+    return this.http
+      .get('dte/annexes/email-history', { searchParams: compactParams(params) })
+      .json();
   }
 
   dashboardSummary(

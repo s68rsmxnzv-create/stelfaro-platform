@@ -15,6 +15,7 @@ const props = defineProps<{
   disabled?: boolean;
   clearable?: boolean;
   clearLabel?: string;
+  hideLabel?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -94,7 +95,7 @@ function normalize(value: string): string {
 
 <template>
   <label ref="rootRef" class="relative block">
-    <span class="text-sm font-medium text-muted">{{ label }}</span>
+    <span class="text-sm font-medium text-muted" :class="{ 'sr-only': hideLabel }">{{ label }}</span>
     <input
       v-model="query"
       :disabled="disabled"

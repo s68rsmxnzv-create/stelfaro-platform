@@ -70,7 +70,9 @@ const roleOptions = [
   { value: 'company_admin', label: 'Admin empresa' },
   { value: 'billing_admin', label: 'Admin facturacion' },
   { value: 'billing_user', label: 'Cajero' },
-  { value: 'viewer', label: 'Contador / lectura' }
+  { value: 'seller', label: 'Vendedor' },
+  { value: 'viewer', label: 'Solo lectura' },
+  { value: 'accountant', label: 'Contador' }
 ];
 
 const activeMembers = computed(() => memberships.value.filter((membership) => membership.status === 'active'));
@@ -396,7 +398,9 @@ function roleLabel(role: string): string {
     company_admin: 'Admin empresa',
     billing_admin: 'Admin facturacion',
     billing_user: 'Cajero',
-    viewer: 'Contador'
+    seller: 'Vendedor',
+    viewer: 'Solo lectura',
+    accountant: 'Contador'
   } as Record<string, string>)[role] ?? role;
 }
 

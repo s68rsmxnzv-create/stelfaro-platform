@@ -14,7 +14,8 @@ import {
   type BillingSettingsPayload,
   type BillingSignerVerification,
   type DteDashboardSummary,
-  type MhBearerVerification
+  type MhBearerVerification,
+  type PlatformSubscriptionTenantRow
 } from '@stelfaro/api-client';
 import { UiButton, UiCard, UiEmailInput, UiFileUpload, UiFiscalDocumentInput, UiInput, UiLogoUpload, UiPasswordInput, UiPhoneInput, UiRefreshButton, UiSaveIcon, UiSearchInput, UiSearchSelect, UiSelect, UiStatusBadge, UiToggle, type FiscalDocumentDetection } from '@stelfaro/ui';
 import BillingModalShell from '../components/BillingModalShell.vue';
@@ -69,6 +70,7 @@ const searchQuery = ref('');
 const signerStatus = ref<BillingSignerVerification | null>(null);
 const bearerStatus = ref<MhBearerVerification | null>(null);
 const companySummary = ref<DteDashboardSummary | null>(null);
+const companySubscription = ref<PlatformSubscriptionTenantRow | null>(null);
 const correlativos = ref<BillingCorrelativoAdmin[]>([]);
 const correlativoDrafts = ref<Record<number, string>>({});
 const correlativosLoading = ref(false);
@@ -405,10 +407,12 @@ watch(selectedEmpresa, (empresa) => {
   if (props.detailMode && empresa) {
     emitSelectedCompany(empresa);
     void loadCompanySummary(empresa.id);
+    void loadCompanySubscription(empresa.id);
     return;
   }
 
   companySummary.value = null;
+  companySubscription.value = null;
 }, { immediate: true });
 
 watch([editingCompany, editingFiscal, editingSucursales, editingCorrelativos], () => {
@@ -716,6 +720,21 @@ async function loadCompanySummary(empresaId: number): Promise<void> {
     companySummary.value = await client.value.dashboardSummary({ empresa_id: empresaId });
   } catch {
     companySummary.value = null;
+  }
+}
+
+async function loadCompanySubscription(empresaId: number): Promise<void> {
+  companySubscription.value = null;
+
+  if (!platformClient.value) {
+    return;
+  }
+
+  try {
+    const response = await platformClient.value.tenantSubscriptionByCoreEmpresaForTenant(empresaId);
+    companySubscription.value = response.row;
+  } catch {
+    companySubscription.value = null;
   }
 }
 
@@ -1580,7 +1599,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
                 @click="selectEmpresa(empresa)"
               >
                 <div class="flex items-center gap-4">
-                  <img v-if="hasLogo(empresa)" :src="empresa.logo_url ?? ''" class="h-14 w-14 rounded-md border border-line object-contain" alt="" @error="markLogoBroken(empresa)">
+                  <img v-if="hasLogo(empresa)" :src="empresa.logo_url ?? ''" loading="lazy" class="h-14 w-14 rounded-md border border-line object-contain" alt="" @error="markLogoBroken(empresa)">
                   <div v-else class="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-surface-strong text-sm font-bold text-text">
                     {{ initials(empresa) }}
                   </div>
@@ -1859,7 +1878,7 @@ function markLogoBroken(empresa: BillingEmpresa): void {
               </div>
               <div class="min-w-0 rounded-md border border-line bg-surface p-4 shadow-sm shadow-surface">
                 <p class="truncate text-[11px] font-bold uppercase text-muted">Suscripcion hasta</p>
-                <p class="mt-1 text-sm font-semibold text-text">No registrada</p>
+                <p class="mt-1 text-sm font-semibold text-text">{{ formatDate(companySubscription?.subscription?.current_period_ends_at) }}</p>
               </div>
             </div>
 
