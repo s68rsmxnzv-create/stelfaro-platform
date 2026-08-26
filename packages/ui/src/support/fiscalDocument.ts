@@ -70,7 +70,7 @@ export function detectFiscalDocument(
     message: allowedTypes === 'nit'
       ? 'Ingresa NIT largo de 14 digitos.'
       : allowForeignId
-        ? 'Ingresa DUI/NIT homologado, NIT de 14 digitos, o pasaporte/carné de residente.'
+        ? ''
         : 'Ingresa DUI/NIT homologado de 9 digitos o NIT de 14 digitos.'
   };
 }
