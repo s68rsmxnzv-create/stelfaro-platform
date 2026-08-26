@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { UiButton, UiEmailInput, UiFiscalDocumentInput, UiInput, UiPhoneInput, UiSaveIcon, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
 import type { BillingCustomer } from '@stelfaro/api-client';
 import BillingModalShell from './BillingModalShell.vue';
@@ -137,6 +137,10 @@ watch([() => form.document, () => detection.typeCode], () => {
       }
     }
   }, 250);
+});
+
+onBeforeUnmount(() => {
+  if (documentCheckTimer) window.clearTimeout(documentCheckTimer);
 });
 
 const selectedActividad = computed(() => props.actividadOptions.find((option) => option.value === form.actividad) ?? null);
@@ -318,7 +322,7 @@ function submit(): void {
       <UiInput v-if="isFiscalMode" v-model="form.nrc" label="NRC" />
     </div>
 
-    <div v-if="mode !== 'quick' && duplicateCustomer" class="rounded-md border border-blue-100 bg-blue-50/60 p-3 text-sm text-slate-700 dark:border-line dark:bg-surface-muted dark:text-muted">
+    <div v-if="mode !== 'quick' && duplicateCustomer" role="status" aria-live="polite" class="rounded-md border border-blue-100 bg-blue-50/60 p-3 text-sm text-slate-700 dark:border-line dark:bg-surface-muted dark:text-muted">
       Ya existe un cliente con este documento: <strong class="text-text">{{ duplicateCustomer.name }}</strong>.
       <button
         type="button"

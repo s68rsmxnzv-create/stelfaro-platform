@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   computed,
+  nextTick,
   onBeforeUnmount,
   onMounted,
   reactive,
@@ -3189,9 +3190,12 @@ function useExistingCustomerForQuickModal(customer: BillingCustomer): void {
   customerModalMode.value = null;
 }
 
-function useExistingCustomerForFiscalModal(customer: BillingCustomer): void {
-  applyCustomer(customer);
+async function useExistingCustomerForFiscalModal(
+  customer: BillingCustomer,
+): Promise<void> {
   closeFiscalCustomerModal();
+  await nextTick();
+  applyCustomer(customer);
 }
 
 async function handleFiscalCustomerSave(
