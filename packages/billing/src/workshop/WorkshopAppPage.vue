@@ -537,6 +537,7 @@ onMounted(restoreCompletedReception);
       :customer-loading="workshop.customerLoading.value"
       :continuation="continuation"
       :on-create-customer="workshop.createCustomer"
+      :on-check-document="workshop.checkCustomerDocument"
       :on-save="create"
       @search="workshop.searchCustomers"
     />

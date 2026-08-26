@@ -94,6 +94,15 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
       throw reason;
     }
   }
+  async function checkCustomerDocument(documentType: string, documentNumber: string): Promise<BillingCustomer | null> {
+    if (!empresaId.value) return null;
+    try {
+      const result = await core.checkCustomerDocument({ empresa_id: empresaId.value, document_type: documentType || undefined, document_number: documentNumber });
+      return result.customer;
+    } catch {
+      return null;
+    }
+  }
   async function updateOrder(id: number, payload: { status?: string; diagnosis?: string | null; estimated_total?: number | null; approval_decision?: 'approved' | 'rejected'; approval_method?: 'whatsapp' | 'call' | 'in_person'; approval_notes?: string | null; direct_service?: boolean; payment?: { amount: number; method: 'cash'|'card'|'transfer'|'other'; reference?: string|null; notes?: string|null } }) {
     error.value = null;
     try {
@@ -129,5 +138,5 @@ export function useWorkshop(coreBaseUrl: string, platformBaseUrl: string, authTo
   }
   onMounted(initialize);
   onBeforeUnmount(() => { if (customerSearchTimer) window.clearTimeout(customerSearchTimer); });
-  return { orders, customers, photos, orderStats, orderMeta, loading, customerLoading, photoLoading, error, openOrders: computed(() => orders.value.filter((o) => !['delivered', 'cancelled'].includes(o.status))), searchCustomers, createCustomer, createOrder, createPhotoSession, loadOrders, loadPhotos, updateOrder, settleOrder, recordPayment };
+  return { orders, customers, photos, orderStats, orderMeta, loading, customerLoading, photoLoading, error, openOrders: computed(() => orders.value.filter((o) => !['delivered', 'cancelled'].includes(o.status))), searchCustomers, createCustomer, checkCustomerDocument, createOrder, createPhotoSession, loadOrders, loadPhotos, updateOrder, settleOrder, recordPayment };
 }
