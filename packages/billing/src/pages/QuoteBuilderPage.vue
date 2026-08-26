@@ -342,6 +342,25 @@ function selectCustomer(customer: BillingCustomer) {
   customerSearch.value = customer.name;
   customerResults.value = [];
 }
+function checkCustomerDocument(
+  documentType: string,
+  documentNumber: string,
+): Promise<BillingCustomer | null> {
+  if (!props.company?.id) return Promise.resolve(null);
+  return core.value
+    .checkCustomerDocument({
+      empresa_id: Number(props.company.id),
+      document_type: documentType || undefined,
+      document_number: documentNumber,
+    })
+    .then((response) => response.customer);
+}
+
+function useExistingCustomer(customer: BillingCustomer): void {
+  selectCustomer(customer);
+  customerCreateOpen.value = false;
+  notify("Cliente existente seleccionado", `Se usó ${customer.name} para esta cotización.`);
+}
 async function createCustomer(payload: BillingCustomerModalPayload) {
   if (!props.company?.id) return;
   customerCreateLoading.value = true;
@@ -600,8 +619,10 @@ onBeforeUnmount(() => {
       :departamento-options="departamentoOptions"
       :municipio-options="municipioOptions"
       :distrito-options="distritoOptions"
+      :on-check-document="checkCustomerDocument"
       @close="customerCreateOpen = false"
       @save="createCustomer"
+      @use-existing="useExistingCustomer"
       @update:departamento="customerDepartamento = $event"
       @update:municipio="customerMunicipio = $event"
     />
