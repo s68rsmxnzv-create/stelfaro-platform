@@ -50,7 +50,7 @@ const toggleLabel = computed(() => {
 });
 const placeholder = computed(() => {
   if (props.allowedTypes === 'nit') return 'NIT de 14 dígitos';
-  return props.allowForeignId ? 'DUI, NIT, pasaporte o carné de residente' : 'DUI de 9 o NIT de 14 dígitos';
+  return props.allowForeignId ? 'DUI, NIT o pasaporte' : 'DUI de 9 o NIT de 14 dígitos';
 });
 const inputMode = computed(() => (props.allowForeignId && isForeignActive.value) ? 'text' : 'numeric');
 const maxLength = computed(() => (props.allowForeignId ? 20 : 17));
