@@ -4,7 +4,7 @@ import { CoreDteClient, type BillingCatalogs, type BillingContext, type BillingC
 import { currency, fiscalDateTime } from '@stelfaro/shared';
 import { UiActionDropdown, UiActionMenuItem, UiButton, UiCard, UiDataTable, UiLoadingMark, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import { BadgeCheck, CircleAlert, FileJson, FileText, History, Pencil, RefreshCw, Trash2, UserPlus } from 'lucide-vue-next';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
 import BillingModalShell from '../components/BillingModalShell.vue';
@@ -180,6 +180,28 @@ function openEdit(customer: BillingCustomer): void {
   customerModalOpen.value = true;
 }
 
+function checkCustomerDocument(
+  documentType: string,
+  documentNumber: string,
+  excludeId?: number,
+): Promise<BillingCustomer | null> {
+  if (!selectedEmpresa.value) return Promise.resolve(null);
+  return client.value
+    .checkCustomerDocument({
+      empresa_id: selectedEmpresa.value.id,
+      document_type: documentType || undefined,
+      document_number: documentNumber,
+      exclude_id: excludeId,
+    })
+    .then((response) => response.customer);
+}
+
+async function useExistingCustomer(customer: BillingCustomer): Promise<void> {
+  customerModalOpen.value = false;
+  await nextTick();
+  openEdit(customer);
+}
+
 function openHistory(customer: BillingCustomer): void {
   const document = customerHistoryDocument(customer);
   if (!document) {
@@ -325,6 +347,7 @@ function customerInitialValue(customer: BillingCustomer | null): Partial<Billing
   if (!customer) return null;
 
   return {
+    id: customer.id,
     name: customer.name,
     document_type: customer.document_type,
     document_number: formatFiscalDocument(customer.document_number ?? customer.nit ?? '', customer.document_type),
@@ -610,8 +633,10 @@ function messageFromError(error): string {
       :departamento-options="departamentoOptions"
       :municipio-options="municipioOptions"
       :distrito-options="distritoOptions"
+      :on-check-document="checkCustomerDocument"
       @close="customerModalOpen = false"
       @save="saveCustomer"
+      @use-existing="useExistingCustomer"
       @update:departamento="modalDepartamento = $event"
       @update:municipio="modalMunicipio = $event"
     />
