@@ -7,7 +7,7 @@ import BillingCustomerModal, { type BillingCustomerModalPayload } from '../compo
 import WorkshopPatternInput from './WorkshopPatternInput.vue';
 import WorkshopIdentifierInput from './WorkshopIdentifierInput.vue';
 
-const props = defineProps<{ customers: BillingCustomer[]; branches?: BillingSucursal[]; catalogs?: BillingCatalogs | null; customerLoading?: boolean; continuation?: { receptionId: number; customer: Pick<BillingCustomer, 'id'|'name'|'phone'|'email'>; branchId?: number|null } | null; onCreateCustomer: (payload: BillingCustomerModalPayload) => Promise<BillingCustomer>; onSave: (payload: WorkshopOrderPayload) => Promise<unknown> }>();
+const props = defineProps<{ customers: BillingCustomer[]; branches?: BillingSucursal[]; catalogs?: BillingCatalogs | null; customerLoading?: boolean; continuation?: { receptionId: number; customer: Pick<BillingCustomer, 'id'|'name'|'phone'|'email'>; branchId?: number|null } | null; onCreateCustomer: (payload: BillingCustomerModalPayload) => Promise<BillingCustomer>; onCheckDocument?: (documentType: string, documentNumber: string) => Promise<BillingCustomer | null>; onSave: (payload: WorkshopOrderPayload) => Promise<unknown> }>();
 const emit = defineEmits<{ search: [query: string] }>();
 type ReceptionCustomer = Pick<BillingCustomer, 'id'|'name'|'phone'|'email'> & { document_number?: string|null };
 const step = ref(props.continuation ? 2 : 1);
@@ -62,6 +62,10 @@ async function createCustomer(payload: BillingCustomerModalPayload) {
   try { choose(await props.onCreateCustomer(payload)); customerCreateOpen.value = false; }
   finally { customerCreateLoading.value = false; }
 }
+function useExistingCustomer(customer: BillingCustomer) {
+  choose(customer);
+  customerCreateOpen.value = false;
+}
 function next() {
   validationMessage.value = '';
   if (step.value === 1 && (!selected.value || ((props.branches?.length ?? 0) > 0 && !selectedBranch.value))) { validationMessage.value = !selected.value ? 'Selecciona un cliente para continuar.' : 'Selecciona la sucursal que recibe el equipo.'; return; }
@@ -101,8 +105,10 @@ function validateCompletion() {
     :departamento-options="departamentoOptions"
     :municipio-options="municipioOptions"
     :distrito-options="distritoOptions"
+    :on-check-document="onCheckDocument"
     @close="customerCreateOpen = false"
     @save="createCustomer"
+    @use-existing="useExistingCustomer"
     @update:departamento="customerDepartamento = $event"
     @update:municipio="customerMunicipio = $event"
   />

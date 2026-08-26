@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   computed,
+  nextTick,
   onBeforeUnmount,
   onMounted,
   reactive,
@@ -1089,11 +1090,13 @@ const customerDocumentTypeLabel = computed(() => {
     return form.customerDocument.length === 9 ? "NIT / DUI homologado" : "NIT";
   if (form.customerDocumentType === "36") return "NIT";
   if (form.customerDocumentType === "13") return "DUI";
+  if (form.customerDocumentType === "03") return "Pasaporte";
+  if (form.customerDocumentType === "02") return "Carné";
 
   return form.customerDocumentType || "Sin documento";
 });
 const customerDocumentNumberLabel = computed(() =>
-  formatCustomerDocument(form.customerDocument),
+  formatCustomerDocument(form.customerDocument, form.customerDocumentType),
 );
 
 function lineGrossTotal(line: BillingItem): number {
@@ -1238,7 +1241,11 @@ function roundUpMoney(value: number): number {
   return Math.ceil((value - 0.000000001) * 100) / 100;
 }
 
-function formatCustomerDocument(value: string): string {
+function formatCustomerDocument(value: string, documentType: string): string {
+  if (documentType === "03" || documentType === "02") {
+    return value || "Sin numero";
+  }
+
   const digits = value.replace(/\D+/g, "");
 
   if (digits.length === 9) {
@@ -3132,6 +3139,7 @@ function fiscalCustomerInitialValue(
   if (!customer) return null;
 
   return {
+    id: customer.id,
     name: customer.name,
     document_type: "36",
     document_number: customer.nit ?? customer.document_number ?? "",
@@ -3159,6 +3167,35 @@ function openFiscalComplement(customer: BillingCustomer): void {
 function closeFiscalCustomerModal(): void {
   fiscalCustomerModalOpen.value = false;
   fiscalCustomerTarget.value = null;
+}
+
+function checkCustomerDocument(
+  documentType: string,
+  documentNumber: string,
+  excludeId?: number,
+): Promise<BillingCustomer | null> {
+  if (!selectedEmpresa.value) return Promise.resolve(null);
+  return client.value
+    .checkCustomerDocument({
+      empresa_id: selectedEmpresa.value.id,
+      document_type: documentType || undefined,
+      document_number: documentNumber,
+      exclude_id: excludeId,
+    })
+    .then((response) => response.customer);
+}
+
+function useExistingCustomerForQuickModal(customer: BillingCustomer): void {
+  applyCustomer(customer);
+  customerModalMode.value = null;
+}
+
+async function useExistingCustomerForFiscalModal(
+  customer: BillingCustomer,
+): Promise<void> {
+  closeFiscalCustomerModal();
+  await nextTick();
+  applyCustomer(customer);
 }
 
 async function handleFiscalCustomerSave(
@@ -3427,6 +3464,11 @@ function normalizeCustomerDocument(
   documentType: string | null | undefined,
   value: string | null | undefined,
 ): { documentType: string; documentNumber: string } {
+  if (documentType === "03" || documentType === "02") {
+    const normalized = (value ?? "").replace(/\s+/g, "").toUpperCase();
+    return { documentType, documentNumber: normalized };
+  }
+
   const digits = onlyDigits(value);
 
   if (digits.length === 9) {
@@ -4014,6 +4056,7 @@ function updatePaymentCondition(value: string): void {
       :departamento-options="departamentoOptions"
       :municipio-options="municipioOptions"
       :distrito-options="distritoOptions"
+      :on-check-document="checkCustomerDocument"
       :initial-value="
         customerModalMode === 'quick'
           ? {
@@ -4030,6 +4073,7 @@ function updatePaymentCondition(value: string): void {
       "
       @close="customerModalMode = null"
       @save="handleCustomerModalSave"
+      @use-existing="useExistingCustomerForQuickModal"
       @update:departamento="fiscalModalDepartamento = $event"
       @update:municipio="fiscalModalMunicipio = $event"
     />
@@ -4044,8 +4088,10 @@ function updatePaymentCondition(value: string): void {
       :departamento-options="departamentoOptions"
       :municipio-options="municipioOptions"
       :distrito-options="distritoOptions"
+      :on-check-document="checkCustomerDocument"
       @close="closeFiscalCustomerModal"
       @save="handleFiscalCustomerSave"
+      @use-existing="useExistingCustomerForFiscalModal"
       @update:departamento="fiscalModalDepartamento = $event"
       @update:municipio="fiscalModalMunicipio = $event"
     />

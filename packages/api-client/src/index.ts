@@ -4579,6 +4579,19 @@ export class CoreDteClient {
     return this.http.get(`billing/customers/${customerId}`).json();
   }
 
+  checkCustomerDocument(params: {
+    empresa_id: number;
+    document_number: string;
+    document_type?: string;
+    exclude_id?: number;
+  }): Promise<{ customer: BillingCustomer | null }> {
+    return this.http
+      .get("billing/customers/check-document", {
+        searchParams: compactParams(params),
+      })
+      .json();
+  }
+
   saveCustomer(
     payload: Partial<BillingCustomer> & { empresa_id: number; name: string },
   ): Promise<{ customer: BillingCustomer }> {
@@ -5313,6 +5326,14 @@ function normalizeRecipientDocument(
   type: string | null | undefined,
   value: string | null | undefined,
 ): { documentType: string | null; documentNumber: string | null } {
+  if (type === "03" || type === "02") {
+    const normalized = value ? value.replace(/\s+/g, "").toUpperCase() : "";
+    if (!normalized) {
+      return { documentType: null, documentNumber: null };
+    }
+    return { documentType: type, documentNumber: normalized };
+  }
+
   const digits = onlyDigits(value);
   if (!digits) {
     return { documentType: null, documentNumber: null };

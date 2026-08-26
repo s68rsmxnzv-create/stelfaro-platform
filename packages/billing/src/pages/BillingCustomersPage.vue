@@ -4,7 +4,7 @@ import { CoreDteClient, type BillingCatalogs, type BillingContext, type BillingC
 import { currency, fiscalDateTime } from '@stelfaro/shared';
 import { UiActionDropdown, UiActionMenuItem, UiButton, UiCard, UiDataTable, UiLoadingMark, UiSearchInput, UiSelect, UiStatusBadge } from '@stelfaro/ui';
 import { BadgeCheck, CircleAlert, FileJson, FileText, History, Pencil, RefreshCw, Trash2, UserPlus } from 'lucide-vue-next';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BillingCustomerModal, { type BillingCustomerModalPayload } from '../components/BillingCustomerModal.vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
 import BillingModalShell from '../components/BillingModalShell.vue';
@@ -180,6 +180,28 @@ function openEdit(customer: BillingCustomer): void {
   customerModalOpen.value = true;
 }
 
+function checkCustomerDocument(
+  documentType: string,
+  documentNumber: string,
+  excludeId?: number,
+): Promise<BillingCustomer | null> {
+  if (!selectedEmpresa.value) return Promise.resolve(null);
+  return client.value
+    .checkCustomerDocument({
+      empresa_id: selectedEmpresa.value.id,
+      document_type: documentType || undefined,
+      document_number: documentNumber,
+      exclude_id: excludeId,
+    })
+    .then((response) => response.customer);
+}
+
+async function useExistingCustomer(customer: BillingCustomer): Promise<void> {
+  customerModalOpen.value = false;
+  await nextTick();
+  openEdit(customer);
+}
+
 function openHistory(customer: BillingCustomer): void {
   const document = customerHistoryDocument(customer);
   if (!document) {
@@ -325,9 +347,10 @@ function customerInitialValue(customer: BillingCustomer | null): Partial<Billing
   if (!customer) return null;
 
   return {
+    id: customer.id,
     name: customer.name,
     document_type: customer.document_type,
-    document_number: formatFiscalDocument(customer.document_number ?? customer.nit ?? ''),
+    document_number: formatFiscalDocument(customer.document_number ?? customer.nit ?? '', customer.document_type),
     email: customer.email,
     phone: customer.phone,
     nit: customer.nit,
@@ -365,7 +388,10 @@ function customerDocumentLabel(customer: BillingCustomer): string {
   const value = customer.document_number ?? customer.nit ?? '';
   if (!value) return 'Sin documento';
 
-  return `${customer.document_type === '36' || value.length === 14 ? 'NIT' : 'DUI'} ${formatFiscalDocument(value)}`;
+  if (customer.document_type === '03') return `Pasaporte ${formatFiscalDocument(value, customer.document_type)}`;
+  if (customer.document_type === '02') return `Carné ${formatFiscalDocument(value, customer.document_type)}`;
+
+  return `${customer.document_type === '36' || value.length === 14 ? 'NIT' : 'DUI'} ${formatFiscalDocument(value, customer.document_type)}`;
 }
 
 function customerContactLabel(customer: BillingCustomer): string {
@@ -373,7 +399,12 @@ function customerContactLabel(customer: BillingCustomer): string {
 }
 
 function customerHistoryDocument(customer: BillingCustomer): string {
-  return String(customer.document_number ?? customer.nit ?? '').replace(/\D+/g, '');
+  const value = String(customer.document_number ?? customer.nit ?? '');
+  if (customer.document_type === '03' || customer.document_type === '02') {
+    return value.replace(/\s+/g, '').toUpperCase();
+  }
+
+  return value.replace(/\D+/g, '');
 }
 
 function typeLabel(code: string): string {
@@ -454,7 +485,11 @@ function stringValue(value: unknown): string | null {
   return typeof value === 'string' && value.trim() !== '' ? value : null;
 }
 
-function formatFiscalDocument(value: string): string {
+function formatFiscalDocument(value: string, documentType?: string | null): string {
+  if (documentType === '03' || documentType === '02') {
+    return String(value || '').replace(/\s+/g, '').toUpperCase();
+  }
+
   const digits = String(value || '').replace(/\D+/g, '').slice(0, 14);
   if (digits.length <= 8) return digits;
   if (digits.length <= 9) return `${digits.slice(0, 8)}-${digits.slice(8)}`;
@@ -598,8 +633,10 @@ function messageFromError(error): string {
       :departamento-options="departamentoOptions"
       :municipio-options="municipioOptions"
       :distrito-options="distritoOptions"
+      :on-check-document="checkCustomerDocument"
       @close="customerModalOpen = false"
       @save="saveCustomer"
+      @use-existing="useExistingCustomer"
       @update:departamento="modalDepartamento = $event"
       @update:municipio="modalMunicipio = $event"
     />

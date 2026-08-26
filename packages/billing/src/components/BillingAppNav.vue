@@ -58,6 +58,7 @@ const managementMenuOpen = ref(false);
 const eventMenuOpen = ref(false);
 const responsesMenuOpen = ref(false);
 const artifactsMenuOpen = ref(false);
+const fiscalReportsMenuOpen = ref(false);
 const navRef = ref(null);
 const documentTypes = ref([]);
 const enabledEventTypes = ref([]);
@@ -101,9 +102,14 @@ const artifactOptions = [
 const baseUrl = computed(() => props.appBaseUrl.replace(/\/$/, ''));
 const responsesMenuActive = computed(() => ['mh-responses', 'mh-event-responses'].includes(props.module));
 const artifactsMenuActive = computed(() => props.module === 'artifacts');
+const fiscalReportsMenuActive = computed(() => ['annexes', 'iva-books'].includes(props.module));
 const operationalMenuActive = computed(() => props.extraNavItems.some((item) => item.active));
 const managementMenuActive = computed(() => ['customers', 'catalog', 'inventory', 'cash', 'commercial-orders', 'follow-ups'].includes(props.module));
 const hrefFor = (path) => `${baseUrl.value}${path}`;
+const fiscalReportOptions = computed(() => [
+  { label: 'Anexos', href: hrefFor('/anexos'), module: 'annexes' },
+  { label: 'Libros de IVA', href: hrefFor('/libros-iva'), module: 'iva-books' }
+]);
 const managementOptions = computed(() => [
   { label: 'Órdenes y cotizaciones', href: hrefFor('/ordenes-trabajo'), module: 'commercial-orders' },
   { label: 'Caja', href: hrefFor('/caja'), module: 'cash' },
@@ -183,6 +189,7 @@ function toggleOperationalMenu() {
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
   artifactsMenuOpen.value = false;
+  fiscalReportsMenuOpen.value = false;
 }
 
 function toggleBillingMenu() {
@@ -193,6 +200,7 @@ function toggleBillingMenu() {
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
   artifactsMenuOpen.value = false;
+  fiscalReportsMenuOpen.value = false;
 }
 
 function toggleManagementMenu() {
@@ -203,6 +211,7 @@ function toggleManagementMenu() {
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
   artifactsMenuOpen.value = false;
+  fiscalReportsMenuOpen.value = false;
 }
 
 function toggleEventMenu() {
@@ -213,6 +222,7 @@ function toggleEventMenu() {
   managementMenuOpen.value = false;
   responsesMenuOpen.value = false;
   artifactsMenuOpen.value = false;
+  fiscalReportsMenuOpen.value = false;
 }
 
 function toggleResponsesMenu() {
@@ -223,6 +233,7 @@ function toggleResponsesMenu() {
   managementMenuOpen.value = false;
   eventMenuOpen.value = false;
   artifactsMenuOpen.value = false;
+  fiscalReportsMenuOpen.value = false;
 }
 
 function toggleArtifactsMenu() {
@@ -233,6 +244,18 @@ function toggleArtifactsMenu() {
   managementMenuOpen.value = false;
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
+  fiscalReportsMenuOpen.value = false;
+}
+
+function toggleFiscalReportsMenu() {
+  const next = !fiscalReportsMenuOpen.value;
+  fiscalReportsMenuOpen.value = next;
+  operationalMenuOpen.value = false;
+  billingMenuOpen.value = false;
+  managementMenuOpen.value = false;
+  eventMenuOpen.value = false;
+  responsesMenuOpen.value = false;
+  artifactsMenuOpen.value = false;
 }
 
 function closeMenus() {
@@ -242,10 +265,11 @@ function closeMenus() {
   eventMenuOpen.value = false;
   responsesMenuOpen.value = false;
   artifactsMenuOpen.value = false;
+  fiscalReportsMenuOpen.value = false;
 }
 
 function closeMenusOnOutsidePointerDown(event) {
-  if (!operationalMenuOpen.value && !billingMenuOpen.value && !managementMenuOpen.value && !eventMenuOpen.value && !responsesMenuOpen.value && !artifactsMenuOpen.value) return;
+  if (!operationalMenuOpen.value && !billingMenuOpen.value && !managementMenuOpen.value && !eventMenuOpen.value && !responsesMenuOpen.value && !artifactsMenuOpen.value && !fiscalReportsMenuOpen.value) return;
   if (navRef.value?.contains(event.target)) return;
 
   closeMenus();
@@ -432,14 +456,37 @@ function navigate(event, href) {
       </div>
     </div>
 
-    <a
-      :href="hrefFor('/anexos')"
-      class="rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
-      :class="module === 'annexes' ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
-      @click="navigate($event, hrefFor('/anexos'))"
-    >
-      Anexos
-    </a>
+    <div class="relative">
+      <button
+        class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
+        :class="fiscalReportsMenuActive ? 'bg-slate-950 text-white shadow-sm shadow-black/20' : ''"
+        type="button"
+        @click="toggleFiscalReportsMenu"
+      >
+        Fiscal
+        <span
+          class="h-1.5 w-1.5 rotate-45 border-b-2 border-r-2 border-current text-slate-400 transition"
+          :class="fiscalReportsMenuOpen ? 'rotate-[225deg]' : ''"
+          aria-hidden="true"
+        />
+      </button>
+
+      <div
+        v-if="fiscalReportsMenuOpen"
+        class="sf-app-menu absolute left-0 z-30 mt-2 w-48 rounded-lg border border-white/10 p-2 shadow-xl shadow-surface ring-1 ring-primary/10"
+      >
+        <a
+          v-for="option in fiscalReportOptions"
+          :key="option.href"
+          :href="option.href"
+          class="block rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-primary/15 hover:text-white"
+          :class="{ '!bg-primary !text-primary-contrast shadow-sm shadow-surface': module === option.module }"
+          @click="navigate($event, option.href)"
+        >
+          {{ option.label }}
+        </a>
+      </div>
+    </div>
 
     <div class="relative">
       <button

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { UiButton, UiEmailInput, UiFiscalDocumentInput, UiInput, UiPhoneInput, UiSaveIcon, UiSearchSelect, type FiscalDocumentDetection } from '@stelfaro/ui';
+import type { BillingCustomer } from '@stelfaro/api-client';
 import BillingModalShell from './BillingModalShell.vue';
 
 export type BillingCustomerModalMode = 'new' | 'quick' | 'edit';
@@ -12,6 +13,7 @@ type SelectOption = {
 };
 
 export type BillingCustomerModalPayload = {
+  id?: number;
   name: string;
   document_type: string | null;
   document_number: string | null;
@@ -40,6 +42,7 @@ const props = withDefaults(defineProps<{
   municipioOptions?: SelectOption[];
   distritoOptions?: SelectOption[];
   allowOptionalAddress?: boolean;
+  onCheckDocument?: (documentType: string, documentNumber: string, excludeId?: number) => Promise<BillingCustomer | null>;
 }>(), {
   loading: false,
   intent: 'standard',
@@ -48,12 +51,14 @@ const props = withDefaults(defineProps<{
   departamentoOptions: () => [],
   municipioOptions: () => [],
   distritoOptions: () => [],
-  allowOptionalAddress: true
+  allowOptionalAddress: true,
+  onCheckDocument: undefined
 });
 
 const emit = defineEmits<{
   close: [];
   save: [payload: BillingCustomerModalPayload];
+  'use-existing': [customer: BillingCustomer];
   'update:departamento': [value: string];
   'update:municipio': [value: string];
 }>();
@@ -76,9 +81,14 @@ const commercialNameTouched = ref(false);
 const hydrating = ref(false);
 const nameInput = ref<{ $el?: HTMLElement } | null>(null);
 
+const duplicateCustomer = ref<BillingCustomer | null>(null);
+let documentCheckTimer: ReturnType<typeof window.setTimeout> | null = null;
+let documentCheckVersion = 0;
+
 const detection = reactive<FiscalDocumentDetection>({
   valid: false,
   type: '',
+  typeCode: '',
   typeLabel: '',
   number: '',
   message: ''
@@ -100,6 +110,39 @@ const documentIsValid = computed(() => {
   const digits = form.document.replace(/\D+/g, '');
   return detection.valid || digits.length === 9 || digits.length === 14;
 });
+
+watch([() => form.document, () => detection.typeCode], () => {
+  duplicateCustomer.value = null;
+  if (documentCheckTimer) {
+    window.clearTimeout(documentCheckTimer);
+    documentCheckTimer = null;
+  }
+  if (!props.onCheckDocument || props.mode === 'quick' || hydrating.value) {
+    return;
+  }
+  const version = ++documentCheckVersion;
+  documentCheckTimer = window.setTimeout(async () => {
+    if (!documentIsValid.value || !form.document.trim()) {
+      return;
+    }
+    const excludeId = isEditMode.value ? props.initialValue?.id : undefined;
+    try {
+      const found = await props.onCheckDocument!(detection.typeCode || '', form.document, excludeId);
+      if (version === documentCheckVersion) {
+        duplicateCustomer.value = found;
+      }
+    } catch {
+      if (version === documentCheckVersion) {
+        duplicateCustomer.value = null;
+      }
+    }
+  }, 250);
+});
+
+onBeforeUnmount(() => {
+  if (documentCheckTimer) window.clearTimeout(documentCheckTimer);
+});
+
 const selectedActividad = computed(() => props.actividadOptions.find((option) => option.value === form.actividad) ?? null);
 const isEditMode = computed(() => props.mode === 'edit');
 const isFiscalMode = computed(() => props.intent === 'fiscal' || isEditMode.value);
@@ -111,10 +154,12 @@ const hasFiscalIntent = computed(() => Boolean(
     || (props.initialValue?.allowed_dte_codes ?? []).includes('03')
   ))
 ));
+const isForeignDocument = computed(() => detection.typeCode === '03' || detection.typeCode === '02');
 const fiscalComplete = computed(() => Boolean(
   !hasFiscalIntent.value
   || (
-    documentIsValid.value
+    !isForeignDocument.value
+    && documentIsValid.value
     && form.nrc.trim()
     && form.actividad.trim()
     && selectedActividad.value
@@ -132,12 +177,18 @@ const commercialNameNeedsReview = computed(() => Boolean(
   && form.nombreComercial.trim() !== ''
   && form.nombreComercial.trim() === form.name.trim()
 ));
-const canSave = computed(() => Boolean(form.name.trim()) && documentIsValid.value && fiscalComplete.value && !props.loading);
+const canSave = computed(() => Boolean(form.name.trim()) && documentIsValid.value && (isForeignDocument.value || fiscalComplete.value) && !props.loading);
 
 watch(() => props.open, (open) => {
   if (!open) return;
   hydrating.value = true;
   commercialNameTouched.value = false;
+  duplicateCustomer.value = null;
+  if (documentCheckTimer) {
+    window.clearTimeout(documentCheckTimer);
+    documentCheckTimer = null;
+  }
+  documentCheckVersion++;
   form.name = props.mode === 'quick' ? '' : props.initialValue?.name ?? '';
   form.document = props.initialValue?.document_number ?? '';
   form.email = props.initialValue?.email ?? '';
@@ -177,6 +228,7 @@ watch(() => form.municipio, (value, oldValue) => {
 function updateDetection(value: FiscalDocumentDetection): void {
   detection.valid = value.valid;
   detection.type = value.type;
+  detection.typeCode = value.typeCode;
   detection.typeLabel = value.typeLabel;
   detection.number = value.number;
   detection.message = value.message;
@@ -202,6 +254,8 @@ function submit(): void {
   }
 
   const documentDigits = form.document.replace(/\D+/g, '');
+  const documentNumber = isForeignDocument.value ? detection.number : documentDigits;
+  const documentType = form.document.trim() === '' ? null : (detection.typeCode || (documentDigits.length === 14 ? '36' : '13'));
   const activity = selectedActividad.value;
   const allowedDteCodes = new Set(props.initialValue?.allowed_dte_codes ?? []);
   if (hasFiscalIntent.value && fiscalComplete.value) {
@@ -211,8 +265,8 @@ function submit(): void {
 
   emit('save', {
     name: form.name.trim(),
-    document_type: form.document.trim() === '' ? null : hasFiscalIntent.value || detection.typeLabel === 'NIT' || documentDigits.length === 14 ? '36' : '13',
-    document_number: form.document.trim() === '' ? null : documentDigits,
+    document_type: documentType,
+    document_number: form.document.trim() === '' ? null : documentNumber,
     email: form.email.trim() || null,
     phone: form.phone.trim() || null,
     nit: hasFiscalIntent.value ? documentDigits || null : props.initialValue?.nit ?? null,
@@ -260,10 +314,23 @@ function submit(): void {
     <div v-if="mode !== 'quick'" class="grid gap-4 md:grid-cols-2">
       <UiFiscalDocumentInput
         v-model="form.document"
-        :label="documentRequired ? 'DUI/NIT del cliente' : 'DUI/NIT del cliente (opcional)'"
+        :label="documentRequired ? 'DUI/NIT/Pasaporte del cliente' : 'DUI/NIT/Pasaporte del cliente (opcional)'"
+        allow-foreign-id
+        :initial-type-code="initialValue?.document_type ?? null"
         @detected="updateDetection"
       />
       <UiInput v-if="isFiscalMode" v-model="form.nrc" label="NRC" />
+    </div>
+
+    <div v-if="mode !== 'quick' && duplicateCustomer" role="status" aria-live="polite" class="rounded-md border border-blue-100 bg-blue-50/60 p-3 text-sm text-slate-700 dark:border-line dark:bg-surface-muted dark:text-muted">
+      Ya existe un cliente con este documento: <strong class="text-text">{{ duplicateCustomer.name }}</strong>.
+      <button
+        type="button"
+        class="ml-1 font-semibold text-sky-700 underline transition hover:text-sky-600 dark:text-primary"
+        @click="emit('use-existing', duplicateCustomer)"
+      >
+        Usar este cliente
+      </button>
     </div>
 
     <UiSearchSelect
@@ -315,7 +382,9 @@ function submit(): void {
     </div>
 
     <p v-if="hasFiscalIntent && !fiscalComplete" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800 dark:bg-warning-soft dark:text-warning">
-      Para usar este cliente en Credito Fiscal completa NIT/DUI, NRC, actividad, direccion, correo y telefono.
+      {{ isForeignDocument
+        ? 'Crédito Fiscal requiere NIT del cliente. Un cliente con pasaporte o carné de residente solo puede facturarse con Factura simple.'
+        : 'Para usar este cliente en Credito Fiscal completa NIT/DUI, NRC, actividad, direccion, correo y telefono.' }}
     </p>
 
     <template #footer>

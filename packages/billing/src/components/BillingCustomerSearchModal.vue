@@ -22,6 +22,15 @@ const emit = defineEmits<{
 
 function customerDocumentLabel(customer: BillingCustomer): string {
   const value = customer.document_number ?? customer.nit ?? '';
+
+  if (customer.document_type === '03') {
+    return value ? `Pasaporte ${value.replace(/\s+/g, '').toUpperCase()}` : 'Sin documento';
+  }
+
+  if (customer.document_type === '02') {
+    return value ? `Carné ${value.replace(/\s+/g, '').toUpperCase()}` : 'Sin documento';
+  }
+
   const digits = value.replace(/\D+/g, '');
   const label = digits.length === 14 ? 'NIT' : digits.length === 9 ? 'DUI' : customer.document_type ?? 'Doc';
 
