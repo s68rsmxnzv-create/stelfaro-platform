@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { computed, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import BillingMobileTabBar from './BillingMobileTabBar.vue';
 import BillingMobileSheet from './BillingMobileSheet.vue';
 import BillingMobileActionGrid from './BillingMobileActionGrid.vue';
@@ -15,18 +15,23 @@ const emit = defineEmits(['navigate']);
 const activeSheet = ref(null);
 const scrollLock = useBodyScrollLock();
 const sheetHistory = useSheetHistory(() => {
+  // Back button / edge-swipe: the entry is already gone, just close.
   activeSheet.value = null;
+  scrollLock.unlock();
 });
 
-watch(activeSheet, (sheet, previous) => {
-  if (sheet) {
-    scrollLock.lock();
-    sheetHistory.open();
-  } else if (previous) {
-    scrollLock.unlock();
-    sheetHistory.close();
-  }
-});
+function openSheet(key) {
+  activeSheet.value = key;
+  scrollLock.lock();
+  sheetHistory.open();
+}
+
+function closeSheet() {
+  if (!activeSheet.value) return;
+  activeSheet.value = null;
+  scrollLock.unlock();
+  sheetHistory.close();
+}
 
 const sheetTitle = computed(() => {
   if (activeSheet.value === 'action') return '¿Qué querés crear?';
@@ -36,18 +41,23 @@ const sheetTitle = computed(() => {
 
 function onTabSelect({ event, tab }) {
   if (tab.kind === 'fab') {
-    activeSheet.value = 'action';
+    openSheet('action');
     return;
   }
   if (tab.kind === 'sheet') {
-    activeSheet.value = tab.sheet;
+    openSheet(tab.sheet);
     return;
   }
   navigate({ event, href: tab.href });
 }
 
 function navigate({ event, href }) {
-  activeSheet.value = null;
+  if (activeSheet.value) {
+    // Leave the sheet without history.back() so it can't race the router.
+    sheetHistory.release();
+    activeSheet.value = null;
+    scrollLock.unlock();
+  }
   emit('navigate', { event, href });
 }
 </script>
@@ -61,7 +71,7 @@ function navigate({ event, href }) {
     <BillingMobileSheet
       :open="activeSheet === 'action'"
       :title="sheetTitle"
-      @close="activeSheet = null"
+      @close="closeSheet"
     >
       <BillingMobileActionGrid :items="navModel.actions" @navigate="navigate" />
     </BillingMobileSheet>
@@ -69,7 +79,7 @@ function navigate({ event, href }) {
     <BillingMobileSheet
       :open="activeSheet === 'management'"
       :title="sheetTitle"
-      @close="activeSheet = null"
+      @close="closeSheet"
     >
       <BillingMobileActionGrid
         :items="navModel.management ?? []"
@@ -81,9 +91,9 @@ function navigate({ event, href }) {
       :open="activeSheet === 'more'"
       title="Más"
       size="tall"
-      @close="activeSheet = null"
+      @close="closeSheet"
     >
-      <slot name="more" :close="() => (activeSheet = null)" :navigate="navigate" />
+      <slot name="more" :close="closeSheet" :navigate="navigate" />
     </BillingMobileSheet>
   </div>
 </template>

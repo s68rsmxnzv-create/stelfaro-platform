@@ -239,6 +239,39 @@
     }
   }
 
+  /*
+   * Mobile app-shell glass — tab bar and bottom sheets.
+   *
+   * Deliberately does NOT use the url(#liquid-glass) SVG displacement:
+   * - it thrashes the compositor on a full-width surface that animates, which
+   *   is the "se traba al abrir el menú" jank on Android/Chrome;
+   * - Safari/iOS ignores url() inside backdrop-filter entirely, so it would
+   *   fall through to a near-transparent 8% tint (the "casi transparente"
+   *   look on iOS).
+   *
+   * A plain frosted blur with a heavy tint reads well on every engine, stays
+   * cheap, and the -webkit- prefix covers iOS < 16.4.
+   */
+  .sf-mobile-glass {
+    background: color-mix(in oklab, var(--sf-color-surface) 82%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .sf-mobile-glass {
+      background: color-mix(in oklab, var(--sf-color-surface) 96%, transparent);
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .sf-mobile-glass {
+      background: var(--sf-color-surface);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+
   .sf-app-menu {
     background-color: var(--sf-color-menu);
   }

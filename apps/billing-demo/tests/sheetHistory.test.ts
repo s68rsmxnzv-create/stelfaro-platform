@@ -54,6 +54,17 @@ describe('createSheetHistory', () => {
     expect(history.back).not.toHaveBeenCalled();
   });
 
+  it('release() forgets the entry without calling back()', () => {
+    const history = fakeHistory();
+    const sheets = createSheetHistory({ history, onRequestClose: vi.fn() });
+
+    sheets.open('action');
+    sheets.release();
+    sheets.close();
+
+    expect(history.back).not.toHaveBeenCalled();
+  });
+
   it('ignores popstate when no sheet entry is owned', () => {
     const history = fakeHistory();
     const onRequestClose = vi.fn();

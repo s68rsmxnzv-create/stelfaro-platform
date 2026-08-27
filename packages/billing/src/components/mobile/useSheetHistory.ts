@@ -28,13 +28,22 @@ export function createSheetHistory({ history, onRequestClose }) {
     history.back();
   }
 
+  /**
+   * Drop ownership of the pushed entry WITHOUT navigating back. Used when we
+   * leave a sheet by navigating to another page: the router pushes its own
+   * entry and a `history.back()` here would race it and undo the navigation.
+   */
+  function release() {
+    ownsEntry = false;
+  }
+
   function handlePopState() {
     if (!ownsEntry) return;
     ownsEntry = false;
     onRequestClose();
   }
 
-  return { open, close, handlePopState };
+  return { open, close, release, handlePopState };
 }
 
 export function useSheetHistory(onRequestClose) {

@@ -14,7 +14,7 @@ function onSelect(event, tab) {
 
 <template>
   <nav
-    class="sheet-glass fixed inset-x-0 bottom-0 z-50 border-t border-line pb-[env(safe-area-inset-bottom)] md:hidden"
+    class="sf-mobile-glass fixed inset-x-0 bottom-0 z-50 border-t border-line pb-[env(safe-area-inset-bottom)] md:hidden"
     aria-label="Navegación principal"
   >
     <ul class="mx-auto flex h-14 max-w-lg items-stretch justify-around px-1">

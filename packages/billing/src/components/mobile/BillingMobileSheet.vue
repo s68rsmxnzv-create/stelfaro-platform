@@ -70,7 +70,7 @@ function onTouchEnd() {
         <div
           ref="panelRef"
           tabindex="-1"
-          class="sheet-glass relative flex w-full flex-col rounded-t-3xl border-t border-line pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-2 outline-none"
+          class="sf-sheet-panel relative flex w-full flex-col rounded-t-3xl border-t border-line bg-surface pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-2 text-text shadow-2xl shadow-black/30 outline-none"
           :class="size === 'tall' ? 'max-h-[90vh]' : 'max-h-[70vh]'"
           :style="{
             transform: dragOffset ? `translateY(${dragOffset}px)` : undefined,
@@ -112,30 +112,34 @@ function onTouchEnd() {
 </template>
 
 <style scoped>
+.sf-sheet-panel {
+  will-change: transform;
+}
+
 .sf-sheet-enter-active,
 .sf-sheet-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.18s ease;
 }
-.sf-sheet-enter-active > div:last-child,
-.sf-sheet-leave-active > div:last-child {
-  transition: transform 0.2s ease-out;
+.sf-sheet-enter-active .sf-sheet-panel,
+.sf-sheet-leave-active .sf-sheet-panel {
+  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
 }
 .sf-sheet-enter-from,
 .sf-sheet-leave-to {
   opacity: 0;
 }
-.sf-sheet-enter-from > div:last-child,
-.sf-sheet-leave-to > div:last-child {
+.sf-sheet-enter-from .sf-sheet-panel,
+.sf-sheet-leave-to .sf-sheet-panel {
   transform: translateY(100%);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sf-sheet-enter-active > div:last-child,
-  .sf-sheet-leave-active > div:last-child {
+  .sf-sheet-enter-active .sf-sheet-panel,
+  .sf-sheet-leave-active .sf-sheet-panel {
     transition: none;
   }
-  .sf-sheet-enter-from > div:last-child,
-  .sf-sheet-leave-to > div:last-child {
+  .sf-sheet-enter-from .sf-sheet-panel,
+  .sf-sheet-leave-to .sf-sheet-panel {
     transform: none;
   }
 }
