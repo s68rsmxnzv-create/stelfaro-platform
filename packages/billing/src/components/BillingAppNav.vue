@@ -541,5 +541,34 @@ function navigate(event, href) {
   width: 100% !important;
   margin-top: 0.25rem;
   box-shadow: none;
+  background-color: transparent;
+  border-color: var(--sf-color-line);
+}
+
+/*
+ * Mobile mode renders this nav on a light "surface" sheet ("Más"), but the
+ * markup is coloured for the dark app navbar (text-slate-*, hover:bg-white/10,
+ * bg-slate-950). Re-map those to theme tokens so the text is legible in every
+ * theme. The active pill already sets !bg-primary / !text-primary-contrast.
+ */
+.billing-nav--mobile :deep(button),
+.billing-nav--mobile :deep(a) {
+  color: var(--sf-color-text-muted);
+}
+
+.billing-nav--mobile :deep(button:hover),
+.billing-nav--mobile :deep(a:hover),
+.billing-nav--mobile :deep(.bg-slate-950) {
+  background-color: var(--sf-color-surface-muted);
+  color: var(--sf-color-text);
+}
+
+.billing-nav--mobile :deep(.text-slate-400),
+.billing-nav--mobile :deep(.text-slate-500) {
+  color: var(--sf-color-text-soft);
+}
+
+.billing-nav--mobile :deep(.\!bg-primary) {
+  color: var(--sf-color-primary-contrast) !important;
 }
 </style>

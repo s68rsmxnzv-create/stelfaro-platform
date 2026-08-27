@@ -1049,7 +1049,7 @@ function navigateFromMenu(event, href) {
           'billing',
           'workshop-reception',
           'workshop-orders',
-        ].includes(module)
+        ].includes(module) || !currentHelp
           ? 'hidden md:block'
           : ''
       "
@@ -1064,7 +1064,7 @@ function navigateFromMenu(event, href) {
       >
         <div class="flex flex-wrap items-center gap-3">
           <h1
-            class="text-lg font-semibold tracking-tight text-text sm:text-xl"
+            class="hidden text-lg font-semibold tracking-tight text-text sm:text-xl md:block"
           >
             {{ pageTitle }}
           </h1>

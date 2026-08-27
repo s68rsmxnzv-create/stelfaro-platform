@@ -34,7 +34,7 @@ function closeSheet() {
 }
 
 const sheetTitle = computed(() => {
-  if (activeSheet.value === 'action') return '¿Qué querés crear?';
+  if (activeSheet.value === 'action') return 'Acciones rápidas';
   if (activeSheet.value === 'management') return 'Gestión';
   return '';
 });
