@@ -42,7 +42,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown));
     <div v-else class="mt-4 rounded-lg border border-dashed border-line bg-surface-muted px-4 py-8 text-center"><Images class="mx-auto h-8 w-8 text-muted" /><p class="mt-2 text-sm font-medium text-text">Aún no hay fotografías</p><p class="mt-1 text-xs text-muted">Después de subirlas desde este u otro dispositivo, pulsa Actualizar.</p></div>
 
     <Teleport to="body">
-      <div v-if="selected" class="fixed inset-0 z-50 grid place-items-center bg-black/85 p-4" role="dialog" aria-modal="true" aria-label="Vista ampliada de fotografía" @click.self="close">
+      <div v-if="selected" class="fixed inset-0 z-[70] grid place-items-center bg-black/85 p-4" role="dialog" aria-modal="true" aria-label="Vista ampliada de fotografía" @click.self="close">
         <button type="button" class="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/20" aria-label="Cerrar" @click="close"><X class="h-6 w-6" /></button>
         <button v-if="photos.length > 1" type="button" class="absolute left-3 grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/20 sm:left-6" aria-label="Foto anterior" @click="move(-1)"><ChevronLeft class="h-7 w-7" /></button>
         <img :src="selected.url" alt="Foto ampliada del equipo" class="max-h-[85vh] max-w-[88vw] object-contain">
