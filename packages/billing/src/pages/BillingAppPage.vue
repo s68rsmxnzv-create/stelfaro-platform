@@ -28,7 +28,8 @@ import MhEventResponsesPage from "./MhEventResponsesPage.vue";
 import MhEventsPage from "./MhEventsPage.vue";
 import MhResponsesPage from "./MhResponsesPage.vue";
 import BillingAccessDeniedPage from "./BillingAccessDeniedPage.vue";
-import { canAccessBillingModule } from "../moduleAccess";
+import StockLookupPage from "./StockLookupPage.vue";
+import { allowedSections, canAccessBillingModule } from "../moduleAccess";
 import {
   getBillingContext,
   peekBillingContext,
@@ -281,11 +282,15 @@ const effectiveFiscalRole = computed(() =>
   (props.platformSession?.tenant?.role === "billing_user" ? "cashier" : ""),
 );
 const hasModuleAccess = computed(() => canAccessBillingModule(effectiveFiscalRole.value, props.module));
-const selectedComponent = computed(() =>
-  hasModuleAccess.value
-    ? (moduleComponents[props.module] || BillingWorkspace)
-    : BillingAccessDeniedPage,
+// El cajero ve una vista dedicada de solo lectura en lugar del inventario completo.
+const cashierStockLookup = computed(
+  () => props.module === "inventory" && effectiveFiscalRole.value === "cashier",
 );
+const selectedComponent = computed(() => {
+  if (!hasModuleAccess.value) return BillingAccessDeniedPage;
+  if (cashierStockLookup.value) return StockLookupPage;
+  return moduleComponents[props.module] || BillingWorkspace;
+});
 const requiresFiscalSession = computed(
   () =>
     ![
@@ -335,6 +340,15 @@ const selectedComponentProps = computed(() => {
     dashboardUrl: props.dashboardUrl || props.appBaseUrl || "/",
     billingContextCacheScope: billingContextCacheScope.value,
   };
+
+  if (cashierStockLookup.value) {
+    return {
+      platformBaseUrl: props.platformBaseUrl,
+      platformSession: props.platformSession,
+      appBaseUrl: props.appBaseUrl,
+      dashboardUrl: props.dashboardUrl || props.appBaseUrl || "/",
+    };
+  }
 
   if (props.module === "billing") {
     return {
@@ -440,6 +454,7 @@ const selectedComponentProps = computed(() => {
       ...baseProps,
       platformSession: props.platformSession,
       platformBaseUrl: props.platformBaseUrl,
+      fiscalRole: effectiveFiscalRole.value,
       initialView: "audit",
     };
   }
@@ -449,6 +464,7 @@ const selectedComponentProps = computed(() => {
       ...baseProps,
       platformSession: props.platformSession,
       platformBaseUrl: props.platformBaseUrl,
+      fiscalRole: effectiveFiscalRole.value,
       workshopEnabled: props.app.id === "taller",
     };
   }
@@ -518,7 +534,7 @@ const pageTitle = computed(() => {
 
   if (props.module === "catalog") return "Catálogo";
   if (props.module === "customers") return "Clientes";
-  if (props.module === "inventory") return "Inventario";
+  if (props.module === "inventory") return cashierStockLookup.value ? "Existencias" : "Inventario";
   if (props.module === "cash") return "Caja";
   if (props.module === "commercial-orders") return "Órdenes y cotizaciones";
   if (props.module === "quote-builder")

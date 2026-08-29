@@ -1186,7 +1186,8 @@ export type PlatformInventoryStockAlert = Pick<
 export type PlatformInventorySummary = {
   products: number;
   units: number;
-  inventory_value: number;
+  /** Ausente cuando el rol no puede ver costos (p. ej. cajero). */
+  inventory_value?: number;
   lots: number;
   available_lots: number;
   movements: number;
@@ -1196,7 +1197,22 @@ export type PlatformInventorySummary = {
   stock_by_item: Array<{
     catalog_item_id: number;
     stock_quantity: number;
-    stock_value: number;
+    /** Ausente cuando el rol no puede ver costos. */
+    stock_value?: number;
+  }>;
+};
+
+export type PlatformStockByBranchItem = {
+  catalog_item_id: number;
+  name: string;
+  sku: string | null;
+  unit_name: string | null;
+  total: number;
+  by_branch: Array<{
+    sucursal_id: number;
+    codigo: string | null;
+    nombre: string | null;
+    quantity: number;
   }>;
 };
 
@@ -4083,6 +4099,14 @@ export class PlatformClient {
       .get(`platform/tenants/${tenantId}/inventory/reports/summary`, {
         searchParams: compactParams(params),
       })
+      .json();
+  }
+
+  inventoryStockByBranch(
+    tenantId: number,
+  ): Promise<{ data: { items: PlatformStockByBranchItem[] } }> {
+    return this.http
+      .get(`platform/tenants/${tenantId}/inventory/stock-by-branch`)
       .json();
   }
 
