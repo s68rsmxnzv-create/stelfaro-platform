@@ -2,19 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { allowedSections, canAccessBillingModule, moduleAccess } from '../../../packages/billing/src/moduleAccess';
 
 describe('cashier module access', () => {
-  it('limits the cashier to emission, customers, inventory and receipts', () => {
-    expect(moduleAccess.cashier).toEqual(['billing', 'customers', 'inventory', 'artifacts']);
+  it('lets the cashier reach emission, customers, inventory, receipts, cash and settings', () => {
+    expect(moduleAccess.cashier).toEqual(['billing', 'customers', 'inventory', 'artifacts', 'cash', 'settings']);
     expect(canAccessBillingModule('cashier', 'billing')).toBe(true);
     expect(canAccessBillingModule('cashier', 'customers')).toBe(true);
     expect(canAccessBillingModule('cashier', 'artifacts')).toBe(true);
+    expect(canAccessBillingModule('cashier', 'cash')).toBe(true);
+    expect(canAccessBillingModule('cashier', 'settings')).toBe(true);
   });
 
-  it('blocks the cashier from catalog, MH events, annexes, dashboard and settings', () => {
+  it('blocks the cashier from catalog, MH events, annexes and dashboard at the module level', () => {
     expect(canAccessBillingModule('cashier', 'catalog')).toBe(false);
     expect(canAccessBillingModule('cashier', 'mh-events')).toBe(false);
     expect(canAccessBillingModule('cashier', 'annexes')).toBe(false);
     expect(canAccessBillingModule('cashier', 'dashboard')).toBe(false);
-    expect(canAccessBillingModule('cashier', 'settings')).toBe(false);
   });
 
   it('keeps full access for roles without a restricted map', () => {

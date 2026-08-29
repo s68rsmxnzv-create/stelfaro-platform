@@ -1,11 +1,13 @@
 // Módulos del facturador que cada rol fiscal puede abrir. Un rol ausente de este
-// mapa no tiene restricción (acceso total). El cajero (`cashier`) sólo trabaja
-// con la emisión de FC/CCF, clientes, existencias (vista de solo lectura) y sus
-// comprobantes; el catálogo (gestión de precios/costos), eventos MH, anexos,
-// libros de IVA, auditoría, dashboard fiscal y configuración quedan fuera. El
-// bloqueo real vive además en la API (dte-core y platform-api → 403).
+// mapa no tiene restricción (acceso total). El cajero (`cashier`) trabaja con la
+// emisión de FC/CCF, clientes, existencias (vista de solo lectura), sus
+// comprobantes, la caja (apertura/cierre/movimientos) y su perfil/impresora en
+// Configuración. El catálogo (gestión de precios/costos), eventos MH, anexos,
+// libros de IVA, auditoría y dashboard fiscal quedan fuera. Dentro de
+// Configuración, `sectionAccess` acota además las secciones visibles. El bloqueo
+// real vive en la API (dte-core y platform-api → 403).
 export const moduleAccess: Record<string, readonly string[]> = {
-  cashier: ['billing', 'customers', 'inventory', 'artifacts'],
+  cashier: ['billing', 'customers', 'inventory', 'artifacts', 'cash', 'settings'],
 };
 
 export function canAccessBillingModule(role: string | null | undefined, module: string): boolean {
