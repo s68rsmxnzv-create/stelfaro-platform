@@ -11,11 +11,12 @@ import TenantRequestsPanel from '../settings/TenantRequestsPanel.vue';
 import UserProfilePanel from '../settings/UserProfilePanel.vue';
 import UserSecurityPanel from '../settings/UserSecurityPanel.vue';
 import CashSettingsPanel from '../settings/CashSettingsPanel.vue';
+import CashierAssignmentsPanel from '../settings/CashierAssignmentsPanel.vue';
 import DownloadCenterPanel from '../settings/DownloadCenterPanel.vue';
 import MobilePrinterSettingsPanel from '../printing/MobilePrinterSettingsPanel.vue';
 import { detectMobilePrintingDevice } from '../printing/deviceClass';
 
-type CompanyView = 'summary' | 'requests' | 'profile' | 'subscription' | 'downloads' | 'cash' | 'printer' | 'ticket' | 'security' | 'audit' | 'support';
+type CompanyView = 'summary' | 'requests' | 'users' | 'profile' | 'subscription' | 'downloads' | 'cash' | 'printer' | 'ticket' | 'security' | 'audit' | 'support';
 type CompanyNavId = CompanyView;
 type SettingsCompanyView = 'summary' | 'data' | 'fiscal' | 'sucursales' | 'correlativos';
 type NavIcon = 'summary' | 'requests' | 'profile' | 'subscription' | 'downloads' | 'cash' | 'printer' | 'ticket' | 'security' | 'support';
@@ -53,7 +54,7 @@ const props = withDefaults(defineProps<{
   dashboardUrl?: string;
   billingContextCacheScope?: string;
   requestCredentials?: RequestCredentials;
-  platformSession?: (Record<string, unknown> & { tenant?: { id?: number | string | null; name?: string | null } }) | null;
+  platformSession?: (Record<string, unknown> & { tenant?: { id?: number | string | null; name?: string | null; role?: string | null } }) | null;
   initialView?: CompanyView;
   workshopEnabled?: boolean;
 }>(), {
@@ -71,7 +72,7 @@ const props = withDefaults(defineProps<{
 
 const selectedCompany = ref<SelectedCompany | null>(null);
 const mobilePrintingDevice = ref(false);
-const validViews: CompanyView[] = ['summary', 'requests', 'profile', 'subscription', 'downloads', 'cash', 'printer', 'ticket', 'security', 'audit', 'support'];
+const validViews: CompanyView[] = ['summary', 'requests', 'users', 'profile', 'subscription', 'downloads', 'cash', 'printer', 'ticket', 'security', 'audit', 'support'];
 const requestedView = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null;
 const activeView = ref<CompanyView>(requestedView && validViews.includes(requestedView as CompanyView) ? requestedView as CompanyView : props.initialView);
 const subscriptionRow = ref<PlatformSubscriptionTenantRow | null>(null);
@@ -100,6 +101,7 @@ onBeforeUnmount(() => {
 });
 
 const companyTitle = computed(() => selectedCompany.value?.tradeName || selectedCompany.value?.name || String(props.platformSession?.tenant?.name || 'Mi empresa'));
+const canManageCashiers = computed(() => ['owner', 'company_admin'].includes(String(props.platformSession?.tenant?.role || '')));
 const activeItem = computed(() => navItems.value.find((item) => item.id === activeView.value) ?? navItems.value[0]);
 const subscription = computed(() => subscriptionRow.value?.subscription ?? null);
 const fiscalEnvironment = computed(() => selectedCompany.value?.ambiente ?? subscriptionRow.value?.tenant.environment ?? null);
@@ -130,6 +132,7 @@ const navItems = computed<Array<{
 }>>(() => [
   { id: 'summary', label: 'Resumen', detail: 'Información de empresa', icon: 'summary' },
   { id: 'requests', label: 'Solicitudes', detail: 'Cambios sensibles', icon: 'requests' },
+  ...(canManageCashiers.value ? [{ id: 'users' as const, label: 'Cajeros', detail: 'Asignación de caja', icon: 'profile' as const }] : []),
   { id: 'profile', label: 'Perfil de usuario', detail: 'Cuenta y contraseña', icon: 'profile' },
   { id: 'subscription', label: 'Suscripción', detail: 'Plan y vigencia', icon: 'subscription' },
   { id: 'downloads', label: 'Centro de descargas', detail: 'Agentes para tus dispositivos', icon: 'downloads' },
@@ -396,6 +399,13 @@ function daysUntil(value: string | null | undefined): number | null {
         </div>
 
         <TenantRequestsPanel v-if="activeView === 'requests'" class="mt-6" :platform-base-url="platformBaseUrl" :platform-session="platformSession" />
+
+        <CashierAssignmentsPanel
+          v-else-if="activeView === 'users'"
+          :tenant-id="Number(platformSession?.tenant?.id || 0)"
+          :platform-base-url="platformBaseUrl"
+          :request-credentials="requestCredentials"
+        />
 
         <UserProfilePanel v-else-if="activeView === 'profile'" class="mt-6" :platform-base-url="platformBaseUrl" :platform-session="platformSession" />
 

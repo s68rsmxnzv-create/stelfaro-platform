@@ -3,6 +3,7 @@ export { default as BillingDashboardPage } from './pages/BillingDashboardPage.vu
 export { default as BillingOperationalPlaceholderPage } from './pages/BillingOperationalPlaceholderPage.vue';
 export { default as WorkshopAppPage } from './workshop/WorkshopAppPage.vue';
 export { default as BillingAppPage } from './pages/BillingAppPage.vue';
+export { canAccessBillingModule, moduleAccess } from './moduleAccess';
 export { default as InternalNotificationsBell } from './components/InternalNotificationsBell.vue';
 export { default as BillingCompanySettingsPage } from './pages/BillingCompanySettingsPage.vue';
 export { default as CatalogPage } from './pages/CatalogPage.vue';

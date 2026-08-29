@@ -27,6 +27,8 @@ import InventoryPage from "./InventoryPage.vue";
 import MhEventResponsesPage from "./MhEventResponsesPage.vue";
 import MhEventsPage from "./MhEventsPage.vue";
 import MhResponsesPage from "./MhResponsesPage.vue";
+import BillingAccessDeniedPage from "./BillingAccessDeniedPage.vue";
+import { canAccessBillingModule } from "../moduleAccess";
 import {
   getBillingContext,
   peekBillingContext,
@@ -100,6 +102,10 @@ const props = defineProps({
   platformBaseUrl: {
     type: String,
     default: "/api/v1",
+  },
+  fiscalRole: {
+    type: String,
+    default: "",
   },
 });
 
@@ -269,8 +275,16 @@ const eventOptions = [
   { label: "Operaciones especiales", slug: "operaciones-especiales" },
 ];
 
-const selectedComponent = computed(
-  () => moduleComponents[props.module] || BillingWorkspace,
+const effectiveFiscalRole = computed(() =>
+  props.fiscalRole ||
+  userRole.value ||
+  (props.platformSession?.tenant?.role === "billing_user" ? "cashier" : ""),
+);
+const hasModuleAccess = computed(() => canAccessBillingModule(effectiveFiscalRole.value, props.module));
+const selectedComponent = computed(() =>
+  hasModuleAccess.value
+    ? (moduleComponents[props.module] || BillingWorkspace)
+    : BillingAccessDeniedPage,
 );
 const requiresFiscalSession = computed(
   () =>
@@ -309,6 +323,10 @@ const billingOptions = computed(() => {
     }));
 });
 const selectedComponentProps = computed(() => {
+  if (!hasModuleAccess.value) {
+    return { homeHref: `${props.appBaseUrl.replace(/\/$/, "")}/fe` };
+  }
+
   const baseProps = {
     authToken: props.authToken,
     coreBaseUrl: props.coreBaseUrl,
