@@ -500,6 +500,16 @@ const selectedComponentProps = computed(() => {
     return {
       ...baseProps,
       initialArtifactType: selectedArtifactType.value,
+      platformSession: props.platformSession,
+      platformBaseUrl: props.platformBaseUrl,
+    };
+  }
+
+  if (props.module === "mh-responses") {
+    return {
+      ...baseProps,
+      platformSession: props.platformSession,
+      platformBaseUrl: props.platformBaseUrl,
     };
   }
 

@@ -22,6 +22,8 @@ import {
 import BillingModalShell from "../components/BillingModalShell.vue";
 import BillingProcessModal from "../components/BillingProcessModal.vue";
 import BillingProcessToastOverlay from "../components/BillingProcessToastOverlay.vue";
+import SucursalScopeFilter from "../components/SucursalScopeFilter.vue";
+import { canScopeBySucursal } from "../support/sucursalScope";
 
 const props = withDefaults(
   defineProps<{
@@ -60,6 +62,15 @@ const platformTenantId = computed(() =>
     )?.tenant?.id || 0,
   ),
 );
+const platformTenantRole = computed(() =>
+  String(
+    (
+      props.platformSession as { tenant?: { role?: string | null } } | null
+    )?.tenant?.role || "",
+  ),
+);
+const showSucursalFilter = computed(() => canScopeBySucursal(platformTenantRole.value));
+const sucursalScopeId = ref<number | null>(null);
 const loading = ref(false);
 const processing = ref(false);
 const eventModalOpen = ref(false);
@@ -861,6 +872,17 @@ watch(query, () => {
   }, 250);
 });
 
+watch(sucursalScopeId, () => {
+  if (isRetorno.value) {
+    void loadReturnCandidates();
+  } else if (isContingencia.value) {
+    if (contingencyCandidatesLoaded.value) void loadContingencyCandidates();
+    void loadDocuments();
+  } else {
+    void loadDocuments();
+  }
+});
+
 watch(replacementQuery, () => {
   if (!requiresReplacementDte.value || selectedReplacement.value) return;
   if (replacementSearchTimer) window.clearTimeout(replacementSearchTimer);
@@ -1059,6 +1081,7 @@ async function loadDocuments(
     const response = await client.value.documents({
       q: search,
       estado: isContingencia.value ? "signed" : "accepted",
+      sucursal_id: sucursalScopeId.value ?? undefined,
       limit: 12,
       include_payload: true,
       include_audit: isInvalidacion.value,
@@ -1092,11 +1115,13 @@ async function loadContingencyCandidates(): Promise<void> {
     const responses = await Promise.all([
       client.value.documents({
         estado: "signed",
+        sucursal_id: sucursalScopeId.value ?? undefined,
         limit: 75,
         include_payload: true,
       }),
       client.value.documents({
         estado: "contingency",
+        sucursal_id: sucursalScopeId.value ?? undefined,
         limit: 75,
         include_payload: true,
       }),
@@ -1139,6 +1164,7 @@ async function loadReturnCandidates(): Promise<void> {
     const response = await client.value.documents({
       q: search,
       tipo_dte: form.retornoDteType,
+      sucursal_id: sucursalScopeId.value ?? undefined,
       limit: 20,
       include_payload: true,
       include_audit: true,
@@ -3071,7 +3097,8 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
               </div>
 
               <div
-                class="grid gap-3 lg:grid-cols-[240px_minmax(0,1fr)_auto] lg:items-end"
+                class="grid gap-3 lg:items-end"
+                :class="showSucursalFilter ? 'lg:grid-cols-[220px_minmax(0,1fr)_200px_auto]' : 'lg:grid-cols-[240px_minmax(0,1fr)_auto]'"
               >
                 <UiSelect
                   v-model="form.retornoDteType"
@@ -3084,6 +3111,12 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                   label="Buscar DTE origen"
                   placeholder="Numero de control, codigo, sello, receptor o empresa"
                   @search="loadReturnCandidates"
+                />
+                <SucursalScopeFilter
+                  v-if="showSucursalFilter"
+                  v-model="sucursalScopeId"
+                  :tenant-id="platformTenantId"
+                  :platform-base-url="platformBaseUrl"
                 />
                 <UiRefreshButton
                   :loading="returnCandidatesLoading"
@@ -4415,12 +4448,19 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
             </div>
 
             <div
-              class="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end"
+              class="mt-4 grid gap-3 md:items-end"
+              :class="showSucursalFilter ? 'md:grid-cols-[minmax(0,1fr)_200px_auto_auto]' : 'md:grid-cols-[minmax(0,1fr)_auto_auto]'"
             >
               <UiSearchInput
                 v-model="query"
                 label="Filtrar candidatos"
                 placeholder="Numero de control, codigo, receptor o empresa"
+              />
+              <SucursalScopeFilter
+                v-if="showSucursalFilter"
+                v-model="sucursalScopeId"
+                :tenant-id="platformTenantId"
+                :platform-base-url="platformBaseUrl"
               />
               <UiRefreshButton
                 :loading="contingencyCandidatesLoading"
@@ -4906,6 +4946,14 @@ function invalidacionDeadline(document: DteDraftSummary | null): string {
                 Cambiar DTE
               </button>
             </div>
+
+            <SucursalScopeFilter
+              v-if="showSucursalFilter"
+              v-model="sucursalScopeId"
+              :tenant-id="platformTenantId"
+              :platform-base-url="platformBaseUrl"
+              class="mt-4"
+            />
 
             <div class="relative mt-4">
               <UiSearchInput

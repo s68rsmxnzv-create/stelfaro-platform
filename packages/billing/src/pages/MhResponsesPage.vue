@@ -10,14 +10,26 @@ import { currency, fiscalDateTime } from '@stelfaro/shared';
 import { ChevronDown } from 'lucide-vue-next';
 import { UiButton, UiCard, UiLoadingMark, UiModalShell, UiSearchInput, UiSelect } from '@stelfaro/ui';
 import BillingPaginationBar from '../components/BillingPaginationBar.vue';
+import SucursalScopeFilter from '../components/SucursalScopeFilter.vue';
+import { canScopeBySucursal } from '../support/sucursalScope';
 
 const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
   authToken?: string | null;
+  platformSession?: Record<string, unknown> | null;
+  platformBaseUrl?: string;
 }>(), {
   coreBaseUrl: '/api/v1',
-  authToken: null
+  authToken: null,
+  platformSession: null,
+  platformBaseUrl: '/api/v1'
 });
+
+const tenantId = computed(() => Number((props.platformSession as any)?.tenant?.id || 0));
+const showSucursalFilter = computed(
+  () => canScopeBySucursal(String((props.platformSession as any)?.tenant?.role || '')),
+);
+const sucursalId = ref<number | null>(null);
 
 const pageSize = 20;
 const client = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
@@ -89,6 +101,11 @@ watch(estado, () => {
   void loadDocuments();
 });
 
+watch(sucursalId, () => {
+  page.value = 1;
+  void loadDocuments();
+});
+
 watch(showDetailModal, (open) => {
   if (!open) showTechnical.value = false;
 });
@@ -101,6 +118,7 @@ async function loadDocuments(): Promise<void> {
     const response = await client.value.documents({
       q: query.value.trim(),
       estado: estado.value,
+      sucursal_id: sucursalId.value ?? undefined,
       limit: pageSize,
       page: page.value
     });
@@ -277,7 +295,10 @@ function copyText(value: string): void {
     <p v-if="error" class="rounded-md border border-danger/40 bg-danger-soft px-4 py-3 text-sm text-danger">{{ error }}</p>
 
     <UiCard>
-      <div class="grid gap-4 p-1 md:grid-cols-[minmax(0,1fr)_240px_120px] md:items-end">
+      <div
+        class="grid gap-4 p-1 md:items-end"
+        :class="showSucursalFilter ? 'md:grid-cols-[minmax(0,1fr)_200px_200px_120px]' : 'md:grid-cols-[minmax(0,1fr)_240px_120px]'"
+      >
         <UiSearchInput
           v-model="query"
           label="Buscar DTE"
@@ -286,6 +307,13 @@ function copyText(value: string): void {
         />
 
         <UiSelect v-model="estado" label="Estado" :options="statusOptions" />
+
+        <SucursalScopeFilter
+          v-if="showSucursalFilter"
+          v-model="sucursalId"
+          :tenant-id="tenantId"
+          :platform-base-url="platformBaseUrl"
+        />
 
         <div class="rounded-md bg-surface-muted px-3 py-2 text-sm text-muted">
           <p class="text-xs font-semibold uppercase text-muted">Resultados</p>

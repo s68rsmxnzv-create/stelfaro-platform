@@ -4785,6 +4785,7 @@ export class CoreDteClient {
       estado?: string;
       tipo_dte?: string;
       empresa_id?: number;
+      sucursal_id?: number;
       receptor_document?: string;
       platform_user_id?: number;
       performed_by_platform_user_id?: number;
