@@ -1859,6 +1859,31 @@ export type DteDashboardSummary = {
   }>;
 };
 
+export type DteSucursalActivityGranularity = "day" | "week" | "month" | "year";
+
+export type DteSucursalActivity = {
+  generated_at: string;
+  granularity: DteSucursalActivityGranularity;
+  offset: number;
+  period: {
+    start: string;
+    end: string;
+    label: string;
+  };
+  has_multiple_sucursales: boolean;
+  sucursales: Array<{
+    sucursal_id: number;
+    nombre: string;
+    codigo: string | null;
+    total: number;
+    by_type: Array<{
+      tipo_dte: string;
+      label: string;
+      total: number;
+    }>;
+  }>;
+};
+
 export type DteQueryMhResponse = {
   id: number;
   mh: Record<string, unknown>;
@@ -4894,6 +4919,18 @@ export class CoreDteClient {
   ): Promise<DteDashboardSummary> {
     return this.http
       .get("dte/dashboard-summary", { searchParams: compactParams(params) })
+      .json();
+  }
+
+  dashboardSucursales(
+    params: {
+      empresa_id?: number;
+      granularity?: DteSucursalActivityGranularity;
+      offset?: number;
+    } = {},
+  ): Promise<DteSucursalActivity> {
+    return this.http
+      .get("dte/dashboard/sucursales", { searchParams: compactParams(params) })
       .json();
   }
 

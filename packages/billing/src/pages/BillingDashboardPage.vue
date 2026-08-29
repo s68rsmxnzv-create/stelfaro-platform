@@ -3,11 +3,13 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ArrowRight, CalendarDays, ChevronDown, CircleDollarSign, ClipboardCheck, Clock3, FileCheck2, FileText, PackageCheck, RefreshCw, Send, Smartphone, TriangleAlert, Wrench, X } from 'lucide-vue-next';
 import { CoreDteClient, PlatformClient, type DteDashboardSummary, type PlatformCommercialDashboard, type WorkshopDashboard, type WorkshopOrder } from '@stelfaro/api-client';
 import { UiButton, UiCard, UiStatusBadge } from '@stelfaro/ui';
+import SucursalActivityCard from '../components/SucursalActivityCard.vue';
 
 const props = withDefaults(defineProps<{ coreBaseUrl?: string; platformBaseUrl?: string; authToken?: string | null; tenantId?: number; empresaId?: number; appBaseUrl?: string; workshopEnabled?: boolean }>(), { coreBaseUrl: '/api/v1', platformBaseUrl: '/api/v1', authToken: null, tenantId: 0, empresaId: 0, appBaseUrl: '', workshopEnabled: false });
 const core = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const platform = computed(() => new PlatformClient(props.platformBaseUrl, { authToken: props.authToken }));
 const workshop = ref<WorkshopDashboard | null>(null); const commercial = ref<PlatformCommercialDashboard['commercial'] | null>(null); const fiscal = ref<DteDashboardSummary | null>(null); const quotesPending = ref(0); const loading = ref(false); const error = ref('');
+const sucursalActivityVisible = ref(false);
 const base = computed(() => props.appBaseUrl.replace(/\/$/, ''));
 const invoiceHref = computed(() => `${base.value}${props.workshopEnabled ? '/facturacion' : ''}/fe`);
 const billingBase = computed(() => `${base.value}${props.workshopEnabled ? '/facturacion' : ''}`);
@@ -378,5 +380,13 @@ watch(() => props.empresaId, (empresaId, previousEmpresaId) => {
       <UiCard><div class="flex items-center justify-between"><div><p class="font-semibold text-text">Estado fiscal</p><p class="mt-1 text-xs text-muted">Documentos procesados por Hacienda</p></div><UiStatusBadge :tone="!fiscal ? 'neutral' : fiscal.totals.rejected ? 'warning' : 'success'">{{ !fiscal ? 'Sin datos' : fiscal.totals.rejected ? 'Revisar' : 'Operativo' }}</UiStatusBadge></div><div class="mt-5"><div class="flex items-baseline justify-between text-sm"><span class="font-semibold text-text">{{ fiscal?.totals.accepted ?? '—' }} aceptados</span><span class="text-danger">{{ fiscal?.totals.rejected ?? '—' }} rechazados</span></div><div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-danger-soft"><div class="h-full rounded-full bg-success" :style="{ width: fiscalAcceptedPct + '%' }"></div></div></div></UiCard>
     </section>
     </div>
+
+    <SucursalActivityCard
+      v-if="empresaId"
+      v-show="sucursalActivityVisible"
+      :core="core"
+      :empresa-id="empresaId"
+      @update:visible="sucursalActivityVisible = $event"
+    />
   </div>
 </template>
