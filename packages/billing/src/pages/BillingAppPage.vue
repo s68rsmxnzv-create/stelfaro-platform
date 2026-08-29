@@ -281,10 +281,21 @@ const effectiveFiscalRole = computed(() =>
   userRole.value ||
   (props.platformSession?.tenant?.role === "billing_user" ? "cashier" : ""),
 );
-const hasModuleAccess = computed(() => canAccessBillingModule(effectiveFiscalRole.value, props.module));
+const isCashier = computed(() => effectiveFiscalRole.value === "cashier");
+// La pestaña de eventos MH dentro de Comprobantes queda vedada al cajero, igual
+// que los módulos de eventos: misma pantalla de acceso restringido.
+const cashierBlockedSubview = computed(
+  () => isCashier.value
+    && props.module === "artifacts"
+    && selectedArtifactType.value === "events",
+);
+const hasModuleAccess = computed(
+  () => canAccessBillingModule(effectiveFiscalRole.value, props.module)
+    && !cashierBlockedSubview.value,
+);
 // El cajero ve una vista dedicada de solo lectura en lugar del inventario completo.
 const cashierStockLookup = computed(
-  () => props.module === "inventory" && effectiveFiscalRole.value === "cashier",
+  () => props.module === "inventory" && isCashier.value,
 );
 const selectedComponent = computed(() => {
   if (!hasModuleAccess.value) return BillingAccessDeniedPage;

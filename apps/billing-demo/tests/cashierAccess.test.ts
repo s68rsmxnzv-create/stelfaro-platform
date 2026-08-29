@@ -2,14 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { allowedSections, canAccessBillingModule, moduleAccess } from '../../../packages/billing/src/moduleAccess';
 
 describe('cashier module access', () => {
-  it('limits the cashier to emission, customers, catalog, inventory and receipts', () => {
-    expect(moduleAccess.cashier).toEqual(['billing', 'customers', 'catalog', 'inventory', 'artifacts']);
+  it('limits the cashier to emission, customers, inventory and receipts', () => {
+    expect(moduleAccess.cashier).toEqual(['billing', 'customers', 'inventory', 'artifacts']);
     expect(canAccessBillingModule('cashier', 'billing')).toBe(true);
     expect(canAccessBillingModule('cashier', 'customers')).toBe(true);
     expect(canAccessBillingModule('cashier', 'artifacts')).toBe(true);
   });
 
-  it('blocks the cashier from MH events, annexes, dashboard and settings', () => {
+  it('blocks the cashier from catalog, MH events, annexes, dashboard and settings', () => {
+    expect(canAccessBillingModule('cashier', 'catalog')).toBe(false);
     expect(canAccessBillingModule('cashier', 'mh-events')).toBe(false);
     expect(canAccessBillingModule('cashier', 'annexes')).toBe(false);
     expect(canAccessBillingModule('cashier', 'dashboard')).toBe(false);
