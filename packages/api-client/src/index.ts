@@ -723,6 +723,13 @@ export type PlatformCashOverview = {
   data: PlatformCashMovement[];
   meta: { current_page: number; last_page: number; total: number };
 };
+export type PlatformCashClosure = {
+  id: number;
+  business_date: string | null;
+  declared_balance: number | null;
+  difference: number | null;
+  status: "closed" | "closed_unverified";
+};
 export type PlatformCashConsolidatedBranch = {
   branch_id: number;
   branch_code: string | null;
@@ -732,10 +739,27 @@ export type PlatformCashConsolidatedBranch = {
   opened_by: string | null;
   opened_at: string | null;
   balance: number | null;
+  recent_closures: PlatformCashClosure[];
 };
 export type PlatformCashConsolidated = {
   data: PlatformCashConsolidatedBranch[];
   has_multiple_branches: boolean;
+};
+export type PlatformCashHistoryEntry = {
+  id: number;
+  business_date: string | null;
+  status: "closed" | "closed_unverified";
+  register: { id: number; branch_id: number | null; branch_name: string | null };
+  opened_by: string | null;
+  closed_by: string | null;
+  opening_balance: number;
+  expected_balance: number | null;
+  declared_balance: number | null;
+  difference: number | null;
+};
+export type PlatformCashHistory = {
+  data: PlatformCashHistoryEntry[];
+  meta: { current_page: number; last_page: number; total: number };
 };
 export type PlatformPaymentBreakdown = {
   cash: number;
@@ -3384,6 +3408,23 @@ export class PlatformClient {
   ): Promise<PlatformCashConsolidated> {
     return this.http
       .get(`platform/tenants/${tenantId}/cash/consolidated`)
+      .json();
+  }
+
+  cashHistory(
+    tenantId: number,
+    params: {
+      cash_register_id?: number;
+      date_from?: string;
+      date_to?: string;
+      page?: number;
+      per_page?: number;
+    } = {},
+  ): Promise<PlatformCashHistory> {
+    return this.http
+      .get(`platform/tenants/${tenantId}/cash/history`, {
+        searchParams: compactParams(params),
+      })
       .json();
   }
 
