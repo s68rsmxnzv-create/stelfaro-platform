@@ -15,3 +15,4 @@ test-results
 /storage/
 /Calendario-Tributario-*.pdf
 /*-*-*-*-*.json
+.worktrees/
