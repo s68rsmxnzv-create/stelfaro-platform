@@ -6,7 +6,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
 import CommercialSalesReportPanel from '../reports/CommercialSalesReportPanel.vue';
 
-const props = withDefaults(defineProps<{ platformBaseUrl?: string; authToken?: string|null; tenantId: number; workshopEnabled?: boolean; company?: BillingEmpresa|null }>(), { platformBaseUrl: '/api/v1', authToken: null, workshopEnabled: false, company: null });
+const props = withDefaults(defineProps<{ platformBaseUrl?: string; authToken?: string|null; tenantId: number; workshopEnabled?: boolean; company?: BillingEmpresa|null; fiscalRole?: string|null }>(), { platformBaseUrl: '/api/v1', authToken: null, workshopEnabled: false, company: null, fiscalRole: null });
 const client = computed(() => new PlatformClient(props.platformBaseUrl, { authToken: props.authToken }));
 const tab = ref<'cash'|'sales'>('cash'); const loading = ref(false); const overview = ref<PlatformCashOverview|null>(null); const toasts = ref<any[]>([]);
 const reportPanel = ref<InstanceType<typeof CommercialSalesReportPanel>|null>(null);
@@ -54,7 +54,7 @@ onMounted(() => {
     <BillingFloatingToastStack :toasts="toasts" />
     <section class="flex flex-col gap-4 rounded-xl border border-primary/20 bg-gradient-to-r from-primary-soft to-surface p-5 sm:flex-row sm:items-center sm:justify-between">
       <div><h2 class="text-2xl font-bold text-text">Caja y ventas</h2></div>
-      <div class="flex flex-wrap items-end gap-2"><UiSelect v-if="registerOptions.length" v-model="selectedRegisterId" class="min-w-56" label="Sucursal / caja" hide-label :options="registerOptions" /><UiButton variant="secondary" @click="tab = 'cash'"><Banknote class="h-4 w-4" />Caja</UiButton><UiButton variant="secondary" @click="tab = 'sales'"><CalendarRange class="h-4 w-4" />Ventas</UiButton><UiButton variant="ghost" :disabled="loading" aria-label="Actualizar" @click="tab === 'cash' ? loadCash() : reportPanel?.reload()"><RefreshCw class="h-4 w-4" :class="loading ? 'animate-spin' : ''" /></UiButton></div>
+      <div class="flex flex-wrap items-end gap-2"><UiSelect v-if="registerOptions.length && fiscalRole !== 'cashier'" v-model="selectedRegisterId" class="min-w-56" label="Sucursal / caja" hide-label :options="registerOptions" /><UiButton variant="secondary" @click="tab = 'cash'"><Banknote class="h-4 w-4" />Caja</UiButton><UiButton variant="secondary" @click="tab = 'sales'"><CalendarRange class="h-4 w-4" />Ventas</UiButton><UiButton variant="ghost" :disabled="loading" aria-label="Actualizar" @click="tab === 'cash' ? loadCash() : reportPanel?.reload()"><RefreshCw class="h-4 w-4" :class="loading ? 'animate-spin' : ''" /></UiButton></div>
     </section>
 
     <template v-if="tab === 'cash'">

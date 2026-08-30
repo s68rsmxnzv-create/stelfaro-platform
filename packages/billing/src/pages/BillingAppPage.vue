@@ -387,6 +387,7 @@ const selectedComponentProps = computed(() => {
       tenantId: Number(props.platformSession?.tenant?.id || 0),
       workshopEnabled: props.app.id === "taller",
       company: activeCompany.value,
+      fiscalRole: effectiveFiscalRole.value,
     };
   }
 
