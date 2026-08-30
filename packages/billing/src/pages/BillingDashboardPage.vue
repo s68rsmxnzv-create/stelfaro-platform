@@ -4,12 +4,14 @@ import { ArrowRight, CalendarDays, ChevronDown, CircleDollarSign, ClipboardCheck
 import { CoreDteClient, PlatformClient, type DteDashboardSummary, type PlatformCommercialDashboard, type WorkshopDashboard, type WorkshopOrder } from '@stelfaro/api-client';
 import { UiButton, UiCard, UiStatusBadge } from '@stelfaro/ui';
 import SucursalActivityCard from '../components/SucursalActivityCard.vue';
+import CashConsolidatedCard from '../components/CashConsolidatedCard.vue';
 
 const props = withDefaults(defineProps<{ coreBaseUrl?: string; platformBaseUrl?: string; authToken?: string | null; tenantId?: number; empresaId?: number; appBaseUrl?: string; workshopEnabled?: boolean }>(), { coreBaseUrl: '/api/v1', platformBaseUrl: '/api/v1', authToken: null, tenantId: 0, empresaId: 0, appBaseUrl: '', workshopEnabled: false });
 const core = computed(() => new CoreDteClient(props.coreBaseUrl, { authToken: props.authToken }));
 const platform = computed(() => new PlatformClient(props.platformBaseUrl, { authToken: props.authToken }));
 const workshop = ref<WorkshopDashboard | null>(null); const commercial = ref<PlatformCommercialDashboard['commercial'] | null>(null); const fiscal = ref<DteDashboardSummary | null>(null); const quotesPending = ref(0); const loading = ref(false); const error = ref('');
 const sucursalActivityVisible = ref(false);
+const cashConsolidatedVisible = ref(false);
 const base = computed(() => props.appBaseUrl.replace(/\/$/, ''));
 const invoiceHref = computed(() => `${base.value}${props.workshopEnabled ? '/facturacion' : ''}/fe`);
 const billingBase = computed(() => `${base.value}${props.workshopEnabled ? '/facturacion' : ''}`);
@@ -387,6 +389,14 @@ watch(() => props.empresaId, (empresaId, previousEmpresaId) => {
       :core="core"
       :empresa-id="empresaId"
       @update:visible="sucursalActivityVisible = $event"
+    />
+
+    <CashConsolidatedCard
+      v-if="tenantId"
+      v-show="cashConsolidatedVisible"
+      :platform="platform"
+      :tenant-id="tenantId"
+      @update:visible="cashConsolidatedVisible = $event"
     />
   </div>
 </template>
