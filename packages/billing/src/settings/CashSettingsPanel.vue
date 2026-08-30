@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PlatformClient, type BillingSucursal, type PlatformCashRegisterSettings } from '@stelfaro/api-client';
-import { UiButton, UiInput, UiSelect, UiToggle } from '@stelfaro/ui';
+import { UiButton, UiInput, UiModalShell, UiSelect, UiToggle } from '@stelfaro/ui';
 import { Banknote, CalendarDays, Clock3, RefreshCw } from 'lucide-vue-next';
 import { computed, onMounted, reactive, ref } from 'vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
@@ -8,6 +8,7 @@ import BillingFloatingToastStack from '../components/BillingFloatingToastStack.v
 const props = withDefaults(defineProps<{ tenantId: number; platformBaseUrl?: string; authToken?: string|null; branches?: BillingSucursal[] }>(), { platformBaseUrl: '/api/v1', authToken: null, branches: () => [] });
 const client = computed(() => new PlatformClient(props.platformBaseUrl, { authToken: props.authToken }));
 const rows = ref<PlatformCashRegisterSettings[]>([]); const selectedBranchId = ref(''); const loading = ref(false); const toasts = ref<any[]>([]);
+const openModalVisible = ref(false); const openForm = reactive({ opening_balance: 0 }); const opening = ref(false);
 const form = reactive({ name: 'Caja principal', timezone: 'America/El_Salvador', default_opening_balance: 0, carry_forward_balance: true, auto_open_enabled: false, auto_open_time: '08:00', auto_close_enabled: false, auto_close_time: '18:00', close_grace_minutes: 15, working_days: [1,2,3,4,5,6] as number[], non_working_dates_text: '', use_official_holidays: true, allow_non_cash_when_closed: true, active: true });
 const branchOptions = computed(() => props.branches.map(branch => ({ value: String(branch.id), label: `${branch.codigo} · ${branch.nombre}` })));
 const selectedBranch = computed(() => props.branches.find(branch => String(branch.id) === selectedBranchId.value) ?? props.branches[0] ?? null);
@@ -22,6 +23,20 @@ function toggleDay(day:number) { form.working_days = form.working_days.includes(
 async function save() { if (!selectedBranch.value) return; loading.value=true; const payload={ name:form.name, timezone:form.timezone, default_opening_balance:Number(form.default_opening_balance), carry_forward_balance:form.carry_forward_balance, auto_open_enabled:form.auto_open_enabled, auto_open_time:form.auto_open_enabled ? form.auto_open_time : null, auto_close_enabled:form.auto_close_enabled, auto_close_time:form.auto_close_enabled ? form.auto_close_time : null, close_grace_minutes:Number(form.close_grace_minutes), working_days:form.working_days, non_working_dates:form.non_working_dates_text.split(/[\s,;]+/).map(value => value.trim()).filter(Boolean), use_official_holidays:form.use_official_holidays, allow_non_cash_when_closed:form.allow_non_cash_when_closed, active:form.active };
   try { if (current.value) await client.value.updateCashSettings(props.tenantId, current.value.id, payload); else await client.value.createCashSettings(props.tenantId, { ...payload, core_sucursal_id:selectedBranch.value.id, core_sucursal_code:selectedBranch.value.codigo, core_sucursal_name:selectedBranch.value.nombre }); notify('Configuración guardada', `Caja quedó preparada para ${selectedBranch.value.nombre}.`); await load(); } catch(error) { notify('No se pudo guardar', errorMessage(error), 'error'); } finally { loading.value=false; } }
 function selectBranch() { applyRow(current.value); }
+function openOpenCashModal() { openForm.opening_balance = Number(form.default_opening_balance) || 0; openModalVisible.value = true; }
+async function openCash() {
+  if (!current.value) return;
+  opening.value = true;
+  try {
+    await client.value.openCashSession(props.tenantId, { opening_balance: Number(openForm.opening_balance), cash_register_id: current.value.id, name: form.name });
+    openModalVisible.value = false;
+    notify('Caja abierta', `La caja de ${selectedBranch.value?.nombre} quedó abierta.`);
+  } catch (error) {
+    notify('No se pudo abrir', errorMessage(error), 'error');
+  } finally {
+    opening.value = false;
+  }
+}
 onMounted(load);
 </script>
 
@@ -31,7 +46,7 @@ onMounted(load);
     <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><UiSelect v-model="selectedBranchId" class="w-full sm:max-w-md" label="Sucursal" :options="branchOptions" @update:model-value="selectBranch" /><UiButton variant="ghost" :disabled="loading" @click="load"><RefreshCw class="h-4 w-4" :class="loading ? 'animate-spin' : ''" />Actualizar</UiButton></div>
     <div v-if="selectedBranch" class="grid gap-5 xl:grid-cols-2">
       <section class="space-y-5 rounded-xl border border-line bg-surface-muted p-5">
-        <div class="flex items-center gap-3"><span class="rounded-lg bg-primary-soft p-2 text-primary"><Banknote class="h-5 w-5" /></span><div><h3 class="font-bold text-text">Caja de la sucursal</h3><p class="text-sm text-muted">El control es independiente para cada ubicación.</p></div></div>
+        <div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3"><span class="rounded-lg bg-primary-soft p-2 text-primary"><Banknote class="h-5 w-5" /></span><div><h3 class="font-bold text-text">Caja de la sucursal</h3><p class="text-sm text-muted">El control es independiente para cada ubicación.</p></div></div><UiButton v-if="current" variant="secondary" size="sm" @click="openOpenCashModal">Abrir caja</UiButton></div>
         <div class="grid gap-4 sm:grid-cols-2"><UiInput v-model="form.name" label="Nombre" /><UiInput v-model.number="form.default_opening_balance" type="number" min="0" step="0.01" label="Fondo inicial predeterminado" suffix="USD" /></div>
         <div class="grid gap-3 sm:grid-cols-2"><label class="flex items-center justify-between gap-4 rounded-lg border border-line bg-surface p-4"><span><strong class="block text-sm text-text">Arrastrar saldo</strong><small class="text-muted">Usa el último cierre confirmado.</small></span><UiToggle v-model="form.carry_forward_balance" /></label><label class="flex items-center justify-between gap-4 rounded-lg border border-line bg-surface p-4"><span><strong class="block text-sm text-text">Medios sin efectivo</strong><small class="text-muted">Permite tarjeta o transferencia sin caja abierta.</small></span><UiToggle v-model="form.allow_non_cash_when_closed" /></label></div>
       </section>
@@ -47,5 +62,9 @@ onMounted(load);
       </section>
     </div>
     <div v-else class="rounded-xl border border-warning/30 bg-warning-soft p-5 text-sm text-warning">Configura primero una sucursal en los datos fiscales de la empresa.</div>
+    <UiModalShell :open="openModalVisible" title="Abrir caja" :description="`Indica el efectivo inicial para la caja de ${selectedBranch?.nombre}.`" @close="openModalVisible = false">
+      <UiInput v-model.number="openForm.opening_balance" type="number" min="0" step="0.01" label="Efectivo inicial" suffix="USD" />
+      <template #footer><UiButton variant="ghost" @click="openModalVisible = false">Cancelar</UiButton><UiButton :disabled="opening" @click="openCash">Abrir caja</UiButton></template>
+    </UiModalShell>
   </div>
 </template>
