@@ -6,6 +6,8 @@ import { UiActionDropdown, UiActionMenuItem, UiCodeBracketIcon, UiDocumentIcon, 
 import { Printer, SlidersHorizontal } from 'lucide-vue-next';
 import BillingFloatingToastStack, { type BillingFloatingToast } from '../components/BillingFloatingToastStack.vue';
 import BillingPaginationBar from '../components/BillingPaginationBar.vue';
+import SucursalScopeFilter from '../components/SucursalScopeFilter.vue';
+import { canScopeBySucursal } from '../support/sucursalScope';
 import { dteFiscalTicketFromArtifact } from '../printing/dteFiscalTicket';
 import { sendSilentPrint } from '../printing/printJob';
 
@@ -13,13 +15,23 @@ const props = withDefaults(defineProps<{
   coreBaseUrl?: string;
   authToken?: string | null;
   initialArtifactType?: ArtifactTab;
+  platformSession?: Record<string, unknown> | null;
+  platformBaseUrl?: string;
 }>(), {
   coreBaseUrl: '/api/v1',
   authToken: null,
-  initialArtifactType: 'dte'
+  initialArtifactType: 'dte',
+  platformSession: null,
+  platformBaseUrl: '/api/v1'
 });
 
 type ArtifactTab = 'dte' | 'events';
+
+const tenantId = computed(() => Number((props.platformSession as any)?.tenant?.id || 0));
+const showSucursalFilter = computed(
+  () => canScopeBySucursal(String((props.platformSession as any)?.tenant?.role || '')),
+);
+const sucursalId = ref<number | null>(null);
 
 const supportedTypes = new Set(['01', '03', '05', '06', '14']);
 const supportedEventTypes = new Set(['invalidacion', 'retorno', 'operaciones_especiales']);
@@ -102,6 +114,11 @@ watch(tipoDte, () => {
   if (activeTab.value === 'dte') void loadDocuments();
 });
 
+watch(sucursalId, () => {
+  dtePage.value = 1;
+  if (activeTab.value === 'dte') void loadDocuments();
+});
+
 watch(eventType, () => {
   eventPage.value = 1;
   if (activeTab.value === 'events') void loadEvents();
@@ -137,6 +154,7 @@ async function loadDocuments(): Promise<void> {
       q: query.value.trim(),
       estado: 'accepted,invalidated',
       tipo_dte: tipoDte.value,
+      sucursal_id: sucursalId.value ?? undefined,
       limit: pageSize,
       page: dtePage.value
     });
@@ -467,6 +485,14 @@ function formatDate(value?: string | null): string {
               label="Tipo de evento"
               class="md:w-56"
               :options="artifactEventTypeOptions"
+            />
+
+            <SucursalScopeFilter
+              v-if="activeTab === 'dte' && showSucursalFilter"
+              v-model="sucursalId"
+              :tenant-id="tenantId"
+              :platform-base-url="platformBaseUrl"
+              class="md:w-56"
             />
 
             <div class="flex items-center justify-between rounded-xl bg-surface-raised px-3 py-2 text-sm text-muted md:block md:w-28 md:shrink-0 md:rounded-md">

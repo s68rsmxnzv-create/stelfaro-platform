@@ -85,7 +85,7 @@ function message(caught: unknown, fallback: string): string {
 }
 
 function roleLabel(role: string | null | undefined): string {
-  return ({ owner: 'Propietario', company_admin: 'Administrador de empresa', billing_admin: 'Administrador de facturación', billing_user: 'Facturación', viewer: 'Consulta' } as Record<string, string>)[role ?? ''] ?? 'Usuario';
+  return ({ owner: 'Propietario', company_admin: 'Administrador de empresa', billing_admin: 'Administrador de facturación', billing_user: 'Cajero', viewer: 'Consulta' } as Record<string, string>)[role ?? ''] ?? 'Usuario';
 }
 
 function formattedDate(value: string | null | undefined): string {

@@ -496,9 +496,9 @@ function customerModeButtonClass(mode: { key: CustomerMode }): string[] {
 
   return [
     selected
-      ? "bg-sky-700 text-white shadow-sm shadow-sky-950/15 hover:bg-sky-600 dark:bg-primary-soft dark:text-white dark:hover:bg-primary"
-      : "border border-blue-100 bg-blue-50/45 text-slate-900 shadow-sm shadow-blue-950/5 hover:bg-blue-100/60 dark:border-line dark:bg-surface-raised dark:text-text dark:shadow-none dark:hover:bg-surface-strong",
-    disabledByAmount ? "cursor-not-allowed opacity-50 hover:bg-blue-50/45" : "",
+      ? "bg-primary text-primary-contrast shadow-sm shadow-surface hover:bg-primary-hover"
+      : "border border-line bg-surface text-text shadow-sm shadow-surface hover:bg-surface-muted",
+    disabledByAmount ? "cursor-not-allowed opacity-50 hover:bg-surface" : "",
   ];
 }
 const items = computed<BillingIssueItem[]>(() =>
@@ -5565,38 +5565,19 @@ function updatePaymentCondition(value: string): void {
             v-if="supportsAdvancedPayments"
             class="rounded-md border border-line bg-surface p-4 shadow-sm shadow-surface backdrop-blur dark:text-text"
           >
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2
-                  class="text-base font-semibold text-text"
-                >
-                  Pago
-                </h2>
-              </div>
-              <span
-                class="rounded-full px-2.5 py-1 text-xs font-semibold"
-                :class="paymentTotalMatches ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'"
-              >
-                {{ currency(paymentTotal) }}
-              </span>
-            </div>
+            <h2 class="text-base font-semibold text-text">Pago</h2>
 
             <div class="mt-4 grid gap-3 text-sm">
               <div
-                class="rounded-md border border-line bg-surface p-3"
+                class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-surface p-3"
               >
-                <p
-                  class="text-xs font-semibold uppercase text-muted dark:text-soft"
+                <span
+                  class="inline-flex items-center gap-1.5 rounded-full bg-surface-muted px-2.5 py-1 text-xs font-semibold text-text"
                 >
-                  Condicion
-                </p>
-                <p class="mt-1 font-semibold text-text">
-                  {{ paymentConditionLabel }}
-                </p>
-                <p class="mt-1 truncate text-xs text-muted">
-                  {{ paymentSummaryLabel }}
-                </p>
-                <div class="mt-3 grid grid-cols-2 gap-2">
+                  <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-success"></span>
+                  {{ paymentConditionLabel }} · {{ paymentSummaryLabel }}
+                </span>
+                <div class="grid grid-cols-2 gap-2">
                   <UiButton
                     variant="secondary"
                     type="button"
@@ -6349,15 +6330,21 @@ function updatePaymentCondition(value: string): void {
                   </td>
                 </tr>
                 <tr v-if="lines.length === 0">
-                  <td
-                    class="px-3 py-4 text-sm text-muted"
-                    colspan="6"
-                  >
-                    {{
-                      isAdjustmentNote
-                        ? `Selecciona un CCF origen para cargar las lineas de ${isNotaDebito ? "debito" : "credito"}.`
-                        : "Aun no hay lineas agregadas."
-                    }}
+                  <td class="px-3 py-6 text-center" colspan="6">
+                    <template v-if="isAdjustmentNote">
+                      <p class="text-sm text-muted">
+                        Selecciona un CCF origen para cargar las líneas de
+                        {{ isNotaDebito ? "débito" : "crédito" }}.
+                      </p>
+                    </template>
+                    <template v-else>
+                      <p class="text-sm font-semibold text-text">
+                        Sin líneas todavía
+                      </p>
+                      <p class="mt-1 text-xs text-muted">
+                        Busca en el catálogo o escribe una descripción libre arriba para agregar la primera.
+                      </p>
+                    </template>
                   </td>
                 </tr>
                 <tr

@@ -832,6 +832,7 @@ function crearLineaCompraVacia(item = null) {
     subtotal: Number(item?.reference_cost || 0),
     unit_code: item?.unit_code || '59',
     supplier_code: '',
+    is_fuel: false,
     no_inventory: false,
     catalog_item_id: item?.id ? String(item.id) : '',
     create_item: !item?.id,
@@ -1412,6 +1413,7 @@ async function importarJsonCompra(event): Promise<void> {
       subtotal: line.subtotal,
       unit_code: line.unit_code,
       supplier_code: line.supplier_code || '',
+      is_fuel: Boolean(line.is_fuel),
       no_inventory: line.no_inventory,
       catalog_item_id: line.matched_catalog_item ? String(line.matched_catalog_item.id) : '',
       create_item: !line.matched_catalog_item,
@@ -1617,6 +1619,7 @@ function lineLinkedItemName(line): string {
 }
 
 function lineModeLabel(line): string {
+  if (line.is_fuel) return 'Combustible · consumible';
   if (compraImportada.value.document.is_consumable || line.no_inventory) return 'No inventario';
   if (line.create_item) return line.controls_inventory ? 'Nuevo inventariable' : 'Nuevo catálogo';
 
@@ -2146,7 +2149,7 @@ function messageFromError(error): string {
                             <p class="text-xs text-slate-500 dark:text-soft">{{ lineResolved(line) ? 'Lista para registrar' : 'Pendiente de resolver' }}</p>
                           </td>
                           <td class="px-4 py-3">
-                            <UiStatusBadge :tone="line.no_inventory || compraImportada.document.is_consumable ? 'neutral' : 'success'">{{ lineModeLabel(line) }}</UiStatusBadge>
+                            <UiStatusBadge :tone="line.is_fuel ? 'warning' : (line.no_inventory || compraImportada.document.is_consumable ? 'neutral' : 'success')">{{ lineModeLabel(line) }}</UiStatusBadge>
                           </td>
                           <td class="px-4 py-3 text-right font-semibold">{{ formatQuantity(line.quantity) }}</td>
                           <td class="px-4 py-3 text-right">{{ formatMoney(line.unit_cost) }}</td>
@@ -3142,7 +3145,12 @@ function messageFromError(error): string {
               <UiCheckbox v-model="activeResolveLine.controls_inventory" label="Afecta inventario" :disabled="activeResolveLine.no_inventory" />
             </template>
 
-            <UiCheckbox v-model="activeResolveLine.no_inventory" label="No ingresa a inventario" />
+            <div>
+              <UiCheckbox v-model="activeResolveLine.no_inventory" label="No ingresa a inventario" />
+              <p v-if="activeResolveLine.is_fuel" class="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                Combustible (FOVIAL/COTRANS): es consumible, no debe ingresar a inventario.
+              </p>
+            </div>
           </div>
         </div>
 

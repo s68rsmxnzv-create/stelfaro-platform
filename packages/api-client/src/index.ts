@@ -723,6 +723,44 @@ export type PlatformCashOverview = {
   data: PlatformCashMovement[];
   meta: { current_page: number; last_page: number; total: number };
 };
+export type PlatformCashClosure = {
+  id: number;
+  business_date: string | null;
+  declared_balance: number | null;
+  difference: number | null;
+  status: "closed" | "closed_unverified";
+};
+export type PlatformCashConsolidatedBranch = {
+  branch_id: number;
+  branch_code: string | null;
+  branch_name: string | null;
+  register_id: number;
+  status: "open" | "closed";
+  opened_by: string | null;
+  opened_at: string | null;
+  balance: number | null;
+  recent_closures: PlatformCashClosure[];
+};
+export type PlatformCashConsolidated = {
+  data: PlatformCashConsolidatedBranch[];
+  has_multiple_branches: boolean;
+};
+export type PlatformCashHistoryEntry = {
+  id: number;
+  business_date: string | null;
+  status: "closed" | "closed_unverified";
+  register: { id: number; branch_id: number | null; branch_name: string | null };
+  opened_by: string | null;
+  closed_by: string | null;
+  opening_balance: number;
+  expected_balance: number | null;
+  declared_balance: number | null;
+  difference: number | null;
+};
+export type PlatformCashHistory = {
+  data: PlatformCashHistoryEntry[];
+  meta: { current_page: number; last_page: number; total: number };
+};
 export type PlatformPaymentBreakdown = {
   cash: number;
   card: number;
@@ -1186,7 +1224,8 @@ export type PlatformInventoryStockAlert = Pick<
 export type PlatformInventorySummary = {
   products: number;
   units: number;
-  inventory_value: number;
+  /** Ausente cuando el rol no puede ver costos (p. ej. cajero). */
+  inventory_value?: number;
   lots: number;
   available_lots: number;
   movements: number;
@@ -1196,7 +1235,22 @@ export type PlatformInventorySummary = {
   stock_by_item: Array<{
     catalog_item_id: number;
     stock_quantity: number;
-    stock_value: number;
+    /** Ausente cuando el rol no puede ver costos. */
+    stock_value?: number;
+  }>;
+};
+
+export type PlatformStockByBranchItem = {
+  catalog_item_id: number;
+  name: string;
+  sku: string | null;
+  unit_name: string | null;
+  total: number;
+  by_branch: Array<{
+    sucursal_id: number;
+    codigo: string | null;
+    nombre: string | null;
+    quantity: number;
   }>;
 };
 
@@ -1856,6 +1910,31 @@ export type DteDashboardSummary = {
     total: number;
     accepted: number;
     rejected: number;
+  }>;
+};
+
+export type DteSucursalActivityGranularity = "day" | "week" | "month" | "year";
+
+export type DteSucursalActivity = {
+  generated_at: string;
+  granularity: DteSucursalActivityGranularity;
+  offset: number;
+  period: {
+    start: string;
+    end: string;
+    label: string;
+  };
+  has_multiple_sucursales: boolean;
+  sucursales: Array<{
+    sucursal_id: number;
+    nombre: string;
+    codigo: string | null;
+    total: number;
+    by_type: Array<{
+      tipo_dte: string;
+      label: string;
+      total: number;
+    }>;
   }>;
 };
 
@@ -3324,6 +3403,31 @@ export class PlatformClient {
       .json();
   }
 
+  cashRegistersConsolidated(
+    tenantId: number,
+  ): Promise<PlatformCashConsolidated> {
+    return this.http
+      .get(`platform/tenants/${tenantId}/cash/consolidated`)
+      .json();
+  }
+
+  cashHistory(
+    tenantId: number,
+    params: {
+      cash_register_id?: number;
+      date_from?: string;
+      date_to?: string;
+      page?: number;
+      per_page?: number;
+    } = {},
+  ): Promise<PlatformCashHistory> {
+    return this.http
+      .get(`platform/tenants/${tenantId}/cash/history`, {
+        searchParams: compactParams(params),
+      })
+      .json();
+  }
+
   commercialSalesReport(
     tenantId: number,
     params: {
@@ -4061,6 +4165,14 @@ export class PlatformClient {
       .json();
   }
 
+  inventoryStockByBranch(
+    tenantId: number,
+  ): Promise<{ data: { items: PlatformStockByBranchItem[] } }> {
+    return this.http
+      .get(`platform/tenants/${tenantId}/inventory/stock-by-branch`)
+      .json();
+  }
+
   inventoryStockAlerts(
     tenantId: number,
     params: { core_sucursal_id?: number } = {},
@@ -4736,6 +4848,7 @@ export class CoreDteClient {
       estado?: string;
       tipo_dte?: string;
       empresa_id?: number;
+      sucursal_id?: number;
       receptor_document?: string;
       platform_user_id?: number;
       performed_by_platform_user_id?: number;
@@ -4894,6 +5007,18 @@ export class CoreDteClient {
   ): Promise<DteDashboardSummary> {
     return this.http
       .get("dte/dashboard-summary", { searchParams: compactParams(params) })
+      .json();
+  }
+
+  dashboardSucursales(
+    params: {
+      empresa_id?: number;
+      granularity?: DteSucursalActivityGranularity;
+      offset?: number;
+    } = {},
+  ): Promise<DteSucursalActivity> {
+    return this.http
+      .get("dte/dashboard/sucursales", { searchParams: compactParams(params) })
       .json();
   }
 

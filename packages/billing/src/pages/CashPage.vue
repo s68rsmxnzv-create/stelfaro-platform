@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { PlatformClient, type BillingEmpresa, type PlatformCashOverview, type PlatformInventoryPurchase, type PlatformInventorySupplier, type WorkshopOrder } from '@stelfaro/api-client';
+import { PlatformClient, type BillingEmpresa, type PlatformCashHistory, type PlatformCashOverview, type PlatformInventoryPurchase, type PlatformInventorySupplier, type WorkshopOrder } from '@stelfaro/api-client';
 import { UiButton, UiCard, UiInput, UiModalShell, UiSelect, UiStatusBadge, UiTextarea } from '@stelfaro/ui';
-import { ArrowDownLeft, ArrowUpRight, Banknote, CalendarRange, LockKeyhole, Plus, RefreshCw } from 'lucide-vue-next';
+import { ArrowDownLeft, ArrowUpRight, Banknote, CalendarDays, CalendarRange, LockKeyhole, Plus, RefreshCw } from 'lucide-vue-next';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import BillingFloatingToastStack from '../components/BillingFloatingToastStack.vue';
 import CommercialSalesReportPanel from '../reports/CommercialSalesReportPanel.vue';
 
-const props = withDefaults(defineProps<{ platformBaseUrl?: string; authToken?: string|null; tenantId: number; workshopEnabled?: boolean; company?: BillingEmpresa|null }>(), { platformBaseUrl: '/api/v1', authToken: null, workshopEnabled: false, company: null });
+const props = withDefaults(defineProps<{ platformBaseUrl?: string; authToken?: string|null; tenantId: number; workshopEnabled?: boolean; company?: BillingEmpresa|null; fiscalRole?: string|null }>(), { platformBaseUrl: '/api/v1', authToken: null, workshopEnabled: false, company: null, fiscalRole: null });
 const client = computed(() => new PlatformClient(props.platformBaseUrl, { authToken: props.authToken }));
-const tab = ref<'cash'|'sales'>('cash'); const loading = ref(false); const overview = ref<PlatformCashOverview|null>(null); const toasts = ref<any[]>([]);
+const tab = ref<'cash'|'sales'|'history'>('cash'); const loading = ref(false); const overview = ref<PlatformCashOverview|null>(null); const toasts = ref<any[]>([]);
+const history = ref<PlatformCashHistory|null>(null); const historyPage = ref(1); const historyFilters = reactive({ date_from: '', date_to: '' });
 const reportPanel = ref<InstanceType<typeof CommercialSalesReportPanel>|null>(null);
 const selectedRegisterId = ref('');
 const modal = ref<'open'|'movement'|'close'|'confirm-close'|'reconcile'|null>(null); const suppliers = ref<PlatformInventorySupplier[]>([]); const orders = ref<WorkshopOrder[]>([]); const purchases = ref<PlatformInventoryPurchase[]>([]); const reconcilingExpenseId = ref<number|null>(null); const selectedPurchaseId = ref('');
@@ -41,11 +42,41 @@ async function saveMovement() { loading.value = true; try { await client.value.c
 function newMovement(direction: 'in'|'out') { movementForm.direction = direction; movementForm.kind = direction === 'in' ? 'manual_income' : 'supplier_purchase'; modal.value = 'movement'; }
 function openReconcile(expenseId: number) { reconcilingExpenseId.value = expenseId; selectedPurchaseId.value = ''; modal.value = 'reconcile'; }
 async function reconcileExpense() { if (!reconcilingExpenseId.value || !selectedPurchaseId.value) return; loading.value = true; try { const result = await client.value.reconcileCashExpense(props.tenantId, reconcilingExpenseId.value, Number(selectedPurchaseId.value)); modal.value = null; notify(result.data.status === 'reconciled' ? 'Compra asociada' : 'Monto por revisar', result.data.difference === 0 ? 'El comprobante quedó asociado al gasto.' : `Hay una diferencia de ${money(Math.abs(result.data.difference))}.`, result.data.difference === 0 ? 'success' : 'warning'); await Promise.all([loadCash(), loadRelations()]); } catch (error) { notify('No se pudo asociar la compra', errorMessage(error), 'error'); } finally { loading.value = false; } }
-watch(selectedRegisterId, () => { if (overview.value && tab.value === 'cash') void loadCash(); });
+async function loadHistory() {
+  loading.value = true;
+  try {
+    history.value = await client.value.cashHistory(props.tenantId, {
+      cash_register_id: selectedRegisterId.value ? Number(selectedRegisterId.value) : undefined,
+      date_from: historyFilters.date_from || undefined,
+      date_to: historyFilters.date_to || undefined,
+      page: historyPage.value,
+    });
+  } catch (error) {
+    notify('No pudimos cargar el historial', errorMessage(error), 'error');
+  } finally {
+    loading.value = false;
+  }
+}
+function goHistoryPage(page: number) { historyPage.value = page; void loadHistory(); }
+const dirty = reactive({ cash: false, history: false });
+watch(selectedRegisterId, () => {
+  dirty.cash = true;
+  dirty.history = true;
+  if (tab.value === 'cash') { dirty.cash = false; void loadCash(); }
+  if (tab.value === 'history') { dirty.history = false; historyPage.value = 1; void loadHistory(); }
+});
+watch(tab, (value) => {
+  if (value === 'cash' && (dirty.cash || !overview.value)) { dirty.cash = false; void loadCash(); }
+  if (value === 'history' && (dirty.history || !history.value)) { dirty.history = false; void loadHistory(); }
+});
 onMounted(() => {
   const params = new URLSearchParams(window.location.search);
   if (params.get('tab') === 'sales') tab.value = 'sales';
+  if (params.get('tab') === 'history') tab.value = 'history';
+  const registerParam = params.get('cash_register_id');
+  if (registerParam) selectedRegisterId.value = registerParam;
   void Promise.all([loadCash(), loadRelations()]);
+  if (tab.value === 'history') void loadHistory();
 });
 </script>
 
@@ -54,7 +85,7 @@ onMounted(() => {
     <BillingFloatingToastStack :toasts="toasts" />
     <section class="flex flex-col gap-4 rounded-xl border border-primary/20 bg-gradient-to-r from-primary-soft to-surface p-5 sm:flex-row sm:items-center sm:justify-between">
       <div><h2 class="text-2xl font-bold text-text">Caja y ventas</h2></div>
-      <div class="flex flex-wrap items-end gap-2"><UiSelect v-if="registerOptions.length" v-model="selectedRegisterId" class="min-w-56" label="Sucursal / caja" hide-label :options="registerOptions" /><UiButton variant="secondary" @click="tab = 'cash'"><Banknote class="h-4 w-4" />Caja</UiButton><UiButton variant="secondary" @click="tab = 'sales'"><CalendarRange class="h-4 w-4" />Ventas</UiButton><UiButton variant="ghost" :disabled="loading" aria-label="Actualizar" @click="tab === 'cash' ? loadCash() : reportPanel?.reload()"><RefreshCw class="h-4 w-4" :class="loading ? 'animate-spin' : ''" /></UiButton></div>
+      <div class="flex flex-wrap items-end gap-2"><UiSelect v-if="registerOptions.length && fiscalRole !== 'cashier'" v-model="selectedRegisterId" class="min-w-56" label="Sucursal / caja" hide-label :options="registerOptions" /><UiButton variant="secondary" @click="tab = 'cash'"><Banknote class="h-4 w-4" />Caja</UiButton><UiButton variant="secondary" @click="tab = 'sales'"><CalendarRange class="h-4 w-4" />Ventas</UiButton><UiButton variant="secondary" @click="tab = 'history'"><CalendarDays class="h-4 w-4" />Historial</UiButton><UiButton variant="ghost" :disabled="loading" aria-label="Actualizar" @click="tab === 'cash' ? loadCash() : tab === 'sales' ? reportPanel?.reload() : loadHistory()"><RefreshCw class="h-4 w-4" :class="loading ? 'animate-spin' : ''" /></UiButton></div>
     </section>
 
     <template v-if="tab === 'cash'">
@@ -72,6 +103,35 @@ onMounted(() => {
       </section>
 
       <UiCard class="overflow-hidden p-0"><div class="border-b border-line px-5 py-4"><h3 class="font-semibold text-text">Movimientos recientes</h3></div><div v-if="overview?.data.length" class="divide-y divide-line"><div v-for="item in overview.data" :key="item.id" class="flex items-center gap-3 px-5 py-4 transition hover:bg-surface-muted"><span class="rounded-lg p-2" :class="item.direction === 'in' ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'"><ArrowDownLeft v-if="item.direction === 'in'" class="h-4 w-4" /><ArrowUpRight v-else class="h-4 w-4" /></span><div class="min-w-0 flex-1"><p class="truncate font-semibold text-text">{{ item.description }}</p><p class="mt-0.5 text-xs text-muted">{{ dateTime(item.occurred_at) }} · {{ methodOptions.find(option => option.value === item.method)?.label || item.method }}<span v-if="item.order"> · {{ item.order.ticket }}</span></p></div><div class="flex items-center gap-3 text-right"><UiButton v-if="item.expense?.status === 'pending_document'" variant="ghost" size="sm" @click="openReconcile(item.expense.id)">Asociar compra</UiButton><div><p class="font-bold" :class="item.direction === 'in' ? 'text-success' : 'text-danger'">{{ item.direction === 'in' ? '+' : '-' }}{{ money(item.amount) }}</p><UiStatusBadge v-if="item.expense?.status === 'pending_document'" tone="warning">Sin comprobante</UiStatusBadge><UiStatusBadge v-else-if="item.expense?.status === 'reconciled'" tone="success">Compra asociada</UiStatusBadge></div></div></div></div><p v-else class="px-5 py-12 text-center text-sm text-muted">Todavía no hay movimientos registrados.</p></UiCard>
+    </template>
+
+    <template v-else-if="tab === 'history'">
+      <section class="flex flex-wrap items-end gap-3">
+        <UiInput v-model="historyFilters.date_from" type="date" label="Desde" @update:model-value="goHistoryPage(1)" />
+        <UiInput v-model="historyFilters.date_to" type="date" label="Hasta" @update:model-value="goHistoryPage(1)" />
+      </section>
+      <UiCard class="overflow-hidden p-0">
+        <div v-if="history?.data.length" class="divide-y divide-line">
+          <div v-for="entry in history.data" :key="entry.id" class="flex flex-wrap items-center gap-3 px-5 py-4">
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold text-text">{{ entry.business_date }} · {{ entry.register.branch_name }}</p>
+              <p class="mt-0.5 text-xs text-muted">Abrió {{ entry.opened_by || '—' }} · Cerró {{ entry.closed_by || 'Sin confirmar' }}</p>
+            </div>
+            <div class="text-right">
+              <p class="text-sm text-muted">Esperado {{ money(entry.expected_balance || 0) }}</p>
+              <p v-if="entry.declared_balance !== null" class="text-sm text-muted">Declarado {{ money(entry.declared_balance) }}</p>
+              <p v-if="entry.status === 'closed_unverified'" class="text-sm font-semibold text-warning">Sin confirmar</p>
+              <p v-else class="text-sm font-bold" :class="Math.abs(entry.difference || 0) < 0.01 ? 'text-success' : 'text-warning'">Diferencia {{ money(entry.difference || 0) }}</p>
+            </div>
+          </div>
+        </div>
+        <p v-else class="px-5 py-12 text-center text-sm text-muted">No hay cierres registrados en este período.</p>
+      </UiCard>
+      <div v-if="history && history.meta.last_page > 1" class="flex items-center justify-center gap-2">
+        <UiButton variant="ghost" size="sm" :disabled="history.meta.current_page <= 1" @click="goHistoryPage(history.meta.current_page - 1)">Anterior</UiButton>
+        <span class="text-sm text-muted">Página {{ history.meta.current_page }} de {{ history.meta.last_page }}</span>
+        <UiButton variant="ghost" size="sm" :disabled="history.meta.current_page >= history.meta.last_page" @click="goHistoryPage(history.meta.current_page + 1)">Siguiente</UiButton>
+      </div>
     </template>
 
     <CommercialSalesReportPanel v-else ref="reportPanel" :platform-base-url="platformBaseUrl" :auth-token="authToken" :tenant-id="tenantId" :workshop-enabled="workshopEnabled" :branch-id="selectedRegister?.branch_id || null" :branch-name="selectedRegister?.branch_name || selectedRegister?.name || null" :company="company" @cash-changed="loadCash" />

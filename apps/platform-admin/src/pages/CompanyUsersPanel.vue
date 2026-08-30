@@ -560,7 +560,7 @@ function formatDate(value: string | null): string {
               </td>
               <td class="px-4 py-4">
                 <UiActionDropdown placement="top">
-                  <UiActionMenuItem v-if="membership.status === 'active'" @select="openFiscalModal(membership)">Asignar caja fiscal</UiActionMenuItem>
+                  <UiActionMenuItem v-if="membership.status === 'active' && membership.role === 'billing_user'" @select="openFiscalModal(membership)">Asignar caja fiscal</UiActionMenuItem>
                   <UiActionMenuItem v-if="activationStatus(membership) === 'pending_password'" @select="resetTemporaryPassword(membership)">Regenerar clave</UiActionMenuItem>
                   <UiActionMenuItem v-if="membership.role !== 'owner'" @select="openRoleModal(membership)">Cambiar rol</UiActionMenuItem>
                   <UiActionMenuItem v-if="membership.status === 'active' && membership.role !== 'owner'" @select="suspendMembership(membership)">Suspender</UiActionMenuItem>

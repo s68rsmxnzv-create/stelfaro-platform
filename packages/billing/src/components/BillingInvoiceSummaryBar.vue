@@ -21,8 +21,8 @@ defineEmits<{
 </script>
 
 <template>
-  <div class="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-0 md:bottom-3 md:px-4">
-    <section class="sheet-glass pointer-events-auto mx-auto grid max-w-4xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-t-2xl px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 text-text md:flex md:flex-wrap md:justify-between md:gap-2 md:rounded-lg md:px-3 md:py-2">
+  <div class="pointer-events-none fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 px-0 md:bottom-3 md:z-30 md:px-4">
+    <section class="sheet-glass sf-invoice-bar pointer-events-auto mx-auto grid max-w-4xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-t-2xl px-4 pb-3 pt-3 text-text md:flex md:flex-wrap md:justify-between md:gap-2 md:rounded-lg md:px-3 md:py-2">
       <p class="text-xs font-semibold text-muted md:hidden">{{ lineCount }} línea{{ lineCount === 1 ? '' : 's' }} · {{ unitCount }} artículo{{ unitCount === 1 ? '' : 's' }}</p>
       <div class="hidden flex-wrap items-center gap-x-4 gap-y-1 text-xs md:flex">
         <div>
@@ -71,3 +71,34 @@ defineEmits<{
     </section>
   </div>
 </template>
+
+<style scoped>
+/*
+ * En móvil esta barra convive con la tab bar del shell, que usa el glass
+ * frosted plano (.sf-mobile-glass) en vez del filtro SVG url(#liquid-glass).
+ * Igualamos el tratamiento aquí para que no desentone: sin displacement
+ * (que además Safari ignora dejándola casi transparente) y con tinte fuerte.
+ * En >=768px se mantiene .sheet-glass como el resto del escritorio.
+ */
+@media (max-width: 767.98px) {
+  .sf-invoice-bar {
+    background: color-mix(in oklab, var(--sf-color-surface) 82%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .sf-invoice-bar {
+      background: color-mix(in oklab, var(--sf-color-surface) 96%, transparent);
+    }
+  }
+}
+
+@media (max-width: 767.98px) and (prefers-reduced-transparency: reduce) {
+  .sf-invoice-bar {
+    background: var(--sf-color-surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+</style>

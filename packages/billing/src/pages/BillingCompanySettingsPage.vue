@@ -11,11 +11,13 @@ import TenantRequestsPanel from '../settings/TenantRequestsPanel.vue';
 import UserProfilePanel from '../settings/UserProfilePanel.vue';
 import UserSecurityPanel from '../settings/UserSecurityPanel.vue';
 import CashSettingsPanel from '../settings/CashSettingsPanel.vue';
+import CashierAssignmentsPanel from '../settings/CashierAssignmentsPanel.vue';
 import DownloadCenterPanel from '../settings/DownloadCenterPanel.vue';
 import MobilePrinterSettingsPanel from '../printing/MobilePrinterSettingsPanel.vue';
 import { detectMobilePrintingDevice } from '../printing/deviceClass';
+import { allowedSections } from '../moduleAccess';
 
-type CompanyView = 'summary' | 'requests' | 'profile' | 'subscription' | 'downloads' | 'cash' | 'printer' | 'ticket' | 'security' | 'audit' | 'support';
+type CompanyView = 'summary' | 'requests' | 'users' | 'profile' | 'subscription' | 'downloads' | 'cash' | 'printer' | 'ticket' | 'security' | 'audit' | 'support';
 type CompanyNavId = CompanyView;
 type SettingsCompanyView = 'summary' | 'data' | 'fiscal' | 'sucursales' | 'correlativos';
 type NavIcon = 'summary' | 'requests' | 'profile' | 'subscription' | 'downloads' | 'cash' | 'printer' | 'ticket' | 'security' | 'support';
@@ -53,9 +55,10 @@ const props = withDefaults(defineProps<{
   dashboardUrl?: string;
   billingContextCacheScope?: string;
   requestCredentials?: RequestCredentials;
-  platformSession?: (Record<string, unknown> & { tenant?: { id?: number | string | null; name?: string | null } }) | null;
+  platformSession?: (Record<string, unknown> & { tenant?: { id?: number | string | null; name?: string | null; role?: string | null } }) | null;
   initialView?: CompanyView;
   workshopEnabled?: boolean;
+  fiscalRole?: string;
 }>(), {
   coreBaseUrl: '/api/v1',
   platformBaseUrl: '/api/v1',
@@ -66,14 +69,29 @@ const props = withDefaults(defineProps<{
   requestCredentials: undefined,
   platformSession: null,
   initialView: 'summary',
-  workshopEnabled: false
+  workshopEnabled: false,
+  fiscalRole: ''
 });
+
+// `null` = sin restricción de sección; un array = lista blanca (p. ej. cajero).
+const allowedSettingsSections = computed(() => allowedSections(props.fiscalRole, 'settings'));
+function isSectionAllowed(view: CompanyView): boolean {
+  const allowed = allowedSettingsSections.value;
+  return !allowed || allowed.includes(view);
+}
 
 const selectedCompany = ref<SelectedCompany | null>(null);
 const mobilePrintingDevice = ref(false);
-const validViews: CompanyView[] = ['summary', 'requests', 'profile', 'subscription', 'downloads', 'cash', 'printer', 'ticket', 'security', 'audit', 'support'];
+const validViews: CompanyView[] = ['summary', 'requests', 'users', 'profile', 'subscription', 'downloads', 'cash', 'printer', 'ticket', 'security', 'audit', 'support'];
 const requestedView = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null;
-const activeView = ref<CompanyView>(requestedView && validViews.includes(requestedView as CompanyView) ? requestedView as CompanyView : props.initialView);
+const initialCandidate: CompanyView = requestedView && validViews.includes(requestedView as CompanyView)
+  ? requestedView as CompanyView
+  : props.initialView;
+const activeView = ref<CompanyView>(
+  isSectionAllowed(initialCandidate)
+    ? initialCandidate
+    : ((allowedSettingsSections.value?.[0] as CompanyView) ?? 'profile'),
+);
 const subscriptionRow = ref<PlatformSubscriptionTenantRow | null>(null);
 const subscriptionLoading = ref(false);
 const subscriptionError = ref<string | null>(null);
@@ -100,6 +118,7 @@ onBeforeUnmount(() => {
 });
 
 const companyTitle = computed(() => selectedCompany.value?.tradeName || selectedCompany.value?.name || String(props.platformSession?.tenant?.name || 'Mi empresa'));
+const canManageCashiers = computed(() => ['owner', 'company_admin'].includes(String(props.platformSession?.tenant?.role || '')));
 const activeItem = computed(() => navItems.value.find((item) => item.id === activeView.value) ?? navItems.value[0]);
 const subscription = computed(() => subscriptionRow.value?.subscription ?? null);
 const fiscalEnvironment = computed(() => selectedCompany.value?.ambiente ?? subscriptionRow.value?.tenant.environment ?? null);
@@ -120,16 +139,18 @@ const status = computed(() => {
 
   return subscription.value.status;
 });
-const navItems = computed<Array<{
+type CompanyNavEntry = {
   id: CompanyNavId;
   label: string;
   detail: string;
   icon: NavIcon;
   href?: string;
   group?: string;
-}>>(() => [
+};
+const navItems = computed<CompanyNavEntry[]>(() => ([
   { id: 'summary', label: 'Resumen', detail: 'Información de empresa', icon: 'summary' },
   { id: 'requests', label: 'Solicitudes', detail: 'Cambios sensibles', icon: 'requests' },
+  ...(canManageCashiers.value ? [{ id: 'users' as const, label: 'Cajeros', detail: 'Asignación de caja', icon: 'profile' as const }] : []),
   { id: 'profile', label: 'Perfil de usuario', detail: 'Cuenta y contraseña', icon: 'profile' },
   { id: 'subscription', label: 'Suscripción', detail: 'Plan y vigencia', icon: 'subscription' },
   { id: 'downloads', label: 'Centro de descargas', detail: 'Agentes para tus dispositivos', icon: 'downloads' },
@@ -139,7 +160,7 @@ const navItems = computed<Array<{
   { id: 'security', label: 'Seguridad', detail: 'Contraseña y acceso', icon: 'security' },
   { id: 'audit', label: 'Auditoría', detail: 'Actividad de la empresa', icon: 'security' },
   { id: 'support', label: 'Soporte', detail: 'Canales de ayuda', icon: 'support' }
-]);
+] as CompanyNavEntry[]).filter((item) => isSectionAllowed(item.id)));
 
 const currentPlanKey = computed<MarketingPlanCard['key']>(() => {
   if (subscription.value?.plan?.key === 'starter') return 'entrepreneur';
@@ -207,6 +228,7 @@ const marketingPlans = computed<MarketingPlanCard[]>(() => [
 ]);
 
 function openViewById(id: string): void {
+  if (!isSectionAllowed(id as CompanyView)) return;
   activeView.value = id as CompanyView;
   if (typeof window !== 'undefined') {
     const url = new URL(window.location.href);
@@ -396,6 +418,13 @@ function daysUntil(value: string | null | undefined): number | null {
         </div>
 
         <TenantRequestsPanel v-if="activeView === 'requests'" class="mt-6" :platform-base-url="platformBaseUrl" :platform-session="platformSession" />
+
+        <CashierAssignmentsPanel
+          v-else-if="activeView === 'users'"
+          :tenant-id="Number(platformSession?.tenant?.id || 0)"
+          :platform-base-url="platformBaseUrl"
+          :request-credentials="requestCredentials"
+        />
 
         <UserProfilePanel v-else-if="activeView === 'profile'" class="mt-6" :platform-base-url="platformBaseUrl" :platform-session="platformSession" />
 

@@ -1,16 +1,11 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { CoreDteClient } from "@stelfaro/api-client";
-import {
-  CircleQuestionMark,
-  ClipboardList,
-  FileText,
-  Home,
-  Menu,
-  X,
-} from "lucide-vue-next";
+import { CircleQuestionMark } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import BillingAppNav from "../components/BillingAppNav.vue";
+import BillingMobileShell from "../components/mobile/BillingMobileShell.vue";
+import { buildMobileNavModel } from "../components/mobile/mobileNavModel";
 import BillingHelpModal from "../components/BillingHelpModal.vue";
 import BillingTooltip from "../components/BillingTooltip.vue";
 import InternalNotificationsBell from "../components/InternalNotificationsBell.vue";
@@ -32,6 +27,9 @@ import InventoryPage from "./InventoryPage.vue";
 import MhEventResponsesPage from "./MhEventResponsesPage.vue";
 import MhEventsPage from "./MhEventsPage.vue";
 import MhResponsesPage from "./MhResponsesPage.vue";
+import BillingAccessDeniedPage from "./BillingAccessDeniedPage.vue";
+import StockLookupPage from "./StockLookupPage.vue";
+import { allowedSections, canAccessBillingModule } from "../moduleAccess";
 import {
   getBillingContext,
   peekBillingContext,
@@ -106,14 +104,15 @@ const props = defineProps({
     type: String,
     default: "/api/v1",
   },
+  fiscalRole: {
+    type: String,
+    default: "",
+  },
 });
 
 const helpModalOpen = ref(false);
 const helpTooltip = ref(null);
 const userMenuOpen = ref(false);
-const mobileMenuOpen = ref(false);
-const mobileQuickInvoiceOpen = ref(false);
-const mobileQuickMoreOpen = ref(false);
 const userMenuRef = ref(null);
 const darkMode = ref(false);
 const contextLoading = ref(false);
@@ -277,9 +276,32 @@ const eventOptions = [
   { label: "Operaciones especiales", slug: "operaciones-especiales" },
 ];
 
-const selectedComponent = computed(
-  () => moduleComponents[props.module] || BillingWorkspace,
+const effectiveFiscalRole = computed(() =>
+  props.fiscalRole ||
+  userRole.value ||
+  (props.platformSession?.tenant?.role === "billing_user" ? "cashier" : ""),
 );
+const isCashier = computed(() => effectiveFiscalRole.value === "cashier");
+// La pestaña de eventos MH dentro de Comprobantes queda vedada al cajero, igual
+// que los módulos de eventos: misma pantalla de acceso restringido.
+const cashierBlockedSubview = computed(
+  () => isCashier.value
+    && props.module === "artifacts"
+    && selectedArtifactType.value === "events",
+);
+const hasModuleAccess = computed(
+  () => canAccessBillingModule(effectiveFiscalRole.value, props.module)
+    && !cashierBlockedSubview.value,
+);
+// El cajero ve una vista dedicada de solo lectura en lugar del inventario completo.
+const cashierStockLookup = computed(
+  () => props.module === "inventory" && isCashier.value,
+);
+const selectedComponent = computed(() => {
+  if (!hasModuleAccess.value) return BillingAccessDeniedPage;
+  if (cashierStockLookup.value) return StockLookupPage;
+  return moduleComponents[props.module] || BillingWorkspace;
+});
 const requiresFiscalSession = computed(
   () =>
     ![
@@ -316,13 +338,11 @@ const billingOptions = computed(() => {
       enabled: Boolean(type.implemented),
     }));
 });
-const mobilePrimaryBillingOptions = computed(() =>
-  billingOptions.value.filter((option) => ["01", "03"].includes(option.code)),
-);
-const mobileSecondaryBillingOptions = computed(() =>
-  billingOptions.value.filter((option) => !["01", "03"].includes(option.code)),
-);
 const selectedComponentProps = computed(() => {
+  if (!hasModuleAccess.value) {
+    return { homeHref: `${props.appBaseUrl.replace(/\/$/, "")}/fe` };
+  }
+
   const baseProps = {
     authToken: props.authToken,
     coreBaseUrl: props.coreBaseUrl,
@@ -331,6 +351,15 @@ const selectedComponentProps = computed(() => {
     dashboardUrl: props.dashboardUrl || props.appBaseUrl || "/",
     billingContextCacheScope: billingContextCacheScope.value,
   };
+
+  if (cashierStockLookup.value) {
+    return {
+      platformBaseUrl: props.platformBaseUrl,
+      platformSession: props.platformSession,
+      appBaseUrl: props.appBaseUrl,
+      dashboardUrl: props.dashboardUrl || props.appBaseUrl || "/",
+    };
+  }
 
   if (props.module === "billing") {
     return {
@@ -358,6 +387,7 @@ const selectedComponentProps = computed(() => {
       tenantId: Number(props.platformSession?.tenant?.id || 0),
       workshopEnabled: props.app.id === "taller",
       company: activeCompany.value,
+      fiscalRole: effectiveFiscalRole.value,
     };
   }
 
@@ -436,6 +466,7 @@ const selectedComponentProps = computed(() => {
       ...baseProps,
       platformSession: props.platformSession,
       platformBaseUrl: props.platformBaseUrl,
+      fiscalRole: effectiveFiscalRole.value,
       initialView: "audit",
     };
   }
@@ -445,6 +476,7 @@ const selectedComponentProps = computed(() => {
       ...baseProps,
       platformSession: props.platformSession,
       platformBaseUrl: props.platformBaseUrl,
+      fiscalRole: effectiveFiscalRole.value,
       workshopEnabled: props.app.id === "taller",
     };
   }
@@ -469,6 +501,16 @@ const selectedComponentProps = computed(() => {
     return {
       ...baseProps,
       initialArtifactType: selectedArtifactType.value,
+      platformSession: props.platformSession,
+      platformBaseUrl: props.platformBaseUrl,
+    };
+  }
+
+  if (props.module === "mh-responses") {
+    return {
+      ...baseProps,
+      platformSession: props.platformSession,
+      platformBaseUrl: props.platformBaseUrl,
     };
   }
 
@@ -479,6 +521,24 @@ const dashboardHref = computed(
 );
 const billingBasePath = computed(() =>
   props.app.id === "taller" ? "/facturacion" : "",
+);
+const hrefFor = (path) => `${props.appBaseUrl.replace(/\/$/, "")}${path}`;
+const hasEvents = computed(
+  () =>
+    !billingCompanies.value.length ||
+    billingCompanies.value.some(
+      (empresa) => (empresa.enabled_event_types ?? []).length > 0,
+    ),
+);
+const mobileNavModel = computed(() =>
+  buildMobileNavModel({
+    module: props.module,
+    dashboardHref: dashboardHref.value,
+    hrefFor,
+    extraNavItems: props.extraNavItems,
+    billingOptions: billingOptions.value,
+    hasEvents: hasEvents.value,
+  }),
 );
 const pageTitle = computed(() => {
   if (props.module === "dashboard") return "Dashboard";
@@ -496,7 +556,7 @@ const pageTitle = computed(() => {
 
   if (props.module === "catalog") return "Catálogo";
   if (props.module === "customers") return "Clientes";
-  if (props.module === "inventory") return "Inventario";
+  if (props.module === "inventory") return cashierStockLookup.value ? "Existencias" : "Inventario";
   if (props.module === "cash") return "Caja";
   if (props.module === "commercial-orders") return "Órdenes y cotizaciones";
   if (props.module === "quote-builder")
@@ -636,9 +696,6 @@ function closeHelpOnEscape(event) {
   if (event.key === "Escape") {
     helpModalOpen.value = false;
     userMenuOpen.value = false;
-    mobileMenuOpen.value = false;
-    mobileQuickInvoiceOpen.value = false;
-    mobileQuickMoreOpen.value = false;
   }
 }
 
@@ -707,18 +764,8 @@ function toggleTheme() {
 }
 
 function navigate(event, href) {
-  mobileMenuOpen.value = false;
-  mobileQuickInvoiceOpen.value = false;
-  mobileQuickMoreOpen.value = false;
   emit("navigate", { event, href });
 }
-
-watch(mobileMenuOpen, (open) => {
-  if (!open) {
-    mobileQuickInvoiceOpen.value = false;
-    mobileQuickMoreOpen.value = false;
-  }
-});
 
 function navigateFromMenu(event, href) {
   userMenuOpen.value = false;
@@ -805,20 +852,10 @@ function navigateFromMenu(event, href) {
         class="mx-auto max-w-7xl pb-0 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] md:px-6 lg:px-8"
       >
         <div class="flex h-16 items-center justify-between">
-          <div class="flex items-center">
-            <button
-              class="inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-200 transition hover:bg-white/10 hover:text-white focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-400 md:hidden"
-              type="button"
-              :aria-expanded="mobileMenuOpen ? 'true' : 'false'"
-              aria-controls="billing-mobile-navigation"
-              :aria-label="
-                mobileMenuOpen ? 'Cerrar navegación' : 'Abrir navegación'
-              "
-              @click="mobileMenuOpen = !mobileMenuOpen"
-            >
-              <X v-if="mobileMenuOpen" class="h-6 w-6" aria-hidden="true" />
-              <Menu v-else class="h-6 w-6" aria-hidden="true" />
-            </button>
+          <div class="flex min-w-0 items-center">
+            <span
+              class="truncate pl-1 text-base font-semibold text-white md:hidden"
+            >{{ pageTitle }}</span>
             <div class="hidden items-baseline gap-1 md:flex">
               <a
                 :href="dashboardHref"
@@ -1059,198 +1096,6 @@ function navigateFromMenu(event, href) {
       </div>
     </nav>
 
-    <Teleport to="body">
-      <div
-        v-if="mobileMenuOpen"
-        id="billing-mobile-navigation"
-        class="fixed inset-x-0 bottom-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 md:hidden"
-      >
-        <button
-          class="absolute inset-0 bg-overlay backdrop-blur-sm"
-          type="button"
-          aria-label="Cerrar navegación"
-          @click="mobileMenuOpen = false"
-        />
-        <div
-          class="sf-app-navbar relative h-full w-full overflow-y-auto px-4 pb-8 pt-5 shadow-2xl shadow-black/40"
-        >
-          <p
-            class="mb-3 px-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-400"
-          >
-            Accesos rápidos
-          </p>
-          <div class="mb-7 grid grid-cols-2 gap-2">
-            <a
-              :href="dashboardHref"
-              class="flex min-h-24 flex-col justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-bold text-white transition active:scale-[0.98] active:bg-white/10"
-              :class="
-                module === 'dashboard'
-                  ? 'border-sky-400/60 bg-sky-500/20 text-sky-100'
-                  : ''
-              "
-              @click="navigate($event, dashboardHref)"
-            >
-              <Home class="h-6 w-6 text-sky-400" />
-              Dashboard
-            </a>
-            <a
-              v-for="item in extraNavItems"
-              :key="item.href"
-              :href="item.href"
-              class="flex min-h-24 flex-col justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-bold text-white transition active:scale-[0.98] active:bg-white/10"
-              :class="
-                item.active
-                  ? 'border-sky-400/60 bg-sky-500/20 text-sky-100'
-                  : ''
-              "
-              @click="navigate($event, item.href)"
-            >
-              <ClipboardList class="h-6 w-6 text-sky-400" />
-              {{ item.label }}
-            </a>
-            <button
-              type="button"
-              class="flex min-h-24 flex-col justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-bold text-white transition active:scale-[0.98] active:bg-white/10"
-              :class="
-                mobileQuickInvoiceOpen || module === 'billing'
-                  ? 'border-sky-400/60 bg-sky-500/20 text-sky-100'
-                  : ''
-              "
-              :aria-expanded="mobileQuickInvoiceOpen"
-              aria-controls="mobile-quick-invoice-options"
-              @click="
-                mobileQuickInvoiceOpen = !mobileQuickInvoiceOpen;
-                mobileQuickMoreOpen = false;
-              "
-            >
-              <FileText class="h-6 w-6 text-sky-400" />
-              Emitir factura
-            </button>
-          </div>
-
-          <section
-            v-if="mobileQuickInvoiceOpen"
-            id="mobile-quick-invoice-options"
-            class="mb-7 rounded-2xl border border-white/10 bg-black/15 p-3"
-          >
-            <div class="mb-3 flex items-center justify-between gap-3 px-1">
-              <div>
-                <h2 class="text-base font-black text-white">
-                  ¿Qué deseas emitir?
-                </h2>
-                <p class="mt-0.5 text-xs text-slate-400">
-                  Selecciona el tipo de documento.
-                </p>
-              </div>
-              <button
-                type="button"
-                class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-slate-300 active:bg-white/20"
-                aria-label="Cerrar selector"
-                @click="mobileQuickInvoiceOpen = false"
-              >
-                <X class="h-4 w-4" />
-              </button>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-              <template
-                v-for="option in mobilePrimaryBillingOptions"
-                :key="option.code"
-              >
-                <a
-                  v-if="option.enabled"
-                  :href="option.href"
-                  class="flex min-h-28 flex-col rounded-xl border border-white/10 bg-white/5 p-3 text-left transition active:scale-[0.98] active:bg-sky-500/20"
-                  @click="navigate($event, option.href)"
-                >
-                  <FileText class="h-5 w-5 text-sky-400" />
-                  <strong class="mt-auto block text-sm text-white">{{
-                    option.code === "01" ? "Factura" : "Crédito fiscal"
-                  }}</strong>
-                  <span class="mt-1 text-[11px] leading-4 text-slate-400">{{
-                    option.code === "01" ? "Consumidor final" : "Contribuyente"
-                  }}</span>
-                </a>
-                <span
-                  v-else
-                  class="flex min-h-28 cursor-not-allowed flex-col rounded-xl border border-white/5 bg-white/[0.03] p-3 text-slate-500"
-                >
-                  <FileText class="h-5 w-5" />
-                  <strong class="mt-auto block text-sm">{{
-                    option.code === "01" ? "Factura" : "Crédito fiscal"
-                  }}</strong>
-                  <span class="mt-1 text-[11px]">No habilitado</span>
-                </span>
-              </template>
-            </div>
-
-            <button
-              v-if="mobileSecondaryBillingOptions.length"
-              type="button"
-              class="mt-2 flex min-h-11 w-full items-center justify-between rounded-xl border border-white/10 px-3 text-left text-sm font-semibold text-slate-300 active:bg-white/10"
-              :aria-expanded="mobileQuickMoreOpen"
-              @click="mobileQuickMoreOpen = !mobileQuickMoreOpen"
-            >
-              {{
-                mobileQuickMoreOpen
-                  ? "Ocultar otras opciones"
-                  : "Ver más opciones"
-              }}
-              <span class="text-lg leading-none" aria-hidden="true">{{
-                mobileQuickMoreOpen ? "−" : "+"
-              }}</span>
-            </button>
-
-            <div
-              v-if="mobileQuickMoreOpen"
-              class="mt-2 overflow-hidden rounded-xl border border-white/10"
-            >
-              <template
-                v-for="option in mobileSecondaryBillingOptions"
-                :key="option.code"
-              >
-                <a
-                  v-if="option.enabled"
-                  :href="option.href"
-                  class="flex min-h-12 items-center gap-3 border-b border-white/10 px-3 py-2.5 text-sm font-semibold text-slate-300 last:border-b-0 active:bg-white/10"
-                  @click="navigate($event, option.href)"
-                >
-                  <FileText class="h-4 w-4 shrink-0 text-sky-400" />
-                  {{ option.label }}
-                </a>
-                <span
-                  v-else
-                  class="flex min-h-12 cursor-not-allowed items-center gap-3 border-b border-white/10 px-3 py-2.5 text-sm font-semibold text-slate-500 last:border-b-0"
-                >
-                  <FileText class="h-4 w-4 shrink-0" />
-                  {{ option.label }}
-                </span>
-              </template>
-            </div>
-          </section>
-
-          <p
-            class="mb-2 px-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-400"
-          >
-            Más opciones
-          </p>
-          <BillingAppNav
-            mobile
-            :auth-token="authToken"
-            :core-base-url="coreBaseUrl"
-            :document-slug="documentSlug"
-            :event-slug="eventSlug"
-            :artifact-slug="artifactSlug"
-            :extra-nav-items="[]"
-            :module="module"
-            :app-base-url="appBaseUrl"
-            :billing-base-path="billingBasePath"
-            :billing-context-cache-scope="billingContextCacheScope"
-            @navigate="navigate($event.event, $event.href)"
-          />
-        </div>
-      </div>
-    </Teleport>
 
     <header
       class="toolbar-glass sticky top-[calc(4rem+env(safe-area-inset-top))] z-20"
@@ -1260,7 +1105,7 @@ function navigateFromMenu(event, href) {
           'billing',
           'workshop-reception',
           'workshop-orders',
-        ].includes(module)
+        ].includes(module) || !currentHelp
           ? 'hidden md:block'
           : ''
       "
@@ -1275,7 +1120,7 @@ function navigateFromMenu(event, href) {
       >
         <div class="flex flex-wrap items-center gap-3">
           <h1
-            class="text-lg font-semibold tracking-tight text-text sm:text-xl"
+            class="hidden text-lg font-semibold tracking-tight text-text sm:text-xl md:block"
           >
             {{ pageTitle }}
           </h1>
@@ -1317,21 +1162,77 @@ function navigateFromMenu(event, href) {
       @close="helpModalOpen = false"
     />
 
-    <main class="relative z-10">
-      <div class="mx-auto w-full min-w-0 max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+    <BillingMobileShell
+      :nav-model="mobileNavModel"
+      @navigate="navigate($event.event, $event.href)"
+    >
+      <main class="relative z-10">
         <div
-          v-if="requiresFiscalSession && !authToken"
-          class="rounded-md border border-danger bg-danger-soft p-5 text-danger"
+          class="mx-auto w-full min-w-0 max-w-7xl px-4 py-4 pb-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] sm:px-6 lg:px-8 md:pb-4"
         >
-          No fue posible abrir la sesion fiscal.
+          <div
+            v-if="requiresFiscalSession && !authToken"
+            class="rounded-md border border-danger bg-danger-soft p-5 text-danger"
+          >
+            No fue posible abrir la sesion fiscal.
+          </div>
+          <slot v-else name="before-content" />
+          <component
+            :is="selectedComponent"
+            v-if="!requiresFiscalSession || authToken"
+            v-bind="selectedComponentProps"
+          />
         </div>
-        <slot v-else name="before-content" />
-        <component
-          :is="selectedComponent"
-          v-if="!requiresFiscalSession || authToken"
-          v-bind="selectedComponentProps"
-        />
-      </div>
-    </main>
+      </main>
+
+      <template #more="{ navigate: sheetNavigate }">
+        <div class="space-y-4 pb-2">
+          <div class="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
+            <span
+              class="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-primary-soft text-xs font-bold text-primary"
+            >
+              <img
+                v-if="companyLogoUrl"
+                :src="companyLogoUrl"
+                class="h-full w-full object-contain p-1"
+                alt=""
+              />
+              <span v-else>{{ initials }}</span>
+            </span>
+            <div class="min-w-0">
+              <p class="truncate text-sm font-semibold text-text">
+                {{ user?.name ?? app.name }}
+              </p>
+              <p class="truncate text-xs text-soft">
+                {{ user?.email ?? "Sesión activa" }}
+              </p>
+            </div>
+          </div>
+
+          <BillingAppNav
+            mobile
+            :auth-token="authToken"
+            :core-base-url="coreBaseUrl"
+            :document-slug="documentSlug"
+            :event-slug="eventSlug"
+            :artifact-slug="artifactSlug"
+            :extra-nav-items="[]"
+            :module="module"
+            :app-base-url="appBaseUrl"
+            :billing-base-path="billingBasePath"
+            :billing-context-cache-scope="billingContextCacheScope"
+            @navigate="sheetNavigate($event)"
+          />
+
+          <button
+            type="button"
+            class="flex w-full items-center justify-center gap-2 rounded-2xl border border-line px-3 py-3 text-sm font-semibold text-danger active:bg-danger-soft"
+            @click="logout"
+          >
+            Salir
+          </button>
+        </div>
+      </template>
+    </BillingMobileShell>
   </div>
 </template>

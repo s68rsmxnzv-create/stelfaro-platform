@@ -31,7 +31,7 @@ const typeOptions: Array<{ value: PlatformTenantRequestType; label: string }> = 
   { value: 'correlatives', label: 'Correlativos' }, { value: 'subscription', label: 'Suscripción' }, { value: 'app_access', label: 'Habilitar aplicación' },
   { value: 'data_migration', label: 'Migración de datos' }, { value: 'support', label: 'Soporte general' },
 ];
-const roleOptions = [{ value: 'company_admin', label: 'Administrador de empresa' }, { value: 'billing_admin', label: 'Administrador de facturación' }, { value: 'billing_user', label: 'Facturación' }, { value: 'viewer', label: 'Solo consulta' }];
+const roleOptions = [{ value: 'company_admin', label: 'Administrador de empresa' }, { value: 'billing_admin', label: 'Administrador de facturación' }, { value: 'billing_user', label: 'Cajero' }, { value: 'viewer', label: 'Solo consulta' }];
 const actionOptions = [{ value: 'create', label: 'Crear usuario' }, { value: 'modify', label: 'Modificar acceso' }, { value: 'suspend', label: 'Suspender acceso' }];
 const establishmentOptions = [{ value: 'matrix', label: 'Casa matriz' }, { value: 'branch', label: 'Sucursal' }, { value: 'warehouse', label: 'Bodega' }, { value: 'yard', label: 'Patio' }, { value: 'other', label: 'Otro establecimiento' }];
 const pointTypeOptions = [{ value: 'terminal', label: 'Terminal' }, { value: 'caja', label: 'Caja' }, { value: 'movil', label: 'Móvil' }];
