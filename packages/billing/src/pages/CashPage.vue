@@ -58,9 +58,17 @@ async function loadHistory() {
   }
 }
 function goHistoryPage(page: number) { historyPage.value = page; void loadHistory(); }
-watch(selectedRegisterId, () => { if (overview.value && tab.value === 'cash') void loadCash(); });
-watch(tab, (value) => { if (value === 'history' && !history.value) void loadHistory(); });
-watch(selectedRegisterId, () => { if (tab.value === 'history') { historyPage.value = 1; void loadHistory(); } });
+const dirty = reactive({ cash: false, history: false });
+watch(selectedRegisterId, () => {
+  dirty.cash = true;
+  dirty.history = true;
+  if (tab.value === 'cash') { dirty.cash = false; void loadCash(); }
+  if (tab.value === 'history') { dirty.history = false; historyPage.value = 1; void loadHistory(); }
+});
+watch(tab, (value) => {
+  if (value === 'cash' && (dirty.cash || !overview.value)) { dirty.cash = false; void loadCash(); }
+  if (value === 'history' && (dirty.history || !history.value)) { dirty.history = false; void loadHistory(); }
+});
 onMounted(() => {
   const params = new URLSearchParams(window.location.search);
   if (params.get('tab') === 'sales') tab.value = 'sales';
@@ -111,6 +119,7 @@ onMounted(() => {
             </div>
             <div class="text-right">
               <p class="text-sm text-muted">Esperado {{ money(entry.expected_balance || 0) }}</p>
+              <p v-if="entry.declared_balance !== null" class="text-sm text-muted">Declarado {{ money(entry.declared_balance) }}</p>
               <p v-if="entry.status === 'closed_unverified'" class="text-sm font-semibold text-warning">Sin confirmar</p>
               <p v-else class="text-sm font-bold" :class="Math.abs(entry.difference || 0) < 0.01 ? 'text-success' : 'text-warning'">Diferencia {{ money(entry.difference || 0) }}</p>
             </div>

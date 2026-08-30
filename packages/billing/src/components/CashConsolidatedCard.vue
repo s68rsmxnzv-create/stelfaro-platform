@@ -127,7 +127,7 @@ defineExpose({ load });
           </div>
         </div>
 
-        <div v-if="branch.recent_closures.length" class="mt-3 space-y-1 border-t border-line pt-3">
+        <div v-if="branch.recent_closures?.length" class="mt-3 space-y-1 border-t border-line pt-3">
           <p class="text-xs font-semibold uppercase tracking-wide text-soft">Últimos cierres</p>
           <a
             v-for="closure in branch.recent_closures"
