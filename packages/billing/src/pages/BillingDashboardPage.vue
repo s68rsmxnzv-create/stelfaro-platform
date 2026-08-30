@@ -396,6 +396,7 @@ watch(() => props.empresaId, (empresaId, previousEmpresaId) => {
       v-show="cashConsolidatedVisible"
       :platform="platform"
       :tenant-id="tenantId"
+      :app-base-url="appBaseUrl"
       @update:visible="cashConsolidatedVisible = $event"
     />
   </div>
