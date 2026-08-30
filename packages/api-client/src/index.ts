@@ -723,6 +723,20 @@ export type PlatformCashOverview = {
   data: PlatformCashMovement[];
   meta: { current_page: number; last_page: number; total: number };
 };
+export type PlatformCashConsolidatedBranch = {
+  branch_id: number;
+  branch_code: string | null;
+  branch_name: string | null;
+  register_id: number;
+  status: "open" | "closed";
+  opened_by: string | null;
+  opened_at: string | null;
+  balance: number | null;
+};
+export type PlatformCashConsolidated = {
+  data: PlatformCashConsolidatedBranch[];
+  has_multiple_branches: boolean;
+};
 export type PlatformPaymentBreakdown = {
   cash: number;
   card: number;
@@ -3362,6 +3376,14 @@ export class PlatformClient {
         `platform/tenants/${tenantId}/cash/expenses/${expenseId}/reconcile`,
         { json: { inventory_purchase_id: purchaseId } },
       )
+      .json();
+  }
+
+  cashRegistersConsolidated(
+    tenantId: number,
+  ): Promise<PlatformCashConsolidated> {
+    return this.http
+      .get(`platform/tenants/${tenantId}/cash/consolidated`)
       .json();
   }
 
