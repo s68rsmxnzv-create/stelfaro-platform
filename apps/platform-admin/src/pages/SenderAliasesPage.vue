@@ -8,6 +8,7 @@ const ADD_PURPOSE_VALUE = '__add_purpose__';
 
 const fallbackPurposes = [
   { value: 'platform_invitation', label: 'Invitaciones' },
+  { value: 'platform_account_activation', label: 'Activacion de cuenta' },
   { value: 'dte_delivery', label: 'Entrega de DTE' },
   { value: 'registration', label: 'Registro' },
   { value: 'password_reset', label: 'Recuperacion de acceso' },

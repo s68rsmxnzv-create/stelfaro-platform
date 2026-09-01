@@ -54,7 +54,11 @@ const createdCredentials = ref<{
   temporaryPassword: string | null;
   temporaryPasswordDelivery: { id: number | string | null; status: string | null; recipient_email: string | null } | null;
 } | null>(null);
-const resetCredentials = ref<{ email: string; temporaryPassword: string } | null>(null);
+const resetCredentials = ref<{
+  email: string;
+  temporaryPassword: string;
+  delivery: { status: string | null; recipientEmail: string | null } | null;
+} | null>(null);
 
 const roleForm = reactive({
   role: 'billing_user'
@@ -306,15 +310,22 @@ async function resetTemporaryPassword(membership: PlatformTenantUserMembership):
 
   try {
     const response = await platform.client.resetMembershipTemporaryPassword(membership.id);
+    const delivery = response.temporary_password_delivery ?? null;
+    const sent = delivery != null && delivery.status !== 'failed';
     resetCredentials.value = {
       email: response.user.email ?? membership.user.email ?? 'usuario',
-      temporaryPassword: response.temporary_password
+      temporaryPassword: response.temporary_password,
+      delivery: delivery
+        ? { status: delivery.status, recipientEmail: delivery.recipient_email ?? null }
+        : null
     };
     temporaryPasswordOpen.value = true;
     await load();
     showFloatingToast({
       title: 'Clave temporal generada',
-      message: resetCredentials.value.email,
+      message: sent
+        ? `Enviada por correo a ${delivery?.recipient_email ?? resetCredentials.value.email}`
+        : resetCredentials.value.email,
       variant: 'success'
     });
   } catch (caught) {
@@ -667,6 +678,18 @@ function formatDate(value: string | null): string {
         </p>
         <p class="mt-3 text-sm text-muted">
           El usuario debera cambiarla al primer inicio de sesion.
+        </p>
+        <p
+          v-if="resetCredentials.delivery && resetCredentials.delivery.status !== 'failed'"
+          class="mt-2 text-sm text-success"
+        >
+          Se envio por correo a {{ resetCredentials.delivery.recipientEmail ?? resetCredentials.email }}.
+        </p>
+        <p
+          v-else-if="resetCredentials.delivery && resetCredentials.delivery.status === 'failed'"
+          class="mt-2 text-sm text-warning"
+        >
+          No se pudo enviar el correo. Comparte la clave manualmente con el usuario.
         </p>
       </UiPanel>
 

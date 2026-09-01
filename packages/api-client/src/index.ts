@@ -4270,6 +4270,15 @@ export class PlatformClient {
   resetMembershipTemporaryPassword(membershipId: number): Promise<{
     user: PlatformTenantUserMembership["user"];
     temporary_password: string;
+    temporary_password_delivery?:
+      | {
+          id: number | string | null;
+          status: string | null;
+          purpose?: string | null;
+          recipient_email?: string | null;
+          error?: string | null;
+        }
+      | null;
   }> {
     return this.http
       .post(`platform/memberships/${membershipId}/temporary-password`)
