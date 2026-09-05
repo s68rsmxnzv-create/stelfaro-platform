@@ -17,6 +17,8 @@ const MANAGEMENT_MODULES = [
   'commercial-orders',
   'quote-builder',
   'follow-ups',
+  'legacy-history',
+  'legacy-annexes',
 ];
 
 const PRIMARY_EMIT_CODES = ['01', '03'];
@@ -104,6 +106,8 @@ function buildManagementItems(hrefFor) {
     { key: 'customers', label: 'Clientes', iconName: 'customers', href: hrefFor('/clientes') },
     { key: 'catalog', label: 'Catálogo', iconName: 'catalog', href: hrefFor('/catalogo') },
     { key: 'inventory', label: 'Inventario', iconName: 'inventory', href: hrefFor('/inventario'), newTab: true },
+    { key: 'legacy-history', label: 'Legacy', iconName: 'documents', href: hrefFor('/legacy') },
+    { key: 'legacy-annexes', label: 'Legacy - Anexos', iconName: 'documents', href: hrefFor('/legacy/anexos') },
   ];
 }
 

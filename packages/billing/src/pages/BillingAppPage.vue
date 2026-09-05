@@ -12,6 +12,8 @@ import InternalNotificationsBell from "../components/InternalNotificationsBell.v
 import BillingCompanySettingsPage from "./BillingCompanySettingsPage.vue";
 import BillingAnnexesPage from "./BillingAnnexesPage.vue";
 import BillingIvaBooksPage from "./BillingIvaBooksPage.vue";
+import LegacyAnnexesPage from "./LegacyAnnexesPage.vue";
+import LegacyHistoryPage from "./LegacyHistoryPage.vue";
 import BillingCustomersPage from "./BillingCustomersPage.vue";
 import CatalogPage from "./CatalogPage.vue";
 import BillingDashboardPage from "./BillingDashboardPage.vue";
@@ -263,6 +265,8 @@ const moduleComponents = {
   artifacts: DteArtifactsPage,
   annexes: BillingAnnexesPage,
   "iva-books": BillingIvaBooksPage,
+  "legacy-history": LegacyHistoryPage,
+  "legacy-annexes": LegacyAnnexesPage,
   "mh-events": MhEventsPage,
   "mh-responses": MhResponsesPage,
   "mh-event-responses": MhEventResponsesPage,
@@ -497,6 +501,10 @@ const selectedComponentProps = computed(() => {
     };
   }
 
+  if (props.module === "legacy-history" || props.module === "legacy-annexes") {
+    return { ...baseProps };
+  }
+
   if (props.module === "artifacts") {
     return {
       ...baseProps,
@@ -576,6 +584,8 @@ const pageTitle = computed(() => {
       : "Comprobantes DTE";
   if (props.module === "annexes") return "Anexos";
   if (props.module === "iva-books") return "Libros de IVA";
+  if (props.module === "legacy-history") return "Legacy";
+  if (props.module === "legacy-annexes") return "Legacy - Anexos";
   if (props.module === "mh-responses") return "Respuestas MH";
   if (props.module === "mh-event-responses") return "Respuestas MH - Eventos";
   if (props.module === "audit") return "Auditoría";

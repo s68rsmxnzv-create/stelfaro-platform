@@ -5064,6 +5064,63 @@ export class CoreDteClient {
       .blob();
   }
 
+  legacyHistory(
+    params: {
+      empresa_id?: number;
+      documento_codigo?: string;
+      category?: "dte" | "anexo";
+      from?: string;
+      to?: string;
+      page?: number;
+      per_page?: number;
+    } = {},
+  ): Promise<{
+    data: Array<{
+      id: string;
+      documento_codigo: string;
+      numero_control: string | null;
+      codigo_generacion: string | null;
+      fecha_emision: string | null;
+      imported_at: string | null;
+      pdf_source: string | null;
+      has_pdf: boolean;
+      has_json: boolean;
+      has_csv: boolean;
+      row_count: number | null;
+      periodo: string | null;
+    }>;
+    meta: { current_page: number; last_page: number; total: number };
+  }> {
+    return this.http
+      .get("dte/legacy-history", { searchParams: compactParams(params) })
+      .json();
+  }
+
+  legacyHistoryPdf(id: string): Promise<Blob> {
+    return this.http
+      .get(`dte/legacy-history/${id}/artifacts/pdf`, {
+        headers: { Accept: "application/pdf" },
+        timeout: 90000,
+      })
+      .blob();
+  }
+
+  legacyHistoryJson(id: string): Promise<Blob> {
+    return this.http
+      .get(`dte/legacy-history/${id}/artifacts/json`, {
+        headers: { Accept: "application/json" },
+      })
+      .blob();
+  }
+
+  legacyHistoryCsv(id: string): Promise<Blob> {
+    return this.http
+      .get(`dte/legacy-history/${id}/artifacts/csv`, {
+        headers: { Accept: "text/csv" },
+      })
+      .blob();
+  }
+
   thermalArtifact(id: number): Promise<DteThermalArtifact> {
     return this.http
       .get(`dte/drafts/${id}/artifacts/thermal`, {

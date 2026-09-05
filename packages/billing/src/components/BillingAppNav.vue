@@ -104,7 +104,7 @@ const responsesMenuActive = computed(() => ['mh-responses', 'mh-event-responses'
 const artifactsMenuActive = computed(() => props.module === 'artifacts');
 const fiscalReportsMenuActive = computed(() => ['annexes', 'iva-books'].includes(props.module));
 const operationalMenuActive = computed(() => props.extraNavItems.some((item) => item.active));
-const managementMenuActive = computed(() => ['customers', 'catalog', 'inventory', 'cash', 'commercial-orders', 'follow-ups'].includes(props.module));
+const managementMenuActive = computed(() => ['customers', 'catalog', 'inventory', 'cash', 'commercial-orders', 'follow-ups', 'legacy-history', 'legacy-annexes'].includes(props.module));
 const hrefFor = (path) => `${baseUrl.value}${path}`;
 const fiscalReportOptions = computed(() => [
   { label: 'Anexos', href: hrefFor('/anexos'), module: 'annexes' },
@@ -116,7 +116,9 @@ const managementOptions = computed(() => [
   { label: 'Pendientes', href: hrefFor('/pendientes'), module: 'follow-ups' },
   { label: 'Clientes', href: hrefFor('/clientes'), module: 'customers' },
   { label: 'Catálogo', href: hrefFor('/catalogo'), module: 'catalog' },
-  { label: 'Inventario', href: hrefFor('/inventario'), module: 'inventory', newTab: true }
+  { label: 'Inventario', href: hrefFor('/inventario'), module: 'inventory', newTab: true },
+  { label: 'Legacy', href: hrefFor('/legacy'), module: 'legacy-history' },
+  { label: 'Legacy - Anexos', href: hrefFor('/legacy/anexos'), module: 'legacy-annexes' }
 ]);
 const billingOptions = computed(() => {
   const source = documentTypes.value.length ? documentTypes.value : fallbackBillingTypes;
