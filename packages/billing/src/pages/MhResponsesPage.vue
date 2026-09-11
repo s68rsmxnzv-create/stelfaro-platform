@@ -45,6 +45,9 @@ const selected = ref<DteDraftSummary | null>(null);
 const history = ref<DteHistoryEntry[]>([]);
 const showDetailModal = ref(false);
 const showTechnical = ref(false);
+const retryingId = ref<number | null>(null);
+const retryError = ref<string | null>(null);
+const retrySucceededId = ref<number | null>(null);
 let searchTimer: ReturnType<typeof window.setTimeout> | null = null;
 const statusOptions = [
   { value: '', label: 'Todos' },
@@ -153,6 +156,8 @@ async function openDetail(document: DteDraftSummary): Promise<void> {
   showDetailModal.value = true;
   detailLoading.value = true;
   error.value = null;
+  retryError.value = null;
+  retrySucceededId.value = null;
 
   try {
     selected.value = await client.value.document(document.id);
@@ -161,6 +166,44 @@ async function openDetail(document: DteDraftSummary): Promise<void> {
     error.value = caught instanceof Error ? caught.message : 'No fue posible cargar el detalle del DTE.';
   } finally {
     detailLoading.value = false;
+  }
+}
+
+const RETRYABLE_NON_TERMINAL_STATES = new Set([
+  'draft',
+  'ready_to_sign',
+  'signed',
+  'ready_to_send',
+]);
+
+function isRetryable(document: DteDraftSummary | null): boolean {
+  if (!document) return false;
+
+  return (
+    document.errorCode === 'ISSUE_PROCESS_INTERRUPTED'
+    || RETRYABLE_NON_TERMINAL_STATES.has(String(document.estado))
+  );
+}
+
+async function retryDocument(document: DteDraftSummary): Promise<void> {
+  if (retryingId.value !== null) return;
+
+  retryingId.value = document.id;
+  retryError.value = null;
+  retrySucceededId.value = null;
+
+  try {
+    const updated = await client.value.retryDocument(document.id);
+    retrySucceededId.value = document.id;
+
+    const index = documents.value.findIndex((item) => item.id === document.id);
+    if (index !== -1) documents.value[index] = updated;
+
+    if (selected.value?.id === document.id) selected.value = updated;
+  } catch (caught) {
+    retryError.value = caught instanceof Error ? caught.message : 'No fue posible reintentar la emision del documento.';
+  } finally {
+    retryingId.value = null;
   }
 }
 
@@ -293,6 +336,7 @@ function copyText(value: string): void {
     </div>
 
     <p v-if="error" class="rounded-md border border-danger/40 bg-danger-soft px-4 py-3 text-sm text-danger">{{ error }}</p>
+    <p v-if="retryError && !showDetailModal" class="rounded-md border border-danger/40 bg-danger-soft px-4 py-3 text-sm text-danger">{{ retryError }}</p>
 
     <UiCard>
       <div
@@ -372,7 +416,18 @@ function copyText(value: string): void {
                 </td>
                 <td class="whitespace-nowrap px-4 py-4 text-right font-semibold text-text">{{ currency(document.totalPagar ?? 0) }}</td>
                 <td class="whitespace-nowrap px-4 py-4 text-right">
-                  <UiButton type="button" variant="secondary" @click.stop="openDetail(document)">Ver detalle</UiButton>
+                  <div class="flex items-center justify-end gap-2">
+                    <UiButton
+                      v-if="isRetryable(document)"
+                      type="button"
+                      variant="danger"
+                      :disabled="retryingId === document.id"
+                      @click.stop="retryDocument(document)"
+                    >
+                      {{ retryingId === document.id ? 'Reenviando…' : 'Reenviar' }}
+                    </UiButton>
+                    <UiButton type="button" variant="secondary" @click.stop="openDetail(document)">Ver detalle</UiButton>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -399,6 +454,15 @@ function copyText(value: string): void {
       @close="showDetailModal = false"
     >
       <template #header-actions>
+        <UiButton
+          v-if="isRetryable(selected)"
+          type="button"
+          variant="danger"
+          :disabled="retryingId === selected?.id"
+          @click="selected && retryDocument(selected)"
+        >
+          {{ retryingId === selected?.id ? 'Reenviando…' : 'Reenviar' }}
+        </UiButton>
         <a
           v-if="selected?.consultaPublicaUrl"
           :href="selected.consultaPublicaUrl"
@@ -415,6 +479,11 @@ function copyText(value: string): void {
       </div>
 
       <div v-else-if="selected" class="space-y-5">
+        <p v-if="retrySucceededId === selected.id" class="rounded-md border border-success/40 bg-success-soft px-4 py-3 text-sm font-semibold text-success">
+          Se reintento la emision. Estado actual: {{ statusLabel(selected) }}.
+        </p>
+        <p v-if="retryError" class="rounded-md border border-danger/40 bg-danger-soft px-4 py-3 text-sm text-danger">{{ retryError }}</p>
+
         <p class="break-all font-mono text-xs text-muted">{{ selected.codigoGeneracion }}</p>
 
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
